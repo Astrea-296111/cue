@@ -5,6 +5,57 @@
   const $ = (s) => document.querySelector(s);
   const isWindows = cue.platform === 'win32';
   const isMac = cue.platform === 'darwin';
+  const DEFAULT_QWEN_ASR_MODEL = 'qwen-audio-3.0-asr-flash-streaming';
+
+  // Qwen ASR used to be a fixed <select> with only two model IDs.
+  // Upgrade it at runtime to a free-form text input while keeping the old
+  // models as datalist suggestions. This lets users enter any compatible
+  // Alibaba Model Studio / DashScope streaming ASR model ID.
+  function installEditableQwenAsrModelControl() {
+    const current = document.getElementById('qwen-asr-model');
+    if (!current || current.tagName === 'INPUT') return;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'qwen-asr-model';
+    input.className = 's-select';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.placeholder = DEFAULT_QWEN_ASR_MODEL;
+    input.value = String(current.value || DEFAULT_QWEN_ASR_MODEL).trim();
+    input.setAttribute('list', 'qwen-asr-model-suggestions');
+    input.setAttribute('aria-label', 'Qwen ASR model ID');
+
+    const suggestions = document.createElement('datalist');
+    suggestions.id = 'qwen-asr-model-suggestions';
+    for (const modelId of [
+      'qwen-audio-3.0-asr-flash-streaming',
+      'qwen-audio-3.0-asr-flash'
+    ]) {
+      const option = document.createElement('option');
+      option.value = modelId;
+      suggestions.appendChild(option);
+    }
+
+    const note = document.createElement('div');
+    note.className = 's-note';
+    note.textContent =
+      'You can type any Qwen ASR model ID. The model must support the DashScope WebSocket streaming ASR protocol. Save settings and restart Listening to apply a changed model.';
+
+    current.replaceWith(input);
+    input.insertAdjacentElement('afterend', suggestions);
+    suggestions.insertAdjacentElement('afterend', note);
+  }
+
+  installEditableQwenAsrModelControl();
+
+  // Recap is kept as a backend mode for compatibility, but removed from the main UI.
+  const recapButton = document.querySelector('.act[data-mode="recap"]');
+  if (recapButton) {
+    const separator = recapButton.previousElementSibling;
+    if (separator && separator.classList.contains('sep')) separator.remove();
+    recapButton.remove();
+  }
 
   // ---- paint icons -------------------------------------------------------
   $('#logo-btn').innerHTML = icon('logo', { size: 18 });
@@ -14,7 +65,6 @@
   document.querySelector('.act[data-mode="assist"] .ic').innerHTML = icon('sparkles', { size: 16 });
   document.querySelector('.act[data-mode="say"] .ic').innerHTML = icon('wand-sparkles', { size: 16 });
   document.querySelector('.act[data-mode="followup"] .ic').innerHTML = icon('message-circle', { size: 16 });
-  document.querySelector('.act[data-mode="recap"] .ic').innerHTML = icon('refresh-cw', { size: 16 });
   $('#smart-toggle .ic').innerHTML = icon('zap', { size: 14 });
   $('#more-btn').innerHTML = icon('more-horizontal', { size: 18 });
   $('#send-btn').innerHTML = icon('play', { size: 15 });
@@ -24,6 +74,7 @@
   // ---- state -------------------------------------------------------------
   let settings = null;
   let whisperOverview = null;
+  let projectIndexState = null;
   let busy = false;
   let aiEl = null;       // current streaming <div class="ai-text">
   let caretEl = null;
@@ -154,6 +205,11 @@
 
   document.querySelectorAll('.act').forEach((btn) => {
     btn.addEventListener('click', () => runMode(btn.dataset.mode, ''));
+  });
+
+  // Global shortcut bridge from src/custom-main.js.
+  cue.on('shortcut:mode', ({ mode } = {}) => {
+    if (mode === 'say' || mode === 'assist') runMode(mode, '');
   });
 
   const input = $('#input');
@@ -516,11 +572,19 @@
       return;
     }
     if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) { e.preventDefault(); send(); }
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); runMode('assist', ''); }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); runMode('say', ''); }
   });
   
   // FIX #13: Global keyboard shortcut for force-answer (Ctrl+Shift+A / Cmd+Shift+A)
   document.addEventListener('keydown', (e) => {
+    // Ctrl+? / Cmd+?: Assist with recent conversation + current screen.
+    // Accept both '?' and '/' because keyboard layouts report this chord differently.
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === '?' || e.key === '/')) {
+      e.preventDefault();
+      runMode('assist', '');
+      return;
+    }
+
     // Ctrl+Shift+A / Cmd+Shift+A: Force answer current question immediately
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
       e.preventDefault();
@@ -1057,10 +1121,8 @@ micStream = stream;
     el.classList.add('show');
     appendTranscriptHistoryTurn(channel, text, true); // update sidebar interim
     
-    // FIX #12: Show interviewer's interim speech in input area
-    if (channel === 'them' && !input.value.trim()) {
-      showInterimInInput(text);
-    }
+    // Interviewer interim speech stays in transcript/history only.
+    // Do not mirror STT into the manual input box.
   });
   cue.on('stt:final', ({ channel, text }) => {
     setLiveDotState('idle');
@@ -1151,14 +1213,8 @@ micStream = stream;
   cue.on('transcript', ({ channel, text }) => {
     if (!text || text.trim().length < 2 || /^[?!.,;:\-…]+$/.test(text.trim())) return;
     appendTranscriptHistoryTurn(channel, text, false);
-    // Auto-fill the input box with Them (interviewer) speech
-    if (channel === 'them') {
-      cancelSoftClear(); // Interviewer is speaking, cancel any pending clear
-      autoFillInputFromSTT(text);
-    } else {
-      // User spoke — soft clear (don't immediately wipe, wait to see if they're really answering)
-      softClearSTTFill();
-    }
+    // Keep both speakers in transcript/history only.
+    // The input box is reserved for text the user types manually.
   });
   let statusTimer = null;
   function showStatus(message) {
@@ -1343,7 +1399,7 @@ micStream = stream;
     const jd = $('#qwen-use-jd');
     const vocab = $('#qwen-vocabulary');
 
-    if (model) model.value = q.model || 'qwen-audio-3.0-asr-flash-streaming';
+    if (model) model.value = String(q.model || DEFAULT_QWEN_ASR_MODEL).trim() || DEFAULT_QWEN_ASR_MODEL;
     if (lang) lang.value = q.language || 'auto';
     if (resume) resume.checked = q.useResume !== false;
     if (project) project.checked = q.useProjectKnowledge !== false;
@@ -1354,7 +1410,7 @@ micStream = stream;
   function saveQwenAsrSettings() {
     settings.qwenAsr = {
       ...(settings.qwenAsr || {}),
-      model: $('#qwen-asr-model')?.value || 'qwen-audio-3.0-asr-flash-streaming',
+      model: String($('#qwen-asr-model')?.value || '').trim() || DEFAULT_QWEN_ASR_MODEL,
       language: $('#qwen-language')?.value || 'auto',
       useResume: $('#qwen-use-resume')?.checked !== false,
       useProjectKnowledge: $('#qwen-use-project')?.checked !== false,
@@ -1364,6 +1420,108 @@ micStream = stream;
         .map(x => x.trim())
         .filter(Boolean)
     };
+  }
+
+  function formatProjectIndexBytes(bytes) {
+    const n = Number(bytes) || 0;
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(n >= 10 * 1024 ? 0 : 1) + ' KB';
+    return (n / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function renderProjectIndexState(state) {
+    projectIndexState = state || { ready: false };
+    const status = document.getElementById('project-index-status');
+    const clearBtn = document.getElementById('project-index-clear');
+    if (clearBtn) clearBtn.disabled = !projectIndexState.ready;
+    if (!status) return;
+
+    if (!projectIndexState.ready) {
+      status.textContent = 'No project source index yet. Import a folder or ZIP; indexing stays on this device.';
+      return;
+    }
+
+    const source = projectIndexState.sourceName || 'Project';
+    const size = formatProjectIndexBytes(projectIndexState.indexedBytes);
+    const truncated = projectIndexState.truncatedCount
+      ? ` · ${projectIndexState.truncatedCount} item(s) truncated by safety limits`
+      : '';
+    status.textContent = `${source} · ${projectIndexState.fileCount} files · ${projectIndexState.chunkCount} chunks · ${size}${truncated}`;
+  }
+
+  function setProjectIndexBusy(busyState) {
+    ['project-import-folder', 'project-import-zip', 'project-index-clear'].forEach((id) => {
+      const button = document.getElementById(id);
+      if (button) button.disabled = !!busyState || (id === 'project-index-clear' && !projectIndexState?.ready);
+    });
+  }
+
+  async function refreshProjectIndexState() {
+    if (!cue.projectIndexState) return;
+    try {
+      renderProjectIndexState(await cue.projectIndexState());
+    } catch (error) {
+      const status = document.getElementById('project-index-status');
+      if (status) status.textContent = 'Could not read the local project index.';
+      cue.log('project index state failed: ' + (error?.message || error));
+    }
+  }
+
+  async function importProjectIndex(kind) {
+    if (!cue.projectImportFolder || !cue.projectImportZip) return;
+    setProjectIndexBusy(true);
+    showStatus('Indexing project locally… This can take a few seconds for a large repository.');
+    try {
+      const result = kind === 'zip'
+        ? await cue.projectImportZip()
+        : await cue.projectImportFolder();
+      if (!result || result.canceled) return;
+      renderProjectIndexState(result.state);
+      const state = result.state || {};
+      showStatus(`Project index ready: ${state.fileCount || 0} files, ${state.chunkCount || 0} searchable chunks.`);
+    } catch (error) {
+      showStatus('Project import failed: ' + (error?.message || String(error)));
+    } finally {
+      setProjectIndexBusy(false);
+    }
+  }
+
+  async function clearProjectIndex() {
+    if (!cue.projectIndexClear) return;
+    setProjectIndexBusy(true);
+    try {
+      const result = await cue.projectIndexClear();
+      renderProjectIndexState(result && result.state);
+      showStatus('Local project source index cleared.');
+    } catch (error) {
+      showStatus('Could not clear project index: ' + (error?.message || String(error)));
+    } finally {
+      setProjectIndexBusy(false);
+    }
+  }
+
+  function ensureProjectIndexControls() {
+    if (document.getElementById('project-index-controls')) return;
+    const textarea = document.getElementById('project-knowledge');
+    if (!textarea) return;
+
+    const card = document.createElement('div');
+    card.id = 'project-index-controls';
+    card.className = 'whisper-card';
+    card.innerHTML =
+      '<label class="s-label">Project source index <span class="s-hint">local RAG for project docs + source code</span></label>' +
+      '<div class="whisper-actions">' +
+        '<button id="project-import-folder" class="s-action" type="button">Import folder…</button>' +
+        '<button id="project-import-zip" class="s-action" type="button">Import ZIP…</button>' +
+        '<button id="project-index-clear" class="s-action danger" type="button" disabled>Clear index</button>' +
+      '</div>' +
+      '<div id="project-index-status" class="s-note">Checking local project index…</div>' +
+      '<div class="s-note">Sensitive files such as .env, private keys, credential files, node_modules, .git and build output are skipped. Only the most relevant retrieved snippets are sent to your configured AI provider when answering.</div>';
+
+    textarea.insertAdjacentElement('afterend', card);
+    document.getElementById('project-import-folder')?.addEventListener('click', () => void importProjectIndex('folder'));
+    document.getElementById('project-import-zip')?.addEventListener('click', () => void importProjectIndex('zip'));
+    document.getElementById('project-index-clear')?.addEventListener('click', () => void clearProjectIndex());
   }
 
   function fillSettings() {
@@ -1409,6 +1567,8 @@ micStream = stream;
     // Q&A tab
     $('#salary-target').value = settings.salaryTarget || '';
     $('#questions-to-ask').value = settings.questionsToAsk || '';
+    ensureProjectIndexControls();
+    void refreshProjectIndexState();
   }
 
   // Whoever cue has been told it may answer questions for. Empty is the normal
@@ -1895,7 +2055,8 @@ cue.on(
         { label: 'Open Microphone settings', action: () => cue.openPane('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone') },
         { label: 'Open Screen Recording settings', action: () => cue.openPane('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture') }
       ];
-  const assistShortcut = isWindows ? '<span class="kbd">Ctrl</span> <span class="kbd">↵</span>' : '<span class="kbd">⌘</span> <span class="kbd">↵</span>';
+  const sayShortcut = isWindows ? '<span class="kbd">Ctrl</span> <span class="kbd">↵</span>' : '<span class="kbd">⌘</span> <span class="kbd">↵</span>';
+  const assistShortcut = isWindows ? '<span class="kbd">Ctrl</span> <span class="kbd">?</span>' : '<span class="kbd">⌘</span> <span class="kbd">?</span>';
   const solveShortcut = isWindows ? '<span class="kbd">Ctrl</span> <span class="kbd">H</span>' : '<span class="kbd">⌘</span> <span class="kbd">H</span>';
   const quitShortcut = isWindows ? '<span class="kbd">Ctrl</span><span class="kbd">⇧</span><span class="kbd">X</span>' : '<span class="kbd">⌘</span><span class="kbd">⇧</span><span class="kbd">X</span>';
   const OB_STEPS = [
@@ -1924,7 +2085,7 @@ cue.on(
     {
       icon: '✨',
       title: 'You’re all set',
-      body: 'How to use cue:<ul><li>' + assistShortcut + ' — <strong>Assist</strong> with whatever\'s on screen or being said</li><li>' + solveShortcut + ' — solve a coding problem on screen</li><li>Click <strong>▢</strong> in the top bar to start listening to a meeting</li><li>Type a question and press <span class="kbd">↵</span></li></ul>Reopen this guide anytime by clicking the <strong>cue logo</strong>. Quit with ' + quitShortcut + '.'
+      body: 'How to use cue:<ul><li>' + sayShortcut + ' — <strong>What should I say?</strong> from the recent conversation</li><li>' + assistShortcut + ' — <strong>Assist</strong> with the recent conversation + current screen</li><li>' + solveShortcut + ' — solve a coding problem on screen</li><li>Click <strong>▢</strong> in the top bar to start listening to a meeting</li><li>Type a question and press <span class="kbd">↵</span></li></ul>Reopen this guide anytime by clicking the <strong>cue logo</strong>. Quit with ' + quitShortcut + '.'
     }
   ];
   let obIndex = 0;
@@ -1959,8 +2120,8 @@ cue.on(
     // R4: shortcut hints
     const sayHintEl = document.getElementById('say-shortcut-hint');
     const assistHintEl = document.getElementById('assist-shortcut-hint');
-    if (sayHintEl) sayHintEl.textContent = isWindows ? 'Ctrl+Shift+↵' : '⌘⇧↵';
-    if (assistHintEl) assistHintEl.textContent = isWindows ? 'Ctrl+↵' : '⌘↵';
+    if (sayHintEl) sayHintEl.textContent = isWindows ? 'Ctrl+↵' : '⌘↵';
+    if (assistHintEl) assistHintEl.textContent = isWindows ? 'Ctrl+?' : '⌘?';
 
     // R5: prep status
     updatePrepStatus();
@@ -1985,7 +2146,7 @@ cue.on(
 
     // Fix placeholder shortcut hint to match platform
     if (isWindows) {
-      placeholder.innerHTML = 'Ask about your screen or conversation, or <span class="keycap">Ctrl</span><span class="keycap">⏎</span> for Assist';
+      placeholder.innerHTML = 'Ask about your screen or conversation, or <span class="keycap">Ctrl</span><span class="keycap">?</span> for Assist';
     }
 
     const st = await cue.captureState();
