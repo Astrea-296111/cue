@@ -1,5 +1,6 @@
 // interview-context.js
-// 面向中文技术面试的上下文路由：识别题型，并只注入当前问题需要的资料。
+// 面向中文技术面试的上下文路由：优先识别“当前面试官问题”，
+// 只有明显追问时才借用前几轮 interviewer 上下文。
 
 const CATEGORY_PATTERNS = {
   project: [
@@ -50,19 +51,47 @@ const CATEGORY_PATTERNS = {
   ],
 };
 
-function detectCategory(transcript) {
-  if (!transcript || !transcript.length) return 'general';
-  const recentThem = transcript
-    .filter(t => t.channel === 'them')
-    .slice(-5)
-    .map(t => t.text)
-    .join(' ');
-  if (!recentThem) return 'general';
+const FOLLOWUP_RE = /^(那|那么|所以|然后|再|继续|具体|为什么|怎么|如何|这个|这种|这里|刚才|你刚才|你提到|你说|如果是这样|基于这个)|刚才|前面|上一个|你提到|你说的|你刚刚|继续说|展开一下|再详细|那如果|^(and|so|then|why|how|what about|you mentioned|you said|can you elaborate|could you expand)/i;
+
+function classifyText(text) {
+  const value = String(text || '').trim();
+  if (!value) return 'general';
 
   for (const [category, patterns] of Object.entries(CATEGORY_PATTERNS)) {
-    if (patterns.some(re => re.test(recentThem))) return category;
+    if (patterns.some((re) => re.test(value))) return category;
   }
+
   return 'general';
+}
+
+function detectCategory(transcript) {
+  const themTurns = (Array.isArray(transcript) ? transcript : [])
+    .filter((t) => t && t.channel === 'them' && String(t.text || '').trim())
+    .slice(-5);
+
+  if (!themTurns.length) return 'general';
+
+  const latestText = String(themTurns[themTurns.length - 1].text || '').trim();
+  const latestCategory = classifyText(latestText);
+
+  // Independent new questions are classified only from the latest interviewer
+  // turn so an old project/behavioral question cannot contaminate a new topic.
+  if (latestCategory !== 'general') return latestCategory;
+
+  const compact = latestText.replace(/\s+/g, '');
+  const looksLikeFollowup =
+    FOLLOWUP_RE.test(latestText) ||
+    (compact.length <= 12 && /[？?呢吗嘛啊呀]|why|how/i.test(compact));
+
+  if (!looksLikeFollowup) return 'general';
+
+  // Only ambiguous / referential follow-ups inherit a little interviewer context.
+  const followupContext = themTurns
+    .slice(-3)
+    .map((t) => String(t.text || '').trim())
+    .join(' ');
+
+  return classifyText(followupContext);
 }
 
 const SECTION_PATTERNS = [
@@ -78,13 +107,20 @@ function parseResume(text) {
   if (!text || !text.trim()) return null;
   const clean = text.trim();
   const sections = {};
-  const firstLine = clean.split('\n').find(l => l.trim().length > 1 && l.trim().length < 80);
+  const firstLine = clean.split('\n').find((l) => l.trim().length > 1 && l.trim().length < 80);
   if (firstLine) sections.name = firstLine.trim();
+
   for (const { key, re } of SECTION_PATTERNS) {
     if (!re) continue;
-    const m = re.exec(clean);
-    if (m && m[1]) sections[key] = m[1].trim().replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n');
+    const match = re.exec(clean);
+    if (match && match[1]) {
+      sections[key] = match[1]
+        .trim()
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\n{3,}/g, '\n\n');
+    }
   }
+
   return { sections, raw: clean, parsed: Object.keys(sections).length > 1 };
 }
 
@@ -98,24 +134,32 @@ function buildResumeBlock(resumeText, limit = 2600) {
   if (!resumeText || !resumeText.trim()) return '';
   const parsed = parseResume(resumeText);
   if (!parsed) return '';
+
   if (parsed.parsed) {
     const parts = [];
-    let rem = limit;
+    let remaining = limit;
     const order = ['name', 'summary', 'experience', 'skills', 'projects', 'education'];
+
     for (const key of order) {
-      if (rem <= 0) break;
-      const val = parsed.sections[key];
-      if (!val) continue;
-      const sp = SECTION_PATTERNS.find(s => s.key === key);
-      const label = sp && sp.label;
-      const chunk = label ? `${label}：\n${clip(val, Math.min(Math.max(rem - label.length - 2, 0), 1000))}` : clip(val, 80);
+      if (remaining <= 0) break;
+      const value = parsed.sections[key];
+      if (!value) continue;
+
+      const sectionPattern = SECTION_PATTERNS.find((item) => item.key === key);
+      const label = sectionPattern && sectionPattern.label;
+      const chunk = label
+        ? `${label}：\n${clip(value, Math.min(Math.max(remaining - label.length - 2, 0), 1000))}`
+        : clip(value, 80);
+
       if (chunk) {
         parts.push(chunk);
-        rem -= chunk.length;
+        remaining -= chunk.length;
       }
     }
+
     return parts.join('\n\n');
   }
+
   return clip(parsed.raw, limit);
 }
 
@@ -128,14 +172,14 @@ function buildInterviewContext(settings, mode, transcript) {
   if (mode === 'leetcode') return null;
 
   const category = detectCategory(transcript || []);
-  const resume    = settings.resumeText || '';
-  const project   = settings.projectKnowledge || '';
-  const jd        = settings.jobDescription || '';
-  const stories   = settings.starStories || '';
-  const whyCo     = settings.whyCompany || '';
-  const whyLeave  = settings.whyLeaving || '';
+  const resume = settings.resumeText || '';
+  const project = settings.projectKnowledge || '';
+  const jd = settings.jobDescription || '';
+  const stories = settings.starStories || '';
+  const whyCo = settings.whyCompany || '';
+  const whyLeave = settings.whyLeaving || '';
   const workStyle = settings.workStyle || '';
-  const salary    = settings.salaryTarget || '';
+  const salary = settings.salaryTarget || '';
   const questions = settings.questionsToAsk || '';
 
   const hasResume = resume.trim().length > 0;
@@ -144,27 +188,39 @@ function buildInterviewContext(settings, mode, transcript) {
   const hasJD = jd.trim().length > 0;
   const blocks = [];
 
-  // 项目深挖时项目知识文档拥有最高事实优先级。
   if (category === 'project' && hasProject) {
     blocks.push(
       '=== 项目知识文档（项目深挖最高优先级事实源） ===\n' +
-      clip(project.trim(), 5000) +
+      clip(project.trim(), 4600) +
       '\n\n规则：只能把这里明确写出的内容当作候选人的真实项目事实。不要擅自补数字、组件、职责或故障。'
     );
   }
 
   if (hasResume) {
-    const resumeLimit = ['behavioral', 'experience', 'project'].includes(category) ? 2800 : 1600;
+    // Realtime technical/general questions do not need most of the resume.
+    const resumeLimit = ['behavioral', 'experience', 'project'].includes(category) ? 2600 : 1000;
     const rb = buildResumeBlock(resume, resumeLimit);
     if (rb) blocks.push('=== 候选人简历 ===\n' + rb);
   }
 
-  // 非项目类问题也允许带一小段项目知识，方便八股追问落到真实项目。
-  if (category !== 'project' && hasProject && ['technical', 'situational', 'general'].includes(category)) {
-    blocks.push('=== 可用于技术追问的项目事实摘要 ===\n' + clip(project.trim(), category === 'technical' ? 1800 : 1200));
+  // For independent technical questions, project knowledge is only a small
+  // optional grounding block instead of dominating the answer.
+  if (
+    category !== 'project' &&
+    hasProject &&
+    ['technical', 'situational', 'general'].includes(category)
+  ) {
+    const projectLimit = category === 'technical' ? 1000 : 700;
+    blocks.push(
+      '=== 可选项目事实参考 ===\n' +
+      clip(project.trim(), projectLimit) +
+      '\n仅在当前问题确实相关时使用；独立技术题不要为了结合项目而强行引用。'
+    );
   }
 
-  if (hasJD) blocks.push(buildJDBlock(jd, category === 'technical' ? 500 : 800));
+  if (hasJD) {
+    blocks.push(buildJDBlock(jd, category === 'technical' ? 350 : 650));
+  }
 
   switch (category) {
     case 'project':
@@ -173,55 +229,58 @@ function buildInterviewContext(settings, mode, transcript) {
           '（未提供独立项目知识文档。项目深挖时只能依据简历和已有 STAR 信息回答；缺失的项目事实不得编造。）'
         );
       }
-      if (hasStories) blocks.push('=== 与项目相关的 STAR/亮点 ===\n' + clip(stories.trim(), 1000));
+      if (hasStories) {
+        blocks.push('=== 与项目相关的 STAR/亮点 ===\n' + clip(stories.trim(), 900));
+      }
       break;
 
     case 'behavioral':
       if (hasStories) {
         blocks.push(
-          '=== STAR 故事 ===\n' + clip(stories.trim(), 2200) +
+          '=== STAR 故事 ===\n' +
+          clip(stories.trim(), 2100) +
           '\n回答行为题时优先复用真实故事：背景 -> 任务 -> 我的行动 -> 结果/复盘。'
         );
       } else {
         blocks.push('（未提供 STAR 故事。只能基于简历/项目事实组织回答，不要虚构经历。）');
       }
-      if (workStyle) blocks.push('=== 工作方式 / 价值观 ===\n' + clip(workStyle, 500));
+      if (workStyle) blocks.push('=== 工作方式 / 价值观 ===\n' + clip(workStyle, 450));
       break;
 
     case 'motivation':
-      if (whyCo) blocks.push('=== 为什么这家公司 / 岗位 ===\n' + clip(whyCo, 600));
-      if (whyLeave) blocks.push('=== 离职原因 ===\n' + clip(whyLeave, 400));
-      if (workStyle) blocks.push('=== 工作偏好 ===\n' + clip(workStyle, 400));
+      if (whyCo) blocks.push('=== 为什么这家公司 / 岗位 ===\n' + clip(whyCo, 550));
+      if (whyLeave) blocks.push('=== 离职原因 ===\n' + clip(whyLeave, 350));
+      if (workStyle) blocks.push('=== 工作偏好 ===\n' + clip(workStyle, 350));
       break;
 
     case 'situational':
-      if (workStyle) blocks.push('=== 决策与协作风格 ===\n' + clip(workStyle, 600));
-      if (hasStories) blocks.push('=== 可参考的历史经历 ===\n' + clip(stories, 900));
+      if (workStyle) blocks.push('=== 决策与协作风格 ===\n' + clip(workStyle, 500));
+      if (hasStories) blocks.push('=== 可参考的历史经历 ===\n' + clip(stories, 750));
       break;
 
     case 'compensation':
       if (salary) blocks.push('=== 薪资期望 ===\n' + salary);
-      if (questions) blocks.push('=== 准备好的反问 ===\n' + clip(questions, 800));
+      if (questions) blocks.push('=== 准备好的反问 ===\n' + clip(questions, 700));
       break;
 
     case 'technical':
       blocks.push(
         '=== 技术面试回答要求 ===\n' +
-        '优先用中文按“结论 -> 原理 -> 关键细节/边界 -> 场景与取舍 -> 如有材料则结合真实项目”回答。' +
-        'Agent/Java/Go/后端问题如果存在多种实现，要说明为什么选某一种。'
+        '优先直接回答当前技术问题；先说清核心结论，再补最关键的原理、边界、场景或取舍。' +
+        '只有当前问题真的和候选人项目相关时，才引用项目事实。'
       );
       break;
 
     default:
-      if (hasStories) blocks.push('=== 关键经历亮点 ===\n' + clip(stories, 700));
-      if (workStyle) blocks.push('=== 工作方式 ===\n' + clip(workStyle, 350));
+      if (hasStories) blocks.push('=== 关键经历亮点 ===\n' + clip(stories, 550));
+      if (workStyle) blocks.push('=== 工作方式 ===\n' + clip(workStyle, 300));
       break;
   }
 
   if (!blocks.length) return null;
 
   const tailorNote = hasJD
-    ? '\n\n所有回答都应优先突出与目标岗位最相关的能力，但不得为了匹配 JD 而虚构经历。'
+    ? '\n\n与目标岗位相关时可以自然突出匹配能力，但不要为了贴 JD 而虚构经历。'
     : '';
 
   return blocks.join('\n\n') + tailorNote;
@@ -229,18 +288,34 @@ function buildInterviewContext(settings, mode, transcript) {
 
 function buildResumeContext(resumeText, jobDescription, mode) {
   if (!resumeText || !String(resumeText).trim()) return null;
+
   if (typeof jobDescription === 'number') {
     const cleaned = String(resumeText).trim().replace(/\s+/g, ' ');
     const limit = jobDescription || 1200;
-    const clipped = cleaned.length > limit ? cleaned.slice(0, limit).trimEnd() + '…' : cleaned;
-    return ['候选人简历参考：', clipped, '回答候选人背景相关问题时，以这份简历为事实依据。'].join('\n');
+    const clipped = cleaned.length > limit
+      ? cleaned.slice(0, limit).trimEnd() + '…'
+      : cleaned;
+
+    return [
+      '候选人简历参考：',
+      clipped,
+      '回答候选人背景相关问题时，以这份简历为事实依据。'
+    ].join('\n');
   }
+
   const rb = buildResumeBlock(resumeText, 2000);
   const jb = buildJDBlock(jobDescription || '', 700);
   const parts = [];
+
   if (rb) parts.push('=== 候选人简历 ===\n' + rb);
   if (jb) parts.push(jb);
+
   return parts.length ? parts.join('\n\n') : null;
 }
 
-module.exports = { buildInterviewContext, buildResumeContext, detectCategory, parseResume };
+module.exports = {
+  buildInterviewContext,
+  buildResumeContext,
+  detectCategory,
+  parseResume
+};

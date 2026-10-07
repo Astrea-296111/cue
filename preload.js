@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('cue', {
   projectImportFolder: () => ipcRenderer.invoke('project:import-folder'),
   projectImportZip: () => ipcRenderer.invoke('project:import-zip'),
   projectIndexClear: () => ipcRenderer.invoke('project:index-clear'),
+  projectPrefetch: (query) => ipcRenderer.send('project:prefetch', query),
   quit: () => ipcRenderer.send('app:quit'),
   permissionsCheck: () => ipcRenderer.invoke('permissions:check'),
   permissionsRequest: () => ipcRenderer.invoke('permissions:request'),

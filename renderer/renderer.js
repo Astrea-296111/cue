@@ -197,10 +197,35 @@
   }
 
   // ---- actions -----------------------------------------------------------
+  let latestInterviewerInterim = { text: '', ts: 0 };
+  let ragPrefetchTimer = null;
+
+  function freshInterviewerInterim() {
+    if (!latestInterviewerInterim.text) return '';
+    if (Date.now() - latestInterviewerInterim.ts > 3500) return '';
+    return latestInterviewerInterim.text;
+  }
+
+  function scheduleProjectPrefetch(text) {
+    const query = String(text || '').trim();
+    if (query.length < 4 || typeof cue.projectPrefetch !== 'function') return;
+    clearTimeout(ragPrefetchTimer);
+    ragPrefetchTimer = setTimeout(() => cue.projectPrefetch(query), 90);
+  }
+
   function runMode(mode, text) {
+    // Stable hotfix: main.js still owns one generation at a time.
+    // Do not visually terminate the current answer and send a request that main.js
+    // would ignore while state.busy is true.
     if (busy) return;
+
+    let requestText = text || '';
+    if (!requestText && (mode === 'say' || mode === 'assist')) {
+      requestText = freshInterviewerInterim();
+    }
+
     setBusy(true);
-    cue.ask({ mode, text: text || '' });
+    cue.ask({ mode, text: requestText });
   }
 
   document.querySelectorAll('.act').forEach((btn) => {
@@ -1120,12 +1145,20 @@ micStream = stream;
     el.textContent = `${label}: ${text}`;
     el.classList.add('show');
     appendTranscriptHistoryTurn(channel, text, true); // update sidebar interim
-    
+
+    // Turbo path: keep the latest interviewer interim outside the input box.
+    // Ctrl+Enter can use it immediately, without waiting for ASR sentence_end.
+    if (channel === 'them' && String(text || '').trim()) {
+      latestInterviewerInterim = { text: String(text).trim(), ts: Date.now() };
+      scheduleProjectPrefetch(latestInterviewerInterim.text);
+    }
+
     // Interviewer interim speech stays in transcript/history only.
     // Do not mirror STT into the manual input box.
   });
   cue.on('stt:final', ({ channel, text }) => {
     setLiveDotState('idle');
+    if (channel === 'them') latestInterviewerInterim = { text: '', ts: 0 };
     // Clear interim when we get a final
     if (interimEl) { interimEl.textContent = ''; interimEl.classList.remove('show'); }
     clearTranscriptInterim();

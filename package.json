@@ -1,44 +1,73 @@
 {
   "name": "cue",
   "version": "0.2.2",
-  "description": "Open-source cross-platform invisible AI overlay — three separate inputs (screen, mic, system audio) into an LLM. A Cluely-style copilot for meetings and coding problems.",
+  "description": "Realtime AI interview assistant",
   "license": "GPL-3.0-or-later",
   "author": "cue",
   "main": "src/custom-main.js",
+
   "scripts": {
     "start": "electron .",
-    "start:local": "node scripts/prepare-whisper-runtime-fixed.js && electron .",
-    "test": "node --test test/*.test.js",
-    "postinstall": "node scripts/rename-electron.js",
+
     "prepare:whisper": "node scripts/prepare-whisper-runtime-fixed.js",
-    "build:whisper:win": "node scripts/prepare-whisper-runtime-fixed.js",
-    "verify:whisper-runtime": "node scripts/verify-whisper-runtime.js",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder --mac zip",
-    "dist:mac": "electron-builder --mac zip",
-    "dist:win": "electron-builder --win",
+
     "pack:win": "electron-builder --win --dir",
-    "dist:linux": "electron-builder --linux AppImage --x64",
-    "dist:linux:arm64": "electron-builder --linux AppImage --arm64"
+    "postinstall": "node scripts/rename-electron.js",
+    "dist:win": "electron-builder --win portable",
+
+    "dist:win:installer": "electron-builder --win nsis"
   },
-  "keywords": [
-    "electron",
-    "overlay",
-    "ai",
-    "assistant",
-    "windows",
-    "cross-platform"
+
+  "build": {
+  "appId": "com.cue.assistant",
+  "productName": "Cue",
+  "asar": true,
+
+  "files": [
+    "main.js",
+    "preload.js",
+    "src/**/*",
+    "renderer/**/*",
+    "vendor/**/*",
+    "package.json",
+    "node_modules/**/*"
   ],
+
+  "extraResources": [
+    {
+      "from": ".cache/whisper-runtime/win32-x64",
+      "to": "whisper-runtime",
+      "filter": [
+        "**/*"
+      ]
+    }
+  ],
+
+  "win": {
+    "target": [
+      {
+        "target": "portable",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "artifactName": "Cue-${version}-portable.${ext}"
+  }
+},
+
   "devDependencies": {
     "electron": "33.2.1",
     "electron-builder": "^26.15.3",
     "extract-zip": "^2.0.1",
-    "resedit": "^3.0.2",
+    "resedit": "^0.0.1",
     "tar": "^7.5.22"
   },
+
   "engines": {
     "node": ">=22.12.0"
   },
+
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
     "@google/genai": "^2.12.0",
@@ -49,3 +78,7 @@
     "ws": "^8.18.0"
   }
 }
+
+
+
+

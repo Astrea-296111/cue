@@ -20,8 +20,13 @@ const crypto = require('crypto');
 const DEFAULT_QWEN_ASR_MODEL = 'qwen-audio-3.0-asr-flash-streaming';
 const DEFAULT_CN_WS = 'wss://dashscope.aliyuncs.com/api-ws/v1/inference';
 const DEFAULT_INTL_WS = 'wss://dashscope-intl.aliyuncs.com/api-ws/v1/inference';
+
+// Alibaba's realtime examples recommend about 100 ms PCM chunks as the
+// latency/network-efficiency sweet spot. Keep that proven packet size and get
+// the larger latency win from faster VAD endpointing instead.
 const AUDIO_FRAME_BYTES = 3200; // 100ms @ 16kHz, 16-bit, mono.
 const MAX_PENDING_BYTES = 16000 * 2 * 5; // Keep at most five seconds before ready.
+const DEFAULT_MAX_SENTENCE_SILENCE_MS = 400;
 
 const BASE_TECH_TERMS = [
   'Java', 'Go', 'Golang', 'Python', 'JavaScript', 'TypeScript',
@@ -93,8 +98,6 @@ function buildQwenContext(settings = {}) {
     qwen.useJobDescription === false ? '' : (settings.jobDescription || '')
   ].join('\n');
 
-
-
   const customVocabulary = (qwen.vocabulary || []);
   const terms = Array.from(
     new Set([...BASE_TECH_TERMS, ...extractTerms(source), ...customVocabulary])
@@ -108,6 +111,12 @@ function buildQwenContext(settings = {}) {
   ].join('\n');
 
   return context.slice(0, 1800);
+}
+
+function clampSentenceSilence(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_MAX_SENTENCE_SILENCE_MS;
+  return Math.max(200, Math.min(6000, Math.round(n)));
 }
 
 function resolveQwenAsrConfig(settings = {}) {
@@ -134,6 +143,12 @@ function resolveQwenAsrConfig(settings = {}) {
     websocketUrl,
     model: String(qwen.model || DEFAULT_QWEN_ASR_MODEL).trim(),
     language: qwen.language || 'auto',
+    // Low-latency defaults. Advanced users can still override them by editing
+    // qwenAsr settings programmatically later without another provider rewrite.
+    semanticPunctuationEnabled: qwen.semanticPunctuationEnabled === true,
+    maxSentenceSilenceMs: clampSentenceSilence(qwen.maxSentenceSilenceMs),
+    multiThresholdModeEnabled: qwen.multiThresholdModeEnabled !== false,
+    heartbeat: qwen.heartbeat !== false,
     contextText:
       qwen.useInterviewContext === false
         ? ''
@@ -174,7 +189,14 @@ function buildRunTaskMessage(config, taskId) {
         format: 'pcm',
         sample_rate: 16000,
         language_hints: config.language && config.language !== 'auto' ? [config.language] : undefined,
-        semantic_punctuation_enabled: true
+        // VAD segmentation is materially faster for an interactive interview
+        // assistant than semantic segmentation. 400 ms is intentionally above
+        // the protocol minimum to avoid splitting ordinary thinking pauses too
+        // aggressively.
+        semantic_punctuation_enabled: !!config.semanticPunctuationEnabled,
+        max_sentence_silence: clampSentenceSilence(config.maxSentenceSilenceMs),
+        multi_threshold_mode_enabled: config.multiThresholdModeEnabled !== false,
+        heartbeat: config.heartbeat !== false
       },
       input
     }
@@ -257,6 +279,7 @@ class QwenStreamingSTT {
     this._reconnectDelay = 600;
     this._closingTimer = null;
     this._lastFinalKey = '';
+    this._lastInterimAt = 0;
   }
 
   async connect() {
@@ -373,6 +396,7 @@ class QwenStreamingSTT {
 
     if (event.type === 'interim') {
       if (event.text) {
+        this._lastInterimAt = Date.now();
         this.onInterim(event.text);
       }
       return;
@@ -389,6 +413,11 @@ class QwenStreamingSTT {
       }
 
       this._lastFinalKey = dedupeKey;
+      const finalAt = Date.now();
+      if (this._lastInterimAt) {
+        console.log(`[latency][qwen-asr] final_after_last_interim=${finalAt - this._lastInterimAt}ms`);
+      }
+      this._lastInterimAt = 0;
       this.onInterim('');
       this.onTranscript(event.text);
       return;
@@ -540,8 +569,6 @@ class QwenStreamingSTT {
         buildFinishTaskMessage(this.taskId)
       );
 
-      // Give the service a short window to return the last final sentence and
-      // task-finished. If it does not, close anyway so Cue never hangs on stop.
       this._closingTimer = setTimeout(() => {
         this._closeSocket(1000);
       }, 800);
@@ -558,6 +585,7 @@ module.exports = {
   DEFAULT_CN_WS,
   DEFAULT_INTL_WS,
   AUDIO_FRAME_BYTES,
+  DEFAULT_MAX_SENTENCE_SILENCE_MS,
   isAlibabaModelStudioUrl,
   deriveWebSocketUrl,
   buildQwenContext,

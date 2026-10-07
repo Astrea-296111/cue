@@ -55,6 +55,19 @@ const IGNORED_FILES = new Set([
 let cache = null;
 let cacheMtimeMs = 0;
 
+// Runtime-only search acceleration. The project index stays compact on disk;
+// normalized chunks and ranked-query results are built once in memory.
+let preparedSearchIndex = null;
+let preparedSearchItems = [];
+const rankedQueryCache = new Map();
+const RANKED_QUERY_CACHE_LIMIT = 32;
+
+function resetSearchRuntime() {
+  preparedSearchIndex = null;
+  preparedSearchItems = [];
+  rankedQueryCache.clear();
+}
+
 function indexPath() {
   return path.join(app.getPath('userData'), INDEX_FILE);
 }
@@ -362,6 +375,7 @@ async function writeIndex(index) {
     }
   }
   cache = index;
+  resetSearchRuntime();
   try { cacheMtimeMs = (await fs.promises.stat(target)).mtimeMs; } catch (_) { cacheMtimeMs = Date.now(); }
 }
 
@@ -439,6 +453,7 @@ function loadIndexSync() {
     if (!parsed || parsed.version !== INDEX_VERSION || !Array.isArray(parsed.chunks)) return null;
     cache = parsed;
     cacheMtimeMs = stat.mtimeMs;
+    resetSearchRuntime();
     return cache;
   } catch (_) {
     return null;
@@ -468,6 +483,7 @@ async function clearProjectIndex() {
   try { await fs.promises.unlink(target); } catch (error) { if (error && error.code !== 'ENOENT') throw error; }
   cache = null;
   cacheMtimeMs = 0;
+  resetSearchRuntime();
   return getProjectIndexState(null);
 }
 
@@ -513,19 +529,47 @@ function countOccurrences(haystack, needle) {
   return count;
 }
 
-function searchProjectKnowledge(query, options = {}) {
+function getPreparedSearchItems(index) {
+  if (preparedSearchIndex === index && preparedSearchItems.length === index.chunks.length) {
+    return preparedSearchItems;
+  }
+
+  preparedSearchIndex = index;
+  preparedSearchItems = index.chunks.map((chunk) => ({
+    chunk,
+    pathText: normalizeSearchText(chunk.path),
+    bodyText: normalizeSearchText(chunk.text)
+  }));
+  rankedQueryCache.clear();
+  return preparedSearchItems;
+}
+
+function rememberRankedQuery(key, value) {
+  if (rankedQueryCache.has(key)) rankedQueryCache.delete(key);
+  rankedQueryCache.set(key, value);
+  while (rankedQueryCache.size > RANKED_QUERY_CACHE_LIMIT) {
+    const oldest = rankedQueryCache.keys().next().value;
+    rankedQueryCache.delete(oldest);
+  }
+}
+
+function rankProjectKnowledge(query) {
   const index = loadIndexSync();
   if (!index || !Array.isArray(index.chunks) || !index.chunks.length) return [];
   const terms = queryTerms(query);
   if (!terms.length) return [];
 
   const normalizedQuery = normalizeSearchText(query).slice(0, 180);
-  const prepared = index.chunks.map((chunk) => ({
-    chunk,
-    pathText: normalizeSearchText(chunk.path),
-    bodyText: normalizeSearchText(chunk.text)
-  }));
+  const cacheKey = normalizedQuery + '\n' + terms.join('|');
+  const cached = rankedQueryCache.get(cacheKey);
+  if (cached) {
+    // LRU refresh.
+    rankedQueryCache.delete(cacheKey);
+    rankedQueryCache.set(cacheKey, cached);
+    return cached;
+  }
 
+  const prepared = getPreparedSearchItems(index);
   const docFreq = new Map();
   for (const term of terms) {
     let df = 0;
@@ -563,6 +607,14 @@ function searchProjectKnowledge(query, options = {}) {
   }
 
   scored.sort((a, b) => b.score - a.score);
+  rememberRankedQuery(cacheKey, scored);
+  return scored;
+}
+
+function searchProjectKnowledge(query, options = {}) {
+  const scored = rankProjectKnowledge(query);
+  if (!scored.length) return [];
+
   const limit = Math.max(1, Math.min(Number(options.limit) || 6, 10));
   const minScore = Number.isFinite(options.minScore) ? options.minScore : 4.0;
   const maxChars = Math.max(800, Math.min(Number(options.maxChars) || 5200, 9000));
@@ -583,6 +635,11 @@ function searchProjectKnowledge(query, options = {}) {
     });
   }
   return result;
+}
+
+function prefetchProjectKnowledge(query, options = {}) {
+  if (!query || String(query).trim().length < 4) return [];
+  return searchProjectKnowledge(query, options);
 }
 
 function getProjectOverviewChunks(options = {}) {
@@ -632,6 +689,7 @@ module.exports = {
   clearProjectIndex,
   getProjectIndexState,
   searchProjectKnowledge,
+  prefetchProjectKnowledge,
   getProjectOverviewChunks,
   formatRetrievedProjectContext,
   shouldIndexPath,
