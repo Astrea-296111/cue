@@ -192,6 +192,8 @@ const ASSIST_ACCELERATOR = 'CommandOrControl+Shift+Return';
 // On a standard keyboard, ? is Shift+/, so Ctrl+? is Ctrl+Shift+/.
 const LEGACY_ASSIST_ACCELERATOR = 'CommandOrControl+Shift+/';
 const HIDE_ACCELERATOR = 'CommandOrControl+Shift+H';
+const MOVE_STEP = 20;
+const MOVE_DIRECTIONS = { Up: [0, -1], Down: [0, 1], Left: [-1, 0], Right: [1, 0] };
 
 function isCueOverlayWindow(win) {
   if (!win || win.isDestroyed()) return false;
@@ -240,6 +242,17 @@ function installShortcutOverrides() {
   registerShortcut('Assist', ASSIST_ACCELERATOR, () => sendMode('assist'));
   registerShortcut('Assist (Ctrl+?)', LEGACY_ASSIST_ACCELERATOR, () => sendMode('assist'));
   registerShortcut('Hide', HIDE_ACCELERATOR, toggleHide);
+
+  for (const [direction, [dx, dy]] of Object.entries(MOVE_DIRECTIONS)) {
+    const accelerator = `CommandOrControl+Shift+${direction}`;
+    globalShortcut.unregister(accelerator);
+    registerShortcut(`Move ${direction}`, accelerator, () => {
+      forEachCueWindow((win) => {
+        const [x, y] = win.getPosition();
+        win.setPosition(x + dx * MOVE_STEP, y + dy * MOVE_STEP);
+      });
+    });
+  }
 }
 
 app.whenReady().then(() => {
