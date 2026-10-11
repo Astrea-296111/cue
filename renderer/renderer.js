@@ -149,14 +149,15 @@
     aiEl = null; caretEl = null;
   }
 
+  let activeRequestId = null;
   let busyFailsafe = null;
   function setBusy(v) {
     busy = v;
     $('#send-btn').classList.toggle('busy', v);
     clearTimeout(busyFailsafe);
-    // Failsafe: main has a 25s stream watchdog that always sends llm:done/llm:error, but if a
-    // terminal event is ever lost the whole UI stays frozen — self-clear after a generous window.
-    if (v) busyFailsafe = setTimeout(() => { busy = false; $('#send-btn').classList.toggle('busy', false); }, 40000);
+    // Main enforces 25s inactivity / 180s generation limits. Keep the UI locked
+    // through reasoning-only streams; tokens refresh this final fallback.
+    if (v) busyFailsafe = setTimeout(() => { busy = false; $('#send-btn').classList.toggle('busy', false); }, 190000);
   }
 
   // ---- transcript helpers ------------------------------------------------
@@ -197,20 +198,26 @@
   }
 
   // ---- actions -----------------------------------------------------------
-  let latestInterviewerInterim = { text: '', ts: 0 };
   let ragPrefetchTimer = null;
+  let recentRagQuestions = [];
+  let lastPrefetchKey = '';
+  let lastPrefetchAt = 0;
 
-  function freshInterviewerInterim() {
-    if (!latestInterviewerInterim.text) return '';
-    if (Date.now() - latestInterviewerInterim.ts > 3500) return '';
-    return latestInterviewerInterim.text;
-  }
-
-  function scheduleProjectPrefetch(text) {
+  function scheduleProjectPrefetch(text, immediate = false) {
     const query = String(text || '').trim();
     if (query.length < 4 || typeof cue.projectPrefetch !== 'function') return;
     clearTimeout(ragPrefetchTimer);
-    ragPrefetchTimer = setTimeout(() => cue.projectPrefetch(query), 90);
+    const previous = recentRagQuestions.slice(-3);
+    if (previous.at(-1) === query) previous.pop();
+    const key = JSON.stringify([query, previous]);
+    if (key === lastPrefetchKey && Date.now() - lastPrefetchAt < 2000) return;
+    const send = () => {
+      lastPrefetchKey = key;
+      lastPrefetchAt = Date.now();
+      cue.projectPrefetch({ text: query, previous });
+    };
+    if (immediate) send();
+    else ragPrefetchTimer = setTimeout(send, 90);
   }
 
   function runMode(mode, text) {
@@ -219,12 +226,11 @@
     // would ignore while state.busy is true.
     if (busy) return;
 
-    let requestText = text || '';
-    if (!requestText && (mode === 'say' || mode === 'assist')) {
-      requestText = freshInterviewerInterim();
-    }
+    // Never promote renderer-side interim ASR text into an explicit question.
+    // The main process owns the QuestionResolver and decides whether the newest
+    // speech is a complete question, a supplement, noise, or an unfinished tail.
+    const requestText = typeof text === 'string' ? text : '';
 
-    setBusy(true);
     cue.ask({ mode, text: requestText });
   }
 
@@ -671,6 +677,12 @@
       saveToQuestionHistory(input.value);
       
       await cue.clearTranscript();
+      activeRequestId = null;
+      responseCount = 0;
+      setBusy(false);
+      recentRagQuestions = [];
+      clearTimeout(ragPrefetchTimer);
+      lastPrefetchKey = '';
       clearMessages();
       // Also clear the floating interim bar
       if (interimEl) { interimEl.textContent = ''; interimEl.classList.remove('show'); }
@@ -681,8 +693,7 @@
       clearTranscriptSidebar(); // clear the history sidebar too
       hardClearSTTFill(); // clear the input box too
       
-      const undoHint = isWindows ? 'Ctrl+Z to undo' : '⌘Z to undo';
-      showToast(`Transcript cleared · ${undoHint}`, 3500);
+      showToast('会话与上下文已清空；Ctrl/⌘+Z 仅恢复输入框文字。', 3500);
     });
   }
 
@@ -1146,11 +1157,10 @@ micStream = stream;
     el.classList.add('show');
     appendTranscriptHistoryTurn(channel, text, true); // update sidebar interim
 
-    // Turbo path: keep the latest interviewer interim outside the input box.
-    // Ctrl+Enter can use it immediately, without waiting for ASR sentence_end.
+    // Interim text is useful for RAG prefetch only. It is deliberately NOT sent
+    // as payload.text when Ctrl+Enter is pressed; answer targeting lives in main.
     if (channel === 'them' && String(text || '').trim()) {
-      latestInterviewerInterim = { text: String(text).trim(), ts: Date.now() };
-      scheduleProjectPrefetch(latestInterviewerInterim.text);
+      scheduleProjectPrefetch(String(text).trim());
     }
 
     // Interviewer interim speech stays in transcript/history only.
@@ -1158,7 +1168,10 @@ micStream = stream;
   });
   cue.on('stt:final', ({ channel, text }) => {
     setLiveDotState('idle');
-    if (channel === 'them') latestInterviewerInterim = { text: '', ts: 0 };
+    if (channel === 'them') {
+      scheduleProjectPrefetch(text, true);
+      if (String(text || '').trim()) recentRagQuestions = [...recentRagQuestions, String(text).trim()].slice(-3);
+    }
     // Clear interim when we get a final
     if (interimEl) { interimEl.textContent = ''; interimEl.classList.remove('show'); }
     clearTranscriptInterim();
@@ -1198,7 +1211,8 @@ micStream = stream;
   cue.on('vad:state', ({ channel, speaking }) => {
     setLiveDotState(speaking ? 'speaking' : 'idle');
   });
-  cue.on('llm:start', ({ userBubble, small, category }) => {
+  cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
+    activeRequestId = requestId || null;
     responseCount++;
     if (responseCount > MAX_RESPONSES) {
       const oldest = messages.querySelector('.response-group');
@@ -1237,9 +1251,19 @@ micStream = stream;
     });
     setBusy(true);
   });
-  cue.on('llm:token', ({ text }) => appendToken(text));
-  cue.on('llm:done', () => { finalizeAi(); setBusy(false); });
-  cue.on('llm:error', ({ message }) => {
+  const acceptsReply = requestId => !requestId || requestId === activeRequestId;
+  cue.on('llm:token', ({ text, requestId }) => {
+    if (!acceptsReply(requestId)) return;
+    appendToken(text);
+    setBusy(true);
+  });
+  cue.on('llm:done', ({ requestId } = {}) => {
+    if (!acceptsReply(requestId)) return;
+    finalizeAi(); setBusy(false); activeRequestId = null;
+  });
+  cue.on('llm:error', ({ message, requestId }) => {
+    if (!acceptsReply(requestId)) return;
+    activeRequestId = null;
     if (!aiEl) startAi(true);
     aiEl.dataset.raw = message; finalizeAi(); setBusy(false);
   });
@@ -1479,7 +1503,9 @@ micStream = stream;
     const truncated = projectIndexState.truncatedCount
       ? ` · ${projectIndexState.truncatedCount} item(s) truncated by safety limits`
       : '';
-    status.textContent = `${source} · ${projectIndexState.fileCount} files · ${projectIndexState.chunkCount} chunks · ${size}${truncated}`;
+    const projects = Array.isArray(projectIndexState.projects) ? projectIndexState.projects : [];
+    const names = projects.length > 1 ? ` · ${projects.slice(-4).map(p => p.name).join(' / ')}${projects.length > 4 ? ' / …' : ''}` : '';
+    status.textContent = `${source} · ${projectIndexState.fileCount} files · ${projectIndexState.chunkCount} chunks · ${size}${names}${truncated}`;
   }
 
   function setProjectIndexBusy(busyState) {
@@ -1581,6 +1607,7 @@ micStream = stream;
     document.querySelectorAll('#stt-provider-seg button').forEach((button) => {
       button.classList.toggle('on', button.dataset.sttProvider === (settings.sttProvider || 'auto'));
     });
+    $('#cloud-stt-language').value = settings.sttLanguage || 'auto';
     const localWhisper = settings.localWhisper || { modelId: 'small', language: 'zh', threads: 0 };
     $('#whisper-language').value = localWhisper.language || 'zh';
     $('#whisper-threads').value = Number(localWhisper.threads) || 0;
@@ -1937,6 +1964,7 @@ cue.on(
     settings.models[settings.provider].fast = $('#model-fast').value.trim();
     settings.models[settings.provider].smart = $('#model-smart').value.trim();
     // Transcription
+    settings.sttLanguage = $('#cloud-stt-language').value || 'auto';
     if (!settings.localWhisper) settings.localWhisper = {};
     settings.localWhisper.modelId = $('#whisper-model').value || settings.localWhisper.modelId || 'base.en';
     settings.localWhisper.language = $('#whisper-language').value || 'auto';

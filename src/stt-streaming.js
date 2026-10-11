@@ -12,6 +12,7 @@
 // Doubao/iFlytek/Tencent can be added without making this file monolithic.
 
 const { looksLikeHallucination } = require('./stt');
+const { resolveLanguageHint } = require('./transcript-normalizer');
 const { CURRENT_GEMINI_DEFAULT } = require('./llm');
 const {
   QwenStreamingSTT,
@@ -26,6 +27,7 @@ class OpenAIRealtimeSTT {
   constructor(apiKey, options = {}) {
     this.apiKey = apiKey;
     this.model = options.model || 'gpt-realtime-whisper';
+    this.language = options.language || 'auto';
     this.ws = null;
     this.connected = false;
     this.reconnecting = false;
@@ -38,6 +40,9 @@ class OpenAIRealtimeSTT {
     this._reconnectDelay = 1000;
     this._pendingAudio = [];
     this._sessionReady = false;
+    this._interimByItem = new Map();
+    this._itemOrders = new Map();
+    this._itemSequence = 0;
   }
 
   async connect() {
@@ -71,7 +76,7 @@ class OpenAIRealtimeSTT {
                 },
                 transcription: {
                   model: this.model,
-                  language: 'en'
+                  ...(this.language && this.language !== 'auto' ? { language: this.language } : {})
                 }
               }
             }
@@ -138,7 +143,16 @@ class OpenAIRealtimeSTT {
   }
 
   _handleEvent(event) {
+    let meta;
+    if (event.item_id) {
+      if (!this._itemOrders.has(event.item_id)) this._itemOrders.set(event.item_id, ++this._itemSequence);
+      meta = { utteranceKey: event.item_id, utteranceOrder: this._itemOrders.get(event.item_id) };
+      if (this._itemOrders.size > 64) this._itemOrders.delete(this._itemOrders.keys().next().value);
+    }
     switch (event.type) {
+      case 'input_audio_buffer.speech_started':
+        this.onInterim('', meta);
+        break;
       case 'session.created':
       case 'session.updated':
         this._sessionReady = true;
@@ -147,17 +161,23 @@ class OpenAIRealtimeSTT {
 
       case 'conversation.item.input_audio_transcription.delta':
         if (event.delta) {
-          this.onInterim(event.delta);
+          const key = event.item_id || 'current';
+          const text = (this._interimByItem.get(key) || '') + event.delta;
+          this._interimByItem.set(key, text);
+          if (this._interimByItem.size > 32) this._interimByItem.delete(this._interimByItem.keys().next().value);
+          this.onInterim(text, meta);
         }
         break;
 
       case 'conversation.item.input_audio_transcription.completed':
+        this._interimByItem.delete(event.item_id || 'current');
         if (
           event.transcript &&
           event.transcript.trim()
         ) {
           this.onTranscript(
-            event.transcript.trim()
+            event.transcript.trim(),
+            meta
           );
         }
         break;
@@ -367,6 +387,7 @@ class DeepgramStreamingSTT {
     this.apiKey = apiKey;
     this.model =
       options.model || 'nova-3';
+    this.language = options.language || 'auto';
 
     this.ws = null;
     this.connected = false;
@@ -393,6 +414,7 @@ class DeepgramStreamingSTT {
 
     this._keepAliveInterval = null;
     this._committed = '';
+    this._utteranceMeta = null;
     this._allowReconnect = true;
   }
 
@@ -413,7 +435,7 @@ class DeepgramStreamingSTT {
       const params =
         new URLSearchParams({
           model: this.model,
-          language: 'zh-CN',
+          language: this.language === 'auto' ? 'multi' : (/^zh/i.test(this.language) ? 'zh-CN' : this.language),
           smart_format: 'true',
           interim_results: 'true',
           utterance_end_ms: '1000',
@@ -439,6 +461,8 @@ class DeepgramStreamingSTT {
       this.ws.on(
         'open',
         () => {
+          this._committed = '';
+          this._utteranceMeta = null;
           this.connected = true;
           this._reconnectAttempts = 0;
           this.onStatusChange(
@@ -554,6 +578,10 @@ class DeepgramStreamingSTT {
         (alt.transcript || '')
           .trim();
 
+      if (!this._utteranceMeta && Number.isFinite(msg.start) && text) {
+        this._utteranceMeta = { utteranceKey: `deepgram:${msg.start}`, utteranceOrder: msg.start };
+      }
+      const meta = this._utteranceMeta || undefined;
       if (msg.speech_final) {
         const full =
           (
@@ -570,10 +598,11 @@ class DeepgramStreamingSTT {
             full
           )
         ) {
-          this.onTranscript(full);
+          this.onTranscript(full, meta);
         }
 
-        this.onInterim('');
+        this.onInterim('', meta);
+        this._utteranceMeta = null;
         return;
       }
 
@@ -588,7 +617,8 @@ class DeepgramStreamingSTT {
           ).trim();
 
         this.onInterim(
-          this._committed
+          this._committed,
+          meta
         );
       } else {
         this.onInterim(
@@ -596,7 +626,8 @@ class DeepgramStreamingSTT {
             (this._committed || '') +
             ' ' +
             text
-          ).trim()
+          ).trim(),
+          meta
         );
       }
 
@@ -625,6 +656,8 @@ class DeepgramStreamingSTT {
   }
 
   _flushCommitted() {
+    const meta = this._utteranceMeta || undefined;
+    this._utteranceMeta = null;
     const full =
       (this._committed || '')
         .trim();
@@ -637,10 +670,10 @@ class DeepgramStreamingSTT {
         full
       )
     ) {
-      this.onTranscript(full);
+      this.onTranscript(full, meta);
     }
 
-    this.onInterim('');
+    this.onInterim('', meta);
   }
 
   sendAudio(pcmBuffer) {
@@ -756,7 +789,8 @@ class DeepgramStreamingSTT {
 async function transcribeBatchOpenAI(
   apiKey,
   wav,
-  model
+  model,
+  language = 'auto'
 ) {
   const OpenAI =
     require('openai');
@@ -786,7 +820,7 @@ async function transcribeBatchOpenAI(
           'whisper-1',
         response_format:
           'text',
-        language: 'en'
+        ...(language && language !== 'auto' ? { language } : {})
       });
 
   return (
@@ -858,6 +892,8 @@ function createStreamingSTT(
     settings.sttProvider ||
     'auto';
 
+  const language = resolveLanguageHint(settings);
+
   const {
     onTranscript,
     onInterim,
@@ -897,16 +933,18 @@ function createStreamingSTT(
         qwenConfig,
         {
           onTranscript:
-            (text) =>
+            (text, meta) =>
               onTranscript(
                 channel,
-                text
+                text,
+                meta
               ),
           onInterim:
-            (text) =>
+            (text, meta) =>
               onInterim(
                 channel,
-                text
+                text,
+                meta
               ),
           onError,
           onStatusChange:
@@ -939,17 +977,20 @@ function createStreamingSTT(
         keys.deepgram,
         {
           model: 'nova-3',
+          language,
           onTranscript:
-            (text) =>
+            (text, meta) =>
               onTranscript(
                 channel,
-                text
+                text,
+                meta
               ),
           onInterim:
-            (text) =>
+            (text, meta) =>
               onInterim(
                 channel,
-                text
+                text,
+                meta
               ),
           onError,
           onStatusChange:
@@ -983,17 +1024,20 @@ function createStreamingSTT(
         {
           model:
             'gpt-realtime-whisper',
+          language,
           onTranscript:
-            (text) =>
+            (text, meta) =>
               onTranscript(
                 channel,
-                text
+                text,
+                meta
               ),
           onInterim:
-            (text) =>
+            (text, meta) =>
               onInterim(
                 channel,
-                text
+                text,
+                meta
               ),
           onError,
           onStatusChange:

@@ -1,14 +1,23 @@
 const { app, BrowserWindow, ipcMain, globalShortcut, screen, session, desktopCapturer, shell, dialog, systemPreferences,net } = require('electron');
 const path = require('path');
+const { performance } = require('perf_hooks');
+const { withCurrentQuestion, isLikelyFollowUp } = require('./src/project-query');
+const { QuestionResolver } = require('./src/question-resolver');
+const replyLatency = require('./src/reply-latency');
 const os = require('os');
 const store = require('./src/store');
 const { captureScreenshot } = require('./src/screen');
 const { createSTT } = require('./src/stt');
 const { parseDocumentFile } = require('./src/resume');
 const { createLLM } = require('./src/llm');
-const { MODES } = require('./src/prompts');
+const { MODES, shouldCaptureScreen } = require('./src/prompts');
+const { ConversationMemory } = require('./src/conversation-memory');
+const { getProjectCatalog } = require('./src/project-knowledge');
 const { rms16 } = require('./src/wav');
 const { createStreamingSTT } = require('./src/stt-streaming');
+const { normalizeTranscript, TranscriptDeduper } = require('./src/transcript-normalizer');
+const { normalizeTechnicalVocabulary } = require('./src/technical-vocabulary');
+const { isSpeechNoise } = require('./src/speech-noise-filter');
 const { AdaptiveVAD, AudioRingBuffer } = require('./src/vad');
 const { buildInterviewContext, detectCategory } = require('./src/interview-context');
 const { startAppLink, stopAppLink, recordEvent, appLinkConsentState, revokeAppLinkCaller } = require('./src/applink');
@@ -52,6 +61,10 @@ let permWin = null;
 const state = { capturing: false, busy: false, transcribing: { you: false, them: false } };
 let sttDisabled = false; // set when the key can't reach any speech model (stops retry spam)
 const buffers = { you: [], them: [] };
+const conversation = new ConversationMemory();
+const questionResolver = new QuestionResolver();
+const transcriptDeduper = new TranscriptDeduper();
+let activeGeneration = null;
 const transcript = []; // { channel, text, ts } — capped at MAX_TRANSCRIPT_TURNS
 const MAX_TRANSCRIPT_TURNS = 200; // ~30–40 minutes of conversation at normal pace
 const FLUSH_MS = 900;
@@ -73,15 +86,15 @@ const vad = {
     onsetThreshold: 220,
     offsetThreshold: 130,
     silenceFrames: 18,       // ~540ms silence before end
-    onSpeechStart: () => send('vad:state', { channel: 'you', speaking: true }),
-    onSpeechEnd: (dur) => send('vad:state', { channel: 'you', speaking: false, durationMs: dur })
+    onSpeechStart: () => send('vad:state', { channel: 'you', speaking: true, speechStartedAt: Date.now() }),
+    onSpeechEnd: (dur) => send('vad:state', { channel: 'you', speaking: false, durationMs: dur, speechEndedAt: Date.now() })
   }),
   them: new AdaptiveVAD({
     onsetThreshold: 200,
     offsetThreshold: 120,
     silenceFrames: 20,       // ~600ms for remote audio (more forgiving)
-    onSpeechStart: () => send('vad:state', { channel: 'them', speaking: true }),
-    onSpeechEnd: (dur) => send('vad:state', { channel: 'them', speaking: false, durationMs: dur })
+    onSpeechStart: () => send('vad:state', { channel: 'them', speaking: true, speechStartedAt: Date.now() }),
+    onSpeechEnd: (dur) => send('vad:state', { channel: 'them', speaking: false, durationMs: dur, speechEndedAt: Date.now() })
   })
 };
 // Pre-speech ring buffers (300ms) so we never clip the start of a word
@@ -95,7 +108,15 @@ function pushTranscript(turn) {
   if (transcript.length > MAX_TRANSCRIPT_TURNS) transcript.splice(0, transcript.length - MAX_TRANSCRIPT_TURNS);
 }
 
-function send(channel, data) { if (win && !win.isDestroyed()) win.webContents.send(channel, data); }
+function send(channel, data) {
+  // Keep answer targeting in the main process so keyboard shortcuts, renderer
+  // buttons and every STT provider all share exactly the same question state.
+  if (channel === 'vad:state') questionResolver.speechState(data);
+  if (channel === 'stt:interim') questionResolver.observe(data, false);
+  if (channel === 'transcript') questionResolver.observe(data, true);
+  replyLatency.observe(channel, data);
+  if (win && !win.isDestroyed()) win.webContents.send(channel, data);
+}
 
 function getWhisperRuntime() {
   // `electron .` development launches can still report app.isPackaged=true
@@ -114,13 +135,62 @@ function getWhisperRuntime() {
   });
 }
 
-function publishTranscript(channel, text) {
-  if (!text || !text.trim()) return;
-  const turn = { channel, text: text.trim(), ts: Date.now() };
+function normalizeSpeechText(text, settings = store.getSettings(), recentText = '') {
+  let normalized = normalizeTranscript(text, settings);
+  if (!normalized) return '';
+  normalized = normalizeTechnicalVocabulary(normalized, { settings, recentText });
+  return normalizeTranscript(normalized, settings);
+}
+
+function recentInterviewerText(limit = 4) {
+  return transcript
+    .filter((turn) => turn.channel === 'them' && turn.text)
+    .slice(-limit)
+    .map((turn) => turn.text)
+    .join('\n');
+}
+
+function publishInterim(channel, text, meta = {}) {
+  const normalized = normalizeSpeechText(text, store.getSettings(), recentInterviewerText());
+  if (!normalized) {
+    send('stt:interim', { ...meta, channel, text: '' });
+    return;
+  }
+  if (channel === 'them' && isSpeechNoise(normalized)) return;
+  send('stt:interim', { ...meta, channel, text: normalized });
+}
+
+function publishTranscript(channel, text, meta = {}) {
+  const settings = store.getSettings();
+  const normalized = normalizeSpeechText(text, settings, recentInterviewerText());
+  if (!normalized) return;
+  if (channel === 'them' && isSpeechNoise(normalized)) {
+    console.log('[stt-noise-filter]', JSON.stringify(normalized));
+    return;
+  }
+
+  const ts = Date.now();
+  const verdict = transcriptDeduper.accept(channel, normalized, ts);
+  if (verdict.drop) {
+    console.log('[stt-dedup]', channel, verdict.reason, JSON.stringify(normalized.slice(0, 120)));
+    return;
+  }
+
+  if (verdict.removeEvent) {
+    const i = transcript.findLastIndex((turn) =>
+      turn.channel === verdict.removeEvent.channel &&
+      Math.abs(turn.ts - verdict.removeEvent.ts) < 80 &&
+      turn.text === verdict.removeEvent.text
+    );
+    if (i >= 0) transcript.splice(i, 1);
+  }
+
+  const turn = { ...meta, channel, text: verdict.text, ts };
   pushTranscript(turn);
   send('transcript', turn);
-  send('stt:final', { channel, text: turn.text });
+  send('stt:final', { ...meta, channel, text: turn.text });
 }
+
 
 async function startLocalWhisper(settings) {
   if (!whisperModelManager) throw new Error('The local Whisper model manager is not ready.');
@@ -151,18 +221,13 @@ async function startLocalWhisper(settings) {
         tinydiarize: model.tinydiarize
       },
       onTranscript: publishTranscript,
-      onSpeechState: (channel, speaking, durationMs) => {
-        send('vad:state', { channel, speaking, durationMs });
+      onSpeechState: (channel, speaking, durationMs, meta = {}) => {
+        send('vad:state', { ...meta, channel, speaking, durationMs,
+          ...(speaking ? { speechStartedAt: meta.speechStartedAt || Date.now() } : { speechEndedAt: meta.speechEndedAt || Date.now() }) });
       },
       onInterim:
-  (channel, text) => {
-    send(
-      'stt:interim',
-      {
-        channel,
-        text
-      }
-    );
+  (channel, text, meta = {}) => {
+    publishInterim(channel, text, meta);
   },
   onMetrics:
   (metrics) => {
@@ -343,9 +408,7 @@ async function flushChannel(channel) {
       return;
     }
     if (res.text && res.text.trim() && res.text.trim().length > 1 && !/^[?!.,;:\-…]+$/.test(res.text.trim())) {
-      const turn = { channel, text: res.text.trim(), ts: Date.now() };
-      pushTranscript(turn);
-      send('transcript', turn);
+      publishTranscript(channel, res.text.trim(), { sourceId: 'batch' });
     }
   } catch (e) {
     console.log('[stt] error', e && e.message);
@@ -391,14 +454,11 @@ function initStreamingSTT() {
 
   ['you', 'them'].forEach((channel) => {
     const sttInstance = createStreamingSTT(settings, channel, {
-      onTranscript: (ch, text) => {
-        const turn = { channel: ch, text, ts: Date.now() };
-        pushTranscript(turn);
-        send('transcript', turn);
-        send('stt:final', { channel: ch, text });
+      onTranscript: (ch, text, meta = {}) => {
+        publishTranscript(ch, text, { ...meta, sourceId: meta.sourceId || 'stream' });
       },
-      onInterim: (ch, text) => {
-        send('stt:interim', { channel: ch, text });
+      onInterim: (ch, text, meta = {}) => {
+        publishInterim(ch, text, { ...meta, sourceId: meta.sourceId || 'stream' });
       },
       onError: (err) => {
         console.log('[streaming-stt] error', err.provider, err.message);
@@ -513,6 +573,7 @@ async function setCapturing(active) {
 
   if (active) {
     sttDisabled = false; // reset on re-enable
+    transcriptDeduper.reset();
     const settings = store.getSettings();
     if ((settings.sttProvider || 'auto') === 'local') {
       try {
@@ -571,80 +632,153 @@ async function setCapturing(active) {
 
 // -------- feature runner --------
 async function runFeature(mode, userText) {
-  if (state.busy) return;
   const def = MODES[mode];
-  if (!def) return;
+  if (!def) { send('llm:error', { message: 'Unknown answer mode.' }); return; }
+
+  const explicit = typeof userText === 'string' ? userText.trim() : '';
+  const liveMode = mode === 'say' || mode === 'assist';
+  const resolved = liveMode || mode === 'answerThis' ? questionResolver.resolveForSubmit() : null;
+  const lastSpeech = transcript.filter(t => t.channel === 'them').at(-1);
+  const lastQuestion = conversation.recent.at(-1)?.question || '';
+  const question = mode === 'leetcode' ? '请解决当前屏幕上的技术题'
+    : explicit || (liveMode || mode === 'answerThis' ? (resolved?.text || '') : (lastQuestion || lastSpeech?.text || ''));
+
+  if (state.busy) {
+    send('status', { message: '当前回答仍在生成；请等待本轮完成或清空会话后再提交。' });
+    return;
+  }
+
+  if (!question && liveMode) {
+    const pending = resolved?.pendingText || '';
+    const message = pending
+      ? `最新发言还没说完整（${pending.slice(0, 32)}${pending.length > 32 ? '…' : ''}），已避免把半句话当成新问题。`
+      : (resolved?.awaitingText ? '最新发言还在识别，请看到完整问题后再按 Ctrl+Enter。' : '还没有识别到新的完整面试问题。');
+    send('status', { message });
+    return;
+  }
+
+  // For live answering, the resolver has already decided which interviewer
+  // fragments belong to the answer target. Do not leak a trailing incomplete
+  // ASR fragment back into the prompt through raw transcript history. Candidate
+  // speech is kept for genuine follow-up context; the confirmed question is
+  // inserted below by withCurrentQuestion().
+  let freshTranscript = ['recap', 'followup'].includes(mode) ? transcript
+    : transcript.filter(t => t.ts > conversation.lastStartedAt);
+  if (liveMode) {
+    freshTranscript = isLikelyFollowUp(question)
+      ? freshTranscript.filter(t => t.channel === 'you').slice(-4)
+      : [];
+  }
+  const contextTranscript = withCurrentQuestion(freshTranscript, question);
+  const timing = replyLatency.start(mode, question);
+  const generation = { id: timing.requestId, controller: new AbortController(), epoch: conversation.epoch };
+  activeGeneration = generation;
   state.busy = true;
-  let streamSettled = false; // drop stray tokens from a stream we've already abandoned
+  let streamSettled = false;
+  const owned = () => activeGeneration === generation && conversation.epoch === generation.epoch;
+  const emit = (channel, data) => { if (owned()) send(channel, { ...data, requestId: generation.id }); };
   try {
     const settings = store.getSettings();
     const llm = createLLM(settings);
-    const userBubble = def.userBubble !== null
-      ? def.userBubble
-      : (mode === 'ask' ? userText : mode === 'answerThis' ? `"${(userText || '').slice(0, 60)}${userText && userText.length > 60 ? '…' : ''}"` : null);
-    const category = mode !== 'leetcode' ? detectCategory(transcript) : null;
-    send('llm:start', { userBubble, small: !!def.small, category });
-
-    if (!llm.ready) {
-      const message = llm.configurationError || ('Complete the ' + settings.provider + ' provider settings. Model: ' + (llm.model || 'unset') + '.');
-      send('llm:error', { message });
-      return;
-    }
+    const userBubble = def.userBubble !== null ? def.userBubble
+      : (mode === 'ask' || mode === 'answerThis' ? question : null);
+    emit('llm:start', { userBubble, small: !!def.small,
+      category: mode !== 'leetcode' ? detectCategory(contextTranscript) : null });
+    if (!llm.ready) throw new Error(llm.configurationError || 'Complete the model settings.');
+    if (!question && ['ask', 'say', 'answerThis'].includes(mode)) throw new Error('请先输入问题或等待识别到面试官发言。');
+    const request = conversation.begin({ mode, question, transcript: contextTranscript,
+      settings, catalog: getProjectCatalog() });
 
     let imageDataUrl = null;
-    if (def.needsScreen) {
+    const screenStarted = performance.now();
+    if (shouldCaptureScreen(mode, question)) {
       try {
         imageDataUrl = await captureScreenshot();
         if (!imageDataUrl) throw new Error('No screen source was available.');
-      }
-      catch (e) {
-        recordEvent({ level: 'error', event: 'screen_capture_failed', msg: e && e.message ? e.message : String(e), frame: 'captureScreenshot', context: { mode } });
-        const message = process.platform === 'darwin'
-          ? 'Screen capture needs permission — grant Screen Recording to cue in System Settings.'
-          : process.platform === 'win32'
-            ? 'Screen capture failed. Make sure cue is not blocked by Windows privacy or security software, then try again.'
-            : 'Screen capture failed. Check your desktop capture permissions, then try again.';
-        send('status', { message });
+      } catch (e) {
+        if (!owned()) return;
+        recordEvent({ level: 'error', event: 'screen_capture_failed', msg: e.message, frame: 'captureScreenshot', context: { mode } });
+        // A screen-only question cannot be answered from an old screenshot/history.
+        throw new Error('屏幕截图失败，请检查屏幕录制权限后重试。');
       }
     }
+    if (!owned()) return;
+    const screenMs = performance.now() - screenStarted;
+    const contextStarted = performance.now();
+    const contextBlock = buildInterviewContext(settings, mode, contextTranscript,
+      { requestId: timing.requestId, projectPlan: request.plan, smart: !!settings.smart });
+    const system = def.buildSystem ? def.buildSystem(contextBlock, settings.aiRules || '') : (def.system || '');
+    const built = def.build({ transcript: contextTranscript, userText: question });
+    // A fresh screen task stands on its own; its answer is still available to
+    // subsequent manual follow-ups. No previous screenshot bytes are retained.
+    const history = mode === 'leetcode' ? [] : request.turns;
+    const memory = mode === 'leetcode' ? '' : request.memory;
+    const topic = mode !== 'leetcode' && request.plan.anchor && request.plan.anchor !== question
+      ? '=== 当前话题起点（历史用户发言，仅用于理解指代） ===\n' + request.plan.anchor : '';
+    const current = [topic, memory, built].filter(Boolean).join('\n\n');
+    const turns = [...history, { role: 'user', text: current }];
+    const requestSent = performance.now();
+    console.log('[latency][prompt] ' + JSON.stringify({ requestId: timing.requestId, mode,
+      screenMs: +screenMs.toFixed(2), contextMs: +(requestSent - contextStarted).toFixed(2),
+      promptChars: system.length + turns.reduce((n, t) => n + t.text.length, 0), systemChars: system.length,
+      hasImage: !!imageDataUrl, ...request.stats, prepareMs: +(requestSent - timing.started).toFixed(2) }));
 
-    const settingsForPrompt = store.getSettings();
-    const contextBlock = buildInterviewContext(settingsForPrompt, mode, transcript);
-    const system = def.buildSystem ? def.buildSystem(contextBlock, settingsForPrompt.aiRules || '') : (def.system || '');
-    const built = def.build({ transcript, userText: userText || '' });
-
-    // Watchdog: a provider that stalls mid-stream would otherwise hang the await forever,
-    // leaving state.busy = true and wedging every later question until an app restart.
     let watchdog = null;
+    let deadline = null;
+    let abortListener = null;
     let rearm = () => {};
-    const stalled = new Promise((_res, reject) => {
+    let answer = '';
+    const stopped = new Promise((_resolve, reject) => {
+      const stop = message => {
+        reject(new Error(message));
+        generation.controller.abort();
+      };
+      abortListener = () => reject(new Error('回答已取消。'));
+      generation.controller.signal.addEventListener('abort', abortListener, { once: true });
       rearm = () => {
         clearTimeout(watchdog);
-        watchdog = setTimeout(() => reject(new Error('the model stopped responding (timed out). Please try again.')), STREAM_INACTIVITY_MS);
+        watchdog = setTimeout(() => stop('模型超过 25 秒没有返回数据，请重试。'), STREAM_INACTIVITY_MS);
       };
       rearm();
+      deadline = setTimeout(() => stop('本轮生成超过 180 秒，已停止；请缩小问题范围后重试。'), 180000);
     });
     try {
-      await Promise.race([
-        llm.stream({
-          system,
-          turns: [{ role: 'user', text: built }],
-          imageDataUrl,
-          onToken: (t) => { if (streamSettled) return; rearm(); send('llm:token', { text: t }); }
-        }),
-        stalled
+      const result = await Promise.race([
+        llm.stream({ system, turns, imageDataUrl, signal: generation.controller.signal,
+          onActivity: () => { if (owned() && !streamSettled && !generation.controller.signal.aborted) rearm(); },
+          onToken: text => {
+            if (!owned() || streamSettled || generation.controller.signal.aborted || !text) return;
+            answer += text;
+            timing.firstToken(requestSent);
+            rearm();
+            emit('llm:token', { text });
+          }
+        }), stopped
       ]);
+      if (!owned() || generation.controller.signal.aborted) return;
+      if (!answer.trim() && typeof result === 'string' && result.trim()) {
+        answer = result;
+        emit('llm:token', { text: answer });
+      }
+      if (!answer.trim()) throw new Error('模型没有返回正文，请检查模型与思考模式设置后重试。');
+      const committed = conversation.commit(request, answer);
+      if (committed && liveMode && resolved?.text === question) questionResolver.markSubmitted(resolved);
     } finally {
       streamSettled = true;
       clearTimeout(watchdog);
+      clearTimeout(deadline);
+      if (abortListener) generation.controller.signal.removeEventListener('abort', abortListener);
     }
-    send('llm:done', {});
+    console.log('[latency][reply] ' + JSON.stringify({ requestId: timing.requestId, mode, doneMs: +(performance.now() - timing.started).toFixed(2) }));
+    emit('llm:done', {});
   } catch (e) {
-    recordEvent({ level: 'error', event: 'llm_failed', msg: e && e.message ? e.message : String(e), frame: 'runFeature', context: { mode, provider: store.getSettings().provider } });
-    send('llm:error', { message: e && e.message ? e.message : String(e) });
+    if (owned()) {
+      recordEvent({ level: 'error', event: 'llm_failed', msg: e?.message || String(e), frame: 'runFeature', context: { mode, provider: store.getSettings().provider } });
+      emit('llm:error', { message: e?.message || String(e) });
+    }
   } finally {
     streamSettled = true;
-    state.busy = false;
+    if (activeGeneration === generation) { activeGeneration = null; state.busy = false; }
   }
 }
 
@@ -759,10 +893,19 @@ ipcMain.handle('platform:info', () => ({
   winSupportsContentProtection: WIN_SUPPORTS_CONTENT_PROTECTION
 }));
 ipcMain.handle('transcript:clear', () => {
+  const previous = activeGeneration;
+  activeGeneration = null;
+  if (previous) previous.controller.abort();
+  state.busy = false;
+  conversation.reset();
+  questionResolver.reset();
+  transcriptDeduper.reset();
+  if (previous) send('llm:done', { requestId: previous.id, canceled: true });
   transcript.splice(0, transcript.length);
+  replyLatency.reset();
   return { ok: true };
 });
-ipcMain.on('ask', (_e, payload) => runFeature(payload.mode, payload.text));
+ipcMain.on('ask', (_e, payload) => runFeature(payload?.mode, payload?.text));
 ipcMain.on('mic:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('you', arrayBuffer); });
 ipcMain.on('system:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('them', arrayBuffer); });
 ipcMain.on('mouse:ignore', (_e, v) => { if (win) win.setIgnoreMouseEvents(!!v, { forward: true }); });

@@ -2,6 +2,10 @@
 // 面向中文技术面试的上下文路由：优先识别“当前面试官问题”，
 // 只有明显追问时才借用前几轮 interviewer 上下文。
 
+const { buildProjectContext } = require('./project-context');
+const { selectRelevantText } = require('./conversation-memory');
+const { selectManualProjectCards } = require('./project-profile');
+
 const CATEGORY_PATTERNS = {
   project: [
     /项目.*(架构|难点|职责|技术选型|为什么|怎么做|怎么实现|性能|优化|故障|压测|qps|延迟|一致性|高可用|扩容|复盘)/i,
@@ -168,10 +172,10 @@ function buildJDBlock(jd, limit = 800) {
   return '=== 目标岗位 / JD ===\n' + clip(jd.trim().replace(/\s+/g, ' '), limit);
 }
 
-function buildInterviewContext(settings, mode, transcript) {
+function buildCandidateContext(settings, mode, transcript, projectRelevant = false, query = '') {
   if (mode === 'leetcode') return null;
 
-  const category = detectCategory(transcript || []);
+  const category = projectRelevant ? 'project' : detectCategory(transcript || []);
   const resume = settings.resumeText || '';
   const project = settings.projectKnowledge || '';
   const jd = settings.jobDescription || '';
@@ -188,38 +192,26 @@ function buildInterviewContext(settings, mode, transcript) {
   const hasJD = jd.trim().length > 0;
   const blocks = [];
 
-  if (category === 'project' && hasProject) {
+  const realtime = ['say', 'answerThis', 'assist', 'ask'].includes(mode);
+  if ((projectRelevant || (!realtime && category === 'project')) && hasProject) {
+    const projectLimit = realtime ? 1800 : 3000;
+    const selected = selectManualProjectCards(project.trim(), query, projectLimit) ||
+      selectRelevantText(project.trim(), query, projectLimit);
     blocks.push(
-      '=== 项目知识文档（项目深挖最高优先级事实源） ===\n' +
-      clip(project.trim(), 4600) +
+      '=== 项目 Interview Cards（用户提供的项目事实与个人职责） ===\n' + selected +
       '\n\n规则：只能把这里明确写出的内容当作候选人的真实项目事实。不要擅自补数字、组件、职责或故障。'
     );
   }
 
   if (hasResume) {
-    // Realtime technical/general questions do not need most of the resume.
-    const resumeLimit = ['behavioral', 'experience', 'project'].includes(category) ? 2600 : 1000;
-    const rb = buildResumeBlock(resume, resumeLimit);
+    const relevantResume = ['behavioral', 'experience', 'project', 'motivation'].includes(category) || projectRelevant;
+    const resumeLimit = relevantResume ? (realtime ? 1500 : 2600) : (realtime ? 0 : 850);
+    const rb = resumeLimit ? buildResumeBlock(resume, resumeLimit) : '';
     if (rb) blocks.push('=== 候选人简历 ===\n' + rb);
   }
 
-  // For independent technical questions, project knowledge is only a small
-  // optional grounding block instead of dominating the answer.
-  if (
-    category !== 'project' &&
-    hasProject &&
-    ['technical', 'situational', 'general'].includes(category)
-  ) {
-    const projectLimit = category === 'technical' ? 1000 : 700;
-    blocks.push(
-      '=== 可选项目事实参考 ===\n' +
-      clip(project.trim(), projectLimit) +
-      '\n仅在当前问题确实相关时使用；独立技术题不要为了结合项目而强行引用。'
-    );
-  }
-
-  if (hasJD) {
-    blocks.push(buildJDBlock(jd, category === 'technical' ? 350 : 650));
+  if (hasJD && (!realtime || ['behavioral', 'experience', 'project', 'motivation'].includes(category))) {
+    blocks.push(buildJDBlock(jd, realtime ? 320 : 650));
   }
 
   switch (category) {
@@ -284,6 +276,13 @@ function buildInterviewContext(settings, mode, transcript) {
     : '';
 
   return blocks.join('\n\n') + tailorNote;
+}
+
+function buildInterviewContext(settings, mode, transcript, request = {}) {
+  if (mode === 'leetcode') return null;
+  const { plan, context } = buildProjectContext(transcript, mode, request);
+  const base = buildCandidateContext(settings, mode, transcript, plan.retrieve, plan.query);
+  return [context, base].filter(Boolean).join('\n\n') || null;
 }
 
 function buildResumeContext(resumeText, jobDescription, mode) {

@@ -13,6 +13,7 @@ const {
   dialog
 } = require('electron');
 const projectKnowledge = require('./project-knowledge');
+const { buildPrefetchQuery } = require('./project-query');
 
 let lastManualQuestion = '';
 let lastManualQuestionAt = 0;
@@ -227,12 +228,16 @@ ipcMain.handle('project:index-clear', async () => {
   return { ok: true, state };
 });
 
-ipcMain.on('project:prefetch', (_event, query) => {
-  const text = typeof query === 'string' ? query.trim() : '';
-  if (text.length < 4) return;
+ipcMain.on('project:prefetch', (_event, payload) => {
+  // renderer sends { text, previous }. Older builds sent a bare string; accept
+  // both so the prefetch path is actually live instead of silently discarding
+  // every object payload.
+  const query = buildPrefetchQuery(payload);
+  if (query.length < 4) return;
+
   setImmediate(() => {
     const started = Date.now();
-    projectKnowledge.prefetchProjectKnowledge(text, {
+    projectKnowledge.prefetchProjectKnowledge(query, {
       limit: 4,
       maxChars: 2800,
       minScore: 3.2
@@ -251,10 +256,11 @@ try {
 } finally {
   restoreModuleLoader();
 }
-console.log('[cue][turbo] safe hotfix active: RAG prefetch + interim fast lane + Qwen low-latency; source rewriting disabled.');
+console.log('[cue][turbo] safe hotfix active: RAG prefetch + resolved-question fast lane + Qwen low-latency; source rewriting disabled.');
 
-// Capture manually typed questions and provisional STT questions before main.js
-// handles the same IPC event, so project retrieval can use them immediately.
+// Capture explicit renderer questions before main.js handles the same IPC event,
+// so project retrieval can use manually supplied/confirmed text immediately. Live
+// interim STT is intentionally not promoted to payload.text anymore.
 ipcMain.prependListener('ask', (_event, payload = {}) => {
   const text = typeof payload.text === 'string' ? payload.text.trim() : '';
   if (!text) {

@@ -39,7 +39,10 @@ const BASE_TECH_TERMS = [
   'REST API', 'gRPC', 'HTTP', 'WebSocket',
   'microservices', 'distributed system', 'CAP', 'MVCC',
   'CI/CD', 'GitHub Actions', 'GitLab',
-  'RAG', 'Agent', 'LLM', 'MCP', 'LangChain'
+  'RAG', 'Agent', 'LLM', 'MCP', 'LangChain', 'LangGraph',
+  'BM25', 'FAISS', 'RRF', 'AST', 'Embedding', 'FastAPI', 'SQLAlchemy', 'SSE', 'CLI',
+  'JPEG', 'DCT', 'DWT', 'MDS', 'RMM', 'UERD', 'J-UNIWARD', 'TCSweighted', 'bpnzac',
+  'RepoPilot', 'Function Call', 'React'
 ];
 
 function isAlibabaModelStudioUrl(raw) {
@@ -142,7 +145,7 @@ function resolveQwenAsrConfig(settings = {}) {
     apiKey,
     websocketUrl,
     model: String(qwen.model || DEFAULT_QWEN_ASR_MODEL).trim(),
-    language: qwen.language || 'auto',
+    language: qwen.language && qwen.language !== 'auto' ? qwen.language : (settings.sttLanguage || 'auto'),
     // Low-latency defaults. Advanced users can still override them by editing
     // qwenAsr settings programmatically later without another provider rewrite.
     semanticPunctuationEnabled: qwen.semanticPunctuationEnabled === true,
@@ -397,7 +400,10 @@ class QwenStreamingSTT {
     if (event.type === 'interim') {
       if (event.text) {
         this._lastInterimAt = Date.now();
-        this.onInterim(event.text);
+        this.onInterim(event.text, {
+          utteranceKey: event.sentenceId == null ? undefined : `${this.taskId}:${event.sentenceId}`,
+          utteranceOrder: event.sentenceId == null ? undefined : Number(event.sentenceId)
+        });
       }
       return;
     }
@@ -418,8 +424,12 @@ class QwenStreamingSTT {
         console.log(`[latency][qwen-asr] final_after_last_interim=${finalAt - this._lastInterimAt}ms`);
       }
       this._lastInterimAt = 0;
-      this.onInterim('');
-      this.onTranscript(event.text);
+      const meta = {
+        utteranceKey: event.sentenceId == null ? undefined : `${this.taskId}:${event.sentenceId}`,
+        utteranceOrder: event.sentenceId == null ? undefined : Number(event.sentenceId)
+      };
+      this.onInterim('', meta);
+      this.onTranscript(event.text, meta);
       return;
     }
 

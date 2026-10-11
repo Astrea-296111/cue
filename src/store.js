@@ -10,6 +10,8 @@ const MAX_AI_RULES_CHARS = 2000;
 const DEFAULTS = {
   provider: 'openai',
   sttProvider: 'auto',
+  // Cloud STT language hint: auto | zh | en. 'auto' omits provider-specific hard hints where possible.
+  sttLanguage: 'auto',
   localWhisper: { modelId: 'small', language: 'zh', threads: 0 },
   smart: false,
   baseUrl: '',

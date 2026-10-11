@@ -143,7 +143,7 @@ function appendTruncationNotice(onToken) {
   onToken('\n\n⚠️ 输出达到模型长度上限。可以再次触发“解决屏幕上的技术题”，或要求“从刚才中断处继续”。');
 }
 
-async function streamOpenAI({ apiKey, baseURL, model, system, turns, imageDataUrl, maxTokens, onToken }) {
+async function streamOpenAI({ apiKey, baseURL, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity }) {
   const OpenAI = require('openai');
   const client = new OpenAI(baseURL ? { apiKey, baseURL } : { apiKey });
   const messages = [{ role: 'system', content: system }];
@@ -176,11 +176,13 @@ const stream = await client.chat.completions.create({
             reasoning_effort: 'none'
         }
         : {})
-});
+}, { signal });
 
   let full = '';
   let finishReason = null;
   for await (const part of stream) {
+    if (signal?.aborted) throw new Error('回答已取消。');
+    if (typeof onActivity === 'function') onActivity();
     const choice = part.choices && part.choices[0];
     const delta = choice && choice.delta && choice.delta.content;
     if (delta) {
@@ -205,7 +207,7 @@ function normalizeAzureBaseURL(raw) {
   return url;
 }
 
-async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, endpoint }) {
+async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, endpoint, signal, onActivity }) {
   const url = normalizeAzureBaseURL(endpoint);
   if (!url) {
     throw new Error('Missing Azure endpoint. Add your Azure AI Foundry or Azure OpenAI endpoint in Settings.');
@@ -250,11 +252,13 @@ async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxToke
     messages,
     stream: true,
     max_completion_tokens: maxTokens
-  });
+  }, { signal });
 
   let full = '';
   let finishReason = null;
   for await (const part of stream) {
+    if (signal?.aborted) throw new Error('回答已取消。');
+    if (typeof onActivity === 'function') onActivity();
     const choice = part.choices && part.choices[0];
     const delta = choice && choice.delta && choice.delta.content;
     if (delta) {
@@ -267,7 +271,7 @@ async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxToke
   return full;
 }
 
-async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken }) {
+async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity }) {
   const Anthropic = require('@anthropic-ai/sdk');
   const client = new Anthropic({ apiKey });
 
@@ -298,11 +302,13 @@ async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, max
     system,
     messages,
     stream: true
-  });
+  }, { signal });
 
   let full = '';
   let stopReason = null;
   for await (const event of stream) {
+    if (signal?.aborted) throw new Error('回答已取消。');
+    if (typeof onActivity === 'function') onActivity();
     if (
       event.type === 'content_block_delta' &&
       event.delta &&
@@ -319,7 +325,7 @@ async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, max
   return full;
 }
 
-async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken }) {
+async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity }) {
   const { GoogleGenAI } = require('@google/genai');
   const ai = new GoogleGenAI({ apiKey });
 
@@ -343,13 +349,16 @@ async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTok
     contents,
     config: {
       systemInstruction: system,
-      maxOutputTokens: maxTokens
+      maxOutputTokens: maxTokens,
+      abortSignal: signal
     }
   });
 
   let full = '';
   let finishReason = null;
   for await (const chunk of stream) {
+    if (signal?.aborted) throw new Error('回答已取消。');
+    if (typeof onActivity === 'function') onActivity();
     const text = chunk && chunk.text;
     if (text) {
       full += text;
@@ -364,7 +373,7 @@ async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTok
   return full;
 }
 
-async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken }) {
+async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity }) {
   const baseUrl = apiKey || 'http://localhost:11434';
   const url = `${baseUrl.replace(/\/$/, '')}/api/chat`;
   const messages = [{ role: 'system', content: system }];
@@ -387,6 +396,7 @@ async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTok
   try {
     response = await fetch(url, {
       method: 'POST',
+      signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model,
@@ -407,6 +417,8 @@ async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTok
   let full = '';
   let buffer = '';
   for await (const chunk of response.body) {
+    if (signal?.aborted) throw new Error('回答已取消。');
+    if (typeof onActivity === 'function') onActivity();
     buffer += decoder.decode(chunk, { stream: true });
     const lines = buffer.split('\n');
     buffer = lines.pop();
