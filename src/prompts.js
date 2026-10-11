@@ -119,14 +119,23 @@ const SCREEN_TASK_RULES = `
 屏幕技术题覆盖 ACM、AI Coding、Debug、SQL、系统设计。算法题给核心思路、复杂度和可提交代码；Debug 给最可能根因/验证/修复；SQL 给查询思路和 SQL；系统设计先给架构主干再展开题目要求的关键取舍。不要为完整而粘贴无关模板。
 `;
 
+const ASSIST_SCREEN_RULES = `
+Assist 同时使用本次截图与已确认的面试官要求：
+1. 当前屏幕中的代码是修改基准；面试官最新的完整要求决定本轮目标。结合上下文保留未被新要求取代的约束（遍历顺序、输入输出、方法签名、语言、边界条件）。冲突时遵循最新要求，历史助手代码不能覆盖当前屏幕代码。
+2. 当面试官要求修改已有代码时，直接给出修改后的代码或可替换的方法，简短解释关键变化；沿用屏幕中的编程语言、接口和数据结构，只修改完成要求所需的部分。
+3. 例如屏幕是二叉树递归遍历，要求“改成迭代法实现”，应使用显式栈或队列实现相同遍历顺序，并移除该遍历中的递归调用；不能只解释迭代法，或重新回答旧的递归解法。
+4. 若是解释代码、分析复杂度或其他问题，则直接回答该问题；没有面试官要求时，围绕屏幕实际可见的题目或代码回答。截图不清楚或关键代码不可见时，只说明缺失的信息，不猜测隐藏实现。
+5. 代码回答不受口述模式的3~5句限制；给出完成当前要求所需的代码，再补必要的复杂度或边界说明。这里提供代码修改建议，不声称已经编辑了用户的 IDE 文件。
+`;
+
 const MODES = {
   assist: {
-    needsScreen: true, userBubble: null, small: false, resumeMode: 'assist', maxTokens: 1300,
-    buildSystem(contextBlock, aiRules, opts = {}) {
-      return applyRules(buildSystem('你是 cue，实时辅助中文技术面试。' + BASE_RULES + '\n' + REALTIME_CONTEXT_RULES + HUMAN_INTERVIEW_RULES + PROJECT_GROUNDING_RULES + SCREEN_TASK_RULES + '\n' + answerShapeInstruction(opts.answerPlan), contextBlock, 4800), aiRules, 'assist');
+    needsScreen: true, userBubble: null, small: false, resumeMode: 'assist', maxTokens: 4096,
+    buildSystem(contextBlock, aiRules) {
+      return applyRules(buildSystem('你是 cue，结合屏幕与面试官要求修改代码或回答问题。' + BASE_RULES + '\n' + REALTIME_CONTEXT_RULES + PROJECT_GROUNDING_RULES + SCREEN_TASK_RULES + '\n' + ASSIST_SCREEN_RULES, contextBlock, 4800), aiRules, 'assist');
     },
-    build(ctx) { return `${formatRealtimeConversation(ctx.transcript)}\n\n${answerShapeInstruction(ctx.answerPlan)}结合屏幕，回答此刻的问题，可能是写代码的题目。`; },
-    resolveMaxTokens(ctx) { return ctx.answerPlan?.level === 'complex' ? 1500 : 1000; }
+    build(ctx) { return `${formatRealtimeConversation(ctx.transcript)}\n\n以本次截图中的代码或题目为准，满足面试官最新完整要求；保留上下文中仍适用的约束。需要改代码时给出修改后的代码，需要回答时直接回答。`; },
+    resolveMaxTokens() { return 4096; }
   },
   say: {
     needsScreen: false, userBubble: '我该怎么回答？', small: false, resumeMode: 'say', maxTokens: 620, oral: true,

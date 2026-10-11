@@ -10,16 +10,17 @@ const OVERVIEW = /(?:介绍|讲讲|说说|概述).{0,10}(?:项目|系统|架构)
 const SPECIFIC = /幂等|回调|重试|限流|熔断|一致性|死锁|事务|缓存|支付|具体实现|\b(?:retry|idempotenc\w*|callback|cache|circuit|transaction)\b/i;
 const CODE_SYMBOL = /\b(?:[A-Z][a-z0-9]+){2,}\b|\b[a-z]+(?:[A-Z][a-z0-9]+)+\b|\b[a-z]+_[a-z_]+\b/;
 const { resolveResumeProject } = require('./resume-project-resolver');
+const { isCodeChangeRequest } = require('./question-resolver');
 
 const TOPIC_SWITCH = /换个|换一(?:个|道)|下一个问题|接下来.{0,5}(?:聊|讲|问)|不聊|先不说|新话题|\b(?:new topic|next question|switch to)\b/i;
-const GENERIC_QUESTION = /^(?:(?:那|那么|再|请|你)(?:就|给我)?\s*)?(?:什么是|介绍(?:一下)?|讲讲|说说|讲一下|解释(?:一下)?).{0,10}(?:redis|mysql|java|jvm|gc\b|hashmap|线程|事务|索引|spring|kafka|goroutine|channel|gmp\b|http|tcp|操作系统|计算机网络)|^(?:redis|mysql|java|jvm|spring|hashmap|线程|事务|索引|kafka|http|tcp).{0,18}(?:是什么|有哪些|有几种|哪些|支持什么|的区别|有什么区别|数据结构|数据类型|底层原理)|^(?:what is|explain|tell me about)\s+(?:redis|mysql|java|http|tcp|hashmap)\b/i;
+const GENERIC_QUESTION = /^(?:(?:那|那么|再|请|你)(?:就|给我)?\s*)?(?:什么是|介绍(?:一下)?|讲讲|说说|讲一下|解释(?:一下)?).{0,10}(?:redis|mysql|java|jvm|gc\b|hashmap|线程|事务|索引|spring|kafka|goroutine|channel|gmp\b|http|tcp|操作系统|计算机网络)|^(?:redis|mysql|java|jvm|spring|hashmap|线程|事务|索引|kafka|http|tcp).{0,18}(?:是什么|有哪些|有几种|哪些|支持什么|的区别|有什么区别|数据结构|数据类型|底层原理|为什么快|为何快)|^(?:what is|explain|tell me about)\s+(?:redis|mysql|java|http|tcp|hashmap)\b/i;
 const CLEAR_NON_PROJECT = /自我介绍|为什么(?:投|选择|想来|申请)|职业规划|期望薪资|薪资|多久(?:能|可以)到岗|什么时候到岗|你的优点|你的缺点|优势是什么|缺点是什么|为什么离职|学校|专业|研究方向|算法题|leetcode|手撕|写(?:一段|个)?代码|反问|还有什么想问|\b(?:tell me about yourself|career goals|salary|compensation|why this company|why this role|leetcode)\b/i;
 const NEW_UNNAMED_PROJECT = /另一个项目|另外一个项目|下一个项目|换个项目|换一个项目/i;
 
 function isLikelyFollowUp(text) {
   const value = String(text || '').trim();
   if (!value || TOPIC_SWITCH.test(value)) return false;
-  if (REFERENTIAL.test(value) || SHORT_FOLLOWUP.test(value) || PROJECT_CONTINUATION.test(value)) return true;
+  if (REFERENTIAL.test(value) || SHORT_FOLLOWUP.test(value) || PROJECT_CONTINUATION.test(value) || isCodeChangeRequest(value)) return true;
   const explicitTechnicalQuestion = GENERIC_QUESTION.test(value) ||
     /(?:redis|mysql|java|jvm|hashmap|spring|kafka|goroutine|http|tcp|线程).{0,20}(?:数据类型|数据结构|几种|哪些|支持什么|线程状态|底层原理|区别|是什么|定义)/i.test(value);
   if (explicitTechnicalQuestion && !PROJECT_REFERENCE.test(value)) return false;
@@ -76,6 +77,7 @@ function hasBoundedAlias(text, alias) {
 }
 
 function resolveProjects(text, catalog) {
+  text = String(text || '').replace(/\bagent\s+项目/gi, 'agent项目');
   const resumeProject = resolveResumeProject(text);
   const validResumeReference = resumeProject && (resumeProject.aliases || []).some(alias => hasBoundedAlias(text, alias));
   return validResumeReference ? matchResumeProjectToCatalog(resumeProject, catalog) : namedProjects(text, catalog);
@@ -120,6 +122,10 @@ function activeSnapshot(plan) {
   return null;
 }
 
+function sameProjectScopes(left = [], right = []) {
+  return left.length > 0 && left.length === right.length && left.every(scope => right.includes(scope));
+}
+
 function isClearProjectExit(text) {
   const value = String(text || '').trim();
   if (!value) return false;
@@ -137,6 +143,8 @@ function planProjectRetrieval(transcript, mode = 'say', options = {}) {
   const catalog = options.catalog || [];
   let previous = options.previousPlan || null;
   let activeProject = activeSnapshot(options.activeProjectPlan) || activeSnapshot(previous);
+  const previousProject = activeProject;
+  let explicitlyResolved = false;
 
   for (const turn of turns) {
     const current = String(turn.text || '').trim().slice(0, 1200);
@@ -150,6 +158,7 @@ function planProjectRetrieval(transcript, mode = 'say', options = {}) {
 
     if (newUnnamedProject) activeProject = null;
     if (named.length) {
+      explicitlyResolved = true;
       activeProject = {
         scopes: named.map(project => project.prefix),
         anchor: current.slice(0, 500),
@@ -223,6 +232,9 @@ function planProjectRetrieval(transcript, mode = 'say', options = {}) {
     reason: 'no-question',
     overview: false
   };
+  plan.previousProject = previousProject;
+  plan.projectSwitched = !!previousProject && explicitlyResolved && !!plan.activeProject &&
+    !sameProjectScopes(previousProject.scopes, plan.activeProject.scopes);
   if ((plan.reason === 'project-followup' || plan.reason === 'active-project-followup') && options.answerHint &&
       /第.{0,3}点|后.{0,3}种|前.{0,3}种|那个|这个|继续|展开|你提到|你说/.test(text)) {
     plan.query = (plan.query + '\n上轮回答中的检索线索：\n' + String(options.answerHint).slice(0, 400)).slice(0, 1800);
@@ -237,5 +249,6 @@ module.exports = {
   namedProjects,
   buildPrefetchQuery,
   directProjectQuestion,
-  isClearProjectExit
+  isClearProjectExit,
+  sameProjectScopes
 };

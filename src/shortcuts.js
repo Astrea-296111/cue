@@ -4,8 +4,8 @@
 const DEFAULTS = {
   // What should I say? — recent conversation, no screenshot.
   say: 'CommandOrControl+Return',
-  // Assist — conversation + current screen. "?" is Shift+/ on standard keyboards.
-  assist: 'CommandOrControl+Shift+/',
+  // Assist — current screen + interviewer requirements (Ctrl+? remains an alias).
+  assist: 'CommandOrControl+Shift+Return',
   leetcode: 'CommandOrControl+H',
   quit: 'CommandOrControl+Shift+X',
   hide: 'CommandOrControl+Shift+H',

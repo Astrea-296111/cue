@@ -1,7 +1,7 @@
 'use strict';
 
 const { tokenize } = require('./project-search');
-const { planProjectRetrieval, isLikelyFollowUp } = require('./project-query');
+const { planProjectRetrieval, isLikelyFollowUp, sameProjectScopes } = require('./project-query');
 
 const ANSWER_MODES = new Set(['ask', 'say', 'assist', 'answerThis', 'leetcode']);
 const REFERENTIAL_FOLLOWUP = /刚才|前面|上一个|回到|这段|这个解法|这道题|这个实现|第[一二三四五六七八九十\d]+|后[一二三四五六七八九十\d]+|你提到|你说的|这个|那个|继续|展开|为什么这样|怎么保证|what about|you mentioned|the second|the last/i;
@@ -51,6 +51,7 @@ function selectRelevantText(text, query, limit = 2200) {
 }
 
 function contextPolicy(mode, question, hasHistory, plan = null) {
+  if (plan?.projectSwitched) return 'project-switch';
   if (mode === 'recap' || mode === 'followup') return 'broad';
   if (!hasHistory) return 'independent';
   // A positively detected topic exit must not drag the previous project answer
@@ -94,16 +95,17 @@ class ConversationMemory {
     });
     const policy = contextPolicy(mode, current, this.recent.length + this.archive.length > 0, plan);
     const configured = Number(settings.conversationContextChars);
-    const defaultBudget = policy === 'independent' ? 0
+    const isolated = policy === 'independent' || policy === 'project-switch';
+    const defaultBudget = isolated ? 0
       : policy === 'followup' ? (settings.smart ? 9000 : 6000)
         : policy === 'referential' ? (settings.smart ? 14000 : 9000)
           : (settings.smart ? 32000 : 20000);
-    const budget = policy === 'independent' ? 0
+    const budget = isolated ? 0
       : Number.isFinite(configured) && configured >= 4000
         ? Math.min(48000, Math.floor(configured), Math.max(defaultBudget, 4000))
         : defaultBudget;
     const snapshot = this.buildHistory(current, plan, budget, policy);
-    const spokenContext = excerpt(transcript.filter(t => t.channel === 'you' && t.ts > this.lastStartedAt)
+    const spokenContext = plan.projectSwitched ? '' : excerpt(transcript.filter(t => t.channel === 'you' && t.ts > this.lastStartedAt)
       .map(t => clean(t.text)).filter(Boolean).join('\n'), 1400);
     return { epoch: this.epoch, id: ++this.sequence, startedAt, mode, question: current,
       plan, policy, spokenContext, ...snapshot };
@@ -112,7 +114,7 @@ class ConversationMemory {
   buildHistory(question, plan, budget, policy = 'independent') {
     // Critical realtime rule: an independent question gets zero previous assistant
     // answers. This prevents answer inertia/error propagation and trims TTFT.
-    if (policy === 'independent' || budget <= 0) {
+    if (policy === 'independent' || policy === 'project-switch' || budget <= 0) {
       return { turns: [], memory: '', stats: { policy, recentPairs: 0, recalledPairs: 0,
         storedPairs: this.recent.length + this.archive.length, historyChars: 0, budget: 0 } };
     }
@@ -121,8 +123,13 @@ class ConversationMemory {
     const historyBudget = Math.floor(budget * (policy === 'broad' ? 0.72 : 0.82));
     let used = 0;
     const chosen = [];
+    // Keep project follow-ups inside their identity even after an explicit switch
+    // or a generic technical interlude. Retain all entries for broad recap modes.
+    const sameThread = entry => policy === 'broad' || !plan.retrieve || !plan.scopes?.length ||
+      (entry.plan?.retrieve && sameProjectScopes(plan.scopes, entry.plan.scopes));
     for (let i = this.recent.length - 1; i >= 0 && chosen.length < maxRecent; i--) {
       const entry = this.recent[i];
+      if (!sameThread(entry)) continue;
       const size = userMessage(entry).length + entry.answer.length;
       if (size + used > historyBudget) {
         if (!chosen.length && historyBudget > 200) {
@@ -146,7 +153,7 @@ class ConversationMemory {
     }
 
     const ids = new Set(chosen.map(e => e.id));
-    const older = [...this.archive, ...this.recent.filter(e => !ids.has(e.id))];
+    const older = [...this.archive, ...this.recent.filter(e => !ids.has(e.id))].filter(sameThread);
     const query = `${question}\n${plan.anchor || ''}`;
     const qTerms = terms(query);
     const ranked = older.map(e => {

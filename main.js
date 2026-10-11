@@ -641,14 +641,15 @@ async function runFeature(mode, userText) {
   const lastSpeech = transcript.filter(t => t.channel === 'them').at(-1);
   const lastQuestion = conversation.recent.at(-1)?.question || '';
   const question = mode === 'leetcode' ? '请解决当前屏幕上的技术题'
-    : explicit || (liveMode || mode === 'answerThis' ? (resolved?.text || '') : (lastQuestion || lastSpeech?.text || ''));
+    : explicit || (mode === 'assist' ? (resolved?.text || lastQuestion || '')
+      : liveMode || mode === 'answerThis' ? (resolved?.text || '') : (lastQuestion || lastSpeech?.text || ''));
 
   if (state.busy) {
     send('status', { message: '当前回答仍在生成；请等待本轮完成或清空会话后再提交。' });
     return;
   }
 
-  if (!question && liveMode) {
+  if (!question && mode === 'say') {
     const pending = resolved?.pendingText || '';
     const message = pending
       ? `最新发言还没说完整（${pending.slice(0, 32)}${pending.length > 32 ? '…' : ''}），已避免把半句话当成新问题。`
@@ -745,6 +746,7 @@ async function runFeature(mode, userText) {
     try {
       const result = await Promise.race([
         llm.stream({ system, turns, imageDataUrl, signal: generation.controller.signal,
+          ...(mode === 'assist' ? { maxTokens: def.maxTokens } : {}),
           onActivity: () => { if (owned() && !streamSettled && !generation.controller.signal.aborted) rearm(); },
           onToken: text => {
             if (!owned() || streamSettled || generation.controller.signal.aborted || !text) return;
@@ -952,8 +954,8 @@ ipcMain.on('permissions:continue', async () => {
 
 // -------- shortcuts --------
 function registerShortcuts() {
-  shortcutState.assist = globalShortcut.register('CommandOrControl+Return', () => runFeature('assist', ''));
-  shortcutState.say = globalShortcut.register('CommandOrControl+Shift+Return', () => runFeature('say', ''));
+  shortcutState.assist = globalShortcut.register('CommandOrControl+Shift+Return', () => runFeature('assist', ''));
+  shortcutState.say = globalShortcut.register('CommandOrControl+Return', () => runFeature('say', ''));
   shortcutState.leetcode = globalShortcut.register('CommandOrControl+H', () => runFeature('leetcode', ''));
   shortcutState.hide = globalShortcut.register('CommandOrControl+Shift+/', () => send('hide:toggle', {}));
   shortcutState.quit = globalShortcut.register('CommandOrControl+Shift+X', () => app.quit());

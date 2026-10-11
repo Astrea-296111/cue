@@ -603,11 +603,15 @@
       return;
     }
     if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) { e.preventDefault(); send(); }
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); runMode('say', ''); }
   });
   
   // FIX #13: Global keyboard shortcut for force-answer (Ctrl+Shift+A / Cmd+Shift+A)
   document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      if (!e.repeat) runMode(e.shiftKey ? 'assist' : 'say', '');
+      return;
+    }
     // Ctrl+? / Cmd+?: Assist with recent conversation + current screen.
     // Accept both '?' and '/' because keyboard layouts report this chord differently.
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === '?' || e.key === '/')) {
@@ -2117,7 +2121,7 @@ cue.on(
         { label: 'Open Screen Recording settings', action: () => cue.openPane('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture') }
       ];
   const sayShortcut = isWindows ? '<span class="kbd">Ctrl</span> <span class="kbd">↵</span>' : '<span class="kbd">⌘</span> <span class="kbd">↵</span>';
-  const assistShortcut = isWindows ? '<span class="kbd">Ctrl</span> <span class="kbd">?</span>' : '<span class="kbd">⌘</span> <span class="kbd">?</span>';
+  const assistShortcut = isWindows ? '<span class="kbd">Ctrl</span> <span class="kbd">⇧</span> <span class="kbd">↵</span>' : '<span class="kbd">⌘</span> <span class="kbd">⇧</span> <span class="kbd">↵</span>';
   const solveShortcut = isWindows ? '<span class="kbd">Ctrl</span> <span class="kbd">H</span>' : '<span class="kbd">⌘</span> <span class="kbd">H</span>';
   const quitShortcut = isWindows ? '<span class="kbd">Ctrl</span><span class="kbd">⇧</span><span class="kbd">X</span>' : '<span class="kbd">⌘</span><span class="kbd">⇧</span><span class="kbd">X</span>';
   const OB_STEPS = [
@@ -2146,7 +2150,7 @@ cue.on(
     {
       icon: '✨',
       title: 'You’re all set',
-      body: 'How to use cue:<ul><li>' + sayShortcut + ' — <strong>What should I say?</strong> from the recent conversation</li><li>' + assistShortcut + ' — <strong>Assist</strong> with the recent conversation + current screen</li><li>' + solveShortcut + ' — solve a coding problem on screen</li><li>Click <strong>▢</strong> in the top bar to start listening to a meeting</li><li>Type a question and press <span class="kbd">↵</span></li></ul>Reopen this guide anytime by clicking the <strong>cue logo</strong>. Quit with ' + quitShortcut + '.'
+      body: 'How to use cue:<ul><li>' + assistShortcut + ' or click <strong>Assist</strong> — use the current screen and interviewer requirements to modify code or answer questions (Ctrl/Cmd+? also works)</li><li>' + sayShortcut + ' — <strong>What should I say?</strong> from the recent conversation</li><li>' + solveShortcut + ' — solve a coding problem on screen</li><li>Click <strong>▢</strong> in the top bar to start listening to a meeting</li><li>Type a question and press <span class="kbd">↵</span></li></ul>Reopen this guide anytime by clicking the <strong>cue logo</strong>. Quit with ' + quitShortcut + '.'
     }
   ];
   let obIndex = 0;
@@ -2182,7 +2186,7 @@ cue.on(
     const sayHintEl = document.getElementById('say-shortcut-hint');
     const assistHintEl = document.getElementById('assist-shortcut-hint');
     if (sayHintEl) sayHintEl.textContent = isWindows ? 'Ctrl+↵' : '⌘↵';
-    if (assistHintEl) assistHintEl.textContent = isWindows ? 'Ctrl+?' : '⌘?';
+    if (assistHintEl) assistHintEl.textContent = isWindows ? 'Ctrl+Shift+↵' : '⌘⇧↵';
 
     // R5: prep status
     updatePrepStatus();
@@ -2206,9 +2210,7 @@ cue.on(
     updateSendButtonState(); // Initialize send button state
 
     // Fix placeholder shortcut hint to match platform
-    if (isWindows) {
-      placeholder.innerHTML = 'Ask about your screen or conversation, or <span class="keycap">Ctrl</span><span class="keycap">?</span> for Assist';
-    }
+    placeholder.innerHTML = 'Ask about your screen or conversation, or <span class="keycap">' + (isWindows ? 'Ctrl' : '⌘') + '</span><span class="keycap">⇧</span><span class="keycap">↵</span> for Assist';
 
     const st = await cue.captureState();
     $('#live-dot').classList.toggle('off', !st.active);
