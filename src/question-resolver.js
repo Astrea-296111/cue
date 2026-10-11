@@ -17,6 +17,8 @@ const CONDITION_COMPLETION_RE = /(?:那么|那(?:么)?|就|则|会不会|是不�
 const OPEN_END_RE = /(?:如果|假如|要是|当|假设|比如|例如|但是|不过|然后|因为|所以|或者|以及|关于|对于|通过|基于|至于|还有一个问题|我再问一个|我想问一下|为什么用|怎么用|如何用|怎么做|如何做|怎么实现|如何实现|用|对|在|从|把|让|给|和|与|或)[\s，,。.!！:：-]*$/i;
 const DANGLING_TAIL_RE = /^(?:在|从|对|对于|关于|通过|基于|结合|当|如果|假如|要是|因为|所以|然后|但是|不过|以及|或者|还有|接下来|这个|这次|整个|其中|你在|我们在)(?:[\s\S]{0,12})$/i;
 const IMPERATIVE_QUESTION_RE = /^(?:请)?(?:介绍|讲讲|说说|说一下|解释|解释一下|谈谈|分析|比较|描述|展开|复盘|聊聊|概括|总结一下|walk me through|tell me about|describe|explain)\b/i;
+// Code edits are complete interviewer requirements even without a question mark.
+const CODE_CHANGE_REQUEST_RE = /^(?:(?:那(?:么)?|现在|请|麻烦)\s*)*(?:你)?(?:把.{1,60})?(?:修改|改(?:成|为|用|一下)|换(?:成|用)|重写(?:成)?|替换(?:成)?|增加|添加|加上|补(?:上|充)|保留|去掉|删除|修复|优化).{2,}|^(?:请)?(?:不要|别)(?:再)?用.{1,40}[,，;；]\s*(?:改|换)(?:成|为|用).{2,}/i;
 
 function clean(value) {
   return String(value || '')
@@ -73,9 +75,15 @@ function isLikelyCompleteQuestion(value) {
   const body = compact(text);
   if (!body || isLikelyIncompleteFragment(text)) return false;
   if (hasQuestionMark(text)) return true;
+  if (isCodeChangeRequest(text)) return true;
   if (IMPERATIVE_QUESTION_RE.test(text) && body.length >= 5) return true;
   if (QUESTION_SIGNAL_RE.test(text) && body.length >= 5) return true;
   return false;
+}
+
+function isCodeChangeRequest(value) {
+  const text = clean(value);
+  return !isLikelyIncompleteFragment(text) && CODE_CHANGE_REQUEST_RE.test(text);
 }
 
 function isLikelySupplement(value) {
@@ -430,6 +438,7 @@ module.exports = {
   DEFAULT_LATE_FINAL_GRACE_MS,
   isLikelyIncompleteFragment,
   isLikelyCompleteQuestion,
+  isCodeChangeRequest,
   isLikelySupplement,
   splitTrailingIncompleteClause,
   isSubstantiveCandidateSpeech

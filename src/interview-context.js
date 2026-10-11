@@ -5,6 +5,7 @@
 const { buildProjectContext } = require('./project-context');
 const { selectRelevantText } = require('./conversation-memory');
 const { selectManualProjectCards } = require('./project-profile');
+const { RESUME_PROJECTS, resolveResumeProject } = require('./resume-project-resolver');
 
 const CATEGORY_PATTERNS = {
   project: [
@@ -172,12 +173,44 @@ function buildJDBlock(jd, limit = 800) {
   return '=== 目标岗位 / JD ===\n' + clip(jd.trim().replace(/\s+/g, ' '), limit);
 }
 
-function buildCandidateContext(settings, mode, transcript, projectRelevant = false, query = '') {
+// Select a project block before applying existing size limits. Truncating the
+// whole resume first can leave only the preceding project's facts.
+function selectProjectSection(text, plan) {
+  if (!plan?.retrieve || plan.scopes?.length !== 1) return null;
+  const label = plan.projectLabel || plan.activeProject?.label || '';
+  if (!label) return null;
+  const target = resolveResumeProject(label) || { key: label, name: label, aliases: [label] };
+  const projects = RESUME_PROJECTS.some(project => project.key === target.key)
+    ? RESUME_PROJECTS : [...RESUME_PROJECTS, target];
+  const parts = [];
+  let selected = false, recognized = false;
+  for (const line of String(text || '').replace(/\r\n?/g, '\n').split('\n')) {
+    const heading = line.trim().replace(/^#{1,6}\s+/, '').replace(/^\d+[.)、]\s*/, '');
+    const project = heading.length <= 160 && projects.find(project =>
+      [project.key, project.name, ...project.aliases].some(alias => {
+        const value = heading.normalize('NFKC').toLowerCase();
+        const name = alias.normalize('NFKC').toLowerCase();
+        return value.startsWith(name) && !/[a-z0-9_]/i.test(value[name.length] || '');
+      }));
+    if (project) {
+      recognized = true;
+      selected = project.key === target.key;
+    } else if (/^(?:教育(?:经历|背景)|工作经历|实习经历|技能|专业技能|education|experience|skills)\s*[:：]?$/i.test(heading)) {
+      selected = false;
+    }
+    if (selected) parts.push(line);
+  }
+  // Unstructured material keeps the existing selection behavior. If project
+  // headings exist but the selected project is absent, omit unrelated blocks.
+  return recognized ? parts.join('\n').trim() : null;
+}
+
+function buildCandidateContext(settings, mode, transcript, projectRelevant = false, query = '', projectPlan = null) {
   if (mode === 'leetcode') return null;
 
   const category = projectRelevant ? 'project' : detectCategory(transcript || []);
   const resume = settings.resumeText || '';
-  const project = settings.projectKnowledge || '';
+  const project = selectProjectSection(settings.projectKnowledge, projectPlan) ?? (settings.projectKnowledge || '');
   const jd = settings.jobDescription || '';
   const stories = settings.starStories || '';
   const whyCo = settings.whyCompany || '';
@@ -206,7 +239,9 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
   if (hasResume) {
     const relevantResume = ['behavioral', 'experience', 'project', 'motivation'].includes(category) || projectRelevant;
     const resumeLimit = relevantResume ? (realtime ? 1500 : 2600) : (realtime ? 0 : 850);
-    const rb = resumeLimit ? buildResumeBlock(resume, resumeLimit) : '';
+    const selectedResume = selectProjectSection(resume, projectPlan);
+    const rb = resumeLimit ? (selectedResume === null
+      ? buildResumeBlock(resume, resumeLimit) : clip(selectedResume, resumeLimit)) : '';
     if (rb) blocks.push('=== 候选人简历 ===\n' + rb);
   }
 
@@ -281,7 +316,7 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
 function buildInterviewContext(settings, mode, transcript, request = {}) {
   if (mode === 'leetcode') return null;
   const { plan, context } = buildProjectContext(transcript, mode, request);
-  const base = buildCandidateContext(settings, mode, transcript, plan.retrieve, plan.query);
+  const base = buildCandidateContext(settings, mode, transcript, plan.retrieve, plan.query, plan);
   return [context, base].filter(Boolean).join('\n\n') || null;
 }
 
