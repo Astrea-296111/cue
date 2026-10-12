@@ -14,6 +14,7 @@ const {
 } = require('electron');
 const projectKnowledge = require('./project-knowledge');
 const { planProjectRetrieval } = require('./project-query');
+const { moveWindow } = require('./window-layout');
 
 function inferModeTokenBudget(system, hasImage) {
   const text = String(system || '');
@@ -249,7 +250,7 @@ function installShortcutOverrides() {
     registerShortcut(`Move ${direction}`, accelerator, () => {
       forEachCueWindow((win) => {
         const [x, y] = win.getPosition();
-        win.setPosition(x + dx * MOVE_STEP, y + dy * MOVE_STEP);
+        moveWindow(win, x + dx * MOVE_STEP, y + dy * MOVE_STEP);
       });
     });
   }

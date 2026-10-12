@@ -3,7 +3,7 @@ const path = require('path');
 const { performance } = require('perf_hooks');
 const { withCurrentQuestion, isLikelyFollowUp } = require('./src/project-query');
 const { QuestionResolver } = require('./src/question-resolver');
-const { windowLayout } = require('./src/window-layout');
+const { initialWindowLayout, attachWindowLayout } = require('./src/window-layout');
 const replyLatency = require('./src/reply-latency');
 const os = require('os');
 const store = require('./src/store');
@@ -294,27 +294,15 @@ async function getWhisperOverview() {
 
 // -------- window --------
 function createWindow() {
-  const display = screen.getPrimaryDisplay();
-  const { workArea } = display;
-  const layout = windowLayout(display);
-  const W = layout.width, H = 600;
-
+  const H = 600;
   const savedSettings = store.getSettings();
-  let startX = Math.round(workArea.x + (workArea.width - W) / 2);
-  let startY = workArea.y + 6;
-
-  if (savedSettings.windowX !== null && savedSettings.windowY !== null) {
-    const clampedX = Math.max(workArea.x - W + 100, Math.min(savedSettings.windowX, workArea.x + workArea.width - 100));
-    const clampedY = Math.max(workArea.y, Math.min(savedSettings.windowY, workArea.y + workArea.height - 40));
-    startX = clampedX;
-    startY = clampedY;
-  }
+  const layout = initialWindowLayout(screen, savedSettings, H);
 
   const winOptions = {
-    width: W,
+    width: layout.width,
     height: H,
-    x: startX,
-    y: startY,
+    x: layout.x,
+    y: layout.y,
     frame: false,
     transparent: true,
     hasShadow: false,
@@ -359,19 +347,7 @@ function createWindow() {
 
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  const applyScreenLayout = () => {
-    if (!win || win.isDestroyed()) return;
-    const next = windowLayout(screen.getDisplayMatching(win.getBounds()));
-    const [width, height] = win.getSize();
-    if (width !== next.width) win.setSize(next.width, height);
-    if (Math.abs(win.webContents.getZoomFactor() - next.zoomFactor) > 0.001) {
-      win.webContents.setZoomFactor(next.zoomFactor);
-    }
-  };
-  win.on('moved', applyScreenLayout);
-  win.webContents.on('did-finish-load', applyScreenLayout);
-  screen.on('display-metrics-changed', applyScreenLayout);
-  win.on('closed', () => screen.removeListener('display-metrics-changed', applyScreenLayout));
+  attachWindowLayout(win, screen, layout.display);
 
   let moveSaveTimer = null;
   win.on('moved', () => {
