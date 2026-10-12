@@ -66,8 +66,8 @@ function getAnswerPlan(question = '') {
   let complex = multi || complexPattern.test(q) || q.length >= 72;
   if (!multi && simplePattern.test(q) && q.length < 48) complex = false;
   return complex
-    ? { level: 'complex', sentenceLimit: 9, target: '先用1~2句给主干，再围绕问题本身展开到6~9句；需要时分2~3个短段。', maxTokens: 820 }
-    : { level: 'brief', sentenceLimit: 5, target: '直接回答，通常3~5句；能3句讲清就不要凑到5句。', maxTokens: 560 };
+    ? { level: 'complex', sentenceLimit: 9, target: '先用1~2句给主干，再围绕问题本身展开到6~9句；需要时分2~3个短段。', maxTokens: 920 }
+    : { level: 'brief', sentenceLimit: 5, target: '直接回答，通常3~5句；能3句讲清就不要凑到5句；复杂的点可以多举例子。', maxTokens: 700 };
 }
 
 function answerShapeInstruction(plan) {
@@ -88,10 +88,10 @@ const REALTIME_CONTEXT_RULES = `
 
 const HUMAN_INTERVIEW_RULES = `
 像真实候选人说话：
-1. 第一两句直接回答面试官问的内容，不写“下面我来回答”“根据上下文”“严格来说先分几种情况”等 AI/防御式开场。
+1. 开头先复述整个问题；第一两句直接回答面试官问的内容，不写“下面我来回答”“根据上下文”“严格来说先分几种情况”等 AI/防御式开场。
 2. 可以自然重复问题主干里的主语和核心名词。比如问题一直在问 Redis，就可以多次直接说“Redis”；不要为了避免重复强行换成“该组件/这种机制/它”，也不要不断用意思相近的同义说法改写。同一个主干该重复就重复，这更像人现场组织语言。
 3. 必须用短句、口语化，逗号隔开的每句话不能太长。少用机械的“首先、其次、再次、最后”；需要展开时按自然因果或请求链路讲。
-4. 问什么答什么。复杂问题可以深入，但深入也围绕当前问题；不主动补一整套百科知识、风险清单或替代方案。
+4. 问什么答什么。复杂问题可以深入，但深入也围绕当前问题；不主动补一整套百科知识、风险清单或替代方案。回答的时候可以多举例子，但不要凑字数
 5. 项目题讲具体链路和做法；只有材料证明个人职责时才说“我负责/我做了”。缺事实就简短说清，不编数字、组件或经历。
 6. 把1~3个真正重要的技术词/结论用 **粗体** 标出来，普通连接词不要加粗。
 `;
@@ -143,7 +143,7 @@ const MODES = {
       return applyRules(buildSystem('你是 cue，正在实时帮助中文技术求职者组织口述答案。' + BASE_RULES + '\n' + REALTIME_CONTEXT_RULES + HUMAN_INTERVIEW_RULES + PROJECT_GROUNDING_RULES + '\n' + answerShapeInstruction(opts.answerPlan), contextBlock, 3600), aiRules, 'say');
     },
     build(ctx) { return `${formatRealtimeConversation(ctx.transcript)}\n\n${answerShapeInstruction(ctx.answerPlan)}只输出我现在能直接说出口的正文。`; },
-    resolveMaxTokens(ctx) { return ctx.answerPlan?.level === 'complex' ? 820 : 560; }
+    resolveMaxTokens(ctx) { return ctx.answerPlan?.level === 'complex' ? 920 : 700; }
   },
   followup: {
     needsScreen: false, userBubble: '反问面试官', small: true, resumeMode: 'followup', maxTokens: 500,
@@ -165,7 +165,7 @@ const MODES = {
     needsScreen: false, userBubble: null, small: false, resumeMode: 'say', maxTokens: 620, oral: true,
     buildSystem(contextBlock, aiRules, opts = {}) { return applyRules(buildSystem('你是 cue。只回答用户给出的这道面试题。' + BASE_RULES + '\n' + HUMAN_INTERVIEW_RULES + PROJECT_GROUNDING_RULES + REALTIME_CONTEXT_RULES + '\n' + answerShapeInstruction(opts.answerPlan), contextBlock, 3600), aiRules, 'answerThis'); },
     build(ctx) { return `当前面试题：\n${cleanText(ctx.userText || '（未提供问题）')}\n\n${answerShapeInstruction(ctx.answerPlan)}只输出可直接口述的正文。`; },
-    resolveMaxTokens(ctx) { return ctx.answerPlan?.level === 'complex' ? 820 : 560; }
+    resolveMaxTokens(ctx) { return ctx.answerPlan?.level === 'complex' ? 920 : 700; }
   },
   leetcode: {
     needsScreen: true, userBubble: '解决屏幕上的技术题', small: false, resumeMode: 'leetcode', maxTokens: 3200,

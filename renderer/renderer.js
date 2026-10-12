@@ -79,7 +79,7 @@
   let aiEl = null;       // current streaming <div class="ai-text">
   let caretEl = null;
   let responseCount = 0;
-  const MAX_RESPONSES = 20;
+  const MAX_RESPONSES = 30;
 
   const messages = $('#messages');
 
@@ -1215,46 +1215,74 @@ micStream = stream;
   cue.on('vad:state', ({ channel, speaking }) => {
     setLiveDotState(speaking ? 'speaking' : 'idle');
   });
-  cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
-    activeRequestId = requestId || null;
-    responseCount++;
-    if (responseCount > MAX_RESPONSES) {
-      const oldest = messages.querySelector('.response-group');
-      if (oldest) oldest.remove();
-      responseCount = MAX_RESPONSES;
-    }
-    const group = document.createElement('div');
-    group.className = 'response-group';
-    const sep = document.createElement('div');
-    sep.className = 'response-sep';
-    sep.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    group.appendChild(sep);
-    if (userBubble) {
-      const b = document.createElement('div');
-      b.className = 'user-bubble';
-      b.textContent = userBubble;
-      group.appendChild(b);
-    }
-    if (category) {
-      const pill = document.createElement('div');
-      pill.className = 'category-pill';
-      pill.textContent = category.charAt(0).toUpperCase() + category.slice(1);
-      group.appendChild(pill);
-    }
-    aiEl = document.createElement('div');
-    aiEl.className = 'ai-text' + (small ? ' small' : '');
-    aiEl.dataset.raw = '';
-    caretEl = document.createElement('span');
-    caretEl.className = 'ai-caret';
-    aiEl.appendChild(caretEl);
-    group.appendChild(aiEl);
-    messages.appendChild(group);
-    // Use requestAnimationFrame so the DOM is fully updated before scrolling
-    requestAnimationFrame(() => {
-      if (sep && sep.isConnected) sep.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-    setBusy(true);
+cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
+  activeRequestId = requestId || null;
+  responseCount++;
+
+  // 回答区现在是倒序排列：
+  // 第一个 = 最新
+  // 最后一个 = 最旧
+  if (responseCount > MAX_RESPONSES) {
+    const groups = messages.querySelectorAll('.response-group');
+    const oldest = groups[groups.length - 1];
+
+    if (oldest) oldest.remove();
+
+    responseCount = MAX_RESPONSES;
+  }
+
+  const group = document.createElement('div');
+  group.className = 'response-group';
+
+  const sep = document.createElement('div');
+  sep.className = 'response-sep';
+  sep.textContent = new Date().toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
   });
+
+  group.appendChild(sep);
+
+  if (userBubble) {
+    const b = document.createElement('div');
+    b.className = 'user-bubble';
+    b.textContent = userBubble;
+    group.appendChild(b);
+  }
+
+  if (category) {
+    const pill = document.createElement('div');
+    pill.className = 'category-pill';
+    pill.textContent =
+      category.charAt(0).toUpperCase() + category.slice(1);
+
+    group.appendChild(pill);
+  }
+
+  aiEl = document.createElement('div');
+  aiEl.className = 'ai-text' + (small ? ' small' : '');
+  aiEl.dataset.raw = '';
+
+  caretEl = document.createElement('span');
+  caretEl.className = 'ai-caret';
+
+  aiEl.appendChild(caretEl);
+  group.appendChild(aiEl);
+
+  // 核心修改：
+  // 最新问答插入最上方，而不是追加到最下面
+  messages.prepend(group);
+
+  // 每次产生新回答时，把视图移动到顶部
+  requestAnimationFrame(() => {
+    messages.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  });
+
+  setBusy(true);
+});
   const acceptsReply = requestId => !requestId || requestId === activeRequestId;
   cue.on('llm:token', ({ text, requestId }) => {
     if (!acceptsReply(requestId)) return;

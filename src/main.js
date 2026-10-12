@@ -274,7 +274,7 @@ async function getWhisperOverview() {
 // -------- window --------
 function createWindow() {
   const { workArea } = screen.getPrimaryDisplay();
-  const W = 700, H = 600;
+  const W = 550, H = 600;
 
   const savedSettings = store.getSettings();
   let startX = Math.round(workArea.x + (workArea.width - W) / 2);
