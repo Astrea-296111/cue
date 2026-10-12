@@ -3,6 +3,9 @@ const path = require('path');
 const { performance } = require('perf_hooks');
 const { withCurrentQuestion, isLikelyFollowUp } = require('./src/project-query');
 const { QuestionResolver } = require('./src/question-resolver');
+const { planInterviewQuestion } = require('./src/interview-question-planner');
+const { formatInterviewChecklist } = require('./src/interview-checklist');
+const { formatProjectInterviewState } = require('./src/project-interview-state');
 const { initialWindowLayout, attachWindowLayout } = require('./src/window-layout');
 const replyLatency = require('./src/reply-latency');
 const os = require('os');
@@ -11,16 +14,16 @@ const { captureScreenshot } = require('./src/screen');
 const { createSTT } = require('./src/stt');
 const { parseDocumentFile } = require('./src/resume');
 const { createLLM } = require('./src/llm');
-const { MODES, shouldCaptureScreen, getAnswerPlan } = require('./src/prompts');
+const { MODES, shouldCaptureScreen, getAnswerPlan, contextCharsFor } = require('./src/prompts');
 const { ConversationMemory } = require('./src/conversation-memory');
-const { getProjectCatalog } = require('./src/project-knowledge');
+const { getProjectCatalog, getProjectIndexRevision, warmProjectIndex } = require('./src/project-knowledge');
 const { rms16 } = require('./src/wav');
 const { createStreamingSTT } = require('./src/stt-streaming');
 const { normalizeTranscript, TranscriptDeduper } = require('./src/transcript-normalizer');
 const { normalizeTechnicalVocabulary } = require('./src/technical-vocabulary');
 const { isSpeechNoise } = require('./src/speech-noise-filter');
 const { AdaptiveVAD, AudioRingBuffer } = require('./src/vad');
-const { buildInterviewContext, detectCategory } = require('./src/interview-context');
+const { buildInterviewContextBundle, detectCategory } = require('./src/interview-context');
 const { startAppLink, stopAppLink, recordEvent, appLinkConsentState, revokeAppLinkCaller } = require('./src/applink');
 
 // macOS system-audio loopback (the "them" channel via getDisplayMedia) does not
@@ -665,6 +668,11 @@ async function runFeature(mode, userText) {
       : [];
   }
   const contextTranscript = withCurrentQuestion(freshTranscript, question);
+  const fromResolved = !explicit && resolved?.text === question;
+  const partial = fromResolved && !!resolved?.partial;
+  const sourceKey = fromResolved && resolved?.keys?.size === 1 ? Array.from(resolved.keys)[0] : '';
+  const interviewPlan = ['say', 'answerThis', 'ask', 'assist'].includes(mode) && question
+    ? planInterviewQuestion({ text: question, partial, sourceKey, mode }) : null;
   const timing = replyLatency.start(mode, question);
   const generation = { id: timing.requestId, controller: new AbortController(), epoch: conversation.epoch };
   activeGeneration = generation;
@@ -682,7 +690,18 @@ async function runFeature(mode, userText) {
     if (!llm.ready) throw new Error(llm.configurationError || 'Complete the model settings.');
     if (!question && ['ask', 'answerThis'].includes(mode)) throw new Error('请先输入问题或等待识别到面试官发言。');
     const request = conversation.begin({ mode, question, transcript: contextTranscript,
-      settings, catalog: getProjectCatalog() });
+      settings, catalog: getProjectCatalog(), interviewPlan, evidenceRevision: getProjectIndexRevision() });
+    const checklistText = interviewPlan ? formatInterviewChecklist(request.checklist, { maxChars: 2600 }) : '';
+    // Only spend prompt/retrieval/output budgets on old pending items that are
+    // actually shown this round. The original current question remains intact.
+    if (request.checklist) {
+      request.checklist = { ...request.checklist,
+        questions: request.checklist.questions.filter(item => item.current || checklistText.includes(item.text)),
+        pending: request.checklist.pending.filter(item => checklistText.includes(item.text)) };
+    }
+    const effectiveInterviewPlan = interviewPlan ? { ...interviewPlan,
+      subQuestions: [...interviewPlan.subQuestions, ...(request.checklist?.pending || [])] } : null;
+    const answerPlan = getAnswerPlan(question, effectiveInterviewPlan);
 
     let imageDataUrl = null;
     const screenStarted = performance.now();
@@ -700,18 +719,27 @@ async function runFeature(mode, userText) {
     if (!owned()) return;
     const screenMs = performance.now() - screenStarted;
     const contextStarted = performance.now();
-    const contextBlock = buildInterviewContext(settings, mode, contextTranscript,
-      { requestId: timing.requestId, projectPlan: request.plan, smart: !!settings.smart });
-    const answerPlan = getAnswerPlan(question);
-    const system = def.buildSystem ? def.buildSystem(contextBlock, settings.aiRules || '', { answerPlan }) : (def.system || '');
-    const built = def.build({ transcript: contextTranscript, userText: question, answerPlan, partial: !!resolved?.partial });
+    const contextBundle = buildInterviewContextBundle(settings, mode, contextTranscript,
+      { requestId: timing.requestId, projectPlan: request.plan, smart: !!settings.smart,
+        answerComplexity: answerPlan.level, interviewPlan: effectiveInterviewPlan,
+        contextBudget: contextCharsFor(mode, answerPlan), projectState: request.projectInterviewState });
+    request.evidenceRevision = contextBundle.evidence.find(item => item.sourceType === 'imported')?.revision || getProjectIndexRevision();
+    const system = def.buildSystem ? def.buildSystem(contextBundle.context, settings.aiRules || '',
+      { answerPlan, interviewPlan, projectPlan: request.plan }) : (def.system || '');
+    const built = def.build({ transcript: contextTranscript, userText: question, answerPlan, partial });
     // A fresh screen task stands on its own; its answer is still available to
     // subsequent manual follow-ups. No previous screenshot bytes are retained.
     const history = mode === 'leetcode' ? [] : request.turns;
     const memory = mode === 'leetcode' ? '' : request.memory;
     const topic = mode !== 'leetcode' && request.plan.anchor && request.plan.anchor !== question
       ? '=== 当前话题起点（历史用户发言，仅用于理解指代） ===\n' + request.plan.anchor : '';
-    const current = [topic, memory, built].filter(Boolean).join('\n\n');
+    const checklist = checklistText;
+    // Discussion progress is not a source of project implementation facts.
+    const projectState = request.projectInterviewState;
+    const progress = formatProjectInterviewState(projectState, { maxChars: 1200 });
+    const scenarioText = interviewPlan?.scenario || request.checklist?.scenario;
+    const scenario = interviewPlan && scenarioText ? '=== 当前假设场景（不代表项目实际指标） ===\n' + scenarioText : '';
+    const current = [topic, memory, built, scenario, checklist, progress].filter(Boolean).join('\n\n');
     const turns = [...history, { role: 'user', text: current }];
     const requestSent = performance.now();
     console.log('[latency][prompt] ' + JSON.stringify({ requestId: timing.requestId, mode,
@@ -724,6 +752,7 @@ async function runFeature(mode, userText) {
     let abortListener = null;
     let rearm = () => {};
     let answer = '';
+    let completion = { complete: false, truncated: false, finishReason: null };
     const stopped = new Promise((_resolve, reject) => {
       const stop = message => {
         reject(new Error(message));
@@ -740,9 +769,13 @@ async function runFeature(mode, userText) {
     });
     try {
       const result = await Promise.race([
-        llm.stream({ system, turns, imageDataUrl, signal: generation.controller.signal,
+        llm.stream({ system, turns, imageDataUrl, signal: generation.controller.signal, mode,
           ...(['say', 'answerThis', 'assist'].includes(mode)
             ? { maxTokens: def.resolveMaxTokens?.({ answerPlan }) || def.maxTokens } : {}),
+          ...(mode === 'ask' && imageDataUrl ? { maxTokens: MODES.assist.maxTokens } : {}),
+          onCompletion: metadata => {
+            if (owned() && !streamSettled && !generation.controller.signal.aborted) completion = metadata;
+          },
           onActivity: () => { if (owned() && !streamSettled && !generation.controller.signal.aborted) rearm(); },
           onToken: text => {
             if (!owned() || streamSettled || generation.controller.signal.aborted || !text) return;
@@ -759,7 +792,7 @@ async function runFeature(mode, userText) {
         emit('llm:token', { text: answer });
       }
       if (!answer.trim()) throw new Error('模型没有返回正文，请检查模型与思考模式设置后重试。');
-      const committed = conversation.commit(request, answer);
+      const committed = conversation.commit(request, answer, { completion, evidence: contextBundle.evidence });
       if (committed && liveMode && resolved?.text === question) questionResolver.markSubmitted(resolved);
     } finally {
       streamSettled = true;
@@ -1118,6 +1151,9 @@ session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
 
   createWindow();
   registerShortcuts();
+  // Prepare the existing local index in the background instead of charging its
+  // complete cold build to the first interview answer after app restart.
+  warmProjectIndex().catch(error => console.warn('[rag] warmup unavailable:', error?.code || error?.name || 'Error'));
 }
 
 // -------- lifecycle --------

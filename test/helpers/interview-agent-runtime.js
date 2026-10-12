@@ -1,0 +1,229 @@
+'use strict';
+
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const vm = require('node:vm');
+const { createRequire } = require('node:module');
+const { EventEmitter } = require('node:events');
+
+const root = path.resolve(__dirname, '../..');
+const copy = value => JSON.parse(JSON.stringify(value));
+const tick = () => new Promise(resolve => setImmediate(resolve));
+
+const defaultChunks = [
+  { path: 'TCS/README.md', startLine: 1, endLine: 5,
+    text: 'TCS_ONLY TCS 阈值覆盖共享项目。困难是平台压缩、微信和 Facebook 的 JPEG 图片恢复率。验证使用用户材料注明的 TCS-ENV-42。职责只由候选人实际发言确认。' },
+  { path: 'RepoPilot/README.md', startLine: 1, endLine: 8,
+    text: 'REPO_ONLY RepoPilot Agent 项目。架构和核心链路是 Agent Loop / LangGraph 双运行时、工具执行和验证闭环。问题背景是自动修复代码。目标是在失败后验证重试。LangGraph 用显式状态图控制工具执行。' },
+  { path: 'RepoPilot/retrieval.py', startLine: 12, endLine: 20,
+    text: 'REPO_RETRIEVAL EvidenceCache implements local BM25 and FAISS hybrid retrieval with RRF. query_expansion preserves the request scope. Cache hits reuse source evidence; missing retrieval evidence causes one scoped search.' },
+  { path: 'RepoPilot/checkpoint.py', startLine: 21, endLine: 27,
+    text: 'REPO_STATE LangGraph checkpoint persists tool verification and retry state. def resume(checkpoint): return graph.invoke(checkpoint). AST validation rejects broken syntax.' },
+  { path: 'FlashFlow/README.md', startLine: 1, endLine: 4,
+    text: 'FLASH_ONLY FlashFlow 库存项目，Redis 与任务重试，租约续期。' }
+];
+
+function writeIndex(temp, version, chunks) {
+  if (version === 1) {
+    fs.writeFileSync(path.join(temp, 'cue-project-index-v1.json'), JSON.stringify({ version: 1, sourceName: 'projects', chunks }));
+    return;
+  }
+  // Use the real source-profile builder and the existing persisted v2 shape.
+  const { buildSourceProjectProfile } = require('../../src/project-profile');
+  const names = [...new Set(chunks.map(chunk => chunk.path.split('/')[0]))];
+  const tagged = chunks.map(chunk => ({ ...chunk, projectId: 'fixture-' + chunk.path.split('/')[0].toLowerCase(), projectName: chunk.path.split('/')[0] }));
+  const projects = names.map(name => {
+    const own = tagged.filter(chunk => chunk.projectName === name);
+    return { id: 'fixture-' + name.toLowerCase(), name, sourceType: 'folder', sourceName: name,
+      updatedAt: '2026-10-12T00:00:00.000Z', stats: { fileCount: own.length, chunkCount: own.length },
+      profile: buildSourceProjectProfile(name, own) };
+  });
+  fs.writeFileSync(path.join(temp, 'cue-project-index-v2.json'), JSON.stringify({ version: 2, chunkerVersion: 2,
+    updatedAt: '2026-10-12T00:00:00.000Z', projects, chunks: tagged, stats: { fileCount: tagged.length, chunkCount: tagged.length } }));
+}
+
+/**
+ * Exercise the package entry, its Module._load hook, bugfix bootstrap, root
+ * main, real planning/memory/retrieval/prompts, and the actual LLM adapter.
+ * The OS/hardware and model transport are replaced; no planning or retrieval
+ * result is mocked. SDK messages and scoped searches are observed unchanged.
+ */
+function createInterviewRuntime(t, options = {}) {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cue-interview-agent-'));
+  writeIndex(temp, options.indexVersion || 2, options.chunks || defaultChunks);
+  fs.writeFileSync(path.join(temp, 'cue-data.json'), JSON.stringify({ provider: 'custom',
+    baseUrl: 'https://example.invalid/v1', apiKeys: { custom: 'test-transport-only' },
+    models: { custom: { fast: 'test-model' } }, smart: false, resumeText: '', ...options.settings }));
+
+  let time = options.startedAt || 1_800_000_000_000;
+  class ClockDate extends Date {
+    constructor(...args) { super(...(args.length ? args : [time])); }
+    static now() { return time; }
+  }
+  const ipc = new EventEmitter();
+  const handlers = new Map();
+  ipc.handle = (name, fn) => handlers.set(name, fn);
+  const app = new EventEmitter();
+  app.whenReady = () => new Promise(() => {});
+  app.getPath = () => temp;
+  app.getAppPath = () => root;
+  app.getVersion = () => '0.2.2';
+  app.commandLine = { appendSwitch() {} };
+
+  const calls = [], requestOptions = [], requests = [], commits = [], searches = [], events = [], loaded = [], logs = [];
+  const modules = new Map(), shortcuts = new Map(), pendingShortcuts = [];
+  let captures = 0, captureError = false, seq = 0, window;
+  let response = { text: '测试答案', finishReason: 'stop' }, transport;
+
+  class OpenAI {
+    constructor() {
+      this.chat = { completions: { create: async (body, sdkOptions) => {
+        calls.push(copy(body));
+        requestOptions.push(sdkOptions);
+        if (transport) return transport(body, sdkOptions, calls.length - 1);
+        const selected = { ...response };
+        return (async function* () {
+          if (selected.error) throw selected.error;
+          for (const text of selected.chunks || [selected.text]) {
+            yield { choices: [{ delta: { content: text } }] };
+          }
+          if (selected.finishReason !== null) yield { choices: [{ delta: selected.refusal ? { refusal: selected.refusal } : {}, finish_reason: selected.finishReason }] };
+        })();
+      } } };
+    }
+  }
+
+  const mocks = {
+    electron: { app, ipcMain: ipc, BrowserWindow: { getAllWindows: () => window ? [window] : [] },
+      globalShortcut: { unregister: key => shortcuts.delete(key), register: (key, fn) => { shortcuts.set(key, fn); return true; } }, dialog: {} },
+    openai: OpenAI,
+    'src/screen.js': { captureScreenshot: async () => {
+      captures++;
+      if (captureError) throw new Error('capture failed');
+      return 'data:image/png;base64,' + Buffer.from('screen-' + captures).toString('base64');
+    } },
+    'src/stt.js': {}, 'src/stt-streaming.js': {}, 'src/resume.js': {}, 'src/applink.js': { recordEvent() {} },
+    'src/whisper-model-manager.js': {}, 'src/whisper-model-catalog.js': {},
+    'src/whisper-runtime.js': {}, 'src/local-whisper-transcriber.js': {}
+  };
+  const shim = { _resolveFilename: (id, parent) => createRequire(parent.filename).resolve(id) };
+  function load(file) {
+    const relative = path.relative(root, file).replace(/\\/g, '/');
+    if (Object.hasOwn(mocks, relative)) return mocks[relative];
+    if (modules.has(file)) return modules.get(file).exports;
+    const module = { exports: {}, filename: file };
+    modules.set(file, module);
+    loaded.push(relative);
+    const context = vm.createContext({ module, exports: module.exports, __filename: file, __dirname: path.dirname(file),
+      require: id => shim._load(id, module), process, Buffer, URL, Headers, AbortController, AbortSignal, performance,
+      Date: ClockDate, setTimeout, clearTimeout, setInterval, clearInterval, setImmediate, queueMicrotask,
+      console: Object.fromEntries(['log', 'warn', 'error'].map(level => [level, (...args) => logs.push(args)])) });
+    vm.runInContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
+    module.context = context;
+    if (relative === 'src/conversation-memory.js') {
+      const originalBegin = module.exports.ConversationMemory.prototype.begin;
+      const originalCommit = module.exports.ConversationMemory.prototype.commit;
+      module.exports.ConversationMemory.prototype.begin = function (...args) {
+        const request = originalBegin.apply(this, args);
+        requests.push(copy(request));
+        return request;
+      };
+      module.exports.ConversationMemory.prototype.commit = function (request, answer, config) {
+        const result = originalCommit.call(this, request, answer, config);
+        commits.push({ request: copy(request), answer, config: config ? copy(config) : null, committed: result });
+        return result;
+      };
+    }
+    if (relative === 'src/project-knowledge.js') {
+      for (const method of ['searchProjectKnowledge', 'prefetchProjectKnowledge', 'getProjectOverviewChunks', 'getProjectProfileContext']) {
+        const original = module.exports[method];
+        module.exports[method] = function (...args) {
+          const config = method === 'getProjectOverviewChunks' ? args[0] : args[1];
+          const result = original.apply(this, args);
+          searches.push({ method, query: method === 'getProjectOverviewChunks' ? '' : args[0],
+            scopes: config?.scopes ? Array.from(config.scopes) : null,
+            options: config ? copy(config) : null,
+            rows: Array.isArray(result) ? copy(result) : [], atCall: calls.length });
+          return result;
+        };
+      }
+    }
+    return module.exports;
+  }
+  shim._load = (id, parent) => {
+    if (id === 'module') return shim;
+    if (Object.hasOwn(mocks, id)) return mocks[id];
+    const native = createRequire(parent.filename);
+    return id.startsWith('.') ? load(native.resolve(id)) : native(id);
+  };
+  const entry = load(path.join(root, require('../../package.json').main));
+  const context = modules.get(path.join(root, 'main.js')).context;
+  async function submit(mode, text = '') {
+    time++;
+    for (const listener of ipc.listeners('ask')) await listener(null, { mode, text });
+  }
+  window = { isDestroyed: () => false, webContents: {
+    getURL: () => 'file://' + root + '/renderer/index.html',
+    send(channel, data) {
+      events.push(copy({ channel, ...data }));
+      if (channel === 'shortcut:mode') pendingShortcuts.push(submit(data.mode));
+    }
+  } };
+  context.__window = window;
+  vm.runInContext('win = __window', context);
+  entry.installShortcutOverrides();
+  const value = expression => vm.runInContext(expression, context);
+  const clear = () => handlers.get('transcript:clear')(null);
+  t.after(() => { clear(); fs.rmSync(temp, { recursive: true, force: true }); });
+  function speech(channel, text, final, meta = {}) {
+    time += 100;
+    Object.assign(context, { __text: text, __channel: channel,
+      __meta: { sourceId: 'test', utteranceKey: 'u' + ++seq, utteranceOrder: seq, ...meta } });
+    return value(`${final ? 'publishTranscript' : 'publishInterim'}(__channel, __text, __meta)`);
+  }
+  return {
+    temp, calls, requestOptions, requests, commits, searches, events, loaded, logs, value,
+    snapshot: expression => copy(value(expression)),
+    exports: relative => load(path.join(root, relative)),
+    answer(text, config = {}) { transport = null; response = { text, finishReason: 'stop', ...config }; },
+    behavior(factory) { transport = factory; },
+    final: (text, meta) => speech('them', text, true, meta),
+    interim: (text, meta) => speech('them', text, false, meta),
+    candidate: (text, meta) => speech('you', text, true, meta),
+    advance(ms) { time += ms; },
+    ask: (mode = 'say', text = '') => submit(mode, text),
+    async shortcut(key) {
+      if (!shortcuts.has(key)) throw new Error('Shortcut was not registered: ' + key);
+      shortcuts.get(key)();
+      await Promise.all(pendingShortcuts.splice(0));
+    },
+    clear,
+    captureFailure(value = true) { captureError = value; },
+    get captures() { return captures; },
+    async prefetch(payload) { ipc.emit('project:prefetch', null, payload); await tick(); },
+    async waitForCalls(count) {
+      for (let attempt = 0; attempt < 100; attempt++) {
+        if (calls.length >= count) return;
+        await tick();
+      }
+      throw new Error(`Expected ${count} SDK calls, observed ${calls.length}`);
+    }
+  };
+}
+
+function currentText(call) {
+  const content = call.messages.at(-1).content;
+  return typeof content === 'string' ? content : content.filter(part => part.type === 'text').map(part => part.text).join('\n');
+}
+function imageUrl(call) {
+  const content = call.messages.at(-1).content;
+  return Array.isArray(content) ? content.find(part => part.type === 'image_url')?.image_url.url : null;
+}
+function deferred() {
+  let resolve;
+  const promise = new Promise(done => { resolve = done; });
+  return { promise, resolve };
+}
+
+module.exports = { createInterviewRuntime, defaultChunks, currentText, imageUrl, deferred };
