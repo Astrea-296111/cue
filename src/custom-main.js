@@ -67,7 +67,7 @@ function installModuleHooks() {
           ...llm,
           async stream(params = {}) {
             const startedAt = Date.now();
-            const modeName = inferModeName(params.system, !!params.imageDataUrl);
+            const modeName = params.mode || inferModeName(params.system, !!params.imageDataUrl);
             const inferred = params.maxTokens || inferModeTokenBudget(params.system, !!params.imageDataUrl);
             const originalOnToken = typeof params.onToken === 'function' ? params.onToken : () => {};
             let firstTokenAt = 0;

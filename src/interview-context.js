@@ -5,7 +5,12 @@
 const { buildProjectContext } = require('./project-context');
 const { selectRelevantText } = require('./conversation-memory');
 const { selectManualProjectCards } = require('./project-profile');
+const { parseManualProjectProfile, TOPICS } = require('./project-profile');
+const { tokenize } = require('./project-search');
+const { createHash } = require('crypto');
 const { RESUME_PROJECTS, resolveResumeProject } = require('./resume-project-resolver');
+const { planProjectRetrieval } = require('./project-query');
+const { getProjectCatalog } = require('./project-knowledge');
 
 const CATEGORY_PATTERNS = {
   project: [
@@ -253,7 +258,7 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
     case 'project':
       if (!hasProject) {
         blocks.push(
-          '（未提供独立项目知识文档。项目深挖时只能依据简历和已有 STAR 信息回答；缺失的项目事实不得编造。）'
+          '（未提供独立的手工项目知识文档。项目实现可依据本轮导入源码证据；个人职责只使用简历或明确的个人资料。缺失的事实不得编造。）'
         );
       }
       if (hasStories) {
@@ -313,11 +318,66 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
   return blocks.join('\n\n') + tailorNote;
 }
 
-function buildInterviewContext(settings, mode, transcript, request = {}) {
-  if (mode === 'leetcode') return null;
-  const { plan, context } = buildProjectContext(transcript, mode, request);
+function manualProjectEvidence(settings, plan) {
+  if (!plan?.retrieve || !plan.scopes?.length) return [];
+  const raw = String(settings.projectKnowledge || '').replace(/\r\n?/g, '\n');
+  const selected = selectProjectSection(raw, plan) ?? raw;
+  const profile = parseManualProjectProfile(selected);
+  const query = plan.query || '', terms = new Set(tokenize(query, true));
+  const revision = 'manual:' + createHash('sha256').update(selected).digest('hex').slice(0, 24);
+  const ranked = profile.cards.map((card, index) => ({ card, index,
+    score: card.terms.filter(term => terms.has(term)).length +
+      (TOPICS.some(topic => topic.re.test(query) && card.topics.includes(topic.key)) ? 4 : 0) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index);
+  let remaining = 1800;
+  const evidence = [];
+  for (const { card, score } of ranked.slice(0, 3)) {
+    if (remaining < 100 || (!score && evidence.length)) break;
+    const at = raw.indexOf(card.text);
+    // Keep exact user-provided source locations instead of assigning the
+    // generated Interview Card label a fictional file/line range.
+    if (at < 0) continue;
+    const text = card.text.slice(0, remaining), startLine = raw.slice(0, at).split('\n').length;
+    evidence.push({ sourceType: 'manual', path: 'settings.projectKnowledge', text, startLine,
+      endLine: startLine + (text.match(/\n/g) || []).length, topics: card.topics, revision,
+      scopes: [...plan.scopes], scopeKey: [...plan.scopes].sort().join('|'),
+      projectId: plan.activeProject?.projectId || null, projectName: plan.projectLabel || '',
+      partial: text.length < card.text.length });
+    remaining -= text.length;
+  }
+  return evidence;
+}
+
+function buildInterviewContextBundle(settings, mode, transcript, request = {}) {
+  if (mode === 'leetcode') return { context: null, evidence: [], plan: request.projectPlan || null, stats: {} };
+  const plan = request.projectPlan || planProjectRetrieval(transcript, mode, { catalog: getProjectCatalog() });
   const base = buildCandidateContext(settings, mode, transcript, plan.retrieve, plan.query, plan);
-  return [context, base].filter(Boolean).join('\n\n') || null;
+  const budget = Number.isFinite(request.contextBudget) ? Math.max(0, request.contextBudget) : null;
+  let candidate = base || '';
+  if (budget !== null && candidate.length) {
+    const candidateBudget = Math.min(candidate.length, plan.retrieve ? Math.min(1200, Math.floor(budget / 3)) : budget);
+    const sections = candidate.split(/\n\n(?==== )/);
+    let room = candidateBudget;
+    candidate = sections.map((section, index) => {
+      const allocated = Math.max(0, Math.floor((room - (sections.length - index - 1) * 2) / (sections.length - index)));
+      const selected = section.slice(0, allocated);
+      room -= selected.length + 2;
+      return selected;
+    }).filter(Boolean).join('\n\n');
+  }
+  const sourceBudget = budget === null ? undefined : Math.max(0, budget - candidate.length - (candidate ? 2 : 0));
+  const { context, evidence, stats } = buildProjectContext(transcript, mode,
+    { ...request, projectPlan: plan, projectContextBudget: sourceBudget });
+  // Only record evidence that actually reached the prompt. Imported source
+  // selection respects the shared budget; hidden manual tails stay unrecorded.
+  const visible = evidence.filter(item => context?.includes(item.text));
+  const manual = manualProjectEvidence(settings, plan).filter(item => candidate.includes(item.text));
+  return { context: [context, candidate].filter(Boolean).join('\n\n') || null,
+    evidence: [...visible, ...manual], plan, stats: { ...stats, contextBudget: budget } };
+}
+
+function buildInterviewContext(settings, mode, transcript, request = {}) {
+  return buildInterviewContextBundle(settings, mode, transcript, request).context;
 }
 
 function buildResumeContext(resumeText, jobDescription, mode) {
@@ -349,6 +409,7 @@ function buildResumeContext(resumeText, jobDescription, mode) {
 
 module.exports = {
   buildInterviewContext,
+  buildInterviewContextBundle,
   buildResumeContext,
   detectCategory,
   parseResume

@@ -143,7 +143,20 @@ function appendTruncationNotice(onToken) {
   onToken('\n\n⚠️ 输出达到模型长度上限。可以再次触发“解决屏幕上的技术题”，或要求“从刚才中断处继续”。');
 }
 
-async function streamOpenAI({ apiKey, baseURL, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity }) {
+// Completion describes the provider's terminal event, not semantic question
+// coverage. Missing metadata remains unknown; callers still receive a string.
+function finishStream(onCompletion, signal, full, finishReason, options = {}) {
+  if (signal?.aborted) throw new Error('回答已取消。');
+  const reason = typeof finishReason === 'string' && finishReason.trim() ? finishReason : null;
+  const normalized = String(reason || '').toLowerCase();
+  const truncated = !!options.truncated || ['length', 'max_tokens'].includes(normalized);
+  const refused = !!options.refused || ['content_filter', 'refusal', 'safety', 'blocked'].includes(normalized);
+  const complete = (options.normalReasons || ['stop']).includes(normalized) &&
+    !!full.trim() && !truncated && !refused && !options.toolUse;
+  if (typeof onCompletion === 'function') onCompletion({ finishReason: reason, complete, truncated, refused });
+}
+
+async function streamOpenAI({ apiKey, baseURL, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity, onCompletion }) {
   const OpenAI = require('openai');
   const client = new OpenAI(baseURL ? { apiKey, baseURL } : { apiKey });
   const messages = [{ role: 'system', content: system }];
@@ -180,6 +193,7 @@ const stream = await client.chat.completions.create({
 
   let full = '';
   let finishReason = null;
+  let truncated = false, refused = false, toolUse = false;
   for await (const part of stream) {
     if (signal?.aborted) throw new Error('回答已取消。');
     if (typeof onActivity === 'function') onActivity();
@@ -189,9 +203,17 @@ const stream = await client.chat.completions.create({
       full += delta;
       onToken(delta);
     }
-    if (choice && choice.finish_reason) finishReason = choice.finish_reason;
+    if (choice?.delta?.refusal || choice?.message?.refusal) refused = true;
+    if (choice?.delta?.tool_calls?.length || choice?.delta?.function_call) toolUse = true;
+    if (choice && choice.finish_reason) {
+      finishReason = choice.finish_reason;
+      if (finishReason === 'length') truncated = true;
+      if (finishReason === 'content_filter' || finishReason === 'refusal') refused = true;
+      if (finishReason === 'tool_calls' || finishReason === 'function_call') toolUse = true;
+    }
   }
   if (finishReason === 'length') appendTruncationNotice(onToken);
+  finishStream(onCompletion, signal, full, finishReason, { truncated, refused, toolUse });
   return full;
 }
 
@@ -207,7 +229,7 @@ function normalizeAzureBaseURL(raw) {
   return url;
 }
 
-async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, endpoint, signal, onActivity }) {
+async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, endpoint, signal, onActivity, onCompletion }) {
   const url = normalizeAzureBaseURL(endpoint);
   if (!url) {
     throw new Error('Missing Azure endpoint. Add your Azure AI Foundry or Azure OpenAI endpoint in Settings.');
@@ -256,6 +278,7 @@ async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxToke
 
   let full = '';
   let finishReason = null;
+  let truncated = false, refused = false, toolUse = false;
   for await (const part of stream) {
     if (signal?.aborted) throw new Error('回答已取消。');
     if (typeof onActivity === 'function') onActivity();
@@ -265,13 +288,21 @@ async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxToke
       full += delta;
       onToken(delta);
     }
-    if (choice && choice.finish_reason) finishReason = choice.finish_reason;
+    if (choice?.delta?.refusal || choice?.message?.refusal) refused = true;
+    if (choice?.delta?.tool_calls?.length || choice?.delta?.function_call) toolUse = true;
+    if (choice && choice.finish_reason) {
+      finishReason = choice.finish_reason;
+      if (finishReason === 'length') truncated = true;
+      if (finishReason === 'content_filter' || finishReason === 'refusal') refused = true;
+      if (finishReason === 'tool_calls' || finishReason === 'function_call') toolUse = true;
+    }
   }
   if (finishReason === 'length') appendTruncationNotice(onToken);
+  finishStream(onCompletion, signal, full, finishReason, { truncated, refused, toolUse });
   return full;
 }
 
-async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity }) {
+async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity, onCompletion }) {
   const Anthropic = require('@anthropic-ai/sdk');
   const client = new Anthropic({ apiKey });
 
@@ -306,6 +337,7 @@ async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, max
 
   let full = '';
   let stopReason = null;
+  let truncated = false, refused = false, toolUse = false;
   for await (const event of stream) {
     if (signal?.aborted) throw new Error('回答已取消。');
     if (typeof onActivity === 'function') onActivity();
@@ -319,13 +351,20 @@ async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, max
     }
     if (event.type === 'message_delta' && event.delta && event.delta.stop_reason) {
       stopReason = event.delta.stop_reason;
+      if (stopReason === 'max_tokens') truncated = true;
+      if (stopReason === 'refusal') refused = true;
+      if (stopReason === 'tool_use') toolUse = true;
     }
+    if (event.content_block?.type === 'tool_use' || event.delta?.type === 'input_json_delta') toolUse = true;
   }
   if (stopReason === 'max_tokens') appendTruncationNotice(onToken);
+  finishStream(onCompletion, signal, full, stopReason, {
+    normalReasons: ['end_turn', 'stop_sequence'], truncated, refused, toolUse
+  });
   return full;
 }
 
-async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity }) {
+async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity, onCompletion }) {
   const { GoogleGenAI } = require('@google/genai');
   const ai = new GoogleGenAI({ apiKey });
 
@@ -356,6 +395,7 @@ async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTok
 
   let full = '';
   let finishReason = null;
+  let truncated = false, refused = false, toolUse = false;
   for await (const chunk of stream) {
     if (signal?.aborted) throw new Error('回答已取消。');
     if (typeof onActivity === 'function') onActivity();
@@ -365,15 +405,26 @@ async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTok
       onToken(text);
     }
     const candidate = chunk && chunk.candidates && chunk.candidates[0];
-    if (candidate && candidate.finishReason) finishReason = candidate.finishReason;
+    if (candidate && candidate.finishReason) {
+      finishReason = candidate.finishReason;
+      const reason = String(finishReason).toUpperCase();
+      if (reason === 'MAX_TOKENS') truncated = true;
+      if (['SAFETY', 'RECITATION', 'BLOCKLIST', 'PROHIBITED_CONTENT', 'SPII',
+        'IMAGE_SAFETY', 'IMAGE_PROHIBITED_CONTENT', 'MODEL_ARMOR'].includes(reason)) refused = true;
+      if (reason === 'MALFORMED_FUNCTION_CALL' || reason === 'UNEXPECTED_TOOL_CALL') toolUse = true;
+    }
+    if (candidate?.content?.parts?.some(part => part.functionCall)) toolUse = true;
+    if (candidate?.safetyRatings?.some(rating => rating.blocked)) refused = true;
+    if (chunk.promptFeedback?.blockReason && chunk.promptFeedback.blockReason !== 'BLOCK_REASON_UNSPECIFIED') refused = true;
   }
   if (String(finishReason || '').toUpperCase() === 'MAX_TOKENS') {
     appendTruncationNotice(onToken);
   }
+  finishStream(onCompletion, signal, full, finishReason, { truncated, refused, toolUse });
   return full;
 }
 
-async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity }) {
+async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity, onCompletion }) {
   const baseUrl = apiKey || 'http://localhost:11434';
   const url = `${baseUrl.replace(/\/$/, '')}/api/chat`;
   const messages = [{ role: 'system', content: system }];
@@ -416,33 +467,36 @@ async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTok
   const decoder = new TextDecoder();
   let full = '';
   let buffer = '';
+  let finishReason = null;
+  let done = false, toolUse = false;
+  function acceptLine(line) {
+    if (!line.trim()) return;
+    let data;
+    try { data = JSON.parse(line); } catch (_) { return; }
+    if (data.error) throw new Error(`Ollama API error: ${data.error}`);
+    if (data.message?.content) {
+      full += data.message.content;
+      onToken(data.message.content);
+    }
+    if (data.message?.tool_calls?.length) toolUse = true;
+    if (data.done === true) {
+      done = true;
+      finishReason = data.done_reason || null;
+    }
+  }
   for await (const chunk of response.body) {
     if (signal?.aborted) throw new Error('回答已取消。');
     if (typeof onActivity === 'function') onActivity();
     buffer += decoder.decode(chunk, { stream: true });
     const lines = buffer.split('\n');
     buffer = lines.pop();
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const data = JSON.parse(line);
-        if (data.message && data.message.content) {
-          full += data.message.content;
-          onToken(data.message.content);
-        }
-      } catch (_) {}
-    }
+    for (const line of lines) acceptLine(line);
   }
 
-  if (buffer.trim()) {
-    try {
-      const data = JSON.parse(buffer);
-      if (data.message && data.message.content) {
-        full += data.message.content;
-        onToken(data.message.content);
-      }
-    } catch (_) {}
-  }
+  buffer += decoder.decode();
+  if (buffer.trim()) acceptLine(buffer);
+  if (finishReason === 'length') appendTruncationNotice(onToken);
+  finishStream(onCompletion, signal, full, finishReason, { normalReasons: done ? ['stop'] : [], toolUse });
   return full;
 }
 

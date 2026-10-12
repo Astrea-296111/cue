@@ -2,8 +2,12 @@
 
 const { tokenize } = require('./project-search');
 const { planProjectRetrieval, isLikelyFollowUp, sameProjectScopes } = require('./project-query');
+const { planInterviewQuestion, stableId } = require('./interview-question-planner');
+const { InterviewChecklist } = require('./interview-checklist');
+const { ProjectInterviewState } = require('./project-interview-state');
 
 const ANSWER_MODES = new Set(['ask', 'say', 'assist', 'answerThis', 'leetcode']);
+const INTERVIEW_MODES = new Set(['ask', 'say', 'assist', 'answerThis']);
 const REFERENTIAL_FOLLOWUP = /刚才|前面|上一个|回到|这段|这个解法|这道题|这个实现|第[一二三四五六七八九十\d]+|后[一二三四五六七八九十\d]+|你提到|你说的|这个|那个|继续|展开|为什么这样|怎么保证|what about|you mentioned|the second|the last/i;
 const clean = value => String(value || '').trim();
 const userMessage = entry => entry.spokenContext
@@ -79,9 +83,12 @@ class ConversationMemory {
     this.lastStartedAt = 0;
     this.sequence = 0;
     this.searchTerms = new WeakMap();
+    this.checklist = new InterviewChecklist();
+    this.projectInterviewStates = new Map();
+    this.lastCommittedId = 0;
   }
 
-  begin({ mode, question, transcript = [], settings = {}, catalog = [] }) {
+  begin({ mode, question, transcript = [], settings = {}, catalog = [], interviewPlan = null, evidenceRevision = null }) {
     const startedAt = Date.now();
     const current = clean(question);
     const newerSpeech = transcript.filter(t => t.channel === 'them' && t.ts > this.lastStartedAt);
@@ -107,8 +114,22 @@ class ConversationMemory {
     const snapshot = this.buildHistory(current, plan, budget, policy);
     const spokenContext = plan.projectSwitched ? '' : excerpt(transcript.filter(t => t.channel === 'you' && t.ts > this.lastStartedAt)
       .map(t => clean(t.text)).filter(Boolean).join('\n'), 1400);
-    return { epoch: this.epoch, id: ++this.sequence, startedAt, mode, question: current,
-      plan, policy, spokenContext, ...snapshot };
+    const request = { epoch: this.epoch, id: ++this.sequence, startedAt, mode, question: current,
+      plan, policy, spokenContext, ...snapshot,
+      interviewPlan: interviewPlan || planInterviewQuestion({ text: current, mode }),
+      evidenceRevision, manualFingerprint: stableId(settings.projectKnowledge || '') };
+    if (INTERVIEW_MODES.has(mode) && current) {
+      request.checklist = this.checklist.begin(request);
+      const projectState = this._projectState(plan);
+      if (projectState) {
+        projectState.setSourceRevision(evidenceRevision, request.manualFingerprint);
+        request.projectInterviewState = projectState.snapshot(request.checklist);
+      } else request.projectInterviewState = null;
+    } else {
+      request.checklist = null;
+      request.projectInterviewState = null;
+    }
+    return request;
   }
 
   buildHistory(question, plan, budget, policy = 'independent') {
@@ -184,11 +205,24 @@ class ConversationMemory {
       storedPairs: this.recent.length + this.archive.length, historyChars: used + memory.length, budget } };
   }
 
-  commit(request, answer) {
+  commit(request, answer, { completion, evidence } = {}) {
     if (request.epoch !== this.epoch || !ANSWER_MODES.has(request.mode) || !clean(answer)) return false;
+    // The main runner owns generation/abort checks; also reject stale or duplicate
+    // direct callers so an old same-epoch answer cannot roll back project state.
+    if (request.id !== this.sequence || request.id <= this.lastCommittedId) return false;
     if (request.mode === 'say' && !clean(request.question)) return false;
+    this.lastCommittedId = request.id;
+    this.checklist.commit(request, answer, completion);
+    const checklist = this.checklist.snapshot(request);
+    const projectState = this._projectState(request.plan);
+    if (projectState) {
+      projectState.setSourceRevision(request.evidenceRevision, request.manualFingerprint);
+      projectState.commit({ ...request, checklist }, evidence);
+    }
     this.recent.push({ id: request.id, question: excerpt(request.question || '请解决当前屏幕上的题目（原始截图未保留）', 8000),
-      spokenContext: request.spokenContext, answer: excerpt(answer, 48000), plan: request.plan });
+      spokenContext: request.spokenContext, answer: excerpt(answer, 48000), plan: request.plan,
+      checklist: checklist ? { ...checklist, questions: checklist.questions.map(item => ({ ...item, text: excerpt(item.text, 500) })),
+        pending: checklist.pending.map(item => ({ ...item, text: excerpt(item.text, 500) })) } : null });
     this.lastPlan = request.plan;
     this.activeProjectPlan = request.plan?.activeProject
       ? { ...request.plan.activeProject, scopes: [...(request.plan.activeProject.scopes || [])] }
@@ -198,10 +232,27 @@ class ConversationMemory {
     while (this.recent.length > 24 || (size > 240000 && this.recent.length > 1)) {
       const old = this.recent.shift();
       size -= userMessage(old).length + old.answer.length;
-      this.archive.push({ ...old, question: excerpt(old.question, 800), spokenContext: excerpt(old.spokenContext, 900), answer: excerpt(old.answer, 2400) });
+      this.archive.push({ ...old, checklist: null, question: excerpt(old.question, 800), spokenContext: excerpt(old.spokenContext, 900), answer: excerpt(old.answer, 2400) });
     }
     while (this.archive.length > 240) this.archive.shift();
     return true;
+  }
+
+  _projectState(plan) {
+    // Ambiguous and comparison requests do not merge facts into one project.
+    if (!plan?.retrieve || plan.scopes?.length !== 1 || !plan.scopes[0]) return null;
+    const scope = plan.scopes[0];
+    let state = this.projectInterviewStates.get(scope);
+    if (!state) state = new ProjectInterviewState({ project: plan.projectLabel || plan.activeProject?.label || scope, scopes: [scope] });
+    this.projectInterviewStates.delete(scope);
+    this.projectInterviewStates.set(scope, state);
+    while (this.projectInterviewStates.size > 12) this.projectInterviewStates.delete(this.projectInterviewStates.keys().next().value);
+    return state;
+  }
+
+  getInterviewState(scopes = this.activeProjectPlan?.scopes || []) {
+    if (scopes.length !== 1) return null;
+    return this.projectInterviewStates.get(scopes[0])?.snapshot() || null;
   }
 }
 

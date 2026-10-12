@@ -60,23 +60,43 @@ function countQuestionSignals(text) {
   return Math.max(explicit, connectors + (explicit ? 0 : 1));
 }
 
-function getAnswerPlan(question = '') {
+function getAnswerPlan(question = '', interviewPlan = null) {
   const q = cleanText(question);
-  const multi = countQuestionSignals(q) >= 2;
+  const questionCount = Array.isArray(interviewPlan?.subQuestions) ? interviewPlan.subQuestions.length : 0;
+  const multi = questionCount >= 2 || countQuestionSignals(q) >= 2;
   const complexPattern = /系统设计|架构|完整链路|整体流程|端到端|深入|详细|展开|怎么设计|如何设计|怎么实现|如何实现|排查|定位|优化|权衡|取舍|一致性|高并发|高可用|容灾|性能问题|项目里.+(?:怎么|如何)|为什么.+(?:选择|设计|不用)|从头|完整讲|walk\s+me\s+through|system\s+design|trade-?off|architecture/i;
   const simplePattern = /^(?:什么是|说一下|简单说|简单介绍|区别|有什么区别|是否|能不能|是不是|解释一下|what is|difference between|define)\b/i;
   let complex = multi || complexPattern.test(q) || q.length >= 72;
   if (!multi && simplePattern.test(q) && q.length < 48) complex = false;
   return complex
-    ? { level: 'complex', sentenceLimit: 9, target: '先用1~2句给主干，再围绕问题本身展开到6~9句；需要时分2~3个短段。', maxTokens: 920 }
+    ? { level: 'complex', sentenceLimit: Math.min(18, 9 + Math.max(0, questionCount - 2) * 2),
+      target: '先用1~2句给主干，再围绕问题本身展开；优先覆盖每个有效子问。',
+      maxTokens: Math.min(1800, 920 + Math.max(0, questionCount - 2) * 180), questionCount }
     : { level: 'brief', sentenceLimit: 5, target: '直接回答，通常3~5句；能3句讲清就不要凑到5句；复杂的点可以多举例子。', maxTokens: 700 };
 }
 
 function answerShapeInstruction(plan) {
   const p = plan || getAnswerPlan('');
+  if (p.questionCount >= 2) {
+    return `这是复杂问题：本轮有${p.questionCount}个子问题（含同话题仍适用的遗漏）：先给方案主干，再按原顺序逐项回应；当前新问优先，每个子问至少覆盖结论和最关键的理由或做法。` +
+      `先保证全部覆盖，再展开细节；通常控制在${p.sentenceLimit}句以内，不能为了沿用单点题句数限制而漏答。`;
+  }
   return p.level === 'complex'
     ? '这是复杂问题：第一两句先把方案/结论主干说清楚，再只展开与问题直接相关的关键机制、流程或取舍。可以明显比普通题多说，但不要延伸到没问的知识点。'
     : '这是简要问题：用3~5句直接回答，第一句就命中问题；只补最必要的原因、区别或例子。';
+}
+
+function interviewShapeInstruction({ interviewPlan, projectPlan } = {}) {
+  if (!(projectPlan?.retrieve && projectPlan.scopes?.length) && interviewPlan?.type !== 'scenario') return '';
+  return '\nInterview Mode：用高级候选人的方式回答当前项目/设计问题。' +
+    '先给结论，再解释设计原因、关键实现、相关 trade-off，以及确有必要的不足或优化方向。' +
+    '按当前问题需要选择这些层次，不要求每个子问凑齐五段。已有项目背景不重复介绍；项目状态仅帮助延续讨论，事实仍以本轮来源证据为准。' +
+    '假设性场景应说“如果/我会”，不能把推演方案、假设流量或助手建议说成实际项目经历。\n';
+}
+
+function contextCharsFor(mode, answerPlan) {
+  if (mode === 'say' || mode === 'answerThis') return answerPlan?.level === 'complex' ? 4800 : 3600;
+  return { assist: 4800, ask: 5000, followup: 6000, recap: 14000, leetcode: 0 }[mode] ?? 3600;
 }
 
 const REALTIME_CONTEXT_RULES = `
@@ -101,7 +121,7 @@ const HUMAN_INTERVIEW_RULES = `
 const ORAL_ANSWER_RULES = `
 这是可直接照着念的面试回答，优先级很高：
 1. 可简短概括当前核心问题，随后直接回答；长问题不逐字复述背景。可以自然重复题目的主语/核心名词，让语言像人在现场思考。
-2. 简单/概念/单点问题通常3~5句。复杂项目题、系统设计、完整链路、排障/取舍、多小问可以展开到6~9句或2~3个短段。
+2. 简单/概念/单点问题通常3~5句。复杂项目题、系统设计、完整链路、排障/取舍可以展开到6~9句；多个小问按本轮问题规划的句数和覆盖要求回答，每问先保留主干。
 3. 复杂题也必须先给短主干，再展开；不能前两三句话一直铺背景。多个问题都要覆盖，不要只答最后一个。
 4. 强制分点输出：任何超过2句的回答必须使用编号格式。每个一级观点必须单独占一行，以"1."、"2."、"3."开头；禁止输出连续长段落。项目介绍、架构说明、原因分析也必须按编号组织。
 5. 不要写大段列表、教科书定义、总结段、免责声明或“如果面试官继续追问我可以……”之类元话术。
@@ -142,13 +162,13 @@ const MODES = {
   say: {
     needsScreen: false, userBubble: '我该怎么回答？', small: false, resumeMode: 'say', maxTokens: 620, oral: true,
     buildSystem(contextBlock, aiRules, opts = {}) {
-      return applyRules(buildSystem('你是 cue，正在实时帮助中文技术求职者组织口述答案。' + BASE_RULES + '\n' + REALTIME_CONTEXT_RULES + HUMAN_INTERVIEW_RULES + PROJECT_GROUNDING_RULES + '\n' + answerShapeInstruction(opts.answerPlan), contextBlock, 3600), aiRules, 'say');
+      return applyRules(buildSystem('你是 cue，正在实时帮助中文技术求职者组织口述答案。' + BASE_RULES + '\n' + REALTIME_CONTEXT_RULES + HUMAN_INTERVIEW_RULES + PROJECT_GROUNDING_RULES + interviewShapeInstruction(opts) + '\n' + answerShapeInstruction(opts.answerPlan), contextBlock, contextCharsFor('say', opts.answerPlan)), aiRules, 'say');
     },
     build(ctx) {
       if (!latestInterviewerTurn(ctx.transcript)) return '用户主动触发口述回答，但当前没有识别到面试官问题。请用可直接说出口的一句提示说明需要面试官问题，不编造题目或答案。';
       return `${formatRealtimeConversation(ctx.transcript, { partial: ctx.partial })}\n\n${answerShapeInstruction(ctx.answerPlan)}只输出我现在能直接说出口的正文。`;
     },
-    resolveMaxTokens(ctx) { return ctx.answerPlan?.level === 'complex' ? 920 : 700; }
+    resolveMaxTokens(ctx) { return ctx.answerPlan?.maxTokens || 700; }
   },
   followup: {
     needsScreen: false, userBubble: '反问面试官', small: true, resumeMode: 'followup', maxTokens: 500,
@@ -162,15 +182,15 @@ const MODES = {
   },
   ask: {
     needsScreen: true, userBubble: null, small: false, resumeMode: 'ask', maxTokens: 1000,
-    buildSystem(contextBlock, aiRules, opts = {}) { return applyRules(buildSystem('你是 cue，中文技术面试助手。' + BASE_RULES + '\n' + HUMAN_INTERVIEW_RULES + PROJECT_GROUNDING_RULES + SCREEN_TASK_RULES + '\n' + answerShapeInstruction(opts.answerPlan), contextBlock, 5000), aiRules, 'ask'); },
+    buildSystem(contextBlock, aiRules, opts = {}) { return applyRules(buildSystem('你是 cue，中文技术面试助手。' + BASE_RULES + '\n' + HUMAN_INTERVIEW_RULES + PROJECT_GROUNDING_RULES + SCREEN_TASK_RULES + interviewShapeInstruction(opts) + '\n' + answerShapeInstruction(opts.answerPlan), contextBlock, 5000), aiRules, 'ask'); },
     build(ctx) { return `用户当前问题：${cleanText(ctx.userText)}\n\n${answerShapeInstruction(ctx.answerPlan)}`; },
-    resolveMaxTokens(ctx) { return ctx.answerPlan?.level === 'complex' ? 1400 : 900; }
+    resolveMaxTokens(ctx) { return ctx.answerPlan?.level === 'complex' ? Math.max(1400, ctx.answerPlan.maxTokens || 0) : 900; }
   },
   answerThis: {
     needsScreen: false, userBubble: null, small: false, resumeMode: 'say', maxTokens: 620, oral: true,
-    buildSystem(contextBlock, aiRules, opts = {}) { return applyRules(buildSystem('你是 cue。只回答用户给出的这道面试题。' + BASE_RULES + '\n' + HUMAN_INTERVIEW_RULES + PROJECT_GROUNDING_RULES + REALTIME_CONTEXT_RULES + '\n' + answerShapeInstruction(opts.answerPlan), contextBlock, 3600), aiRules, 'answerThis'); },
+    buildSystem(contextBlock, aiRules, opts = {}) { return applyRules(buildSystem('你是 cue。只回答用户给出的这道面试题。' + BASE_RULES + '\n' + HUMAN_INTERVIEW_RULES + PROJECT_GROUNDING_RULES + REALTIME_CONTEXT_RULES + interviewShapeInstruction(opts) + '\n' + answerShapeInstruction(opts.answerPlan), contextBlock, contextCharsFor('answerThis', opts.answerPlan)), aiRules, 'answerThis'); },
     build(ctx) { return `当前面试题：\n${cleanText(ctx.userText || '（未提供问题）')}\n\n${answerShapeInstruction(ctx.answerPlan)}只输出可直接口述的正文。`; },
-    resolveMaxTokens(ctx) { return ctx.answerPlan?.level === 'complex' ? 920 : 700; }
+    resolveMaxTokens(ctx) { return ctx.answerPlan?.maxTokens || 700; }
   },
   leetcode: {
     needsScreen: true, userBubble: '解决屏幕上的技术题', small: false, resumeMode: 'leetcode', maxTokens: 3200,
@@ -184,4 +204,4 @@ function shouldCaptureScreen(mode, userText = '') {
   return !!MODES[mode]?.needsScreen;
 }
 
-module.exports = { MODES, formatTranscript, formatRealtimeConversation, isLikelyFollowUp, shouldCaptureScreen, getAnswerPlan, answerShapeInstruction };
+module.exports = { MODES, formatTranscript, formatRealtimeConversation, isLikelyFollowUp, shouldCaptureScreen, getAnswerPlan, answerShapeInstruction, contextCharsFor };

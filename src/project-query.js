@@ -14,7 +14,7 @@ const { isCodeChangeRequest } = require('./question-resolver');
 
 const TOPIC_SWITCH = /换个|换一(?:个|道)|下一个问题|接下来.{0,5}(?:聊|讲|问)|不聊|先不说|新话题|\b(?:new topic|next question|switch to)\b/i;
 const GENERIC_QUESTION = /^(?:(?:那|那么|再|请|你)(?:就|给我)?\s*)?(?:什么是|介绍(?:一下)?|讲讲|说说|讲一下|解释(?:一下)?).{0,10}(?:redis|mysql|java|jvm|gc\b|hashmap|线程|事务|索引|spring|kafka|goroutine|channel|gmp\b|http|tcp|操作系统|计算机网络)|^(?:redis|mysql|java|jvm|spring|hashmap|线程|事务|索引|kafka|http|tcp).{0,18}(?:是什么|有哪些|有几种|哪些|支持什么|的区别|有什么区别|数据结构|数据类型|底层原理|为什么快|为何快)|^(?:what is|explain|tell me about)\s+(?:redis|mysql|java|http|tcp|hashmap)\b/i;
-const CLEAR_NON_PROJECT = /自我介绍|为什么(?:投|选择|想来|申请)|职业规划|期望薪资|薪资|多久(?:能|可以)到岗|什么时候到岗|你的优点|你的缺点|优势是什么|缺点是什么|为什么离职|学校|专业|研究方向|算法题|leetcode|手撕|写(?:一段|个)?代码|反问|还有什么想问|\b(?:tell me about yourself|career goals|salary|compensation|why this company|why this role|leetcode)\b/i;
+const CLEAR_NON_PROJECT = /自我介绍|为什么(?:投|选择|想来|申请).{0,16}(?:公司|岗位|职位|我们|这里)|职业规划|期望薪资|薪资|多久(?:能|可以)到岗|什么时候到岗|你的优点|你的缺点|优势是什么|缺点是什么|为什么离职|学校|专业|研究方向|算法题|leetcode|手撕|写(?:一段|个)?代码|反问|还有什么想问|\b(?:tell me about yourself|career goals|salary|compensation|why this company|why this role|leetcode)\b/i;
 const NEW_UNNAMED_PROJECT = /另一个项目|另外一个项目|下一个项目|换个项目|换一个项目/i;
 
 function isLikelyFollowUp(text) {
