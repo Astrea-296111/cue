@@ -7,7 +7,7 @@
 // - Remove mouse-driven visual feedback that can escape the protected window:
 //   native HTML tooltips, hover/active/focus styling, pointer/grab/text cursors,
 //   native Electron/Windows drag feedback, resize cursor/system menu.
-// - Replace native -webkit-app-region dragging with manual BrowserWindow.setPosition().
+// - Replace native -webkit-app-region dragging with manual window movement.
 //
 // Existing Ctrl/Cmd+Shift+I forced passthrough is preserved and remains OFF by
 // default. If you never use that shortcut, Cue behaves as an interactive window.
@@ -19,6 +19,7 @@ const {
   ipcMain,
   screen
 } = require('electron');
+const { moveWindow } = require('./window-layout');
 
 let forcedPassthrough = false;
 let manualDragState = null;
@@ -177,7 +178,8 @@ function moveManualDrag(event) {
   const cursor =
     screen.getCursorScreenPoint();
 
-  state.target.setPosition(
+  moveWindow(
+    state.target,
     Math.round(
       cursor.x -
       state.offsetX
@@ -630,7 +632,7 @@ function installPointerNeutralMode(
     );
 
     // Native Electron drag should no longer be reachable after CSS override.
-    // This is a final guard. Programmatic setPosition() does not use the
+    // This is a final guard. Programmatic window movement does not use the
     // native user-move path.
     win.on(
       'will-move',
