@@ -119,7 +119,7 @@ class ConversationMemory {
         storedPairs: this.recent.length + this.archive.length, historyChars: 0, budget: 0 } };
     }
 
-    const maxRecent = policy === 'followup' ? 1 : policy === 'referential' ? 3 : 10;
+    const maxRecent = policy === 'followup' || policy === 'referential' ? 3 : 10;
     const historyBudget = Math.floor(budget * (policy === 'broad' ? 0.72 : 0.82));
     let used = 0;
     const chosen = [];
@@ -186,6 +186,7 @@ class ConversationMemory {
 
   commit(request, answer) {
     if (request.epoch !== this.epoch || !ANSWER_MODES.has(request.mode) || !clean(answer)) return false;
+    if (request.mode === 'say' && !clean(request.question)) return false;
     this.recent.push({ id: request.id, question: excerpt(request.question || '请解决当前屏幕上的题目（原始截图未保留）', 8000),
       spokenContext: request.spokenContext, answer: excerpt(answer, 48000), plan: request.plan });
     this.lastPlan = request.plan;

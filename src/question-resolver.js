@@ -19,6 +19,28 @@ const DANGLING_TAIL_RE = /^(?:在|从|对|对于|关于|通过|基于|结合|当
 const IMPERATIVE_QUESTION_RE = /^(?:请)?(?:介绍|讲讲|说说|说一下|解释|解释一下|谈谈|分析|比较|描述|展开|复盘|聊聊|概括|总结一下|walk me through|tell me about|describe|explain)\b/i;
 // Code edits are complete interviewer requirements even without a question mark.
 const CODE_CHANGE_REQUEST_RE = /^(?:(?:那(?:么)?|现在|请|麻烦)\s*)*(?:你)?(?:把.{1,60})?(?:修改|改(?:成|为|用|一下)|换(?:成|用)|重写(?:成)?|替换(?:成)?|增加|添加|加上|补(?:上|充)|保留|去掉|删除|修复|优化).{2,}|^(?:请)?(?:不要|别)(?:再)?用.{1,40}[,，;；]\s*(?:改|换)(?:成|为|用).{2,}/i;
+const CONTEXT_PREAMBLE_RE = /^(?:那(?:么)?[\s,，]*)?(?:假设|假如|如果|考虑|现在有|我们(?:有|的|正在)|有一个|场景|背景|给定|已知|要求|限制|其中|同时|但是|并且|而且)/;
+const SEMANTIC_CONTINUATION_RE = /^(?:那(?:么)?[\s,，]*)?(?:如果|假设|假如|但是|不过|其中|同时|并且|而且|要求|限制|还(?:要|需)|不能|不允许|在这个|在这种|这个|这种|这些|上述|刚才|基于|针对)|(?:这些条件|上述条件|同一场景|刚才的方案)/;
+const TECHNICAL_SUBJECT_RE = /\b(?:redis|mysql|postgresql|kafka|java|jvm|react|rag|langgraph|tcp|http|tcs|repopilot|function\s*call)\b/gi;
+
+function changesTechnicalSubject(previous, next) {
+  const before = new Set((previous.match(TECHNICAL_SUBJECT_RE) || []).map(s => s.toLowerCase()));
+  const after = (next.match(TECHNICAL_SUBJECT_RE) || []).map(s => s.toLowerCase());
+  return before.size > 0 && after.length > 0 && !after.some(s => before.has(s));
+}
+
+function continuesQuestion(previous, next) {
+  if (changesTechnicalSubject(previous, next)) return false;
+  return SEMANTIC_CONTINUATION_RE.test(next) || CONTINUATION_QUESTION_RE.test(next) ||
+    isLikelySupplement(next) || isCodeChangeRequest(next);
+}
+
+function clipQuestion(text) {
+  if (text.length <= 8000) return text;
+  const marker = '\n[过长发言的中间部分已省略]\n';
+  const head = Math.floor((8000 - marker.length) / 2);
+  return text.slice(0, head) + marker + text.slice(-(8000 - marker.length - head));
+}
 
 function clean(value) {
   return String(value || '')
@@ -103,6 +125,8 @@ function splitTrailingIncompleteClause(value) {
   const prefix = clean(text.slice(0, lastQuestionMark + 1));
   const tail = clean(text.slice(lastQuestionMark + 1));
   if (!prefix || !tail || !isLikelyCompleteQuestion(prefix)) return null;
+  // A substantive example after '?' is still part of the current question.
+  if (isLikelySupplement(tail) && compact(tail).length >= 12 && !OPEN_END_RE.test(tail)) return null;
   if (!isLikelyIncompleteFragment(tail)) return null;
   return { completeText: prefix, pendingText: tail };
 }
@@ -141,13 +165,17 @@ function mergeFragment(pending, next) {
   if (b.startsWith(a) || a.startsWith(b)) return b.length >= a.length ? b : a;
 
   // A clearly independent new question should not be glued to an unfinished tail.
-  if (isLikelyCompleteQuestion(b) && /^(?:为什么|怎么|如何|什么|哪些|是否|是不是|能不能|有没有|会不会|要不要|请|介绍|讲讲|解释|what\b|why\b|how\b|can\b|could\b|would\b)/i.test(b)) {
+  if (isLikelyCompleteQuestion(b) &&
+      (changesTechnicalSubject(a, b) ||
+       (/^(?:为什么|怎么|如何|什么|哪些|是否|是不是|能不能|有没有|会不会|要不要|请|介绍|讲讲|解释|what\b|why\b|how\b|can\b|could\b|would\b)/i.test(b) &&
+        !continuesQuestion(a, b) && !(compact(a).length >= 12 && CONTEXT_PREAMBLE_RE.test(a))))) {
     return null;
   }
 
-  if (isLikelyIncompleteFragment(a)) {
+  if (!isLikelyCompleteQuestion(a)) {
     const needsSpace = /[A-Za-z0-9]$/.test(a) && /^[A-Za-z0-9]/.test(b);
-    return `${a}${needsSpace ? ' ' : ''}${b}`;
+    const separator = /[。.!！;；]$/.test(a) ? '\n' : (needsSpace ? ' ' : '');
+    return clipQuestion(`${a}${separator}${b}`);
   }
   return null;
 }
@@ -223,6 +251,8 @@ class QuestionResolver {
   _isLateSubmittedDuplicate(text, data, now) {
     const submitted = this.lastSubmitted;
     if (!submitted || now - submitted.at > this.lateFinalGraceMs) return false;
+    // A forced partial reply must not suppress the completed ASR final.
+    if (submitted.partial && compact(text).length > compact(submitted.text).length) return false;
     const rawKey = data?.utteranceKey ? `${data.sourceId || 'stream'}:${data.utteranceKey}` : '';
     if (rawKey && submitted.keys?.has(rawKey)) return true;
     return overlapsEnough(text, submitted.text);
@@ -239,7 +269,7 @@ class QuestionResolver {
       return;
     }
     this.stableParts.push({ text: value, at: meta.at || Date.now(), key: meta.key || '' });
-    if (this.stableParts.length > 8) this.stableParts.splice(0, this.stableParts.length - 8);
+    if (this.stableParts.length > 64) this.stableParts.splice(0, this.stableParts.length - 64);
     this.revision++;
   }
 
@@ -324,13 +354,21 @@ class QuestionResolver {
         // The old unfinished tail never completed; a real new question supersedes it.
         this.pendingText = '';
         this.pendingAt = 0;
+      } else if (merged) {
+        // Scene-setting can span several ASR finals before the actual question.
+        text = merged;
+        this.pendingText = '';
+        this.pendingAt = 0;
       }
     }
 
     // Supplements such as “比如图片会不会变模糊” may look syntactically
     // incomplete on their own, but once a stable question exists they belong to
     // that question and must be retained before the generic incomplete check.
-    if (isLikelySupplement(text)) {
+    const relatedConstraint = this.stableParts.length && !isLikelyCompleteQuestion(text) &&
+      !isLikelyIncompleteFragment(text) &&
+      continuesQuestion(this.stableParts.map(part => part.text).join('\n'), text);
+    if (isLikelySupplement(text) || relatedConstraint) {
       if (this.stableParts.length) this._appendStable(text, { at: now, key: eventKey });
       else {
         this.pendingText = text;
@@ -353,7 +391,8 @@ class QuestionResolver {
     }
 
     if (isLikelyCompleteQuestion(text)) {
-      if (!switched && longBoundary && this.stableParts.length && !continuationQuestion) {
+      if (!switched && longBoundary && this.stableParts.length && !continuationQuestion &&
+          !continuesQuestion(this.stableParts.map(part => part.text).join('\n'), text)) {
         this.stableParts = [];
         this.pendingText = '';
         this.pendingAt = 0;
@@ -379,7 +418,7 @@ class QuestionResolver {
     this.lastFinalAt = now;
   }
 
-  resolveForSubmit() {
+  resolveForSubmit({ allowPartial = false } = {}) {
     let parts = this.stableParts.map((part) => part.text);
     let provisional = false;
     const interimText = clean(this.interim?.text);
@@ -391,7 +430,8 @@ class QuestionResolver {
       if (isLikelyCompleteQuestion(interimAnswerText)) {
         const longBoundary = (this.boundary?.gapMs || 0) > this.newQuestionGapMs;
         const continuationQuestion = CONTINUATION_QUESTION_RE.test(interimAnswerText);
-        if (longBoundary && parts.length && !continuationQuestion) parts = [];
+        if (longBoundary && parts.length && !continuationQuestion &&
+            !continuesQuestion(parts.join('\n'), interimAnswerText)) parts = [];
         if (!parts.length || !overlapsEnough(parts.at(-1), interimAnswerText)) parts.push(interimAnswerText);
         provisional = true;
       } else if (isLikelySupplement(interimAnswerText) && parts.length) {
@@ -406,17 +446,27 @@ class QuestionResolver {
       else if (compact(part).length > compact(deduped.at(-1)).length) deduped[deduped.length - 1] = part;
     }
 
-    const text = deduped.join('\n').trim().slice(-8000);
+    let text = clipQuestion(deduped.join('\n').trim());
+    const pendingText = this.pendingText || interimPendingText || (interimText && !isLikelyCompleteQuestion(interimText) ? interimText : '');
+    let partial = false;
+    if (allowPartial && !text) {
+      text = clipQuestion(mergeFragment(this.pendingText, interimText) || interimText || this.pendingText);
+      partial = !!text;
+      provisional = !!interimText;
+    }
     const keys = new Set(this.stableParts.map((part) => part.key).filter(Boolean));
-    if (this.interim?.key) keys.add(this.interim.key);
+    if (this.interim?.key && provisional) keys.add(this.interim.key);
 
     return {
       text,
-      pendingText: this.pendingText || interimPendingText || (interimText && !isLikelyCompleteQuestion(interimText) ? interimText : ''),
+      pendingText,
+      partial,
       provisional,
       awaitingText: this.awaitingText,
       revision: this.revision,
-      keys
+      keys,
+      parts: this.stableParts.map(part => part.text),
+      interimText
     };
   }
 
@@ -426,9 +476,27 @@ class QuestionResolver {
     this.lastSubmitted = {
       text,
       at: Date.now(),
-      keys: snapshot?.keys instanceof Set ? new Set(snapshot.keys) : new Set()
+      keys: snapshot?.keys instanceof Set ? new Set(snapshot.keys) : new Set(),
+      partial: !!snapshot.partial
     };
+    // Consume only the frozen request. Speech arriving during generation, and
+    // an unsubmitted tail after a complete question, belong to the next request.
+    const frozen = new Set(snapshot.parts || [text]);
+    const remaining = this.stableParts.filter(part => !frozen.has(part.text));
+    const pending = snapshot.partial && this.pendingText === snapshot.pendingText ? ''
+      : this.pendingText || (!snapshot.partial ? snapshot.pendingText || '' : '');
+    const interim = this.interim?.text !== snapshot.interimText ? this.interim : null;
+    const boundary = this.boundary;
+    const awaitingText = this.awaitingText;
     this._clearActive();
+    this.stableParts = remaining;
+    this.pendingText = pending;
+    this.pendingAt = pending ? Date.now() : 0;
+    this.interim = interim;
+    if (remaining.length || pending || interim || awaitingText) {
+      this.boundary = boundary;
+      this.awaitingText = awaitingText;
+    }
   }
 }
 

@@ -3,6 +3,7 @@ const path = require('path');
 const { performance } = require('perf_hooks');
 const { withCurrentQuestion, isLikelyFollowUp } = require('./src/project-query');
 const { QuestionResolver } = require('./src/question-resolver');
+const { windowLayout } = require('./src/window-layout');
 const replyLatency = require('./src/reply-latency');
 const os = require('os');
 const store = require('./src/store');
@@ -10,7 +11,7 @@ const { captureScreenshot } = require('./src/screen');
 const { createSTT } = require('./src/stt');
 const { parseDocumentFile } = require('./src/resume');
 const { createLLM } = require('./src/llm');
-const { MODES, shouldCaptureScreen } = require('./src/prompts');
+const { MODES, shouldCaptureScreen, getAnswerPlan } = require('./src/prompts');
 const { ConversationMemory } = require('./src/conversation-memory');
 const { getProjectCatalog } = require('./src/project-knowledge');
 const { rms16 } = require('./src/wav');
@@ -293,8 +294,10 @@ async function getWhisperOverview() {
 
 // -------- window --------
 function createWindow() {
-  const { workArea } = screen.getPrimaryDisplay();
-  const W = 550, H = 600;
+  const display = screen.getPrimaryDisplay();
+  const { workArea } = display;
+  const layout = windowLayout(display);
+  const W = layout.width, H = 600;
 
   const savedSettings = store.getSettings();
   let startX = Math.round(workArea.x + (workArea.width - W) / 2);
@@ -323,7 +326,8 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: false,
+      zoomFactor: layout.zoomFactor
     }
   };
 
@@ -354,6 +358,20 @@ function createWindow() {
   if (isMac && typeof win.setHiddenInMissionControl === 'function') win.setHiddenInMissionControl(true);
 
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  const applyScreenLayout = () => {
+    if (!win || win.isDestroyed()) return;
+    const next = windowLayout(screen.getDisplayMatching(win.getBounds()));
+    const [width, height] = win.getSize();
+    if (width !== next.width) win.setSize(next.width, height);
+    if (Math.abs(win.webContents.getZoomFactor() - next.zoomFactor) > 0.001) {
+      win.webContents.setZoomFactor(next.zoomFactor);
+    }
+  };
+  win.on('moved', applyScreenLayout);
+  win.webContents.on('did-finish-load', applyScreenLayout);
+  screen.on('display-metrics-changed', applyScreenLayout);
+  win.on('closed', () => screen.removeListener('display-metrics-changed', applyScreenLayout));
 
   let moveSaveTimer = null;
   win.on('moved', () => {
@@ -637,25 +655,25 @@ async function runFeature(mode, userText) {
 
   const explicit = typeof userText === 'string' ? userText.trim() : '';
   const liveMode = mode === 'say' || mode === 'assist';
-  const resolved = liveMode || mode === 'answerThis' ? questionResolver.resolveForSubmit() : null;
+  const resolved = liveMode || mode === 'answerThis'
+    ? questionResolver.resolveForSubmit({ allowPartial: mode === 'say' }) : null;
   const lastSpeech = transcript.filter(t => t.channel === 'them').at(-1);
   const lastQuestion = conversation.recent.at(-1)?.question || '';
   const question = mode === 'leetcode' ? '请解决当前屏幕上的技术题'
     : explicit || (mode === 'assist' ? (resolved?.text || lastQuestion || '')
-      : liveMode || mode === 'answerThis' ? (resolved?.text || '') : (lastQuestion || lastSpeech?.text || ''));
+      : mode === 'say' ? (resolved?.text || lastQuestion || lastSpeech?.text || '')
+        : mode === 'answerThis' ? (resolved?.text || '') : (lastQuestion || lastSpeech?.text || ''));
 
-  if (state.busy) {
+  if (state.busy && mode !== 'say') {
     send('status', { message: '当前回答仍在生成；请等待本轮完成或清空会话后再提交。' });
     return;
   }
 
-  if (!question && mode === 'say') {
-    const pending = resolved?.pendingText || '';
-    const message = pending
-      ? `最新发言还没说完整（${pending.slice(0, 32)}${pending.length > 32 ? '…' : ''}），已避免把半句话当成新问题。`
-      : (resolved?.awaitingText ? '最新发言还在识别，请看到完整问题后再按 Ctrl+Enter。' : '还没有识别到新的完整面试问题。');
-    send('status', { message });
-    return;
+  if (state.busy && mode === 'say') {
+    const previous = activeGeneration;
+    activeGeneration = null;
+    if (previous) previous.controller.abort();
+    state.busy = false;
   }
 
   // For live answering, the resolver has already decided which interviewer
@@ -686,7 +704,7 @@ async function runFeature(mode, userText) {
     emit('llm:start', { userBubble, small: !!def.small,
       category: mode !== 'leetcode' ? detectCategory(contextTranscript) : null });
     if (!llm.ready) throw new Error(llm.configurationError || 'Complete the model settings.');
-    if (!question && ['ask', 'say', 'answerThis'].includes(mode)) throw new Error('请先输入问题或等待识别到面试官发言。');
+    if (!question && ['ask', 'answerThis'].includes(mode)) throw new Error('请先输入问题或等待识别到面试官发言。');
     const request = conversation.begin({ mode, question, transcript: contextTranscript,
       settings, catalog: getProjectCatalog() });
 
@@ -708,8 +726,9 @@ async function runFeature(mode, userText) {
     const contextStarted = performance.now();
     const contextBlock = buildInterviewContext(settings, mode, contextTranscript,
       { requestId: timing.requestId, projectPlan: request.plan, smart: !!settings.smart });
-    const system = def.buildSystem ? def.buildSystem(contextBlock, settings.aiRules || '') : (def.system || '');
-    const built = def.build({ transcript: contextTranscript, userText: question });
+    const answerPlan = getAnswerPlan(question);
+    const system = def.buildSystem ? def.buildSystem(contextBlock, settings.aiRules || '', { answerPlan }) : (def.system || '');
+    const built = def.build({ transcript: contextTranscript, userText: question, answerPlan, partial: !!resolved?.partial });
     // A fresh screen task stands on its own; its answer is still available to
     // subsequent manual follow-ups. No previous screenshot bytes are retained.
     const history = mode === 'leetcode' ? [] : request.turns;
@@ -746,7 +765,8 @@ async function runFeature(mode, userText) {
     try {
       const result = await Promise.race([
         llm.stream({ system, turns, imageDataUrl, signal: generation.controller.signal,
-          ...(mode === 'assist' ? { maxTokens: def.maxTokens } : {}),
+          ...(['say', 'answerThis', 'assist'].includes(mode)
+            ? { maxTokens: def.resolveMaxTokens?.({ answerPlan }) || def.maxTokens } : {}),
           onActivity: () => { if (owned() && !streamSettled && !generation.controller.signal.aborted) rearm(); },
           onToken: text => {
             if (!owned() || streamSettled || generation.controller.signal.aborted || !text) return;
