@@ -2,6 +2,7 @@
 const path = require('path');
 const TARGET = 1800;
 const MAX = 2400;
+const METADATA_SCHEMA_VERSION = 3;
 
 // Conservative lexical boundary detection, not an AST parser. Strings/comments
 // are masked before brace matching; unsupported syntax falls back to line windows.
@@ -31,12 +32,112 @@ function maskCode(text, python = false) {
   return out;
 }
 
+// Keep the source comment, not a generated summary. Only comments immediately
+// attached to a declaration belong to its description.
+function declarationStart(lines, at) {
+  let start = at;
+  while (start > 0) {
+    const line = lines[start - 1].trim();
+    if (/^@\w/.test(line) || /^\/\//.test(line)) { start--; continue; }
+    if (/\)\s*$/.test(line)) {
+      let annotation = start - 1;
+      while (annotation >= Math.max(0, start - 12) && !/^\s*@\w/.test(lines[annotation])) annotation--;
+      if (annotation >= 0 && /^\s*@[\w.]+\s*\([\s\S]*\)\s*$/.test(maskCode(lines.slice(annotation, start).join('\n')))) {
+        start = annotation; continue;
+      }
+    }
+    if (line.endsWith('*/')) {
+      let open = start - 1;
+      while (open >= 0 && !lines[open].includes('/*')) open--;
+      if (open >= 0) { start = open; continue; }
+    }
+    break;
+  }
+  return start;
+}
+
+function sourceDescription(lines, start, declaration) {
+  return lines.slice(start, declaration).filter(line => /^\s*(?:\/\/|\/\*|\*|\*\/)/.test(line))
+    .map(line => line.replace(/^\s*(?:\/\/|\/\*\*?|\*\/|\*)\s?/, '').replace(/\*\/\s*$/, '').trim())
+    .filter(Boolean).join('\n');
+}
+
+function sourceCalls(text, startLine, python = false, localTypes = {}) {
+  const masked = maskCode(text, python), calls = [];
+  const re = /\b([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)\s*\(/g;
+  let match;
+  while ((match = re.exec(masked))) {
+    const prefix = masked.slice(0, match.index).trimEnd();
+    if (/^\s*@/.test(masked.slice(masked.lastIndexOf('\n', match.index) + 1, match.index))) continue;
+    // A chain such as foo.bar.run() has an unknown receiver type. The explicit
+    // this.field.run() form can use a declared field of the current class.
+    if (prefix.endsWith('.') && !/\bthis\s*\.\s*$/.test(prefix)) continue;
+    const explicitThis = /\bthis\s*\.\s*$/.test(prefix);
+    calls.push({ receiver: match[1], method: match[2], line: startLine + (masked.slice(0, match.index).match(/\n/g) || []).length,
+      ...(explicitThis ? { explicitThis: true } : {}),
+      ...(!explicitThis && Object.hasOwn(localTypes, match[1]) ? { shadowed: true } : {}) });
+  }
+  return calls;
+}
+
+function javaLocalTypes(text) {
+  const localTypes = {};
+  const masked = maskCode(text).replace(/@[\w.]+(?:\s*\([^)]*\))?\s*/g, ' ');
+  const declaration = /(?:^|[;{}(,])\s*(?:final\s+)?([\w$.]+(?:\s*<[^;{}()]+>)?(?:\s*\[\])*)\s+([\w$]+)\s*(?=[=;,)])/g;
+  for (const match of masked.matchAll(declaration)) {
+    if (!/^(?:return|throw|new|else|break|continue)$/.test(match[1])) localTypes[match[2]] = match[1].replace(/\s+/g, '');
+  }
+  return localTypes;
+}
+
+function roleFor(filePath, symbol, text, kind, language) {
+  if (/(?:^|\/)(?:application[^/]*\.(?:ya?ml|properties)|[^/]*config[^/]*\.[^/]+|Dockerfile|compose[^/]*\.ya?ml)$/i.test(filePath)) return 'config';
+  if (language === 'text') return 'document';
+  const evidence = `${symbol}\n${(text.match(/^\s*@(RestController|Controller|Service|Repository)\b/gm) || []).join('\n')}`;
+  if (/@(?:RestController|Controller)\b|\b\w*Controller\b/.test(evidence)) return 'controller';
+  if (/@Service\b|\b\w*Service\b/.test(evidence)) return 'service';
+  if (/@Repository\b|\b\w*(?:Repository|Dao|DAO)\b/.test(evidence)) return 'repository';
+  return /^(?:method|function)$/.test(kind) ? 'function' : 'unknown';
+}
+
+function javaClassMetadata(span, maskedText, text) {
+  const header = maskedText.slice(span.openOffset < 0 ? 0 : span.declarationOffset, span.openOffset);
+  const names = value => String(value || '').replace(/<[^<>]*(?:<[^<>]*>[^<>]*)*>/g, '').split(',').map(x => x.trim()).filter(Boolean);
+  const extendsMatch = /\bextends\s+([\s\S]*?)(?=\bimplements\b|$)/.exec(header);
+  const implementsMatch = /\bimplements\s+([\s\S]*)$/.exec(header);
+  const fieldTypes = {};
+  let depth = 1, statementStart = span.openOffset + 1;
+  for (let i = statementStart; i < span.closeOffset; i++) {
+    const c = maskedText[i];
+    if (c === '{') depth++;
+    else if (c === '}') {
+      depth--;
+      if (depth === 1) statementStart = i + 1;
+    } else if (c === ';' && depth === 1) {
+      const statement = maskedText.slice(statementStart, i).trim()
+        .replace(/@[\w.]+(?:\s*\([^)]*\))?\s*/g, '').trim();
+      const field = /^(?:(?:public|private|protected|static|final|transient|volatile)\s+)*([\w$.]+(?:\s*<[^;{}]+>)?(?:\s*\[\])*)\s+([\w$]+)(?:\s*=\s*[\s\S]*|\s*)$/.exec(statement);
+      if (field && field[1] !== 'var') fieldTypes[field[2]] = field[1].replace(/\s+/g, '');
+      statementStart = i + 1;
+    }
+  }
+  return { fieldTypes, extends: names(extendsMatch?.[1]), implements: names(implementsMatch?.[1]),
+    role: roleFor('', span.symbol, text, span.kind, 'java') };
+}
+
 function chunkText(filePath, text) {
   const safePath = String(filePath || '').replace(/\\/g, '/');
   const language = ({ '.java': 'java', '.go': 'go', '.py': 'python', '.js': 'javascript', '.cjs': 'javascript', '.mjs': 'javascript', '.ts': 'typescript', '.tsx': 'typescript', '.jsx': 'javascript' })[path.extname(safePath).toLowerCase()] || 'text';
   const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
+  const source = lines.join('\n');
+  const maskedSource = maskCode(source, language === 'python');
+  const masked = maskedSource.split('\n');
+  const offsets = [0];
+  for (const line of lines) offsets.push(offsets.at(-1) + line.length + 1);
+  const imports = language === 'java' ? [...maskedSource.matchAll(/^\s*import\s+(?:static\s+)?([\w.$]+(?:\.\*)?)\s*;/gm)].map(m => m[1]) : [];
+  const packageName = language === 'java' ? /^\s*package\s+([\w.]+)\s*;/m.exec(maskedSource)?.[1] || '' : '';
   const chunks = [];
-  function emit(start, end, symbol = '', kind = 'text') {
+  function emit(start, end, symbol = '', kind = 'text', metadata = {}) {
     if (end <= start) return;
     let cursor = start;
     while (cursor < end) {
@@ -55,8 +156,18 @@ function chunkText(filePath, text) {
       for (let offset = 0; offset < body.length; offset += MAX) {
         const part = body.slice(offset, offset + MAX);
         if (!part.trim()) continue;
+        const role = roleFor(safePath, symbol, part, kind, language);
+        // Reuse the existing source-profile topic vocabulary. This is lexical
+        // source classification, not a claim about runtime behavior.
+        const { TOPICS } = require('./project-profile');
+        const interviewTopics = TOPICS.filter(topic => topic.re.test(`${safePath}\n${symbol}\n${part}`)).map(topic => topic.key);
         chunks.push({ path: safePath, startLine: cursor + 1, endLine: stop,
-          text: part, language, symbol, kind,
+          text: part, language, symbol, kind, metadataSchemaVersion: METADATA_SCHEMA_VERSION,
+          type: kind === 'class' || metadata.parentClass && kind === 'context' ? 'class' : /^(method|function)$/.test(kind) ? 'function' : 'document',
+          parentClass: '', method: kind === 'method' ? symbol.split('#').at(-1) : '', methods: [],
+          imports, packageName, fieldTypes: {}, localTypes: {}, extends: [], implements: [], description: '', declarationLine: cursor + 1, descriptionLine: null,
+          role, importance: /(?:^|\/)(?:test|tests|__tests__|build|dist|generated)(?:\/|$)|(?:Test|Spec)\.[^/]+$|\.(?:test|spec)\./i.test(safePath) ? 'low' : /^(?:controller|service|repository)$/.test(role) || /(?:^|\/)readme\./i.test(safePath) ? 'high' : 'normal',
+          interviewTopics, ...metadata, calls: language === 'text' ? [] : sourceCalls(part, cursor + 1 + (body.slice(0, offset).match(/\n/g) || []).length, language === 'python', metadata.localTypes),
           ...(cursor !== start || stop !== end || body.length > MAX ? { partial: true } : {}) });
       }
       cursor = stop;
@@ -76,11 +187,11 @@ function chunkText(filePath, text) {
   }
   if (language === 'text') { emit(0, lines.length); return chunks; }
 
-  const masked = maskCode(lines.join('\n'), language === 'python').split('\n');
   const spans = [];
   for (let i = 0; i < masked.length; i++) {
     const line = masked[i];
-    let name = '', kind = 'function', end = -1;
+    if (!line.trim()) continue;
+    let name = '', kind = 'function', end = -1, openOffset = -1, closeOffset = -1, declarationOnly = false;
     if (language === 'python') {
       const match = /^(\s*)(?:async\s+)?(def|class)\s+(\w+)\s*[(\[:]/.exec(line);
       if (!match) continue;
@@ -100,39 +211,74 @@ function chunkText(filePath, text) {
       } else if (language === 'go' && (match = /^\s*func\s+(?:\([^)]*\)\s*)?(\w+)\s*\(/.exec(line))) name = match[1];
       else if ((match = /^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s*\*?\s*(\w+)\s*\(/.exec(line))) name = match[1];
       else if ((match = /^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?(?:\([^)]*\)|\w+)\s*=>\s*\{/.exec(signature))) name = match[1];
-      else if (language !== 'go' && (match = /^\s*(?:(?:public|private|protected|static|final|synchronized|abstract|async|override|readonly)\s+)*(?:[\w<>[\],.?]+\s+)?(\w+)\s*\([^;{}]*\)\s*(?:throws\s+[\w.,\s]+|:\s*[^;={]+)?\s*\{/.exec(signature))) {
+      else if (language !== 'go' && (match = /^\s*(?:(?:public|private|protected|static|final|synchronized|abstract|default|async|override|readonly)\s+)*(?:[\w<>[\],.?]+\s+)?(\w+)\s*\([^;{}]*\)\s*(?:throws\s+[\w.,\s]+|:\s*[^;={]+)?\s*\{/.exec(signature))) {
         if (/^(if|for|while|switch|catch|with|synchronized)$/.test(match[1])) continue;
         name = match[1]; kind = 'method';
       }
+      else if (language === 'java' && (match = /^\s*(?:(?:public|private|protected|static|final|abstract|default)\s+)*(?:[\w<>[\],.?]+\s+)(\w+)\s*\([^;{}]*\)\s*(?:throws\s+[\w.,\s]+)?\s*;/.exec(signature))) {
+        name = match[1]; kind = 'method'; declarationOnly = true;
+        end = i + signature.slice(0, match[0].lastIndexOf(';') + 1).split('\n').length;
+      }
       if (!name) continue;
+      if (declarationOnly) {
+        const parent = spans.filter(s => s.kind === 'class' && s.declaration <= i && s.end >= end).at(-1);
+        if (!parent) continue;
+        const before = maskedSource.slice(parent.openOffset + 1, offsets[i]);
+        if ((before.match(/\{/g) || []).length !== (before.match(/\}/g) || []).length) continue;
+      }
       const open = signature.indexOf('{');
-      if (open < 0 || signature.slice(0, open).includes(';')) continue;
+      if (!declarationOnly && (open < 0 || signature.slice(0, open).includes(';'))) continue;
+      if (!declarationOnly) openOffset = offsets[i] + open;
       let depth = 0, started = false;
       for (let j = i; j < masked.length && end < 0; j++) {
-        for (const c of masked[j]) {
+        for (let column = 0; column < masked[j].length; column++) {
+          const c = masked[j][column];
           if (c === '{') { depth++; started = true; }
-          if (c === '}' && started && --depth === 0) { end = j + 1; break; }
+          if (c === '}' && started && --depth === 0) { end = j + 1; closeOffset = offsets[j] + column; break; }
         }
       }
     }
     if (end > i) {
-      let start = i;
-      while (start > 0 && /^\s*@\w/.test(lines[start - 1])) start--;
-      spans.push({ start, end, symbol: name, kind });
+      const start = declarationStart(lines, i);
+      spans.push({ start, declaration: i, declarationOffset: offsets[i], end, symbol: name, kind,
+        openOffset, closeOffset, declarationOnly, description: sourceDescription(lines, start, i) });
     }
   }
+  for (const span of spans.filter(s => s.kind === 'class')) {
+    span.metadata = language === 'java' ? javaClassMetadata(span, maskedSource, lines.slice(span.start, span.end).join('\n')) : { fieldTypes: {}, extends: [], implements: [] };
+    span.metadata.methods = [...new Set(spans.filter(s => s.kind !== 'class' && s.declaration > span.declaration && s.end <= span.end
+      && !spans.some(inner => inner.kind === 'class' && inner !== span && inner.declaration > span.declaration && inner.declaration < s.declaration && inner.end >= s.end)).map(s => s.symbol))];
+    span.metadata.parentClass = span.symbol;
+    span.metadata.description = span.description;
+    span.metadata.declarationLine = span.declaration + 1;
+    span.metadata.descriptionLine = span.description ? span.start + 1 : null;
+  }
+  const parentOf = (start, end) => spans.filter(s => s.kind === 'class' && s.declaration <= start && s.end >= end).at(-1);
+  const emitContext = (start, end) => {
+    // A gap can contain the end of one class and the beginning of the next.
+    // Split at class boundaries rather than attaching the wrong field types.
+    const boundaries = [...new Set([start, end, ...spans.filter(s => s.kind === 'class').flatMap(s => [s.start, s.end]).filter(n => n > start && n < end)])].sort((a, b) => a - b);
+    for (let i = 0; i < boundaries.length - 1; i++) {
+      const from = boundaries[i], to = boundaries[i + 1];
+      const parent = spans.filter(s => s.kind === 'class' && s.start <= from && s.end >= to).at(-1);
+      emit(from, to, parent?.symbol || '', 'context', parent?.metadata || {});
+    }
+  };
   // Prefer methods inside a class. Keep its header/fields in separate gap chunks.
   const leaf = spans.filter(s => !spans.some(t => t !== s && t.start > s.start && t.end <= s.end));
   leaf.sort((a, b) => a.start - b.start || b.end - a.end);
   let cursor = 0;
   for (const span of leaf) {
     if (span.start < cursor) continue;
-    emit(cursor, span.start, '', 'context');
-    const parent = spans.filter(s => s.kind === 'class' && s.start < span.start && s.end >= span.end).at(-1);
-    emit(span.start, span.end, parent ? `${parent.symbol}#${span.symbol}` : span.symbol, span.kind);
+    emitContext(cursor, span.start);
+    const parent = span.kind === 'class' ? null : parentOf(span.declaration, span.end);
+    emit(span.start, span.end, parent ? `${parent.symbol}#${span.symbol}` : span.symbol, span.kind,
+      { ...(span.metadata || parent?.metadata || {}), description: span.description, declarationLine: span.declaration + 1, descriptionLine: span.description ? span.start + 1 : null,
+        ...(span.kind === 'method' || parent && span.kind === 'function' ? { method: span.symbol, declarationOnly: span.declarationOnly } : {}),
+        ...(language === 'java' && span.kind === 'method' ? { localTypes: javaLocalTypes(lines.slice(span.declaration, span.end).join('\n')) } : {}) });
     cursor = span.end;
   }
-  emit(cursor, lines.length, '', 'context');
+  emitContext(cursor, lines.length);
   return chunks;
 }
 module.exports = { chunkText };

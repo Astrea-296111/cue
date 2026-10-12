@@ -1,8 +1,9 @@
 'use strict';
 const { inProjectScope } = require('./project-scope');
 
-// Hybrid local retrieval: BM25 + a lightweight dense feature-hash embedding.
-// No live network/API dependency is introduced; the dense encoder is replaceable later.
+// Local BM25 + deterministic feature hashing. The hash channel is not a learned
+// semantic embedding. Optional providers must implement the synchronous contract
+// below; no provider is configured, loaded or contacted by default.
 const STOP_WORDS = new Set(('the a an is are was were be been to of in on for and or with from by how why what does do did you your we our this that it as can would should public private protected static final return const let var function class void new null true false import package string int if else try catch throws async await').split(' '));
 const FILLER = /你们|我们|你在|项目中|项目里|项目的|这个项目|那个项目|项目|这个|那个|什么|为什么|怎么样|怎样|怎么|如何|哪些|有没有|能不能|可不可以|介绍一下|讲一下|说一下|说说|讲讲|请问|具体|实现的|保证的|一下|刚才|提到|里面|中的|避免|防止|保证|使用|采用|实现|方法|有什么|有啥|负责|设计/g;
 const ALIASES = [
@@ -120,7 +121,7 @@ function querySpec(query) {
 }
 
 class ProjectSearch {
-  constructor(chunks) {
+  constructor(chunks, options = {}) {
     this.chunks = chunks;
     this.postings = new Map();
     this.lengths = [];
@@ -129,6 +130,9 @@ class ProjectSearch {
     this.embeddings = [];
     this.cache = new Map();
     this.termCache = new Map();
+    this.scopeCache = new Map();
+    this.vectorProvider = options.vectorProvider || null;
+    this.reranker = options.reranker || null;
   }
 
   add(id) {
@@ -148,14 +152,14 @@ class ProjectSearch {
     }
   }
 
-  static build(chunks) {
-    const index = new ProjectSearch(chunks);
+  static build(chunks, options = {}) {
+    const index = new ProjectSearch(chunks, options);
     for (let i = 0; i < chunks.length; i++) index.add(i);
     return index;
   }
 
-  static async buildAsync(chunks) {
-    const index = new ProjectSearch(chunks);
+  static async buildAsync(chunks, options = {}) {
+    const index = new ProjectSearch(chunks, options);
     for (let i = 0; i < chunks.length; i++) {
       index.add(i);
       if (i % 40 === 39) await new Promise(resolve => setImmediate(resolve));
@@ -186,17 +190,51 @@ class ProjectSearch {
     return rows;
   }
 
+  scopedIds(scopes) {
+    const key = JSON.stringify([...new Set(scopes)].sort());
+    if (this.scopeCache.has(key)) return this.remember(this.scopeCache, key, this.scopeCache.get(key), 32);
+    const ids = [];
+    for (let id = 0; id < this.chunks.length; id++) if (inProjectScope(this.chunks[id], scopes)) ids.push(id);
+    return this.remember(this.scopeCache, key, { ids, allowed: new Set(ids) }, 32);
+  }
+
+  // Provider contracts (optional, synchronous, source ids only):
+  // vectorProvider: { ready, modelVersion, search({query, scopes, limit,
+  //   candidates:[{id,chunk}]}) -> [{id,score:0..1}] }
+  // reranker: { ready, modelVersion, rerank({query, scopes,
+  //   candidates:[{id,chunk,score,confidence}]}) -> [{id,score}] }
+  // A future remote/async provider needs an explicit async orchestration path.
+  // Async functions are not invoked here; rejected thenables fall back locally.
+  providerCall(provider, method, params) {
+    if (!provider || provider.ready !== true || typeof provider[method] !== 'function') return { rows: [], status: 'disabled' };
+    if (!params.scopes.length) return { rows: [], status: 'unscoped-disabled' };
+    if (provider[method].constructor?.name === 'AsyncFunction') return { rows: [], status: 'async-unsupported' };
+    try {
+      const rows = provider[method](params);
+      if (rows && typeof rows.then === 'function') {
+        Promise.resolve(rows).catch(() => {});
+        return { rows: [], status: 'async-unsupported' };
+      }
+      return Array.isArray(rows) ? { rows, status: 'ready' } : { rows: [], status: 'unavailable' };
+    } catch (_) { return { rows: [], status: 'unavailable' }; }
+  }
+
   rank(query, scopes = []) {
+    scopes = Array.isArray(scopes) ? [...new Set(scopes.map(String))].sort() : [];
     const spec = querySpec(query);
-    const key = spec.key + '\n' + normalize(query) + '\n' + JSON.stringify(scopes);
-    if (this.cache.has(key)) return { rows: this.remember(this.cache, key, this.cache.get(key), 32), cacheHit: true, candidates: 0, postingsVisited: 0 };
+    const providerVersion = JSON.stringify([this.vectorProvider?.ready, this.vectorProvider?.modelVersion || this.vectorProvider?.version,
+      this.reranker?.ready, this.reranker?.modelVersion || this.reranker?.version]);
+    const key = spec.key + '\n' + normalize(query) + '\n' + JSON.stringify(scopes) + '\n' + providerVersion;
+    if (this.cache.has(key)) return { ...this.remember(this.cache, key, this.cache.get(key), 32), cacheHit: true,
+      candidates: 0, postingsVisited: 0, denseScanned: 0 };
+    const { ids, allowed } = this.scopedIds(scopes);
     const candidates = new Map();
     let postingsVisited = 0;
     let denseScanned = 0;
-    let denseCandidates = 0;
     for (const [term, weight] of spec.weights) {
       for (const [id, score, fieldMatch, contentMatch] of this.contributions(term)) {
         postingsVisited++;
+        if (!allowed.has(id)) continue;
         let item = candidates.get(id);
         if (!item) candidates.set(id, item = { id, score: 0, matched: new Set(), contentMatched: new Set(), fieldMatch: false });
         item.score += score * weight;
@@ -205,21 +243,49 @@ class ProjectSearch {
         if (fieldMatch && weight === 1) item.fieldMatch = true;
       }
     }
+    const lexical = [...candidates.values()].sort((a, b) => b.score - a.score || a.id - b.id).slice(0, 50);
     const queryVector = denseEmbedding(query, true);
-    for (let id = 0; id < this.chunks.length; id++) {
-      const chunk = this.chunks[id];
-      if (!inProjectScope(chunk, scopes)) continue;
+    const hash = [];
+    for (const id of ids) {
       denseScanned++;
       const similarity = cosineDense(queryVector, this.embeddings[id]);
       if (similarity < 0.16) continue;
-      denseCandidates++;
-      let item = candidates.get(id);
-      if (!item) candidates.set(id, item = { id, score: 0, matched: new Set(), contentMatched: new Set(), fieldMatch: false });
-      item.denseSimilarity = Math.max(item.denseSimilarity || 0, similarity);
+      hash.push({ id, similarity });
     }
+    hash.sort((a, b) => b.similarity - a.similarity || a.id - b.id);
+    const dense = hash.slice(0, 50);
+    const vectorResponse = this.vectorProvider?.ready === true
+      ? this.providerCall(this.vectorProvider, 'search', { query, scopes: scopes.slice(), limit: 50,
+        candidates: ids.map(id => ({ id, chunk: this.chunks[id] })) })
+      : { rows: [], status: 'disabled' };
+    const vectorById = new Map();
+    for (const row of vectorResponse.rows) {
+      if (!Number.isInteger(row?.id) || !allowed.has(row.id) || !Number.isFinite(row.score) || row.score <= 0) continue;
+      const score = Math.min(1, row.score);
+      if (score > (vectorById.get(row.id) || 0)) vectorById.set(row.id, score);
+    }
+    const vector = [...vectorById].sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 50);
+    const merged = new Map();
+    const merge = (id, rank, channelScore, channel) => {
+      let item = merged.get(id);
+      if (!item) {
+        const lexicalItem = candidates.get(id);
+        item = lexicalItem ? { ...lexicalItem } : { id, score: 0, matched: new Set(), contentMatched: new Set(), fieldMatch: false };
+        merged.set(id, item);
+        item.rrfScore = 0;
+        item.channels = [];
+      }
+      item.rrfScore += 1 / (60 + rank + 1);
+      item.channels.push(channel);
+      if (channel === 'hash') item.denseSimilarity = channelScore;
+      if (channel === 'vector') item.vectorSimilarity = channelScore;
+    };
+    lexical.forEach((item, i) => merge(item.id, i, item.score, 'bm25'));
+    dense.forEach((item, i) => merge(item.id, i, item.similarity, 'hash'));
+    vector.forEach(([id, score], i) => merge(id, i, score, 'vector'));
     const q = normalize(query);
     const rows = [];
-    for (const item of candidates.values()) {
+    for (const item of merged.values()) {
       const chunk = this.chunks[item.id];
       if (!inProjectScope(chunk, scopes)) continue;
       const coverage = spec.groups.length ? spec.groups.filter(g => g.some(t => item.matched.has(t))).length / spec.groups.length : 0;
@@ -228,18 +294,44 @@ class ProjectSearch {
       const exactSymbol = !!this.symbols[item.id] && this.symbols[item.id].split(/[.#]/).some(s => s.length > 3 && q.includes(s));
       const aliasMatch = spec.groups.some(g => g.some(t => item.contentMatched.has(t)) && g.some(t => !spec.original.includes(t)));
       // This is a heuristic relevance level, not a calibrated probability.
-      const dense = item.denseSimilarity || 0;
-      const confidence = Math.min(1, 0.36 * coverage + 0.31 * termCoverage + (item.fieldMatch ? 0.14 : 0) + (exactSymbol ? 0.32 : 0) + (aliasMatch ? 0.13 : 0) + Math.min(0.48, dense * 0.68));
-      let score = item.score * (0.5 + 0.5 * coverage) + dense * 7.5;
+      const similarity = item.denseSimilarity || 0;
+      const vectorSimilarity = item.vectorSimilarity || 0;
+      const confidence = Math.min(1, 0.36 * coverage + 0.31 * termCoverage + (item.fieldMatch ? 0.14 : 0) + (exactSymbol ? 0.32 : 0) + (aliasMatch ? 0.13 : 0) + Math.min(0.48, similarity * 0.68) + vectorSimilarity * 0.45);
+      let score = item.score * (0.5 + 0.5 * coverage) + similarity * 7.5 + vectorSimilarity * 7.5 + item.rrfScore * 30;
       if (exactSymbol) score += 10;
       if (!/测试|test\b/i.test(query) && /(?:^|\/)(?:tests?|__tests__)(?:\/|$)|\.(?:test|spec)\./i.test(chunk.path)) score *= 0.85;
       if (/架构|概览|overview|architecture/i.test(query) && /readme|docs?\/|architecture/i.test(chunk.path)) score *= 1.2;
-      if (score > 0) rows.push({ chunk, score, confidence, coverage, originalMatches, denseSimilarity: dense });
+      if (chunk.importance === 'high') score *= 1.04;
+      if (/代码|实现|源码|\b(?:code|implement\w*|method)\b/i.test(query) && ['method', 'function'].includes(chunk.kind)) score *= 1.08;
+      if (score > 0) rows.push({ id: item.id, chunk, score, confidence, coverage, originalMatches,
+        denseSimilarity: similarity, vectorSimilarity, channels: item.channels, rrfScore: item.rrfScore });
     }
     rows.sort((a, b) => b.score - a.score || b.confidence - a.confidence || a.chunk.path.localeCompare(b.chunk.path) || a.chunk.startLine - b.chunk.startLine);
+    const reranked = this.providerCall(this.reranker, 'rerank', { query, scopes: scopes.slice(),
+      candidates: rows.map(row => ({ id: row.id, chunk: row.chunk, score: row.score, confidence: row.confidence })) });
+    const rerankScores = new Map();
+    const candidateIds = new Set(rows.map(row => row.id));
+    for (const row of reranked.rows) {
+      if (Number.isInteger(row?.id) && candidateIds.has(row.id) && Number.isFinite(row.score)) rerankScores.set(row.id, row.score);
+    }
+    if (rerankScores.size) {
+      rows.sort((a, b) => (rerankScores.has(b.id) ? 1 : 0) - (rerankScores.has(a.id) ? 1 : 0) ||
+        (rerankScores.get(b.id) || 0) - (rerankScores.get(a.id) || 0) || b.score - a.score);
+      // Keep a positive, monotonic selection score so later structural expansion
+      // respects provider order. Confidence continues to reflect local evidence.
+      const strongest = Math.max(...rows.map(row => row.score));
+      rows.forEach((row, i) => {
+        row.localScore = row.score;
+        row.rerankScore = rerankScores.get(row.id);
+        row.score = strongest * (0.5 + 0.5 * (rows.length - i) / rows.length);
+      });
+    }
     const top = rows.slice(0, 60);
-    this.remember(this.cache, key, top, 32);
-    return { rows: top, cacheHit: false, candidates: candidates.size, postingsVisited, denseScanned, denseCandidates };
+    const result = { rows: top, cacheHit: false, candidates: merged.size, postingsVisited, denseScanned,
+      denseCandidates: dense.length, lexicalCandidates: lexical.length, vectorCandidates: vector.length,
+      vectorStatus: vectorResponse.status, rerankerStatus: reranked.status };
+    this.remember(this.cache, key, result, 32);
+    return result;
   }
 }
 

@@ -6,12 +6,15 @@
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
+const { createHash } = require('crypto');
 const { app } = require('electron');
 const { performance } = require('perf_hooks');
 const { ProjectSearch, querySpec } = require('./project-search');
 const { chunkText } = require('./project-chunks');
 const { buildProjectCatalog, inProjectScope } = require('./project-scope');
 const { buildSourceProjectProfile, selectSourceProfileCards } = require('./project-profile');
+const { TOPICS } = require('./project-profile');
+const { buildProjectCodeRelations, expandProjectCodeQuery, expandProjectCodeRelations } = require('./project-code-relations');
 
 const INDEX_VERSION = 2;
 const INDEX_FILE = 'cue-project-index-v2.json';
@@ -58,11 +61,16 @@ const IGNORED_FILES = new Set([
 
 let cache = null;
 let cacheMtimeMs = 0;
+let cacheFileStamp = '';
+let indexGeneration = 0;
+let indexFingerprint = 'empty';
 
 // Keep the v1 file readable. New imports add structural metadata without
 // discarding existing imported text; runtime postings are warmed before use.
 let preparedSearchIndex = null;
 let preparedSearch = null;
+let preparedRelations = null;
+let chunksByFile = null;
 let warming = null;
 let lastSearchStats = {};
 let catalogIndex = null;
@@ -70,6 +78,8 @@ let catalog = [];
 function resetSearchRuntime() {
   preparedSearchIndex = null;
   preparedSearch = null;
+  preparedRelations = null;
+  chunksByFile = null;
   warming = null;
   catalogIndex = null;
   catalog = [];
@@ -94,6 +104,7 @@ async function warmProjectIndex() {
     if (cache === index && warming === job && !preparedSearch) {
       preparedSearchIndex = index;
       preparedSearch = search;
+      prepareRelations(index);
     }
   }).finally(() => { if (warming === job) warming = null; });
   warming = job;
@@ -359,7 +370,8 @@ async function writeIndex(index) {
   const target = indexPath();
   const tmp = `${target}.tmp-${process.pid}-${Date.now()}`;
   await fs.promises.mkdir(path.dirname(target), { recursive: true });
-  await fs.promises.writeFile(tmp, JSON.stringify(index), 'utf8');
+  const serialized = JSON.stringify(index);
+  await fs.promises.writeFile(tmp, serialized, 'utf8');
   try {
     await fs.promises.rename(tmp, target);
   } catch (error) {
@@ -374,8 +386,11 @@ async function writeIndex(index) {
     }
   }
   cache = index;
+  indexGeneration++;
+  indexFingerprint = fingerprint(serialized);
   resetSearchRuntime();
-  try { cacheMtimeMs = (await fs.promises.stat(target)).mtimeMs; } catch (_) { cacheMtimeMs = Date.now(); }
+  try { const stat = await fs.promises.stat(target); cacheMtimeMs = stat.mtimeMs; cacheFileStamp = fileStamp(target, stat); }
+  catch (_) { cacheMtimeMs = Date.now(); cacheFileStamp = ''; }
 }
 
 function projectIdFor(sourceType, sourceName) {
@@ -399,7 +414,7 @@ function buildIndexShell(sourceType, sourceName) {
 }
 
 function emptyWorkspace() {
-  return { version: INDEX_VERSION, chunkerVersion: 2, updatedAt: new Date().toISOString(), projects: [], chunks: [], stats: makeEmptyStats() };
+  return { version: INDEX_VERSION, chunkerVersion: 3, metadataSchemaVersion: 3, profileSchemaVersion: 1, updatedAt: new Date().toISOString(), projects: [], chunks: [], stats: makeEmptyStats() };
 }
 
 function aggregateStats(projects) {
@@ -462,6 +477,9 @@ async function mergeImportedProject(project) {
     workspace.chunks = workspace.chunks.filter(chunk => chunk.projectId !== removed.id);
   }
   workspace.updatedAt = new Date().toISOString();
+  workspace.chunkerVersion = 3;
+  workspace.metadataSchemaVersion = 3;
+  workspace.profileSchemaVersion = 1;
   workspace.stats = aggregateStats(workspace.projects);
   await writeIndex(workspace);
   return workspace;
@@ -522,6 +540,13 @@ async function importProjectZip(zipPath) {
   return getProjectIndexState(workspace);
 }
 
+function fingerprint(text) { return createHash('sha256').update(text).digest('hex').slice(0, 24); }
+function fileStamp(target, stat) { return `${target}:${stat.mtimeMs}:${stat.ctimeMs}:${stat.size}:${stat.ino}`; }
+function discardIndex() {
+  if (cache || cacheFileStamp) indexGeneration++;
+  cache = null; cacheMtimeMs = 0; cacheFileStamp = ''; indexFingerprint = 'empty'; resetSearchRuntime();
+}
+
 function loadIndexSync() {
   let target = indexPath();
   let stat;
@@ -529,20 +554,25 @@ function loadIndexSync() {
   catch (_) {
     target = indexPath(LEGACY_INDEX_FILE);
     try { stat = fs.statSync(target); }
-    catch (_) { cache = null; cacheMtimeMs = 0; resetSearchRuntime(); return null; }
+    catch (_) { discardIndex(); return null; }
   }
-  if (cache && cacheMtimeMs === stat.mtimeMs) return cache;
+  const stamp = fileStamp(target, stat);
+  if (cache && cacheFileStamp === stamp) return cache;
   try {
-    const parsed = normalizeWorkspace(JSON.parse(fs.readFileSync(target, 'utf8')));
+    const serialized = fs.readFileSync(target, 'utf8');
+    const parsed = normalizeWorkspace(JSON.parse(serialized));
     if (!parsed || !Array.isArray(parsed.chunks) || parsed.chunks.some(c => !c || typeof c.text !== 'string' || typeof c.path !== 'string')) {
-      cache = null; cacheMtimeMs = 0; resetSearchRuntime(); return null;
+      discardIndex(); return null;
     }
     cache = parsed;
     cacheMtimeMs = stat.mtimeMs;
+    cacheFileStamp = stamp;
+    indexGeneration++;
+    indexFingerprint = fingerprint(serialized);
     resetSearchRuntime();
     return cache;
   } catch (_) {
-    cache = null; cacheMtimeMs = 0; resetSearchRuntime();
+    discardIndex();
     return null;
   }
 }
@@ -567,6 +597,8 @@ function getProjectIndexState(index = loadIndexSync()) {
     indexedBytes: Number(stats.indexedBytes) || 0,
     skippedCount: Number(stats.skippedCount) || 0,
     chunkerVersion: index.chunkerVersion || 1,
+    metadataSchemaVersion: index.metadataSchemaVersion || 1,
+    profileSchemaVersion: index.profileSchemaVersion || 1,
     truncatedCount: Number(stats.truncatedCount) || 0
   };
 }
@@ -577,6 +609,9 @@ async function clearProjectIndex() {
   }
   cache = null;
   cacheMtimeMs = 0;
+  cacheFileStamp = '';
+  indexGeneration++;
+  indexFingerprint = 'empty';
   resetSearchRuntime();
   return getProjectIndexState(null);
 }
@@ -620,11 +655,21 @@ function selectChunks(rows, options = {}) {
       partial = true;
     }
     used += text.length;
-    selected.push({ ...chunk, text, endLine, partial, neighbor: !!row.neighbor,
+    selected.push({ ...chunk, text, endLine, partial, neighbor: !!row.neighbor, relation: row.relation || chunk.relation,
       score: Math.round(row.score * 100) / 100,
       confidence: Math.round(row.confidence * 100) / 100 });
   }
   return selected;
+}
+
+function prepareRelations(index) {
+  preparedRelations = buildProjectCodeRelations(index.chunks);
+  chunksByFile = new Map();
+  for (const chunk of index.chunks) {
+    const key = `${chunk.projectId || ''}:${chunk.path}`;
+    if (!chunksByFile.has(key)) chunksByFile.set(key, []);
+    chunksByFile.get(key).push(chunk);
+  }
 }
 
 function expandStructuralNeighbors(rows, index, maxParents = 6) {
@@ -632,8 +677,8 @@ function expandStructuralNeighbors(rows, index, maxParents = 6) {
   const seen = new Set(rows.map(row => `${row.chunk.projectId || ''}:${row.chunk.path}:${row.chunk.startLine}`));
   for (const parent of rows.slice(0, maxParents)) {
     const base = parent.chunk;
-    const neighbors = index.chunks
-      .filter(chunk => chunk !== base && chunk.projectId === base.projectId && chunk.path === base.path)
+    const neighbors = (chunksByFile?.get(`${base.projectId || ''}:${base.path}`) || [])
+      .filter(chunk => chunk !== base)
       .map(chunk => ({ chunk, distance: Math.min(Math.abs(chunk.startLine - base.endLine), Math.abs(base.startLine - chunk.endLine)) }))
       .filter(x => x.distance <= 90)
       .sort((a, b) => a.distance - b.distance)
@@ -656,13 +701,88 @@ function getProjectProfileContext(query, options = {}) {
   if (index.projects.length > 1 && !options.scopes?.length) return '';
   let out = '';
   for (const project of index.projects) {
-    if (options.scopes?.length && !options.scopes.includes(`@project:${project.id}`)) continue;
+    if (options.scopes?.length && !index.chunks.some(chunk => chunk.projectId === project.id && inProjectScope(chunk, options.scopes))) continue;
     const card = selectSourceProfileCards(project.profile, query, Math.min(900, maxChars - out.length));
     if (!card) continue;
     out += `${out ? '\n\n' : ''}${card}`;
     if (out.length >= maxChars) break;
   }
   return out.slice(0, maxChars);
+}
+
+function getProjectIndexRevision() {
+  const index = loadIndexSync();
+  return `${indexGeneration}:${indexFingerprint}:chunks${index?.chunkerVersion || 1}:metadata${index?.metadataSchemaVersion || 1}:profile${index?.profileSchemaVersion || 1}`;
+}
+
+function toProjectEvidence(chunks, options = {}) {
+  const revision = options.revision || getProjectIndexRevision();
+  return (chunks || []).filter(chunk => inProjectScope(chunk, options.scopes)).map(chunk => ({
+    ...chunk, sourceType: 'imported', revision, scopes: [...(options.scopes || [])],
+    scopeKey: [...(options.scopes || [])].sort().join('|'),
+    topics: [...new Set([...(chunk.interviewTopics || []), ...TOPICS.filter(topic => topic.re.test(`${chunk.path}\n${chunk.symbol || ''}\n${chunk.text}`)).map(topic => topic.key)])]
+  }));
+}
+
+function boundedEvidence(chunks, options = {}) {
+  const limit = bounded(options.limit, 6, 1, 24), maxChars = bounded(options.maxChars, 4800, 0, 18000);
+  let used = 0;
+  const selected = [];
+  for (const chunk of chunks) {
+    if (selected.length >= limit || maxChars - used < 100) break;
+    if (selected.some(item => item.projectId === chunk.projectId && item.path === chunk.path && item.startLine === chunk.startLine)) continue;
+    const room = Math.min(options.excerptChars || 1300, maxChars - used);
+    let text = chunk.text, endLine = chunk.endLine, partial = !!chunk.partial;
+    if (text.length > room) {
+      const boundary = text.lastIndexOf('\n', room);
+      text = text.slice(0, boundary > 60 ? boundary : room);
+      endLine = chunk.startLine + (text.match(/\n/g) || []).length; partial = true;
+    }
+    selected.push({ ...chunk, text, endLine, partial }); used += text.length;
+  }
+  return toProjectEvidence(selected, options);
+}
+
+function getProjectSeedEvidence(options = {}) {
+  const index = loadIndexSync();
+  if (!index || !options.scopes?.length) return [];
+  // This is a bounded source preload, not a second query/search. It provides
+  // orientation only; project-context still searches the first actual question.
+  const priority = chunk => /(?:^|\/)(?:readme|architecture|overview|design)[^/]*$/i.test(chunk.path) ? 4 :
+    /(?:^|\/)(?:application\.(?:ya?ml|properties)|package\.json|pom\.xml|go\.mod|dockerfile)$/i.test(chunk.path) ? 2 :
+      ['class', 'method', 'function', 'interface'].includes(chunk.kind) ? 1 + (chunk.importance === 'high' ? 1 : 0) : 0;
+  const chunks = index.chunks.filter(chunk => inProjectScope(chunk, options.scopes) && priority(chunk) > 0)
+    .sort((a, b) => priority(b) - priority(a));
+  return boundedEvidence(chunks, { ...options, limit: options.limit || 6, maxChars: options.maxChars || 4800 });
+}
+
+function getProjectProfileEvidence(query, options = {}) {
+  const index = loadIndexSync();
+  if (!index || !options.scopes?.length) return [];
+  const topics = TOPICS.filter(topic => topic.re.test(query));
+  const terms = new Set(queryTerms(query));
+  const eligible = index.chunks.filter(chunk => inProjectScope(chunk, options.scopes));
+  const scored = [];
+  for (const project of index.projects || []) {
+    for (const card of project.profile?.cards || []) {
+      const score = topics.some(topic => topic.key === card.key) ? 5 : card.key === 'overview' ? .1 : 0;
+      for (const reference of card.evidence || []) {
+        const chunk = eligible.find(item => item.projectId === project.id && item.path === reference.path && item.startLine === reference.startLine);
+        if (!chunk) continue;
+        const overlap = queryTerms(`${chunk.symbol || ''}\n${chunk.text}`).filter(term => terms.has(term)).length;
+        if (score + overlap > 0) scored.push({ chunk, score: score + overlap });
+      }
+    }
+  }
+  // v2 snapshots missing profile fields still expose their source excerpts.
+  if (!scored.length) {
+    for (const chunk of eligible) {
+      const score = queryTerms(`${chunk.symbol || ''}\n${chunk.text}`).filter(term => terms.has(term)).length;
+      if (score > 0) scored.push({ chunk, score });
+    }
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return boundedEvidence(scored.map(row => row.chunk), { ...options, maxChars: options.maxChars || 1200, limit: 3, excerptChars: 520 });
 }
 
 function searchProjectKnowledge(query, options = {}) {
@@ -674,15 +794,19 @@ function searchProjectKnowledge(query, options = {}) {
     const buildStart = performance.now();
     preparedSearch = ProjectSearch.build(index.chunks);
     preparedSearchIndex = index;
+    prepareRelations(index);
     lastSearchStats.coldBuildMs = performance.now() - buildStart;
   }
-  const ranked = preparedSearch.rank(String(query || '').slice(0, 1800), options.scopes || []);
-  const expandedRows = expandStructuralNeighbors(ranked.rows, index);
+  const mapped = expandProjectCodeQuery(String(query || '').slice(0, 1800), preparedRelations, { scopes: options.scopes || [], maxSymbols: 6 });
+  const ranked = preparedSearch.rank(mapped.query, options.scopes || []);
+  const related = expandProjectCodeRelations(ranked.rows, preparedRelations, { scopes: options.scopes || [], maxSeeds: 4, maxNeighbors: 8, maxDepth: 2 });
+  const expandedRows = expandStructuralNeighbors(related, index);
   const results = selectChunks(expandedRows, options);
   lastSearchStats = { ...lastSearchStats, cacheHit: ranked.cacheHit,
     candidates: ranked.candidates, postingsVisited: ranked.postingsVisited, denseScanned: ranked.denseScanned || 0, denseCandidates: ranked.denseCandidates || 0,
     searchMs: performance.now() - started, hits: results.length,
     confidence: results[0]?.confidence || 0 };
+  lastSearchStats.queryMappings = mapped.mappings || [];
   return results;
 }
 
@@ -712,7 +836,8 @@ function formatRetrievedProjectContext(results, options = {}) {
   if (maxChars < header.length + 80) return '';
   let output = header;
   for (const [i, item] of results.entries()) {
-    const label = `\n\n[${i + 1}] ${item.projectName ? item.projectName + ' · ' : ''}${item.path}:${item.startLine}-${item.endLine}${item.symbol ? ' ' + item.symbol : ''}${item.neighbor ? '（结构邻居）' : ''}${item.partial ? '（节选）' : ''}\n`;
+    const relation = item.relation?.status === 'resolved' ? `（调用关系 ${item.relation.fromSymbol} → ${item.relation.toSymbol}，来源 ${item.relation.sourcePath}:${item.relation.sourceLine}）` : '';
+    const label = `\n\n[${i + 1}] ${item.projectName ? item.projectName + ' · ' : ''}${item.path}:${item.startLine}-${item.endLine}${item.symbol ? ' ' + item.symbol : ''}${relation}${item.neighbor ? '（结构邻居）' : ''}${item.partial ? '（节选）' : ''}\n`;
     // Budget includes source labels and grounding instructions. Reserve overhead
     // during selection so this normally preserves each complete selected excerpt.
     if (output.length + label.length + item.text.length > maxChars) continue;
@@ -725,5 +850,6 @@ module.exports = {
   importProjectFolder, importProjectZip, clearProjectIndex, getProjectIndexState,
   searchProjectKnowledge, prefetchProjectKnowledge, getProjectOverviewChunks,
   formatRetrievedProjectContext, getProjectProfileContext, shouldIndexPath, queryTerms, warmProjectIndex,
-  getLastSearchStats: () => ({ ...lastSearchStats }), getProjectCatalog
+  getLastSearchStats: () => ({ ...lastSearchStats }), getProjectCatalog,
+  getProjectIndexRevision, getProjectSeedEvidence, getProjectProfileEvidence, toProjectEvidence
 };
