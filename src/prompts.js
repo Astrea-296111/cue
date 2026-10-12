@@ -26,7 +26,9 @@ function formatRealtimeConversation(turns, options = {}) {
   const current = latestInterviewerTurn(list);
   if (!current) return '=== 当前面试官问题 ===\n（尚未识别到面试官问题）';
   const currentText = cleanText(current.text);
-  const sections = ['=== 当前轮面试官提问（本轮短暂停顿内的连续问题已合并） ===', currentText];
+  const sections = [options.partial
+    ? '=== 当前已识别的面试官发言（用户主动触发，发言可能尚未结束） ==='
+    : '=== 当前轮面试官提问（同一语义场景的连续发言已合并） ===', currentText];
   if (isLikelyFollowUp(currentText)) {
     const previousThem = list.filter(t => t?.channel === 'them' && t !== current && cleanText(t.text)).slice(-2);
     if (previousThem.length) sections.push('=== 追问背景（只用于消解指代，不主动重答旧题） ===', formatTranscript(previousThem));
@@ -80,15 +82,15 @@ function answerShapeInstruction(plan) {
 const REALTIME_CONTEXT_RULES = `
 实时上下文规则：
 1. 当前轮面试官提问是唯一回答目标；同一轮里短暂停顿连续问出的两个问题必须按顺序都回答。
-2. 独立新问题不要携带或复述旧答案；只有“刚才那个/第二点/为什么这样”等明确追问才使用最近一轮背景。
+2. 结合相关上下文理解长问题的场景、限制和指代；独立新问题不要携带或复述旧答案。背景只用于理解当前目标，不要求在输出里复述背景、强行联系旧项目或回答未问的内容。
 3. 候选人历史发言和 Cue 旧回答都不是事实来源。项目事实以导入项目资料、手工项目资料、简历/STAR 的明确内容为准。
 4. 面试官明确换题、跳过或作废后，不再补答旧问题。
-5. “当前轮面试官提问”已经由本地问题解析器确认；不要猜测、补全或回答未完成的 ASR 半句。若其他上下文里残留半句，以当前轮已确认问题为准。
+5. 常规提问由本地解析器确认；用户主动按 Ctrl+Enter 时，也允许就尚未结束的已识别发言立即回应。不要猜测或补全没听到的条件；先回答已明确的部分，若尚不能判断问题，只简短说明还缺哪个信息。
 `;
 
 const HUMAN_INTERVIEW_RULES = `
 像真实候选人说话：
-1. 开头先复述整个问题；第一两句直接回答面试官问的内容，不写“下面我来回答”“根据上下文”“严格来说先分几种情况”等 AI/防御式开场。
+1. 可简短概括当前核心问题，第一两句直接回答。长问题不要逐字复述场景或无关上文，不写“下面我来回答”“根据上下文”“严格来说先分几种情况”等 AI/防御式开场。
 2. 可以自然重复问题主干里的主语和核心名词。比如问题一直在问 Redis，就可以多次直接说“Redis”；不要为了避免重复强行换成“该组件/这种机制/它”，也不要不断用意思相近的同义说法改写。同一个主干该重复就重复，这更像人现场组织语言。
 3. 必须用短句、口语化，逗号隔开的每句话不能太长。少用机械的“首先、其次、再次、最后”；需要展开时按自然因果或请求链路讲。
 4. 问什么答什么。复杂问题可以深入，但深入也围绕当前问题；不主动补一整套百科知识、风险清单或替代方案。回答的时候可以多举例子，但不要凑字数
@@ -98,7 +100,7 @@ const HUMAN_INTERVIEW_RULES = `
 
 const ORAL_ANSWER_RULES = `
 这是可直接照着念的面试回答，优先级很高：
-1. 开头先复述整个问题；可以在正文中自然重复题目的主语/核心名词，让语言像人在现场思考，而不是为了“文风多样”不断换同义词。
+1. 可简短概括当前核心问题，随后直接回答；长问题不逐字复述背景。可以自然重复题目的主语/核心名词，让语言像人在现场思考。
 2. 简单/概念/单点问题通常3~5句。复杂项目题、系统设计、完整链路、排障/取舍、多小问可以展开到6~9句或2~3个短段。
 3. 复杂题也必须先给短主干，再展开；不能前两三句话一直铺背景。多个问题都要覆盖，不要只答最后一个。
 4. 强制分点输出：任何超过2句的回答必须使用编号格式。每个一级观点必须单独占一行，以"1."、"2."、"3."开头；禁止输出连续长段落。项目介绍、架构说明、原因分析也必须按编号组织。
@@ -142,7 +144,10 @@ const MODES = {
     buildSystem(contextBlock, aiRules, opts = {}) {
       return applyRules(buildSystem('你是 cue，正在实时帮助中文技术求职者组织口述答案。' + BASE_RULES + '\n' + REALTIME_CONTEXT_RULES + HUMAN_INTERVIEW_RULES + PROJECT_GROUNDING_RULES + '\n' + answerShapeInstruction(opts.answerPlan), contextBlock, 3600), aiRules, 'say');
     },
-    build(ctx) { return `${formatRealtimeConversation(ctx.transcript)}\n\n${answerShapeInstruction(ctx.answerPlan)}只输出我现在能直接说出口的正文。`; },
+    build(ctx) {
+      if (!latestInterviewerTurn(ctx.transcript)) return '用户主动触发口述回答，但当前没有识别到面试官问题。请用可直接说出口的一句提示说明需要面试官问题，不编造题目或答案。';
+      return `${formatRealtimeConversation(ctx.transcript, { partial: ctx.partial })}\n\n${answerShapeInstruction(ctx.answerPlan)}只输出我现在能直接说出口的正文。`;
+    },
     resolveMaxTokens(ctx) { return ctx.answerPlan?.level === 'complex' ? 920 : 700; }
   },
   followup: {

@@ -145,6 +145,24 @@ test('new speech while waiting cannot replace the frozen request question', asyn
   assert.doesNotMatch(app.calls[0].turns.at(-1).text, /Java/);
 });
 
+test('manual say interrupts a running reply and only the new request commits', async t => {
+  const app = appHarness(t);
+  let release;
+  app.behavior(args => new Promise(resolve => { release = () => { args.onToken('旧回答迟到片段'); resolve('旧回答'); }; }));
+  const old = app.ask('Redis 的原理是什么？', 'say');
+  await new Promise(setImmediate);
+  const previous = app.calls[0];
+  app.behavior(async args => { args.onToken('新的即时回答'); return '新的即时回答'; });
+  await app.ask('TCP 的原理是什么？', 'say');
+  assert.equal(previous.signal.aborted, true);
+  release();
+  await old;
+  assert.equal(app.value('conversation.recent.length'), 1);
+  assert.equal(app.value('conversation.recent[0].question'), 'TCP 的原理是什么？');
+  assert.equal(app.events.some(e => e.text === '旧回答迟到片段'), false);
+  assert.equal(app.value('state.busy'), false);
+});
+
 test('25s inactivity timer observes reasoning activity without displaying reasoning', async t => {
   const app = appHarness(t, { globals: {
     setTimeout: (fn, delay) => setTimeout(fn, delay === 25000 ? 40 : delay)

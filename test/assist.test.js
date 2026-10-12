@@ -238,3 +238,50 @@ test('Assist capture failure cannot fall back to an old screenshot or send a mod
   assert.equal(app.captures, 1);
   assert.match(app.events.find(e => e.channel === 'llm:error').message, /截图失败/);
 });
+
+test('manual say sends a partial final to the actual SDK without inventing its missing conditions', async t => {
+  const app = runtime(t);
+  app.final('如果平');
+  await app.shortcut('CommandOrControl+Return');
+  assert.equal(app.calls.length, 1);
+  assert.equal(app.captures, 0);
+  assert.match(app.calls[0].messages.at(-1).content, /如果平/);
+  assert.match(app.calls[0].messages.at(-1).content, /发言可能尚未结束/);
+  assert.match(app.calls[0].messages[0].content, /不要猜测或补全没听到的条件/);
+});
+
+test('manual say with no speech still reaches the SDK and does not save an invented question', async t => {
+  const app = runtime(t);
+  await app.ask('say');
+  assert.equal(app.calls.length, 1);
+  assert.match(app.calls[0].messages.at(-1).content, /没有识别到面试官问题/);
+  assert.equal(app.value('conversation.recent.length'), 0);
+});
+
+test('long interviewer setup and all constraints reach the final SDK messages', async t => {
+  const app = runtime(t);
+  for (const part of ['假设我们有一个订单服务,用 Redis 缓存库存。', '数据库是唯一事实来源,请求允许重试。', '要求不能超卖,并且不能丢订单。', '如何设计库存扣减？怎么保证幂等？']) app.final(part);
+  await app.ask('say');
+  const request = app.calls[0];
+  const current = request.messages.at(-1).content;
+  for (const constraint of ['Redis', '唯一事实来源', '请求允许重试', '不能超卖', '不能丢订单', '库存扣减', '幂等']) assert.ok(current.includes(constraint), constraint);
+  assert.match(current, /这是复杂问题/);
+  assert.equal(request.max_tokens, 920);
+  assert.match(request.messages[0].content, /背景只用于理解当前目标/);
+});
+
+test('longer same-project follow-up preserves multiple relevant rounds but generic questions get no history', async t => {
+  const app = runtime(t);
+  for (const question of ['如何用 Java 实现二叉树的中序递归遍历？', '这个接口的入参不能改变,怎么保留方法签名？', '如果输入空树,应该怎么处理？', '这个实现改成迭代法,怎么保留前面的限制？']) {
+    app.final(question);
+    await app.ask('say');
+  }
+  const last = app.calls[3];
+  assert.equal(last.messages.filter(m => m.role === 'assistant').length, 3);
+  assert.match(JSON.stringify(last.messages), /中序递归遍历/);
+  assert.match(JSON.stringify(last.messages), /方法签名/);
+  app.final('什么是 TCP 三次握手？');
+  await app.ask('say');
+  assert.equal(app.calls[4].messages.filter(m => m.role === 'assistant').length, 0);
+  assert.doesNotMatch(app.calls[4].messages.at(-1).content, /二叉树|方法签名/);
+});

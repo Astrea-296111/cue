@@ -158,7 +158,7 @@ test('real main path answers stable question and excludes trailing interim fragm
   assert.doesNotMatch(prompt, /如果平/);
 });
 
-test('after a successful live answer, a new unfinished fragment does not repeat the old answer', async (t) => {
+test('Ctrl+Enter responds to a new unfinished fragment without repeating the old answer', async (t) => {
   const app = appHarness(t);
   app.final('为什么用 React 框架？');
   await app.ask('say');
@@ -166,8 +166,11 @@ test('after a successful live answer, a new unfinished fragment does not repeat 
 
   app.final('如果平');
   await app.ask('say');
-  assert.equal(app.calls.length, 1, 'no second LLM request should be created');
-  assert.ok(app.events.some((event) => event.channel === 'status' && /没说完整|完整面试问题/.test(event.message)));
+  assert.equal(app.calls.length, 2, 'manual say must respond immediately');
+  assert.match(app.calls[1].turns.at(-1).text, /如果平/);
+  assert.match(app.calls[1].turns.at(-1).text, /发言可能尚未结束/);
+  assert.equal(app.calls[1].turns.filter(turn => turn.role === 'assistant').length, 0);
+  assert.doesNotMatch(app.calls[1].turns.at(-1).text, /React/);
 });
 
 test('ops noise never enters transcript or steals focus from consecutive questions', async (t) => {

@@ -221,10 +221,9 @@
   }
 
   function runMode(mode, text) {
-    // Stable hotfix: main.js still owns one generation at a time.
-    // Do not visually terminate the current answer and send a request that main.js
-    // would ignore while state.busy is true.
-    if (busy) return;
+    // Ctrl+Enter explicitly requests a fresh reply, including during generation.
+    // The main process aborts the previous request; other modes retain the guard.
+    if (busy && mode !== 'say') return;
 
     // Never promote renderer-side interim ASR text into an explicit question.
     // The main process owns the QuestionResolver and decides whether the newest
@@ -1216,6 +1215,7 @@ micStream = stream;
     setLiveDotState(speaking ? 'speaking' : 'idle');
   });
 cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
+  if (aiEl) finalizeAi();
   activeRequestId = requestId || null;
   responseCount++;
 
