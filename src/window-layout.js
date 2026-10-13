@@ -1,13 +1,16 @@
 'use strict';
 
 const requestedSizes = new WeakMap();
+const UI_SCALE = 2;
 
 // Electron display bounds use logical pixels, so OS DPI scaling is preserved.
-function windowLayout(display) {
+function windowLayout(display, height = 600) {
   const screenWidth = display.bounds.width;
   return {
-    width: Math.round(screenWidth * 0.3),
-    zoomFactor: Math.min(1.4, Math.max(0.85, screenWidth / 1920))
+    width: Math.min(display.workArea.width, Math.round(screenWidth * 0.3 * UI_SCALE)),
+    height: Math.min(display.workArea.height, Math.round(height * UI_SCALE)),
+    // Scale the entire renderer together: text, icons, controls and dialogs.
+    zoomFactor: UI_SCALE * Math.min(1.4, Math.max(0.85, screenWidth / 1920))
   };
 }
 
@@ -16,14 +19,14 @@ function initialWindowLayout(screen, settings = {}, height = 600) {
   const display = saved
     ? screen.getDisplayNearestPoint({ x: settings.windowX, y: settings.windowY })
     : screen.getPrimaryDisplay();
-  const layout = windowLayout(display);
+  const layout = windowLayout(display, height);
   const area = display.workArea;
   const x = saved ? settings.windowX : Math.round(area.x + (area.width - layout.width) / 2);
   const y = saved ? settings.windowY : area.y + 6;
   return {
     ...layout, display,
     x: Math.max(area.x, Math.min(x, area.x + Math.max(0, area.width - layout.width))),
-    y: Math.max(area.y, Math.min(y, area.y + Math.max(0, area.height - height)))
+    y: Math.max(area.y, Math.min(y, area.y + Math.max(0, area.height - layout.height)))
   };
 }
 
@@ -37,11 +40,17 @@ function moveWindow(win, x, y) {
 }
 
 function attachWindowLayout(win, screen, initialDisplay, height = 600) {
-  const signature = display => JSON.stringify([display.id, display.bounds.width, display.scaleFactor]);
+  // Capture before destruction. BrowserWindow.webContents throws in 'closed'.
+  const webContents = win.webContents;
+  const signature = display => JSON.stringify([display.id, display.bounds.width,
+    display.scaleFactor, display.workArea.x, display.workArea.y,
+    display.workArea.width, display.workArea.height]);
   let applied = signature(initialDisplay);
   let applying = false;
+  let detached = false;
   let timer = null;
-  const size = { width: windowLayout(initialDisplay).width, height };
+  const initial = windowLayout(initialDisplay, height);
+  const size = { width: initial.width, height: initial.height };
   requestedSizes.set(win, size);
 
   // A stable window origin owns the display. Using the entire window rectangle
@@ -51,7 +60,7 @@ function attachWindowLayout(win, screen, initialDisplay, height = 600) {
     return screen.getDisplayNearestPoint({ x, y });
   };
   const apply = (force = false) => {
-    if (applying || win.isDestroyed()) return;
+    if (detached || applying || win.isDestroyed() || webContents.isDestroyed()) return;
     const display = currentDisplay();
     const nextSignature = signature(display);
     if (!force && applied === nextSignature) return;
@@ -59,23 +68,29 @@ function attachWindowLayout(win, screen, initialDisplay, height = 600) {
     applied = nextSignature;
     applying = true;
     try {
-      const next = windowLayout(display);
+      const next = windowLayout(display, height);
       size.width = next.width;
-      const [width] = win.getSize();
+      size.height = next.height;
+      const [width, currentHeight] = win.getSize();
       // Fractional DPI can enclose native bounds by up to two logical pixels.
-      if (Math.abs(width - next.width) > 2) {
+      if (Math.abs(width - next.width) > 2 || Math.abs(currentHeight - next.height) > 2) {
         const [x, y] = win.getPosition();
-        win.setBounds({ x, y, ...size });
+        const area = display.workArea;
+        win.setBounds({
+          x: Math.max(area.x, Math.min(x, area.x + area.width - size.width)),
+          y: Math.max(area.y, Math.min(y, area.y + area.height - size.height)),
+          ...size
+        });
       }
-      if (Math.abs(win.webContents.getZoomFactor() - next.zoomFactor) > 0.001) {
-        win.webContents.setZoomFactor(next.zoomFactor);
+      if (Math.abs(webContents.getZoomFactor() - next.zoomFactor) > 0.001) {
+        webContents.setZoomFactor(next.zoomFactor);
       }
     } finally {
       applying = false;
     }
   };
   const moved = () => {
-    if (applying || win.isDestroyed()) return;
+    if (detached || applying || win.isDestroyed()) return;
     clearTimeout(timer);
     timer = null;
     // Same-screen movement never writes dimensions, even if native DPI rounding
@@ -87,18 +102,21 @@ function attachWindowLayout(win, screen, initialDisplay, height = 600) {
   const metrics = () => apply();
   const events = ['display-metrics-changed', 'display-added', 'display-removed'];
   const cleanup = () => {
+    if (detached) return;
+    detached = true;
     clearTimeout(timer);
+    timer = null;
     win.removeListener('moved', moved);
-    win.webContents.removeListener('did-finish-load', loaded);
+    webContents.removeListener('did-finish-load', loaded);
     for (const event of events) screen.removeListener(event, metrics);
     win.removeListener('closed', cleanup);
     requestedSizes.delete(win);
   };
   win.on('moved', moved);
-  win.webContents.on('did-finish-load', loaded);
+  webContents.on('did-finish-load', loaded);
   for (const event of events) screen.on(event, metrics);
   win.on('closed', cleanup);
   return cleanup;
 }
 
-module.exports = { windowLayout, initialWindowLayout, attachWindowLayout, moveWindow };
+module.exports = { UI_SCALE, windowLayout, initialWindowLayout, attachWindowLayout, moveWindow };

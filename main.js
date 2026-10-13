@@ -6,7 +6,7 @@ const { QuestionResolver } = require('./src/question-resolver');
 const { planInterviewQuestion } = require('./src/interview-question-planner');
 const { formatInterviewChecklist } = require('./src/interview-checklist');
 const { formatProjectInterviewState } = require('./src/project-interview-state');
-const { initialWindowLayout, attachWindowLayout } = require('./src/window-layout');
+const { UI_SCALE, initialWindowLayout, attachWindowLayout } = require('./src/window-layout');
 const replyLatency = require('./src/reply-latency');
 const os = require('os');
 const store = require('./src/store');
@@ -303,7 +303,7 @@ function createWindow() {
 
   const winOptions = {
     width: layout.width,
-    height: H,
+    height: layout.height,
     x: layout.x,
     y: layout.y,
     frame: false,
@@ -350,7 +350,7 @@ function createWindow() {
 
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  attachWindowLayout(win, screen, layout.display);
+  attachWindowLayout(win, screen, layout.display, H);
 
   let moveSaveTimer = null;
   win.on('moved', () => {
@@ -1052,7 +1052,8 @@ async function requestPermissions() {
 
 function createPermissionsWindow() {
   const { workArea } = screen.getPrimaryDisplay();
-  const W = 500, H = 540;
+  const W = Math.min(workArea.width, 500 * UI_SCALE);
+  const H = Math.min(workArea.height, 540 * UI_SCALE);
   permWin = new BrowserWindow({
     width: W,
     height: H,
@@ -1069,6 +1070,7 @@ function createPermissionsWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      zoomFactor: UI_SCALE,
     }
   });
   permWin.loadFile(path.join(__dirname, 'renderer', 'permissions.html'));
