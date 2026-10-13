@@ -35,10 +35,16 @@ test('buildSystem weaves profile into assist/say/ask but not leetcode', () => {
 });
 
 test('buildUserTurn passes only the rolling window, not the full transcript', () => {
-  const ctx = buildContext({ transcript: turns });
-  const turn = buildUserTurn(MODES.assist, ctx);
-  assert.ok(typeof turn === 'string');
-  assert.ok(turn.includes('Them:'));
+  const transcript = Array.from({ length: 20 }, (_, i) => ({ channel: 'them', text: `QUESTION_${i}` }));
+  const ctx = buildContext({ transcript });
+  let provided;
+  const def = { ...MODES.assist, build(input) { provided = input.transcript; return MODES.assist.build(input); } };
+  const turn = buildUserTurn(def, ctx);
+  assert.strictEqual(provided.length, 12);
+  assert.strictEqual(provided[0].text, 'QUESTION_8');
+  assert.strictEqual(provided.at(-1).text, 'QUESTION_19');
+  assert.ok(turn.includes('QUESTION_19'));
+  assert.ok(!turn.includes('QUESTION_0'));
 });
 
 test('windowFor returns sensible sizes per mode', () => {

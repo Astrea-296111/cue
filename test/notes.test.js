@@ -10,9 +10,11 @@ const transcript = [
 
 test('buildNotesPrompt formats speakers and preserves order', () => {
   const p = buildNotesPrompt(transcript);
-  assert.ok(p.includes('Them: We need to launch by Friday.'));
-  assert.ok(p.includes('You: I can handle the API work.'));
-  assert.ok(p.includes('Action Items:'));
+  assert.ok(p.includes('面试官：We need to launch by Friday.'));
+  assert.ok(p.includes('候选人：I can handle the API work.'));
+  assert.ok(p.includes('项目深挖：'));
+  assert.ok(p.indexOf(transcript[0].text) < p.indexOf(transcript[1].text));
+  assert.ok(p.indexOf(transcript[1].text) < p.indexOf(transcript[2].text));
 });
 
 test('parseNotes extracts all five sections', () => {

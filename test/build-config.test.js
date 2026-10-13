@@ -4,6 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const pkg = require('../package.json');
+const { getConfig } = require('app-builder-lib/out/util/config/load');
+const { validateConfiguration } = require('app-builder-lib/out/util/config/config');
+const { DebugLogger } = require('builder-util');
 
 // Regression test for the actual incident behind the "cue is damaged and
 // can't be opened" bug reports: package.json used to carry its own legacy
@@ -16,6 +19,27 @@ const pkg = require('../package.json');
 // reintroduces the exact same failure mode.
 test('package.json has no "build" field shadowing electron-builder.cjs', () => {
   assert.equal(Object.prototype.hasOwnProperty.call(pkg, 'build'), false);
+});
+
+test('electron-builder resolves the canonical config and preserves the Windows package identity', async () => {
+  const root = path.resolve(__dirname, '..');
+  const loaded = await getConfig({ projectDir: root, packageKey: 'build',
+    configFilename: 'electron-builder', packageMetadata: null });
+  assert.equal(loaded.configFile, path.join(root, 'electron-builder.cjs'));
+  const config = loaded.result;
+  assert.equal(config.appId, 'com.cue.assistant');
+  assert.equal(config.productName, 'Cue');
+  assert.equal(config.asar, true);
+  assert.equal(config.publish, null);
+  assert.equal(config.portable.artifactName, 'Cue-${version}-portable.${ext}');
+  assert.notEqual(config.nsis.artifactName, config.portable.artifactName);
+  await validateConfiguration(config, new DebugLogger());
+});
+
+test('manifest dependencies match the existing lockfile for a clean install', () => {
+  const locked = require('../package-lock.json').packages[''];
+  assert.deepEqual(pkg.dependencies, locked.dependencies);
+  assert.deepEqual(pkg.devDependencies, locked.devDependencies);
 });
 
 test('dist/pack scripts do not pass an inline --config that could bypass electron-builder.cjs', () => {

@@ -27,17 +27,20 @@ const canNotarize =
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
-  appId: "com.cue.overlay",
-  productName: "cue",
-  asar: false,
+  // Preserve the identity and ASAR layout of the existing Windows builds.
+  appId: "com.cue.assistant",
+  productName: "Cue",
+  asar: true,
   publish: null,
   artifactName: "${productName}-${version}-${os}-${arch}.${ext}",
   // An allowlist, so anything new has to be added here or it simply is not in
   // the shipped app — and the only symptom is a require() that throws at
   // launch, in a build that ran fine from source.
-  files: ["main.js", "preload.js", "src/**/*", "renderer/**/*", "vendor/**/*"],
+  files: ["main.js", "preload.js", "src/**/*", "renderer/**/*", "vendor/**/*", "package.json", "node_modules/**/*"],
   directories: { buildResources: "build-resources" },
-  afterPack: "scripts/after-pack.js",
+  // The old effective package.json config did not run this hook. Keep default
+  // builds independent of Whisper preparation; the existing opt-in remains.
+  afterPack: process.env.CUE_BUNDLE_WHISPER ? "scripts/after-pack.js" : undefined,
   mac: {
     target: [{ target: "zip", arch: ["x64", "arm64"] }],
     category: "public.app-category.productivity",
@@ -62,12 +65,21 @@ module.exports = {
     },
   },
   win: {
-    target: [{ target: "nsis", arch: ["x64"] }],
-    artifactName: "${productName}-win-${arch}.${ext}",
+    target: [{ target: "portable", arch: ["x64"] }],
+    // Keep the existing prepared-runtime copy, without downloading or preparing.
+    extraResources: [{
+      from: ".cache/whisper-runtime/win32-x64",
+      to: "whisper-runtime",
+      filter: ["**/*"],
+    }],
+  },
+  portable: {
+    artifactName: "Cue-${version}-portable.${ext}",
   },
   // A per-user install with a visible directory step: cue is a personal overlay,
   // not a machine-wide service, so it should never need an elevation prompt.
   nsis: {
+    artifactName: "Cue-${version}-setup.${ext}",
     oneClick: false,
     perMachine: false,
     allowToChangeInstallationDirectory: true,
