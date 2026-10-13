@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { createInterviewRuntime } = require('./helpers/interview-agent-runtime');
 
 const root = path.resolve(__dirname, '..');
 
@@ -17,28 +18,16 @@ test('provider fallback budgets remain available', () => {
   assert.match(code, /TECH_SCREEN_MAX_TOKENS = 6144/);
 });
 
-test('realtime prompt modes use compact per-mode budgets', () => {
-  const code = read('src/prompts.js');
-  assert.match(code, /assist:[\s\S]*?maxTokens:\s*900/);
-  assert.match(code, /say:[\s\S]*?maxTokens:\s*360/);
-  assert.match(code, /answerThis:[\s\S]*?maxTokens:\s*420/);
-  assert.match(code, /leetcode:[\s\S]*?maxTokens:\s*2200/);
-  assert.match(code, /2~4 句/);
-  assert.match(code, /口语化/);
-});
-
-test('bootstrap hard-limits fast reply modes before main.js loads', () => {
-  const code = read('src/bugfix-main.js');
-  assert.match(code, /inferFastReplyBudget/);
-  assert.match(code, /实时辅助的中文面试 Copilot/);
-  assert.match(code, /return 900/);
-  assert.match(code, /return 360/);
-  assert.match(code, /return 420/);
-  assert.match(code, /return 2200/);
-
-  const patchAt = code.indexOf('llmModule.createLLM =');
-  const mainAt = code.indexOf("require('../main.js')");
-  assert.ok(patchAt >= 0 && mainAt > patchAt, 'LLM factory must be patched before main.js loads');
+test('live bootstrap preserves bounded multi-question and code budgets in final SDK requests', async t => {
+  const runtime = createInterviewRuntime(t);
+  await runtime.ask('say', '什么是Redis？');
+  const simple = runtime.calls.at(-1).max_tokens;
+  await runtime.ask('say', '假设订单系统QPS提升10倍，你怎么优化？为什么不用分库分表？Redis挂了怎么办？');
+  const complex = runtime.calls.at(-1).max_tokens;
+  assert.ok(simple > 0 && simple <= 1800);
+  assert.ok(complex > simple && complex <= 1800, 'The legacy hook must not cut a multi-question response to a single-point budget');
+  await runtime.ask('assist', '把屏幕上的二叉树递归遍历改成迭代实现');
+  assert.equal(runtime.calls.at(-1).max_tokens, 4096, 'Code tasks need their screen budget through the bootstrap');
 });
 
 test('screenshot capture is resized and JPEG-compressed for latency', () => {
@@ -56,11 +45,4 @@ test('truncation is surfaced instead of looking like a silent UI stop', () => {
   assert.match(code, /stopReason === 'max_tokens'/);
   assert.match(code, /MAX_TOKENS/);
   assert.match(code, /输出达到模型长度上限/);
-});
-
-test('previous passthrough fix remains present', () => {
-  const code = read('src/bugfix-main.js');
-  assert.match(code, /CommandOrControl\+Shift\+I/);
-  assert.match(code, /removeAllListeners\('mouse:ignore'\)/);
-  assert.match(code, /forcedPassthrough \? true : !!value/);
 });

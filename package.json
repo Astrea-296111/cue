@@ -8,6 +8,10 @@
 
   "scripts": {
     "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "dist": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux --x64",
+    "dist:linux:arm64": "electron-builder --linux --arm64",
 
     "prepare:whisper": "node scripts/prepare-whisper-runtime-fixed.js",
 
@@ -18,49 +22,11 @@
     "dist:win:installer": "electron-builder --win nsis"
   },
 
-  "build": {
-  "appId": "com.cue.assistant",
-  "productName": "Cue",
-  "asar": true,
-
-  "files": [
-    "main.js",
-    "preload.js",
-    "src/**/*",
-    "renderer/**/*",
-    "vendor/**/*",
-    "package.json",
-    "node_modules/**/*"
-  ],
-
-  "extraResources": [
-    {
-      "from": ".cache/whisper-runtime/win32-x64",
-      "to": "whisper-runtime",
-      "filter": [
-        "**/*"
-      ]
-    }
-  ],
-
-  "win": {
-    "target": [
-      {
-        "target": "portable",
-        "arch": [
-          "x64"
-        ]
-      }
-    ],
-    "artifactName": "Cue-${version}-portable.${ext}"
-  }
-},
-
   "devDependencies": {
     "electron": "33.2.1",
     "electron-builder": "^26.15.3",
     "extract-zip": "^2.0.1",
-    "resedit": "^0.0.1",
+    "resedit": "^3.0.2",
     "tar": "^7.5.22"
   },
 

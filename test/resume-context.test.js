@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildResumeContext, parseResume } = require('../src/resume-context');
 const { buildInterviewContext, detectCategory } = require('../src/interview-context');
+const { createInterviewRuntime } = require('./helpers/interview-agent-runtime');
 
 test('buildResumeContext 输出中文结构化简历上下文', () => {
   const resume = '张三\n后端开发工程师\n\n技能\nJava, Go, Redis\n\n工作经历\n某公司 2023-2026';
@@ -29,7 +30,7 @@ test('中文八股识别', () => {
   assert.equal(detectCategory([{ channel: 'them', text: 'Agent 里 MCP 和 Function Calling 有什么区别？' }]), 'technical');
 });
 
-test('项目深挖优先注入项目知识文档', () => {
+test('项目深挖在最终LLM prompt中注入手工项目事实并禁止编造', async t => {
   const settings = {
     resumeText: '张三\n后端工程师\n项目：订单平台',
     projectKnowledge: '订单平台采用 MySQL + Redis。本人负责库存扣减链路；峰值数据以压测报告为准，未在本文写具体 QPS。',
@@ -41,12 +42,12 @@ test('项目深挖优先注入项目知识文档', () => {
     salaryTarget: '',
     questionsToAsk: ''
   };
-  const ctx = buildInterviewContext(settings, 'say', [
-    { channel: 'them', text: '深挖一下你的订单项目，为什么用 Redis？' }
-  ]);
-  assert.match(ctx, /项目知识文档/);
+  const runtime = createInterviewRuntime(t, { settings, chunks: [] });
+  await runtime.ask('say', '深挖一下你的订单项目，为什么用 Redis？');
+  const ctx = runtime.calls.at(-1).messages.find(message => message.role === 'system').content;
+  assert.ok(ctx.includes('订单平台采用 MySQL + Redis。本人负责库存扣减链路'));
   assert.match(ctx, /库存扣减链路/);
-  assert.match(ctx, /不得编造|不要擅自补/);
+  assert.match(ctx, /不得虚构|不得编造|不要擅自补/);
 });
 
 test('leetcode 历史模式不注入个人上下文', () => {

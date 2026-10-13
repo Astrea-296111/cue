@@ -185,14 +185,14 @@ test('formatProviderErrorMessage: 404 message still works without a model id', (
   assert.match(message, /OpenAI model is unavailable \(404\)/);
 });
 
-test('formatProviderErrorMessage: maps a Gemini 429 to a free-tier quota message', () => {
+test('formatProviderErrorMessage: maps a Gemini 429 to a quota message with a recovery hint', () => {
   const error = geminiApiError({
     status: 429,
     body: { error: { message: 'You exceeded your current quota', code: 429, status: 'RESOURCE_EXHAUSTED' } }
   });
   const message = formatProviderErrorMessage(error, 'gemini', 'gemini-2.5-flash');
   assert.match(message, /Gemini free-tier quota exhausted \(429/);
-  assert.match(message, /billing/);
+  assert.match(message, /switch providers\/models in Settings/);
   assert.doesNotMatch(message, /RESOURCE_EXHAUSTED/);
 });
 
