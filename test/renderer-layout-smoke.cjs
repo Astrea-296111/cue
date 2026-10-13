@@ -88,16 +88,16 @@ app.on('browser-window-created', (_event, win) => {
       await until(() => js("document.getElementById('code-shortcut-hint').textContent.includes('H')"), 'renderer boot');
       await settled();
       const display = screen.getPrimaryDisplay(), zoom = win.webContents.getZoomFactor();
-      assert.ok(Math.abs(win.getSize()[0] - Math.round(display.bounds.width * .3)) <= 2);
-      assert.ok(Math.abs(win.getSize()[1] - Math.round(Math.min(display.workArea.height, 1200) / 2)) <= 2);
-      assert.ok(Math.abs(zoom - Math.min(1.4, Math.max(.85, display.bounds.width / 1920))) < .001);
+      assert.ok(Math.abs(win.getSize()[0] - Math.round(display.bounds.width * .3 * 1.25)) <= 2);
+      assert.ok(Math.abs(win.getSize()[1] - Math.round(Math.min(display.workArea.height, 1200) / 2 * 1.25)) <= 2);
+      assert.ok(Math.abs(zoom - Math.min(1.4, Math.max(.85, display.bounds.width / 1920)) * 1.25) < .001);
       const layout = await js(`(() => {
         const buttons=[...document.querySelectorAll('.act')];
         return {labels:buttons.map(b=>b.firstElementChild.textContent),icons:buttons.some(b=>b.querySelector('.ic')),prep:!!document.getElementById('prep-status'),
           rows:buttons.map(b=>b.getBoundingClientRect().y),clipped:buttons.filter(b=>{const r=b.getBoundingClientRect();return r.left<0||r.right>innerWidth+1||r.bottom>innerHeight+1}).map(b=>b.dataset.mode),
           font:getComputedStyle(document.querySelector('.ai-text')).fontSize};
       })()`);
-      assert.deepEqual(layout.labels, ['怎么回答', '屏幕辅助', '反问', '解题']);
+      assert.deepEqual(layout.labels, ['如何回答', '屏幕与问题', '截屏', '反问']);
       assert.equal(layout.icons, false); assert.equal(layout.prep, false);
       assert.ok(Math.max(...layout.rows) - Math.min(...layout.rows) <= 1);
       assert.deepEqual(layout.clipped, []);

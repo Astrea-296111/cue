@@ -20,8 +20,7 @@ function appendAiRules(systemPrompt, aiRules) {
   if (!rules) return systemPrompt;
   const clipped = rules.slice(0, MAX_AI_RULES_CHARS);
   return systemPrompt +
-    '\n\n用户设置了以下“回答风格规则”。在不违反事实约束和题型格式要求的前提下严格遵守；' +
-    '若规则冲突，优先采用更具体的规则。Follow them strictly within those boundaries.\n' +
+    '\n\n遵守用户回答风格；事实约束和题型格式优先，其余冲突采用更具体的风格规则。\n' +
     '--- USER RULES ---（用户回答规则）\n' + clipped + '\n--- END USER RULES ---（用户回答规则结束）';
 }
 

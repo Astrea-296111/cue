@@ -26,7 +26,7 @@ test('leetcode 历史模式键已升级为 ACM/屏幕技术题模式，并忽略
   assert.match(system, /Debug/);
   assert.ok(!system.includes('IGNORED_CONTEXT'));
   assert.match(system, /完整 main/);
-  assert.match(system, /禁止 LeetCode/);
+  assert.match(system, /LeetCode 使用题目指定的方法签名/);
 });
 
 test('followup 输出中文反问', () => {
@@ -72,7 +72,7 @@ test('planned subquestions receive bounded output room and override the single-p
   const many = getAnswerPlan('请回答这些问题', { subQuestions: Array.from({ length: 40 }, () => ({ text: '怎么实现？' })) });
   assert.equal(many.maxTokens, 1800);
   assert.equal(many.sentenceLimit, 18);
-  assert.equal(MODES.say.resolveMaxTokens({ answerPlan: getAnswerPlan('Redis 为什么快？') }), 700);
+  assert.equal(MODES.say.resolveMaxTokens({ answerPlan: getAnswerPlan('Redis 为什么快？') }), 640);
 });
 
 test('Interview Mode preserves grounding and applies to project/scenario questions while Assist keeps code rules', () => {

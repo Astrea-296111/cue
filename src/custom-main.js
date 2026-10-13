@@ -16,30 +16,6 @@ const projectKnowledge = require('./project-knowledge');
 const { planProjectRetrieval } = require('./project-query');
 const { moveWindow } = require('./window-layout');
 
-function inferModeTokenBudget(system, hasImage) {
-  const text = String(system || '');
-  if (/正在实时帮助一名中文技术求职候选人组织口述答案/.test(text)) return 800;
-  if (/下面会给出面试官的一道明确问题/.test(text)) return 600;
-  if (/技术面试过程中给候选人提供实时辅助/.test(text)) return 1600;
-  if (/面向 Agent \/ Java \/ Go \/ 后端开发求职/.test(text)) return 800;
-  if (/资深中文技术面试现场题助手/.test(text)) return 3200;
-  if (/复盘本场技术面试/.test(text)) return 2400;
-  if (/适合技术面试结尾的高质量反问/.test(text)) return 700;
-  return hasImage ? 1600 : null;
-}
-
-function inferModeName(system, hasImage) {
-  const text = String(system || '');
-  if (/正在实时帮助一名中文技术求职候选人组织口述答案/.test(text)) return 'say';
-  if (/下面会给出面试官的一道明确问题/.test(text)) return 'answerThis';
-  if (/技术面试过程中给候选人提供实时辅助/.test(text)) return 'assist';
-  if (/面向 Agent \/ Java \/ Go \/ 后端开发求职/.test(text)) return 'ask';
-  if (/资深中文技术面试现场题助手/.test(text)) return 'leetcode';
-  if (/复盘本场技术面试/.test(text)) return 'recap';
-  if (/适合技术面试结尾的高质量反问/.test(text)) return 'followup';
-  return hasImage ? 'screen' : 'unknown';
-}
-
 function installModuleHooks() {
   const llmTarget = path.resolve(__dirname, 'llm.js');
   const originalLoad = Module._load;
@@ -67,13 +43,11 @@ function installModuleHooks() {
           ...llm,
           async stream(params = {}) {
             const startedAt = Date.now();
-            const modeName = params.mode || inferModeName(params.system, !!params.imageDataUrl);
-            const inferred = params.maxTokens || inferModeTokenBudget(params.system, !!params.imageDataUrl);
+            const modeName = params.mode || (params.imageDataUrl ? 'screen' : 'unknown');
             const originalOnToken = typeof params.onToken === 'function' ? params.onToken : () => {};
             let firstTokenAt = 0;
             const nextParams = {
               ...params,
-              ...(inferred ? { maxTokens: inferred } : {}),
               onToken(token) {
                 if (!firstTokenAt) {
                   firstTokenAt = Date.now();
@@ -104,10 +78,7 @@ function installModuleHooks() {
   };
 }
 
-// NOTE: The previous Turbo build rewrote main.js/llm.js source at runtime.
-// That approach was format-sensitive and could partially patch a locally modified file,
-// leaving runFeature() with undefined variables. Keep optimization at exported-module
-// boundaries instead: the token-budget hook above is stable across formatting.
+// Observe exported-module boundaries without rewriting source or model budgets.
 
 function focusedWindow() {
   const focused = BrowserWindow.getFocusedWindow();
@@ -270,6 +241,5 @@ module.exports = {
   SAY_ACCELERATOR,
   ASSIST_ACCELERATOR,
   HIDE_ACCELERATOR,
-  installShortcutOverrides,
-  inferModeTokenBudget
+  installShortcutOverrides
 };

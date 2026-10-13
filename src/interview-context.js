@@ -236,8 +236,7 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
     const selected = selectManualProjectCards(project.trim(), query, projectLimit) ||
       selectRelevantText(project.trim(), query, projectLimit);
     blocks.push(
-      '=== 项目 Interview Cards（用户提供的项目事实与个人职责） ===\n' + selected +
-      '\n\n规则：只能把这里明确写出的内容当作候选人的真实项目事实。不要擅自补数字、组件、职责或故障。'
+      '=== 项目 Interview Cards（用户提供的项目事实与个人职责） ===\n' + selected
     );
   }
 
@@ -258,7 +257,7 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
     case 'project':
       if (!hasProject) {
         blocks.push(
-          '（未提供独立的手工项目知识文档。项目实现可依据本轮导入源码证据；个人职责只使用简历或明确的个人资料。缺失的事实不得编造。）'
+          '（未提供手工项目知识文档。）'
         );
       }
       if (hasStories) {
@@ -274,7 +273,7 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
           '\n回答行为题时优先复用真实故事：背景 -> 任务 -> 我的行动 -> 结果/复盘。'
         );
       } else {
-        blocks.push('（未提供 STAR 故事。只能基于简历/项目事实组织回答，不要虚构经历。）');
+        blocks.push('（未提供 STAR 故事。）');
       }
       if (workStyle) blocks.push('=== 工作方式 / 价值观 ===\n' + clip(workStyle, 450));
       break;
@@ -296,11 +295,7 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
       break;
 
     case 'technical':
-      blocks.push(
-        '=== 技术面试回答要求 ===\n' +
-        '优先直接回答当前技术问题；先说清核心结论，再补最关键的原理、边界、场景或取舍。' +
-        '只有当前问题真的和候选人项目相关时，才引用项目事实。'
-      );
+      // Generic technical questions need no synthetic candidate evidence.
       break;
 
     default:
@@ -311,11 +306,7 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
 
   if (!blocks.length) return null;
 
-  const tailorNote = hasJD
-    ? '\n\n与目标岗位相关时可以自然突出匹配能力，但不要为了贴 JD 而虚构经历。'
-    : '';
-
-  return blocks.join('\n\n') + tailorNote;
+  return blocks.join('\n\n');
 }
 
 function manualProjectEvidence(settings, plan) {
@@ -356,14 +347,18 @@ function buildInterviewContextBundle(settings, mode, transcript, request = {}) {
   let candidate = base || '';
   if (budget !== null && candidate.length) {
     const candidateBudget = Math.min(candidate.length, plan.retrieve ? Math.min(1200, Math.floor(budget / 3)) : budget);
-    const sections = candidate.split(/\n\n(?==== )/);
-    let room = candidateBudget;
-    candidate = sections.map((section, index) => {
-      const allocated = Math.max(0, Math.floor((room - (sections.length - index - 1) * 2) / (sections.length - index)));
-      const selected = section.slice(0, allocated);
-      room -= selected.length + 2;
-      return selected;
-    }).filter(Boolean).join('\n\n');
+    // Short factual bundles already fit. Equal section shares would otherwise
+    // truncate a project card even with unused space after shorter résumé/JD.
+    if (candidate.length > candidateBudget) {
+      const sections = candidate.split(/\n\n(?==== )/);
+      let room = candidateBudget;
+      candidate = sections.map((section, index) => {
+        const allocated = Math.max(0, Math.floor((room - (sections.length - index - 1) * 2) / (sections.length - index)));
+        const selected = section.slice(0, allocated);
+        room -= selected.length + 2;
+        return selected;
+      }).filter(Boolean).join('\n\n');
+    }
   }
   const sourceBudget = budget === null ? undefined : Math.max(0, budget - candidate.length - (candidate ? 2 : 0));
   const { context, evidence, stats } = buildProjectContext(transcript, mode,

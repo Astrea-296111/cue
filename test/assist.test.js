@@ -157,8 +157,8 @@ test('recursive traversal followed by iterative requirement sends the latest scr
   const request = app.calls[1];
   assert.match(text(request), /改成迭代法实现/);
   assert.match(JSON.stringify(request.messages), /Java.*中序/);
-  assert.match(request.messages[0].content, /显式栈或队列/);
-  assert.match(request.messages[0].content, /相同遍历顺序/);
+  assert.match(request.messages[0].content, /保留仍适用的输入输出、遍历顺序和边界约束/);
+  assert.match(request.messages[0].content, /给出修改后的代码或完整受影响的方法/);
   assert.match(request.messages[0].content, /历史助手代码不能覆盖当前屏幕代码/);
   assert.match(request.messages[0].content, /沿用屏幕中的编程语言、接口和数据结构/);
   assert.equal(request.messages.filter(m => m.role === 'assistant').length, 1);
@@ -188,7 +188,7 @@ test('a question about screen code replaces the previous edit target', async t =
   assert.equal(app.captures, 2);
   assert.match(text(app.calls[1]), /这段代码时间复杂度是多少/);
   assert.doesNotMatch(text(app.calls[1]), /当前轮面试官提问[^]*改成迭代法实现/);
-  assert.match(app.calls[1].messages[0].content, /若是解释代码、分析复杂度或其他问题，则直接回答该问题/);
+  assert.match(app.calls[1].messages[0].content, /解释代码、分析复杂度时直接回答/);
   assert.notEqual(image(app.calls[0]), image(app.calls[1]));
 });
 
@@ -266,7 +266,7 @@ test('long interviewer setup and all constraints reach the final SDK messages', 
   const current = request.messages.at(-1).content;
   for (const constraint of ['Redis', '唯一事实来源', '请求允许重试', '不能超卖', '不能丢订单', '库存扣减', '幂等']) assert.ok(current.includes(constraint), constraint);
   assert.match(current, /这是复杂问题/);
-  assert.equal(request.max_tokens, 920);
+  assert.equal(request.max_tokens, 1000);
   assert.match(request.messages[0].content, /背景只用于理解当前目标/);
 });
 
