@@ -28,7 +28,7 @@ function getRecent(turns, n) {
 function buildSystem(def, ctx) {
   let system = typeof def.buildSystem === 'function' ? def.buildSystem('') : (def.system || '');
   if (ctx.profile && ['assist', 'say', 'ask'].includes(def.key)) {
-    system = 'Here is my background and experience. Weave it into my answer naturally. Name the projects, the tech, the results. This keeps my answer real instead of generic.\n\n---\n' + ctx.profile + '\n---\n\n' + system;
+    system = '以下是我的背景和经历。相关问题中可自然结合材料里的项目、技术和成果，使回答具体，避免泛泛而谈。\n\n---\n' + ctx.profile + '\n---\n\n' + system;
   }
   return system;
 }

@@ -197,7 +197,7 @@ function publishTranscript(channel, text, meta = {}) {
 
 
 async function startLocalWhisper(settings) {
-  if (!whisperModelManager) throw new Error('The local Whisper model manager is not ready.');
+  if (!whisperModelManager) throw new Error('本地 Whisper 模型管理器尚未就绪。');
   const localSettings = settings.localWhisper || {};
   const model = requireWhisperModel(localSettings.modelId || 'base.en');
   const runtime = getWhisperRuntime();
@@ -207,7 +207,7 @@ async function startLocalWhisper(settings) {
   try {
     const modelPath = await whisperModelManager.verifyInstalledModel(model.id).catch((error) => {
       if (error.code === 'ENOENT') {
-        throw new Error(`Download the ${model.id} model in Settings → Audio before listening.`);
+        throw new Error(`请先在设置 → 语音中下载 ${model.id} 模型，再开启监听。`);
       }
       throw error;
     });
@@ -266,7 +266,7 @@ async function startLocalWhisper(settings) {
         sttDisabled = true;
         console.log('[local-whisper] error', error && error.message);
         send('stt:status', { provider: 'local', status: 'error' });
-        send('status', { message: `Local transcription error: ${error.message}. Audio was not sent to a cloud fallback.` });
+        send('status', { message: `本地语音识别失败：${error.message}；未将音频发送到云端备用服务。` });
       }
     });
 
@@ -281,7 +281,7 @@ async function startLocalWhisper(settings) {
 }
 
 async function getWhisperOverview() {
-  if (!whisperModelManager) throw new Error('The local Whisper model manager is not ready.');
+  if (!whisperModelManager) throw new Error('本地 Whisper 模型管理器尚未就绪。');
   const runtime = getWhisperRuntime();
   const models = await whisperModelManager.listModels();
   return {
@@ -371,7 +371,7 @@ function createWindow() {
     // Warn about missing content protection on old Windows builds
     if (isWindows && shouldProtect && !WIN_SUPPORTS_CONTENT_PROTECTION) {
       send('status', {
-        message: `Heads up: your Windows version (build ${WIN_BUILD}) does not support screen-share hiding. Upgrade to Windows 10 build 19041+ or Windows 11 to enable invisibility in screen shares.`
+        message: `当前 Windows 版本（内部版本 ${WIN_BUILD}）不支持在屏幕共享中隐藏窗口。该功能需要 Windows 10 内部版本 19041 或更新版本，或 Windows 11。`
       });
     }
   });
@@ -396,7 +396,7 @@ async function flushChannel(channel) {
     const settings = store.getSettings();
     const stt = createSTT(settings);
     if (!stt.available) {
-      if (!sttDisabled) { sttDisabled = true; send('status', { message: 'No transcription key set. Add an OpenAI (Whisper), Deepgram, or Gemini key in Settings to enable listening. Screen/LeetCode features work without it.' }); }
+      if (!sttDisabled) { sttDisabled = true; send('status', { message: '未配置语音识别密钥。请在设置中配置 Qwen ASR、OpenAI、Deepgram 或 Gemini，或选择本地 Whisper。截图功能仍可使用。' }); }
       return;
     }
     const res = await stt.transcribe(pcm);
@@ -428,13 +428,14 @@ function handleSttError(err, settings) {
     context: { provider: err.provider, status: err.status || null, alreadyDisabled: sttDisabled },
   });
   if (sttDisabled) return;
-  const isQuota = err.status === 429 || err.code === 'RESOURCE_EXHAUSTED' || (err.message && err.message.includes('Quota exceeded'));
+  const isQuota = err.status === 429 || err.code === 'RESOURCE_EXHAUSTED' ||
+    /Quota exceeded|请求额度或频率已达上限/i.test(err.message || '');
   const noAccess = err.status === 403 || err.status === 401 || err.code === 'model_not_found' || isQuota;
   sttDisabled = true; // stop hammering the API every few seconds
   if (noAccess) {
-    send('status', { message: `Transcription off: your ${err.provider} key was rejected or hit a quota limit. Update your key in Settings to resume.` });
+    send('status', { message: `语音识别已停止：${err.provider} 密钥无效或请求额度已达上限。请在设置中检查密钥和额度后重试。` });
   } else {
-    send('status', { message: 'Transcription error (' + err.provider + '): ' + err.message });
+    send('status', { message: '语音识别异常（' + err.provider + '）：' + err.message });
   }
 }
 
@@ -462,11 +463,11 @@ function initStreamingSTT() {
         const batchFallbackAvailable = createSTT(settings).available;
         stopStreamingSTT(); // close WebSockets and clear keep-alive intervals
         if (batchFallbackAvailable) {
-          send('status', { message: `Streaming transcription (${err.provider}) error: ${err.message}. Falling back to batch mode.` });
+          send('status', { message: `${err.provider} 流式识别异常：${err.message}；正在切换到批量识别。` });
           startFlushLoop();
         } else if (!sttDisabled) {
           sttDisabled = true;
-          send('status', { message: `Transcription stopped (${err.provider}): ${err.message}. The selected provider has no batch fallback.` });
+          send('status', { message: `${err.provider} 语音识别已停止：${err.message}；当前服务不支持批量识别备用模式。` });
         }
         streamingMode = false;
       },
@@ -588,7 +589,7 @@ async function setCapturing(active) {
           return false;
         }
         send('stt:status', { provider: 'local', status: 'error' });
-        send('status', { message: `Local transcription could not start: ${error.message} No audio was sent to a cloud provider.` });
+        send('status', { message: `本地语音识别无法启动：${error.message}；未向云端服务发送音频。` });
         send('capture:state', { active: false, streaming: false, mode: 'local' });
         return false;
       }
@@ -630,7 +631,7 @@ async function setCapturing(active) {
 // -------- feature runner --------
 async function runFeature(mode, userText) {
   const def = MODES[mode];
-  if (!def) { send('llm:error', { message: 'Unknown answer mode.' }); return; }
+  if (!def) { send('llm:error', { message: '未知的回答模式。' }); return; }
 
   const explicit = typeof userText === 'string' ? userText.trim() : '';
   const liveMode = mode === 'say' || mode === 'assist';
@@ -687,7 +688,7 @@ async function runFeature(mode, userText) {
       : (mode === 'ask' || mode === 'answerThis' ? question : null);
     emit('llm:start', { userBubble, small: !!def.small,
       category: mode !== 'leetcode' ? detectCategory(contextTranscript) : null });
-    if (!llm.ready) throw new Error(llm.configurationError || 'Complete the model settings.');
+    if (!llm.ready) throw new Error(llm.configurationError || '请先完成模型设置。');
     if (!question && ['ask', 'answerThis'].includes(mode)) throw new Error('请先输入问题或等待识别到面试官发言。');
     const request = conversation.begin({ mode, question, transcript: contextTranscript,
       settings, catalog: getProjectCatalog(), interviewPlan, evidenceRevision: getProjectIndexRevision() });
@@ -708,7 +709,7 @@ async function runFeature(mode, userText) {
     if (shouldCaptureScreen(mode, question)) {
       try {
         imageDataUrl = await captureScreenshot();
-        if (!imageDataUrl) throw new Error('No screen source was available.');
+        if (!imageDataUrl) throw new Error('未找到可用的屏幕来源。');
       } catch (e) {
         if (!owned()) return;
         recordEvent({ level: 'error', event: 'screen_capture_failed', msg: e.message, frame: 'captureScreenshot', context: { mode } });
@@ -840,7 +841,7 @@ ipcMain.handle(
 
     if (!whisperModelManager) {
       throw new Error(
-        'The local Whisper model manager is not ready.'
+        '本地 Whisper 模型管理器尚未就绪。'
       );
     }
 
@@ -897,22 +898,22 @@ ipcMain.handle('whisper:model-cancel', (_event, modelId) => {
 ipcMain.handle('whisper:model-delete', async (_event, modelId) => {
   requireWhisperModel(modelId);
   if (activeWhisperModelId === modelId) {
-    throw new Error('Stop listening before deleting the active model.');
+    throw new Error('请先停止监听，再删除当前使用的模型。');
   }
   const result = await whisperModelManager.deleteModel(modelId);
   send('whisper:models-changed', { modelId });
   return result;
 });
 ipcMain.handle('whisper:model-import', async (_event, modelId) => {
-  if (!whisperModelManager) throw new Error('The local Whisper model manager is not ready.');
+  if (!whisperModelManager) throw new Error('本地 Whisper 模型管理器尚未就绪。');
   requireWhisperModel(modelId);
   if (activeWhisperModelId === modelId) {
-    throw new Error('Stop listening before replacing the active model.');
+    throw new Error('请先停止监听，再替换当前使用的模型。');
   }
   const selection = await dialog.showOpenDialog(win, {
-    title: `Import ggml-${modelId}.bin`,
+    title: `导入 ggml-${modelId}.bin`,
     properties: ['openFile'],
-    filters: [{ name: 'whisper.cpp model', extensions: ['bin'] }]
+    filters: [{ name: 'whisper.cpp 模型', extensions: ['bin'] }]
   });
   if (selection.canceled || !selection.filePaths[0]) return { cancelled: true };
   const result = await whisperModelManager.importModel(modelId, selection.filePaths[0]);
@@ -951,7 +952,7 @@ ipcMain.on('log', (_e, msg) => console.log('[renderer]', msg));
 async function pickAndParseDocument() {
   const res = await dialog.showOpenDialog(win, {
     properties: ['openFile'],
-    filters: [{ name: 'Resume / Job description', extensions: ['pdf', 'docx'] }]
+    filters: [{ name: '简历 / 岗位描述', extensions: ['pdf', 'docx'] }]
   });
   if (res.canceled || !res.filePaths.length) return null;
   const filePath = res.filePaths[0];
@@ -991,7 +992,7 @@ function registerShortcuts() {
   shortcutState.quit = globalShortcut.register('CommandOrControl+Shift+X', () => app.quit());
   for (const [name, wasRegistered] of Object.entries(shortcutState)) {
     if (!wasRegistered) {
-      recordEvent({ level: 'warn', event: 'shortcut_unavailable', msg: 'another application holds the ' + name + ' shortcut', frame: 'registerShortcuts', context: { shortcut: name } });
+      recordEvent({ level: 'warn', event: 'shortcut_unavailable', msg: '其他程序已占用快捷键：' + name + ' shortcut', frame: 'registerShortcuts', context: { shortcut: name } });
     }
   }
 }

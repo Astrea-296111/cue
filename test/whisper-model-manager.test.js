@@ -65,7 +65,7 @@ test('removes a checksum-invalid completed download so retry can start cleanly',
     fetchImpl: async () => response(200, [Buffer.from('incorrect data')])
   });
 
-  await assert.rejects(manager.download(model.id), /checksum mismatch/);
+  await assert.rejects(manager.download(model.id), /校验和不符/);
   assert.equal(fs.existsSync(manager.getPartialPath(model.id)), false);
   assert.equal(fs.existsSync(manager.getModelPath(model.id)), false);
 });
@@ -117,7 +117,7 @@ test('cancels an in-flight download while retaining resumable bytes', async (con
   const download = manager.download(model.id);
   await started;
   assert.equal(manager.cancelDownload(model.id), true);
-  await assert.rejects(download, /cancelled/);
+  await assert.rejects(download, /已取消/);
   assert.equal(manager.activeDownload, null);
 });
 

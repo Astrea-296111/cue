@@ -53,7 +53,7 @@ async function transcribeGemini(apiKey, wav) {
   const res = await ai.models.generateContent({
     model: CURRENT_GEMINI_DEFAULT,
     contents: [{ role: 'user', parts: [
-      { text: 'Transcribe this audio verbatim. Return only the spoken words with no commentary. If there is no clear speech, return an empty response.' },
+      { text: '逐字转写音频，保留原始语言和技术词，不要翻译、补充或解释。没有清晰语音时返回空内容。' },
       { inlineData: { mimeType: 'audio/wav', data: wav.toString('base64') } }
     ] }]
   });
@@ -86,7 +86,7 @@ function createSTT(settings) {
     async transcribe(pcm) {
       if (!chain.length || !pcm || pcm.length < 3200) return { text: '' };
       const now = Date.now();
-      if (disabledUntil && now < disabledUntil) return { text: '', error: { provider: lastProvider, message: `Temporary ${lastProvider || 'provider'} quota or rate-limit; waiting 30s before retrying.` } };
+      if (disabledUntil && now < disabledUntil) return { text: '', error: { provider: lastProvider, message: `${lastProvider || '语音服务'} 暂时达到额度或频率限制，将等待 30 秒后重试。` } };
       const wav = pcmToWav(pcm, 16000, 1);
       let lastErr = null;
       for (const c of chain) {

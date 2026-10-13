@@ -49,7 +49,7 @@ const RUNTIME_TARGETS = Object.freeze({
 function getRuntimeTarget(platform = process.platform, architecture = process.arch) {
   const key = `${platform}-${architecture}`;
   const target = RUNTIME_TARGETS[key];
-  if (!target) throw new Error(`Local Whisper is not packaged for ${key}.`);
+  if (!target) throw new Error(`本地 Whisper 不支持打包目标 ${key}。`);
   return {
     ...target,
     key,

@@ -53,21 +53,21 @@ function describeState({ state, transcript, settings, sttDisabled, shortcuts, wi
  */
 function consentCopy(request) {
   const trusted = request.verification === 'code-signature';
-  const who = trusted ? request.callerName : `A program identifying itself as “${request.callerName}”`;
+  const who = trusted ? request.callerName : `一个自称“${request.callerName}”的程序`;
   const action = request.scope === 'action';
 
   return {
     trusted,
-    message: action ? `${who} wants to control cue.` : `${who} wants to see what cue is doing.`,
+    message: action ? `${who}申请控制 Cue。` : `${who}申请读取 Cue 的运行状态。`,
     detail:
       (action
-        ? 'It would be able to start and stop listening. '
-        : 'It would be able to read cue’s status, recent warnings and errors — never your transcript, your résumé or your API keys. ') +
+        ? '授权后，该程序可以开始或停止监听。'
+        : '授权后，该程序可以读取 Cue 的状态、近期警告和错误；无法读取转写内容、简历或 API 密钥。') +
       (trusted
-        ? 'Its code signature has been verified.'
-        : 'cue cannot verify what this program really is; anything running under your account could make the same claim.') +
-      '\n\nYou can change this later in cue’s settings.',
-    allowLabel: action ? 'Allow control' : 'Allow',
+        ? '该程序的代码签名已验证。'
+        : 'Cue 无法确认该程序的真实身份，同一账户下的其他程序也可能使用这个名称。') +
+      '\n\n可随时在 Cue 设置中更改授权。',
+    allowLabel: action ? '允许控制' : '允许读取',
   };
 }
 

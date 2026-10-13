@@ -44,8 +44,8 @@ function locateWhisperRuntime({
     runtimeDirectory: candidates[0] || null,
     executablePath: null,
     message: isPackaged
-      ? `The packaged Whisper runtime for ${target.key} is missing.`
-      : 'Run npm run prepare:whisper before using local transcription from source.'
+      ? `安装包缺少 ${target.key} 的 Whisper 运行环境。`
+      : '从源码运行本地语音识别前，请先执行 npm run prepare:whisper。'
   };
 }
 

@@ -193,7 +193,7 @@ class LocalWhisperTranscriber {
                   'ready',
 
                 message:
-                  'Local Whisper is ready.'
+                  '本地 Whisper 已就绪。'
               });
             }
           },
@@ -362,7 +362,7 @@ class LocalWhisperTranscriber {
 
     if (!segmenter) {
       throw new Error(
-        `Unknown local Whisper channel: ${channel}`
+        `未知的本地 Whisper 声道：${channel}`
       );
     }
 
@@ -413,7 +413,7 @@ class LocalWhisperTranscriber {
         'off',
 
       message:
-        'Local Whisper stopped.'
+        '本地 Whisper 已停止。'
     });
   }
 

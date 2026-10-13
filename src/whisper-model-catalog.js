@@ -87,7 +87,7 @@ const MODEL_BY_ID = new Map(WHISPER_MODELS.map((model) => [model.id, model]));
 /** Return a trusted model descriptor or fail before touching the filesystem. */
 function requireWhisperModel(modelId) {
   const model = MODEL_BY_ID.get(modelId);
-  if (!model) throw new Error(`Unsupported Whisper model: ${modelId}`);
+  if (!model) throw new Error(`不支持的 Whisper 模型：${modelId}`);
   return model;
 }
 

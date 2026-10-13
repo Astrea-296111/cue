@@ -248,7 +248,7 @@ function parseQwenEvent(message) {
       code: message?.header?.error_code || 'QWEN_ASR_TASK_FAILED',
       message:
         message?.header?.error_message ||
-        'Qwen ASR task failed.'
+        'Qwen ASR 任务失败。'
     };
   }
 
@@ -292,7 +292,7 @@ class QwenStreamingSTT {
         provider: 'qwen-asr',
         status: 401,
         message:
-          'Qwen ASR API key is missing. Configure Alibaba Model Studio in Custom first.'
+          '缺少 Qwen ASR API 密钥，请先在自定义服务中配置阿里云百炼。'
       });
       return;
     }
@@ -371,7 +371,7 @@ class QwenStreamingSTT {
             status: response.statusCode,
             message:
               body ||
-              `Qwen ASR WebSocket handshake failed (${response.statusCode}).`
+              `Qwen ASR WebSocket 握手失败（HTTP ${response.statusCode}）。`
           });
         });
       });
@@ -513,7 +513,7 @@ class QwenStreamingSTT {
       this.onError({
         provider: 'qwen-asr',
         status: null,
-        message: 'Qwen ASR maximum reconnect attempts reached.'
+        message: 'Qwen ASR 已达到最大重连次数。'
       });
       return;
     }

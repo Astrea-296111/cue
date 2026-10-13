@@ -38,7 +38,7 @@ function createMeetingStore(opts = {}) {
     add() {
       const m = {
         id: newId(),
-        title: 'Untitled meeting',
+        title: '未命名面试',
         startedAt: Date.now(),
         endedAt: null,
         transcript: [], // { channel, text, ts }

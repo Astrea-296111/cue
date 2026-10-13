@@ -15,11 +15,11 @@ test('normalizes whitespace and trailing slashes in a compatible base URL', () =
 });
 
 test('rejects unsafe or unsupported base URLs', () => {
-  assert.throws(() => normalizeBaseUrl('not a URL'), /valid HTTP or HTTPS URL/);
-  assert.throws(() => normalizeBaseUrl('ftp://localhost/v1'), /must use HTTP or HTTPS/);
-  assert.throws(() => normalizeBaseUrl('https://user:secret@example.com/v1'), /embedded credentials/);
-  assert.throws(() => normalizeBaseUrl('https://example.com/v1?token=secret'), /query string or fragment/);
-  assert.throws(() => normalizeBaseUrl('https://example.com/v1#section'), /query string or fragment/);
+  assert.throws(() => normalizeBaseUrl('not a URL'), /有效的 HTTP 或 HTTPS URL/);
+  assert.throws(() => normalizeBaseUrl('ftp://localhost/v1'), /必须使用 HTTP 或 HTTPS/);
+  assert.throws(() => normalizeBaseUrl('https://user:secret@example.com/v1'), /用户名或密码/);
+  assert.throws(() => normalizeBaseUrl('https://example.com/v1?token=secret'), /查询参数或片段标识/);
+  assert.throws(() => normalizeBaseUrl('https://example.com/v1#section'), /查询参数或片段标识/);
 });
 
 test('builds SDK options with an explicit API key', () => {
@@ -37,5 +37,5 @@ test('uses a non-secret placeholder when a local endpoint needs no API key', () 
 });
 
 test('requires a base URL for an OpenAI-compatible client', () => {
-  assert.throws(() => createCompatibleClientOptions('', ''), /Set a Base URL/);
+  assert.throws(() => createCompatibleClientOptions('', ''), /设置 API 基础地址/);
 });

@@ -95,7 +95,7 @@ test('reports incomplete Custom endpoint settings without making a request', () 
   const llm = createLLM(createCustomSettings({ baseUrl: '' }));
 
   assert.equal(llm.ready, false);
-  assert.match(llm.configurationError, /Set a Base URL/);
+  assert.match(llm.configurationError, /设置 API 基础地址/);
   assert.equal(capturedClientOptions, null);
 });
 
@@ -105,7 +105,7 @@ test('requires a model for the Custom provider', () => {
   }));
 
   assert.equal(llm.ready, false);
-  assert.match(llm.configurationError, /Set a Fast or Smart model/);
+  assert.match(llm.configurationError, /设置快速模型或深度模型/);
 });
 
 // ---- MiniMax (PR #22) -----------------------------------------------------
@@ -173,16 +173,16 @@ test('formatProviderErrorMessage: maps a Gemini 404 to an actionable "model unav
   });
   const message = formatProviderErrorMessage(error, 'gemini', 'gemini-2.0-flash');
   assert.match(message, /Gemini/);
-  assert.match(message, /model "gemini-2\.0-flash"/);
-  assert.match(message, /unavailable \(404\)/);
-  assert.match(message, /Settings/);
+  assert.match(message, /模型 "gemini-2\.0-flash"/);
+  assert.match(message, /不可用（HTTP 404）/);
+  assert.match(message, /设置/);
   assert.doesNotMatch(message, /exception parsing response/);
 });
 
 test('formatProviderErrorMessage: 404 message still works without a model id', () => {
   const error = geminiApiError({ status: 404, body: { error: { message: 'not found', code: 404 } } });
   const message = formatProviderErrorMessage(error, 'openai');
-  assert.match(message, /OpenAI model is unavailable \(404\)/);
+  assert.match(message, /OpenAI 模型不可用（HTTP 404）/);
 });
 
 test('formatProviderErrorMessage: maps a Gemini 429 to a quota message with a recovery hint', () => {
@@ -191,8 +191,8 @@ test('formatProviderErrorMessage: maps a Gemini 429 to a quota message with a re
     body: { error: { message: 'You exceeded your current quota', code: 429, status: 'RESOURCE_EXHAUSTED' } }
   });
   const message = formatProviderErrorMessage(error, 'gemini', 'gemini-2.5-flash');
-  assert.match(message, /Gemini free-tier quota exhausted \(429/);
-  assert.match(message, /switch providers\/models in Settings/);
+  assert.match(message, /Gemini 请求额度或频率已达上限（HTTP 429/);
+  assert.match(message, /更换服务或模型/);
   assert.doesNotMatch(message, /RESOURCE_EXHAUSTED/);
 });
 
@@ -209,21 +209,21 @@ test('formatProviderErrorMessage: surfaces retry-after when the 429 body carries
     }
   });
   const message = formatProviderErrorMessage(error, 'gemini');
-  assert.match(message, /Wait about 38s/);
+  assert.match(message, /等待约 38 秒/);
 });
 
 test('formatProviderErrorMessage: 429 without a retry delay falls back to a generic wait hint', () => {
   const error = new Error('429 Too Many Requests');
   error.status = 429;
   const message = formatProviderErrorMessage(error, 'openai');
-  assert.match(message, /Wait a moment/);
+  assert.match(message, /请稍后/);
 });
 
 test('formatProviderErrorMessage: an OpenAI-style quota 429 (no numeric status) is still recognized', () => {
   // Matches the literal text one of the bug reports pasted in.
   const error = new Error('429 You exceeded your current quota, please check your plan and billing details.');
   const message = formatProviderErrorMessage(error, 'openai');
-  assert.match(message, /OpenAI free-tier quota exhausted/);
+  assert.match(message, /OpenAI 请求额度或频率已达上限/);
 });
 
 test('formatProviderErrorMessage: an unrecognized error passes its raw message through unchanged', () => {

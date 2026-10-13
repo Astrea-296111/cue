@@ -105,7 +105,7 @@ function screenTokenBudget({ userText = '', answerPlan = getAnswerPlan(userText)
 
 function interviewShapeInstruction({ interviewPlan, projectPlan } = {}) {
   if (!(projectPlan?.retrieve && projectPlan.scopes?.length) && interviewPlan?.type !== 'scenario') return '';
-  return '\nInterview Mode：当前项目/设计问题先给结论，再解释设计原因、关键实现、相关 trade-off。' +
+  return '\n项目与情景回答：当前项目/设计问题先给结论，再解释设计原因、关键实现和相关取舍。' +
     '按问题需要展开，不强制套模板或重复项目介绍；讨论状态仅用于延续话题。' +
     '假设场景用“如果/我会”，不能把推演方案、假设指标或助手建议说成实际经历。\n';
 }
@@ -130,7 +130,7 @@ const HUMAN_INTERVIEW_RULES = `
 
 const PROJECT_GROUNDING_RULES = `
 项目知识文档与项目事实规则：
-项目事实优先级：导入项目源码/说明书与 Project Interview Cards > 手工项目知识 > 简历 > STAR。
+项目事实优先级：导入项目源码/说明书与 项目面试卡片 > 手工项目知识 > 简历 > STAR。
 只有材料证明个人职责时才说“我负责/我做了”，源码不能自动证明职责；不得虚构指标、组件、事故或经历。
 候选人历史发言和 Cue 旧回答只用于理解对话，不是项目事实来源；通用知识和假设方案不能冒充真实项目经历。
 `;
@@ -138,7 +138,7 @@ const PROJECT_GROUNDING_RULES = `
 const BASE_RULES = '默认使用简体中文，准确直接。口述答案用候选人第一人称；八股题简答，复杂题展开。Cue 是辅助工具，不是候选人的简历项目。';
 
 const SCREEN_TASK_RULES = `
-屏幕技术题覆盖 ACM、AI Coding、Debug、SQL、系统设计。算法题给核心思路、复杂度和可提交代码；Debug 给最可能根因/验证/修复；SQL 给查询思路和 SQL；系统设计先给架构主干再展开题目要求的关键取舍。不要为完整而粘贴无关模板。
+屏幕技术题覆盖 ACM、AI Coding、Debug、SQL、系统设计。算法题给核心思路、复杂度和可提交代码；调试题给最可能根因、验证和修复步骤；SQL 给查询思路和 SQL；系统设计先给架构主干再展开题目要求的关键取舍。不要为完整而粘贴无关模板。
 `;
 
 const ASSIST_SCREEN_RULES = `
