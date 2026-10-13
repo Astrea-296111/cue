@@ -38,7 +38,8 @@ test('appendAiRules: wraps rules as authoritative instructions (not data)', () =
   const rules = 'Never use em-dashes.\nUse bullet points.';
   const prompt = appendAiRules('Base prompt', rules);
 
-  assert.match(prompt, /Follow them strictly/);
+  assert.match(prompt, /遵守用户回答风格/);
+  assert.match(prompt, /事实约束和题型格式优先/);
   assert.match(prompt, /--- USER RULES ---/);
   assert.match(prompt, /--- END USER RULES ---/);
   assert.ok(prompt.includes(rules));

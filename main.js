@@ -725,8 +725,10 @@ async function runFeature(mode, userText) {
         contextBudget: contextCharsFor(mode, answerPlan), projectState: request.projectInterviewState });
     request.evidenceRevision = contextBundle.evidence.find(item => item.sourceType === 'imported')?.revision || getProjectIndexRevision();
     const system = def.buildSystem ? def.buildSystem(contextBundle.context, settings.aiRules || '',
-      { answerPlan, interviewPlan, projectPlan: request.plan }) : (def.system || '');
-    const built = def.build({ transcript: contextTranscript, userText: question, answerPlan, partial });
+      { answerPlan, interviewPlan, projectPlan: request.plan, hasImage: !!imageDataUrl }) : (def.system || '');
+    const responseContext = { transcript: contextTranscript, userText: question, answerPlan, partial, hasImage: !!imageDataUrl };
+    const built = def.build(responseContext);
+    const maxTokens = def.resolveMaxTokens?.(responseContext) || def.maxTokens;
     // A fresh screen task stands on its own; its answer is still available to
     // subsequent manual follow-ups. No previous screenshot bytes are retained.
     const history = mode === 'leetcode' ? [] : request.turns;
@@ -745,7 +747,8 @@ async function runFeature(mode, userText) {
     console.log('[latency][prompt] ' + JSON.stringify({ requestId: timing.requestId, mode,
       screenMs: +screenMs.toFixed(2), contextMs: +(requestSent - contextStarted).toFixed(2),
       promptChars: system.length + turns.reduce((n, t) => n + t.text.length, 0), systemChars: system.length,
-      hasImage: !!imageDataUrl, ...request.stats, prepareMs: +(requestSent - timing.started).toFixed(2) }));
+      hasImage: !!imageDataUrl, maxTokens, answerComplexity: answerPlan.level,
+      ...request.stats, prepareMs: +(requestSent - timing.started).toFixed(2) }));
 
     let watchdog = null;
     let deadline = null;
@@ -770,9 +773,7 @@ async function runFeature(mode, userText) {
     try {
       const result = await Promise.race([
         llm.stream({ system, turns, imageDataUrl, signal: generation.controller.signal, mode,
-          ...(['say', 'answerThis', 'assist'].includes(mode)
-            ? { maxTokens: def.resolveMaxTokens?.({ answerPlan }) || def.maxTokens } : {}),
-          ...(mode === 'ask' && imageDataUrl ? { maxTokens: MODES.assist.maxTokens } : {}),
+          maxTokens,
           onCompletion: metadata => {
             if (owned() && !streamSettled && !generation.controller.signal.aborted) completion = metadata;
           },

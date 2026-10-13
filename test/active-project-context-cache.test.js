@@ -148,7 +148,7 @@ test('generic questions inject no cache/state or retrieval and bundles retain ol
     { projectPlan: { retrieve: false, query: 'Redis 为什么快？', scopes: [], activeProject: { scopes: ['RepoPilot/'] } } });
   assert.equal(generic.evidence.length, 0);
   assert.equal(app.searches.length, count);
-  assert.doesNotMatch(generic.context, /手工项目事实|选择 Redis 缓存/);
+  assert.equal(generic.context, null, 'No facts means no synthetic prompt rules in the context bundle');
 });
 
 test('index revision changes on disk content replacement, clear and re-import; v1/v2 missing metadata remain readable', async t => {

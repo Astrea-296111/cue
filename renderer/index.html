@@ -34,20 +34,20 @@
 
             <div id="action-row">
               <button class="act act-primary" data-mode="say">
-                <span>怎么回答</span>
+                <span>如何回答</span>
                 <span class="shortcut-hint" id="say-shortcut-hint"></span>
               </button>
               <button class="act act-secondary" data-mode="assist">
-                <span>屏幕辅助</span>
+                <span>屏幕与问题</span>
                 <span class="shortcut-hint" id="assist-shortcut-hint"></span>
               </button>
+              <button class="act" data-mode="leetcode"><span>截屏</span><span class="shortcut-hint" id="code-shortcut-hint"></span></button>
               <button class="act" data-mode="followup"><span>反问</span></button>
-              <button class="act" data-mode="leetcode"><span>解题</span><span class="shortcut-hint" id="code-shortcut-hint"></span></button>
             </div>
 
             <div id="composer">
               <div id="input-area">
-                <div id="placeholder">输入问题，或按快捷键使用屏幕辅助</div>
+                <div id="placeholder">输入问题，或按快捷键使用屏幕与问题</div>
                 <textarea id="input" rows="1" spellcheck="false"></textarea>
               </div>
               <div id="composer-bottom">
@@ -286,17 +286,15 @@
 
       <!-- Tab: Style -->
       <div class="s-body s-tab-pane hidden" data-pane="style">
-        <label class="s-label">AI rules <span class="s-hint">how the AI should write its responses</span></label>
-        <textarea id="ai-rules" rows="10" spellcheck="false" maxlength="2000" placeholder="e.g.
-- Never use em-dashes.
-- Reply in 2-3 short bullet points.
-- Use a casual, first-person tone.
-- Avoid jargon; explain technical terms.
-- Don&#39;t start with &quot;I&quot;.
+        <label class="s-label">回答风格 <span class="s-hint">默认按问题复杂度调整回答长度</span></label>
+        <textarea id="ai-rules" rows="10" spellcheck="false" maxlength="2000" placeholder="例如：
+- 使用自然的口语，先说结论。
+- 多个观点分点写，每点一行。
+- 必要时用一个简短例子解释。
 "></textarea>
         <div class="s-counter"><span id="ai-rules-count">0</span> / 2000</div>
         <div class="s-hint-block">
-          These rules tell cue <strong>how</strong> to write, not <strong>what</strong> to say. Use one imperative sentence per line (e.g. <em>Never use em-dashes.</em>). They apply to every mode except coding-problem solves (LeetCode), which stays strict. Stored locally; never sent anywhere except the AI provider when cue answers a question.
+          简单问题简短回答，多问、设计和排障题适当展开；屏幕改代码保留完整代码所需的空间。可在这里补充语气和排版偏好，每行一条，不必重复默认要求。规则适用于“如何回答”“屏幕与问题”和“反问”等模式；“截屏”按屏幕题型输出。仅在回答时随请求发送给所选模型，设置保存在本机。
         </div>
       </div>
     </div>

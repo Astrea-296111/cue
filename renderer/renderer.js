@@ -2003,13 +2003,12 @@ cue.on(
     }
   }
 
-  // ---- example conversation (matches the reference screenshot) ------------
-  function showExample() {
+  // ---- first screen guidance ---------------------------------------------
+  function showWelcome() {
     clearMessages();
-    addUserBubble('怎么回答');
     const ai = document.createElement('div');
     ai.className = 'ai-text';
-    ai.textContent = '“A discounted cash flow model values a company by projecting future free cash flows and discounting them to present value using the weighted average cost of capital.”';
+    ai.textContent = '“如何回答”结合面试官问题组织答案；“屏幕与问题”结合当前代码与要求；“截屏”解决屏幕题；“反问”生成面试反问。';
     messages.appendChild(ai);
   }
 
@@ -2151,7 +2150,7 @@ cue.on(
     {
       icon: '✨',
       title: 'You’re all set',
-      body: '使用 Cue：<ul><li>' + assistShortcut + ' 或点击<strong>屏幕辅助</strong>，根据屏幕与面试官要求修改代码或回答问题（Ctrl/Cmd+? 也可使用）</li><li>' + sayShortcut + ' 或点击<strong>怎么回答</strong>，根据最近对话组织口述答案</li><li>' + solveShortcut + ' 或点击<strong>解题</strong>，解决屏幕上的技术题</li><li>点击<strong>反问</strong>，生成适合当前面试的反问</li><li>点击顶部 <strong>▢</strong> 开始语音识别</li><li>输入问题后按 <span class="kbd">↵</span> 发送</li></ul>点击 <strong>Cue 图标</strong>可重新打开指引。双击顶部 <strong>×</strong> 退出，或使用 ' + quitShortcut + '。'
+      body: '使用 Cue：<ul><li>' + sayShortcut + ' 或点击<strong>如何回答</strong>，根据面试官问题和相关上下文组织口述答案</li><li>' + assistShortcut + ' 或点击<strong>屏幕与问题</strong>，根据屏幕与面试官要求修改代码或回答问题（Ctrl/Cmd+? 也可使用）</li><li>' + solveShortcut + ' 或点击<strong>截屏</strong>，解决屏幕上的技术题</li><li>点击<strong>反问</strong>，生成适合当前面试的反问</li><li>点击顶部 <strong>▢</strong> 开始语音识别</li><li>输入问题后按 <span class="kbd">↵</span> 发送</li></ul>点击 <strong>Cue 图标</strong>可重新打开指引。双击顶部 <strong>×</strong> 退出，或使用 ' + quitShortcut + '。'
     }
   ];
   let obIndex = 0;
@@ -2205,13 +2204,13 @@ cue.on(
     }
 
     smartBtn.classList.toggle('on', !!settings.smart);
-    showExample();
+    showWelcome();
     syncPlaceholder();
     updateHistoryBadge(); // FIX #3: Initialize badge on boot
     updateSendButtonState(); // Initialize send button state
 
     // Fix placeholder shortcut hint to match platform
-    placeholder.innerHTML = '输入问题，或 <span class="keycap">' + (isMac ? '⌘' : 'Ctrl') + '</span><span class="keycap">⇧</span><span class="keycap">↵</span> 屏幕辅助';
+    placeholder.innerHTML = '输入问题，或 <span class="keycap">' + (isMac ? '⌘' : 'Ctrl') + '</span><span class="keycap">⇧</span><span class="keycap">↵</span> 屏幕与问题';
 
     const st = await cue.captureState();
     $('#live-dot').classList.toggle('off', !st.active);
