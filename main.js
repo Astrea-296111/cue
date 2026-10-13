@@ -1052,8 +1052,8 @@ async function requestPermissions() {
 
 function createPermissionsWindow() {
   const { workArea } = screen.getPrimaryDisplay();
-  const W = Math.min(workArea.width, 500 * UI_SCALE);
-  const H = Math.min(workArea.height, 540 * UI_SCALE);
+  const W = Math.round(Math.min(workArea.width / 2, 500) * UI_SCALE);
+  const H = Math.round(Math.min(workArea.height / 2, 540) * UI_SCALE);
   permWin = new BrowserWindow({
     width: W,
     height: H,

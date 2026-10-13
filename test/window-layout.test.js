@@ -24,7 +24,7 @@ function screens() {
 function window(t, options = {}) {
   const screen = screens();
   const win = new EventEmitter();
-  let position = [300, 0], size = [922, 832], zoom = 1.7;
+  let position = [300, 0], size = [461, 416], zoom = 0.85;
   const writes = [];
   let reads = 0;
   let destroyed = false;
@@ -59,14 +59,14 @@ function window(t, options = {}) {
     get zoom() { return zoom; } };
 }
 
-test('startup at 125% doubles the UI and keeps a previously clipped window fully visible', () => {
+test('startup at 125% halves the previously enlarged UI and keeps a previously clipped window fully visible', () => {
   const layout = initialWindowLayout(screens(), { windowX: 1500, windowY: 800 });
-  assert.equal(layout.width, 922);
-  assert.equal(layout.height, 832);
-  assert.equal(layout.zoomFactor, 1.7);
-  assert.ok(Math.abs(layout.width * 1.25 - 1920 * 0.6) <= 1);
-  assert.equal(layout.x, 614);
-  assert.equal(layout.y, 0);
+  assert.equal(layout.width, 461);
+  assert.equal(layout.height, 416);
+  assert.equal(layout.zoomFactor, 0.85);
+  assert.ok(Math.abs(layout.width * 1.25 - 1920 * 0.3) <= 1);
+  assert.equal(layout.x, 1075);
+  assert.equal(layout.y, 416);
   assert.ok(layout.x + layout.width <= primary.workArea.width);
   assert.ok(layout.y + layout.height <= primary.workArea.height);
 });
@@ -74,16 +74,16 @@ test('startup at 125% doubles the UI and keeps a previously clipped window fully
 test('startup uses the saved monitor rather than the primary monitor', () => {
   const layout = initialWindowLayout(screens(), { windowX: 2200, windowY: 50 });
   assert.equal(layout.display.id, 2);
-  assert.equal(layout.width, 1536);
-  assert.equal(layout.height, 1200);
+  assert.equal(layout.width, 768);
+  assert.equal(layout.height, 600);
   assert.equal(layout.x, 2200);
 });
 
-test('startup without a saved position centers a fully visible 60% window', () => {
+test('startup without a saved position centers a fully visible 30% window', () => {
   const layout = initialWindowLayout(screens(), { windowX: null, windowY: null });
-  assert.equal(layout.width, 922);
-  assert.equal(layout.x, 307);
-  assert.equal(layout.y, 0);
+  assert.equal(layout.width, 461);
+  assert.equal(layout.x, 538);
+  assert.equal(layout.y, 6);
 });
 
 test('hundreds of same-screen moves never rewrite dimensions under fractional DPI', t => {
@@ -97,7 +97,7 @@ test('hundreds of same-screen moves never rewrite dimensions under fractional DP
   }
   assert.equal(app.reads, reads, 'Moving must not keep measuring or correcting size');
   assert.equal(app.writes.length, 0);
-  assert.deepEqual(app.size, [922, 832]);
+  assert.deepEqual(app.size, [461, 416]);
 });
 
 test('one startup correction cannot recurse through synchronous moved or screen notifications', t => {
@@ -105,7 +105,7 @@ test('one startup correction cannot recurse through synchronous moved or screen 
   app.setWidth(550);
   app.win.webContents.emit('did-finish-load');
   assert.equal(app.writes.length, 1);
-  assert.deepEqual(app.size, [922, 832]);
+  assert.deepEqual(app.size, [461, 416]);
   for (let i = 0; i < 100; i++) app.move(500 + i);
   assert.equal(app.writes.length, 1);
 });
@@ -119,10 +119,10 @@ test('manual movement keeps the requested width and height instead of rounded na
   }
   assert.equal(app.writes.length, 500);
   for (const bounds of app.writes) {
-    assert.equal(bounds.width, 922);
-    assert.equal(bounds.height, 832);
+    assert.equal(bounds.width, 461);
+    assert.equal(bounds.height, 416);
   }
-  assert.deepEqual(app.size, [922, 832]);
+  assert.deepEqual(app.size, [461, 416]);
 });
 
 test('crossing a monitor boundary changes layout once after movement settles', async t => {
@@ -131,12 +131,12 @@ test('crossing a monitor boundary changes layout once after movement settles', a
   assert.equal(app.writes.length, 0);
   await new Promise(resolve => setTimeout(resolve, 180));
   assert.equal(app.writes.length, 1);
-  assert.deepEqual(app.size, [1536, 1200]);
-  assert.equal(app.zoom, 2 * 2560 / 1920);
+  assert.deepEqual(app.size, [768, 600]);
+  assert.equal(app.zoom, 2560 / 1920);
   for (let i = 0; i < 100; i++) app.move(1560 + i);
   assert.equal(app.writes.length, 1);
   moveWindow(app.win, 1660, 30);
-  assert.equal(app.writes.at(-1).width, 1536, 'Manual movement carries the new screen width');
+  assert.equal(app.writes.at(-1).width, 768, 'Manual movement carries the new screen width');
 });
 
 test('closing the window removes every layout listener and pending screen change', async t => {
@@ -167,16 +167,16 @@ test('closed cleanup never reads a destroyed BrowserWindow and safely runs twice
   assert.equal(app.writes.length, 0);
 });
 
-test('all display sizes preserve twice the previous zoom while fitting the work area', () => {
+test('all displays halve the enlarged zoom and native bounds, including previously screen-capped sizes', () => {
   for (const width of [1024, 1280, 1536, 1920, 2560, 3840]) {
     const display = { bounds: { width }, workArea: { width: width - 40, height: 700 } };
     const layout = windowLayout(display);
-    assert.equal(layout.zoomFactor, 2 * Math.min(1.4, Math.max(0.85, width / 1920)));
+    assert.equal(layout.zoomFactor, Math.min(1.4, Math.max(0.85, width / 1920)));
     assert.ok(layout.width <= display.workArea.width);
-    assert.ok(layout.height <= display.workArea.height);
+    assert.equal(layout.height, 350);
   }
   const portrait = { bounds: { width: 600 }, workArea: { width: 320, height: 900 } };
-  assert.deepEqual(windowLayout(portrait), { width: 320, height: 900, zoomFactor: 1.7 });
+  assert.deepEqual(windowLayout(portrait), { width: 160, height: 450, zoomFactor: 0.85 });
 });
 
 test('changing the taskbar work area updates height once and keeps movement dimensions stable', t => {
@@ -185,11 +185,11 @@ test('changing the taskbar work area updates height once and keeps movement dime
   app.screen.getDisplayNearestPoint = () => reduced;
   app.screen.emit('display-metrics-changed', reduced);
   assert.equal(app.writes.length, 1);
-  assert.deepEqual(app.writes[0], { x: 300, y: 40, width: 922, height: 700 });
+  assert.deepEqual(app.writes[0], { x: 300, y: 40, width: 461, height: 350 });
   app.screen.emit('display-metrics-changed', reduced);
   assert.equal(app.writes.length, 1);
   moveWindow(app.win, 320, 40);
-  assert.deepEqual(app.size, [922, 700]);
+  assert.deepEqual(app.size, [461, 350]);
 });
 
 test('layout skips native zoom access when webContents was destroyed before the window', t => {

@@ -49,23 +49,12 @@
 
   installEditableQwenAsrModelControl();
 
-  // Recap is kept as a backend mode for compatibility, but removed from the main UI.
-  const recapButton = document.querySelector('.act[data-mode="recap"]');
-  if (recapButton) {
-    const separator = recapButton.previousElementSibling;
-    if (separator && separator.classList.contains('sep')) separator.remove();
-    recapButton.remove();
-  }
-
   // ---- paint icons -------------------------------------------------------
   $('#logo-btn').innerHTML = icon('logo', { size: 18 });
   $('.tb-hide .chev').innerHTML = icon('chevron-down', { size: 14 });
   $('#stop-btn').innerHTML = icon('stop-square', { size: 15 });
   $('#quit-btn').innerHTML = icon('x', { size: 14 });
-  $('#quit-btn').addEventListener('click', () => cue.quit());
-  document.querySelector('.act[data-mode="assist"] .ic').innerHTML = icon('sparkles', { size: 16 });
-  document.querySelector('.act[data-mode="say"] .ic').innerHTML = icon('wand-sparkles', { size: 16 });
-  document.querySelector('.act[data-mode="followup"] .ic').innerHTML = icon('message-circle', { size: 16 });
+  $('#quit-btn').addEventListener('dblclick', () => cue.quit());
   $('#smart-toggle .ic').innerHTML = icon('zap', { size: 14 });
   $('#more-btn').innerHTML = icon('more-horizontal', { size: 18 });
   $('#send-btn').innerHTML = icon('play', { size: 15 });
@@ -1156,9 +1145,11 @@ micStream = stream;
   cue.on('stt:interim', ({ channel, text }) => {
     setLiveDotState('transcribing');
     const el = getOrCreateInterimEl();
-    const label = channel === 'them' ? 'Them' : 'You';
+    const label = channel === 'them' ? '面试官' : '候选人';
     el.textContent = `${label}: ${text}`;
     el.classList.add('show');
+    // Keep the latest words visible inside a bounded caption viewport.
+    el.scrollTop = el.scrollHeight;
     appendTranscriptHistoryTurn(channel, text, true); // update sidebar interim
 
     // Interim text is useful for RAG prefetch only. It is deliberately NOT sent
@@ -1341,7 +1332,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
     }
   });
 
-  // ---- prep status & smart tooltip helpers -------------------------------
+  // ---- smart tooltip helpers --------------------------------------------
 
 
   // ---- AI rules: live char counter + soft cap ---------------------------
@@ -1357,24 +1348,6 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
   }
   const aiRulesEl = document.getElementById('ai-rules');
   if (aiRulesEl) aiRulesEl.addEventListener('input', updateAiRulesCounter);
-  function updatePrepStatus() {
-    if (!settings) return;
-    const fields = {
-      resume:  !!(settings.resumeText && settings.resumeText.trim()),
-      jd:      !!(settings.jobDescription && settings.jobDescription.trim()),
-      stories: !!(settings.starStories && settings.starStories.trim()),
-      salary:  !!(settings.salaryTarget && settings.salaryTarget.trim())
-    };
-    document.querySelectorAll('#prep-status .prep-item').forEach((el) => {
-      const loaded = fields[el.dataset.field];
-      el.classList.toggle('loaded', loaded);
-      el.classList.toggle('missing', !loaded);
-      el.title = loaded
-        ? el.textContent.trim() + ' loaded'
-        : el.textContent.trim() + ' not set — add in Settings';
-    });
-  }
-
   function updateSmartTooltip() {
     if (!settings) return;
     const m = settings.models[settings.provider] || { fast: '', smart: '' };
@@ -2020,7 +1993,6 @@ cue.on(
     try {
       settings = await cue.settingsSet(settings);
       $('#s-status').textContent = statusText();
-      updatePrepStatus();
       updateSmartTooltip();
       return true;
     } catch (error) {
@@ -2034,7 +2006,7 @@ cue.on(
   // ---- example conversation (matches the reference screenshot) ------------
   function showExample() {
     clearMessages();
-    addUserBubble('What should I say?');
+    addUserBubble('怎么回答');
     const ai = document.createElement('div');
     ai.className = 'ai-text';
     ai.textContent = '“A discounted cash flow model values a company by projecting future free cash flows and discounting them to present value using the weighted average cost of capital.”';
@@ -2179,7 +2151,7 @@ cue.on(
     {
       icon: '✨',
       title: 'You’re all set',
-      body: 'How to use cue:<ul><li>' + assistShortcut + ' or click <strong>Assist</strong> — use the current screen and interviewer requirements to modify code or answer questions (Ctrl/Cmd+? also works)</li><li>' + sayShortcut + ' — <strong>What should I say?</strong> from the recent conversation</li><li>' + solveShortcut + ' — solve a coding problem on screen</li><li>Click <strong>▢</strong> in the top bar to start listening to a meeting</li><li>Type a question and press <span class="kbd">↵</span></li></ul>Reopen this guide anytime by clicking the <strong>cue logo</strong>. Quit with ' + quitShortcut + '.'
+      body: '使用 Cue：<ul><li>' + assistShortcut + ' 或点击<strong>屏幕辅助</strong>，根据屏幕与面试官要求修改代码或回答问题（Ctrl/Cmd+? 也可使用）</li><li>' + sayShortcut + ' 或点击<strong>怎么回答</strong>，根据最近对话组织口述答案</li><li>' + solveShortcut + ' 或点击<strong>解题</strong>，解决屏幕上的技术题</li><li>点击<strong>反问</strong>，生成适合当前面试的反问</li><li>点击顶部 <strong>▢</strong> 开始语音识别</li><li>输入问题后按 <span class="kbd">↵</span> 发送</li></ul>点击 <strong>Cue 图标</strong>可重新打开指引。双击顶部 <strong>×</strong> 退出，或使用 ' + quitShortcut + '。'
     }
   ];
   let obIndex = 0;
@@ -2214,11 +2186,11 @@ cue.on(
     // R4: shortcut hints
     const sayHintEl = document.getElementById('say-shortcut-hint');
     const assistHintEl = document.getElementById('assist-shortcut-hint');
-    if (sayHintEl) sayHintEl.textContent = isWindows ? 'Ctrl+↵' : '⌘↵';
-    if (assistHintEl) assistHintEl.textContent = isWindows ? 'Ctrl+Shift+↵' : '⌘⇧↵';
+    const codeHintEl = document.getElementById('code-shortcut-hint');
+    if (sayHintEl) sayHintEl.textContent = isMac ? '⌘↵' : 'Ctrl+↵';
+    if (assistHintEl) assistHintEl.textContent = isMac ? '⌘⇧↵' : 'Ctrl+⇧↵';
+    if (codeHintEl) codeHintEl.textContent = isMac ? '⌘H' : 'Ctrl+H';
 
-    // R5: prep status
-    updatePrepStatus();
     // R6: smart tooltip
     updateSmartTooltip();
     // Fix 3: Adjust permission buttons based on actual Windows version.
@@ -2239,7 +2211,7 @@ cue.on(
     updateSendButtonState(); // Initialize send button state
 
     // Fix placeholder shortcut hint to match platform
-    placeholder.innerHTML = 'Ask about your screen or conversation, or <span class="keycap">' + (isWindows ? 'Ctrl' : '⌘') + '</span><span class="keycap">⇧</span><span class="keycap">↵</span> for Assist';
+    placeholder.innerHTML = '输入问题，或 <span class="keycap">' + (isMac ? '⌘' : 'Ctrl') + '</span><span class="keycap">⇧</span><span class="keycap">↵</span> 屏幕辅助';
 
     const st = await cue.captureState();
     $('#live-dot').classList.toggle('off', !st.active);

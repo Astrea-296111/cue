@@ -1,14 +1,15 @@
 'use strict';
 
 const requestedSizes = new WeakMap();
-const UI_SCALE = 2;
+const UI_SCALE = 1;
 
 // Electron display bounds use logical pixels, so OS DPI scaling is preserved.
 function windowLayout(display, height = 600) {
   const screenWidth = display.bounds.width;
   return {
-    width: Math.min(display.workArea.width, Math.round(screenWidth * 0.3 * UI_SCALE)),
-    height: Math.min(display.workArea.height, Math.round(height * UI_SCALE)),
+    width: Math.round(Math.min(display.workArea.width / 2, screenWidth * 0.3) * UI_SCALE),
+    // Halve the previously screen-capped window as well as its contents.
+    height: Math.round(Math.min(display.workArea.height / 2, height) * UI_SCALE),
     // Scale the entire renderer together: text, icons, controls and dialogs.
     zoomFactor: UI_SCALE * Math.min(1.4, Math.max(0.85, screenWidth / 1920))
   };
