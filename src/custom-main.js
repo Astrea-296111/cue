@@ -91,7 +91,7 @@ ipcMain.handle('project:index-state', () => projectKnowledge.getProjectIndexStat
 ipcMain.handle('project:import-folder', async () => {
   const owner = focusedWindow();
   const options = {
-    title: 'Import project folder',
+    title: '导入项目文件夹',
     properties: ['openDirectory']
   };
   const result = owner
@@ -105,9 +105,9 @@ ipcMain.handle('project:import-folder', async () => {
 ipcMain.handle('project:import-zip', async () => {
   const owner = focusedWindow();
   const options = {
-    title: 'Import project ZIP',
+    title: '导入项目 ZIP',
     properties: ['openFile'],
-    filters: [{ name: 'ZIP archive', extensions: ['zip'] }]
+    filters: [{ name: 'ZIP 压缩包', extensions: ['zip'] }]
   };
   const result = owner
     ? await dialog.showOpenDialog(owner, options)
@@ -210,9 +210,9 @@ function installShortcutOverrides() {
   globalShortcut.unregister(LEGACY_ASSIST_ACCELERATOR);
   globalShortcut.unregister(HIDE_ACCELERATOR);
 
-  registerShortcut('What should I say?', SAY_ACCELERATOR, () => sendMode('say'));
-  registerShortcut('Assist', ASSIST_ACCELERATOR, () => sendMode('assist'));
-  registerShortcut('Assist (Ctrl+?)', LEGACY_ASSIST_ACCELERATOR, () => sendMode('assist'));
+  registerShortcut('如何回答', SAY_ACCELERATOR, () => sendMode('say'));
+  registerShortcut('屏幕与问题', ASSIST_ACCELERATOR, () => sendMode('assist'));
+  registerShortcut('屏幕与问题（Ctrl+?）', LEGACY_ASSIST_ACCELERATOR, () => sendMode('assist'));
   registerShortcut('Hide', HIDE_ACCELERATOR, toggleHide);
 
   for (const [direction, [dx, dy]] of Object.entries(MOVE_DIRECTIONS)) {

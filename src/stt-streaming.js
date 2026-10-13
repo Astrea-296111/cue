@@ -128,7 +128,7 @@ class OpenAIRealtimeSTT {
               status: response.statusCode,
               message:
                 body ||
-                `OpenAI realtime handshake failed (${response.statusCode}).`
+                `OpenAI Realtime 握手失败（HTTP ${response.statusCode}）。`
             });
           });
         }
@@ -187,7 +187,7 @@ class OpenAIRealtimeSTT {
           provider: 'openai-realtime',
           message:
             event.error?.message ||
-            'Unknown realtime error',
+            '未知的实时识别错误',
           status: event.error?.code
         });
         break;
@@ -332,7 +332,7 @@ class OpenAIRealtimeSTT {
       this.onError({
         provider: 'openai-realtime',
         message:
-          'Max reconnection attempts reached',
+          '已达到最大重连次数',
         status: null
       });
       return;
@@ -549,7 +549,7 @@ class DeepgramStreamingSTT {
                   response.statusCode,
                 message:
                   body ||
-                  `Deepgram handshake failed (${response.statusCode}).`
+                  `Deepgram 握手失败（HTTP ${response.statusCode}）。`
               });
             }
           );
@@ -714,7 +714,7 @@ class DeepgramStreamingSTT {
       this.onError({
         provider: 'deepgram',
         message:
-          'Max reconnection attempts reached',
+          '已达到最大重连次数',
         status: null
       });
 
@@ -853,7 +853,7 @@ async function transcribeBatchGemini(
             parts: [
               {
                 text:
-                  'Transcribe this audio verbatim. Return only the spoken words with no commentary. If there is no clear speech, return an empty response.'
+                  '逐字转写音频，保留原始语言和技术词，不要翻译、补充或解释。没有清晰语音时返回空内容。'
               },
               {
                 inlineData: {

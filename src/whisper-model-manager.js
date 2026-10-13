@@ -123,8 +123,8 @@ class WhisperModelManager {
    * Dependencies are injectable so downloads can be tested without a network.
    */
   constructor({ userDataPath, fetchImpl = global.fetch, now = Date.now, models = WHISPER_MODELS } = {}) {
-    if (!userDataPath) throw new Error('WhisperModelManager requires a userDataPath.');
-    if (typeof fetchImpl !== 'function') throw new Error('A Fetch-compatible implementation is required.');
+    if (!userDataPath) throw new Error('WhisperModelManager 需要 userDataPath。');
+    if (typeof fetchImpl !== 'function') throw new Error('需要兼容 Fetch 的实现。');
 
     this.modelDirectory = path.join(userDataPath, MODEL_DIRECTORY_NAME);
     this.fetchImpl = fetchImpl;
@@ -172,7 +172,7 @@ class WhisperModelManager {
 
     if (this.activeDownload) {
       throw new Error(
-        `Already downloading ` +
+        `已有下载任务：` +
         `${this.activeDownload.modelId}.`
       );
     }
@@ -322,8 +322,8 @@ class WhisperModelManager {
           if (!response.ok) {
             const error =
               new Error(
-                'Model download failed ' +
-                `with HTTP ${response.status}.`
+                '模型下载失败 ' +
+                `，HTTP ${response.status}。`
               );
 
             error.code =
@@ -391,8 +391,8 @@ class WhisperModelManager {
           ) {
             const cancelledError =
               new Error(
-                `Download cancelled ` +
-                `for ${modelId}.`
+                `下载已取消：` +
+                `${modelId}。`
               );
 
             cancelledError.code =
@@ -434,9 +434,9 @@ class WhisperModelManager {
             ) {
               const finalError =
                 new Error(
-                  'Model download failed ' +
-                  `after ${MAX_DOWNLOAD_ATTEMPTS} ` +
-                  `attempts: ${error.message}`,
+                  '模型下载失败 ' +
+                  `，重试 ${MAX_DOWNLOAD_ATTEMPTS} ` +
+                  `次后仍失败：${error.message}`,
                   {
                     cause: error
                   }
@@ -507,7 +507,7 @@ class WhisperModelManager {
   async deleteModel(modelId) {
     this._requireModel(modelId);
     if (this.activeDownload?.modelId === modelId) {
-      throw new Error('Cancel the active download before deleting this model.');
+      throw new Error('请先取消下载，再删除此模型。');
     }
     await Promise.all([
       fs.promises.rm(this.getModelPath(modelId), { force: true }),
@@ -518,8 +518,8 @@ class WhisperModelManager {
 
   async importModel(modelId, sourcePath) {
     const model = this._requireModel(modelId);
-    if (!sourcePath) throw new Error('No model file was selected.');
-    if (this.activeDownload) throw new Error('Wait for the active model download to finish.');
+    if (!sourcePath) throw new Error('未选择模型文件。');
+    if (this.activeDownload) throw new Error('请等待当前模型下载完成。');
 
     await fs.promises.mkdir(this.modelDirectory, { recursive: true });
     const targetPath = this.getModelPath(modelId);
@@ -555,13 +555,13 @@ class WhisperModelManager {
   async _verifyArtifact(filePath, model) {
     const bytes = await this._getFileSize(filePath);
     if (bytes !== model.bytes) {
-      const error = new Error(`Model size mismatch for ${model.id}: expected ${model.bytes}, received ${bytes}.`);
+      const error = new Error(`${model.id} 文件大小不符：应为 ${model.bytes} 字节，实际为 ${bytes} 字节。`);
       error.code = 'ARTIFACT_SIZE_MISMATCH';
       throw error;
     }
     const sha256 = await this._sha256(filePath);
     if (sha256 !== model.sha256) {
-      const error = new Error(`Model checksum mismatch for ${model.id}.`);
+      const error = new Error(`${model.id} 文件校验和不符。`);
       error.code = 'ARTIFACT_CHECKSUM_MISMATCH';
       throw error;
     }
@@ -578,12 +578,12 @@ class WhisperModelManager {
 
   _requireModel(modelId) {
     const model = this.modelById.get(modelId);
-    if (!model) throw new Error(`Unsupported Whisper model: ${modelId}`);
+    if (!model) throw new Error(`不支持的 Whisper 模型：${modelId}`);
     return model;
   }
 
   async _writeResponseBody(response, partialPath, model, startingBytes, append, onProgress) {
-    if (!response.body) throw new Error('Model download returned an empty body.');
+    if (!response.body) throw new Error('模型下载返回了空内容。');
     const output = fs.createWriteStream(partialPath, { flags: append ? 'a' : 'w' });
     const outputFinished = finished(output);
     let receivedBytes = startingBytes;
@@ -596,7 +596,7 @@ class WhisperModelManager {
         if (receivedBytes > model.bytes) {
   const error =
     new Error(
-      `Model download exceeded the expected size for ${model.id}.`
+      `${model.id} 下载内容超过预期大小。`
     );
 
   error.code =

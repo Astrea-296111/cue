@@ -18,7 +18,7 @@ test('publishes all 30 official model choices with immutable integrity metadata'
     assert.equal(new URL(model.url).protocol, 'https:');
     assert.equal(model.filename, `ggml-${model.id}.bin`);
   }
-  assert.throws(() => requireWhisperModel('../../outside'), /Unsupported Whisper model/);
+  assert.throws(() => requireWhisperModel('../../outside'), /不支持的 Whisper 模型/);
 });
 
 test('defines runtime targets for Windows, Linux, and both macOS architectures', () => {
@@ -31,7 +31,7 @@ test('defines runtime targets for Windows, Linux, and both macOS architectures',
   ]);
   assert.equal(getRuntimeTarget('win32', 'x64').executable, 'whisper-server.exe');
   assert.equal(getRuntimeTarget('darwin', 'arm64').kind, 'source');
-  assert.throws(() => getRuntimeTarget('win32', 'arm64'), /not packaged/);
+  assert.throws(() => getRuntimeTarget('win32', 'arm64'), /不支持打包目标/);
 });
 
 test('locates packaged and prepared development runtimes without downloading code', (context) => {

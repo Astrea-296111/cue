@@ -79,7 +79,7 @@ async function requestConsent(request, deps) {
   app.focus({ steal: true });
   const { response } = await dialog.showMessageBox({
     type: 'question',
-    buttons: ['Don’t allow', copy.allowLabel],
+    buttons: ['不允许', copy.allowLabel],
     defaultId: 0, // Return dismisses with a no.
     cancelId: 0,
     message: copy.message,
@@ -114,7 +114,7 @@ function startAppLink(deps) {
   // microphone is doing should be visible afterwards in the same place a user
   // or a patch agent looks for anything else that happened.
   link.action('set_capturing', {
-    description: 'Start or stop listening',
+    description: '开始或停止监听',
     inputSchema: { type: 'object', properties: { active: { type: 'boolean' } }, required: ['active'] },
     handler: (args, { caller }) => {
       const active = !!args.active;

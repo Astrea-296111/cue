@@ -22,6 +22,7 @@ const DEFAULT_MODELS = {
 
 const DEAD_GEMINI_MODEL_RE = /^gemini-(1\.0|1\.5|2\.0)(?:-|$)/i;
 const PROVIDER_LABELS = {
+  custom: '自定义服务',
   azure: 'Azure AI Foundry',
   openai: 'OpenAI',
   minimax: 'MiniMax'
@@ -38,7 +39,7 @@ const TECH_SCREEN_MAX_TOKENS = 6144;
 const ABSOLUTE_MAX_TOKENS = 16384;
 
 function normalizeProviderName(provider) {
-  if (!provider) return 'provider';
+  if (!provider) return '模型服务';
   if (PROVIDER_LABELS[provider]) return PROVIDER_LABELS[provider];
   return provider.charAt(0).toUpperCase() + provider.slice(1);
 }
@@ -70,9 +71,9 @@ function extractRetryDelaySeconds(rawMessage) {
 }
 
 function formatRetryWait(seconds) {
-  if (seconds < 60) return `${Math.ceil(seconds)}s`;
+  if (seconds < 60) return `${Math.ceil(seconds)} 秒`;
   const minutes = Math.round(seconds / 60);
-  return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  return `${minutes} 分钟`;
 }
 
 function formatProviderErrorMessage(error, provider, model) {
@@ -82,17 +83,17 @@ function formatProviderErrorMessage(error, provider, model) {
   if (isQuotaError(error)) {
     const retrySeconds = extractRetryDelaySeconds(rawMessage);
     const waitHint = retrySeconds
-      ? ` Wait about ${formatRetryWait(retrySeconds)}`
-      : ' Wait a moment';
-    return `${label} free-tier quota exhausted (429 Too Many Requests).${waitHint} and try again, or switch providers/models in Settings.`;
+      ? `请等待约 ${formatRetryWait(retrySeconds)}`
+      : '请稍后';
+    return `${label} 请求额度或频率已达上限（HTTP 429）。${waitHint}重试，或在设置中更换服务或模型。`;
   }
 
   if (isNotFoundError(error)) {
     const modelHint = model ? ` "${model}"` : '';
-    return `${label} model${modelHint} is unavailable (404). Pick a current model in Settings or clear the field to use cue's default.`;
+    return `${label} 模型${modelHint}不可用（HTTP 404）。请在设置中选择可用模型，或清空模型名称以使用 Cue 默认值。`;
   }
 
-  return rawMessage || 'Unknown LLM error.';
+  return rawMessage || '未知的 LLM 错误。';
 }
 
 function sanitizeTurns(turns) {
@@ -140,7 +141,7 @@ function resolveMaxTokens(settings, params = {}) {
 
 function appendTruncationNotice(onToken) {
   if (typeof onToken !== 'function') return;
-  onToken('\n\n⚠️ 输出达到模型长度上限。可以再次触发“解决屏幕上的技术题”，或要求“从刚才中断处继续”。');
+  onToken('\n\n⚠️ 输出达到模型长度上限。可以再次点击“截屏”，或要求“从刚才中断处继续”。');
 }
 
 // Completion describes the provider's terminal event, not semantic question
@@ -232,7 +233,7 @@ function normalizeAzureBaseURL(raw) {
 async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, endpoint, signal, onActivity, onCompletion }) {
   const url = normalizeAzureBaseURL(endpoint);
   if (!url) {
-    throw new Error('Missing Azure endpoint. Add your Azure AI Foundry or Azure OpenAI endpoint in Settings.');
+    throw new Error('未配置 Azure 服务地址，请在设置中填写 Azure AI Foundry 或 Azure OpenAI 地址。');
   }
 
   const messages = [{ role: 'system', content: system }];
@@ -457,11 +458,11 @@ async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTok
       })
     });
   } catch (error) {
-    throw new Error(`Ollama fetch failed: ${error.message}. Is Ollama running at ${baseUrl}?`);
+    throw new Error(`Ollama 请求失败：${error.message}。请确认 Ollama 已启动且地址 ${baseUrl} 可访问。`);
   }
 
   if (!response.ok) {
-    throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
+    throw new Error(`Ollama API 错误： ${response.status} ${response.statusText}`);
   }
 
   const decoder = new TextDecoder();
@@ -473,7 +474,7 @@ async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTok
     if (!line.trim()) return;
     let data;
     try { data = JSON.parse(line); } catch (_) { return; }
-    if (data.error) throw new Error(`Ollama API error: ${data.error}`);
+    if (data.error) throw new Error(`Ollama API 错误： ${data.error}`);
     if (data.message?.content) {
       full += data.message.content;
       onToken(data.message.content);
@@ -527,14 +528,14 @@ function createLLM(settings) {
       configurationError = error.message;
     }
     if (!model && !configurationError) {
-      configurationError = 'Set a Fast or Smart model for the Custom provider.';
+      configurationError = '请为自定义服务设置快速模型或深度模型。';
     }
   } else if (provider !== 'ollama' && !apiKey) {
-    configurationError = `Add your ${provider} API key in Settings.`;
+    configurationError = `请在设置中填写 ${provider} API 密钥。`;
   }
 
   if (!configurationError && provider === 'azure' && !endpoint) {
-    configurationError = 'Add your Azure AI Foundry endpoint in Settings.';
+    configurationError = '请在设置中填写 Azure AI Foundry 服务地址。';
   }
 
   const ready = !configurationError && !!model;
@@ -549,7 +550,7 @@ function createLLM(settings) {
 
     async stream(params = {}) {
       if (!ready) {
-        throw new Error(configurationError || `Complete the ${provider} provider settings.`);
+        throw new Error(configurationError || `请先完成 ${provider} 服务设置。`);
       }
 
       const maxTokens = resolveMaxTokens(settings, params);
@@ -580,7 +581,7 @@ function createLLM(settings) {
         if (provider === 'anthropic') return await streamAnthropic(args);
         if (provider === 'gemini') return await streamGemini(args);
         if (provider === 'azure') return await streamAzure(args);
-        throw new Error('unknown provider: ' + provider);
+        throw new Error('未知模型服务：' + provider);
       } catch (error) {
         throw new Error(formatProviderErrorMessage(error, provider, model));
       }

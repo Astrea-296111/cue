@@ -25,7 +25,7 @@ async function findFreeLoopbackPort() {
   });
   const address = server.address();
   await new Promise((resolve) => server.close(resolve));
-  if (!address || typeof address === 'string') throw new Error('Could not allocate a local Whisper port.');
+  if (!address || typeof address === 'string') throw new Error('无法分配本地 Whisper 端口。');
   return address.port;
 }
 
@@ -63,9 +63,9 @@ class WhisperServerSession {
     onState = () => {}
   }) {
     if (!executablePath || !runtimeDirectory || !modelPath) {
-      throw new Error('WhisperServerSession requires runtime and model paths.');
+      throw new Error('WhisperServerSession 需要运行环境和模型路径。');
     }
-    if (typeof fetchImpl !== 'function') throw new Error('A Fetch-compatible implementation is required.');
+    if (typeof fetchImpl !== 'function') throw new Error('需要兼容 Fetch 的实现。');
 
     this.executablePath = executablePath;
     this.runtimeDirectory = runtimeDirectory;
@@ -104,7 +104,7 @@ class WhisperServerSession {
     this.healthEndpoint = `http://${LOOPBACK_HOST}:${port}${requestPath}/health`;
     const argumentsList = this._buildArguments(port, requestPath);
 
-    this.onState({ status: 'loading', message: 'Loading the local Whisper model…' });
+    this.onState({ status: 'loading', message: '正在加载本地 Whisper 模型…' });
     this.child = this.spawnImpl(this.executablePath, argumentsList, {
       cwd: this.runtimeDirectory,
       env: this._buildRuntimeEnvironment(),
@@ -115,7 +115,7 @@ class WhisperServerSession {
 
     try {
       await this._waitUntilHealthy();
-      this.onState({ status: 'ready', message: 'Local Whisper is ready.' });
+      this.onState({ status: 'ready', message: '本地 Whisper 已就绪。' });
     } catch (error) {
       await this.stop({ force: true });
       throw error;
@@ -123,7 +123,7 @@ class WhisperServerSession {
   }
 
   async transcribe(pcm) {
-    if (!this.child || !this.endpoint) throw new Error('Local Whisper is not running.');
+    if (!this.child || !this.endpoint) throw new Error('本地 Whisper 尚未运行。');
     const wav = pcmToWav(Buffer.from(pcm), 16000, 1);
     const multipart = buildMultipartBody(wav);
     const abortController = new AbortController();
@@ -142,12 +142,12 @@ class WhisperServerSession {
       });
       const responseText = await response.text();
       if (!response.ok) {
-        throw new Error(`Local Whisper returned HTTP ${response.status}: ${responseText.slice(0, 300)}`);
+        throw new Error(`本地 Whisper 返回 HTTP ${response.status}：${responseText.slice(0, 300)}`);
       }
       const parsed = JSON.parse(responseText);
       return String(parsed.text || '').trim();
     } catch (error) {
-      if (abortController.signal.aborted) throw new Error('Local Whisper inference timed out.');
+      if (abortController.signal.aborted) throw new Error('本地 Whisper 推理超时。');
       throw error;
     } finally {
       clearTimeout(timeout);
@@ -290,10 +290,10 @@ class WhisperServerSession {
         ) {
           this.exitError =
             new Error(
-              'Local Whisper runtime crashed with ' +
-              'Windows Access Violation (0xC0000005). ' +
-              'Rebuild the verified static CPU runtime ' +
-              'with `npm run prepare:whisper`. ' +
+              '本地 Whisper 运行环境发生崩溃：' +
+              'Windows 内存访问异常（0xC0000005）。' +
+              '请重新构建经过校验的静态 CPU 运行环境，' +
+              '执行 `npm run prepare:whisper`。' +
               this.logTail.slice(-1200)
             );
 
@@ -302,7 +302,7 @@ class WhisperServerSession {
 
         this.exitError =
           new Error(
-            `whisper-server exited ` +
+            `whisper-server 已退出 ` +
             `(${code ?? signal}). ` +
             this.logTail.slice(-1200)
           );
@@ -314,7 +314,7 @@ class WhisperServerSession {
     const startedAt = Date.now();
     while (Date.now() - startedAt < STARTUP_TIMEOUT_MS) {
       if (this.stopRequested) {
-        const error = new Error('Local Whisper startup was cancelled.');
+        const error = new Error('本地 Whisper 启动已取消。');
         error.code = 'STARTUP_CANCELLED';
         throw error;
       }
@@ -327,7 +327,7 @@ class WhisperServerSession {
       }
       await this.wait(HEALTH_POLL_MS);
     }
-    throw new Error(`Local Whisper did not become ready in time. ${this.logTail.slice(-800)}`);
+    throw new Error(`本地 Whisper 未能及时就绪。${this.logTail.slice(-800)}`);
   }
 }
 

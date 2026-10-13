@@ -16,7 +16,7 @@ async function parseDocumentFile(filePath) {
     const res = await mammoth.extractRawText({ buffer: buf });
     return (res.value || '').trim();
   }
-  throw new Error('Unsupported file type: ' + (ext || '(none)') + '. Use a PDF or DOCX file.');
+  throw new Error('不支持的文件类型：' + (ext || '（无扩展名）') + '，请使用 PDF 或 DOCX 文件。');
 }
 
 module.exports = { parseDocumentFile };

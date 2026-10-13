@@ -19,17 +19,17 @@ function normalizeBaseUrl(value) {
   try {
     parsedUrl = new URL(input);
   } catch {
-    throw new Error('Base URL must be a valid HTTP or HTTPS URL.');
+    throw new Error('API 基础地址必须是有效的 HTTP 或 HTTPS URL。');
   }
 
   if (!SUPPORTED_BASE_URL_PROTOCOLS.has(parsedUrl.protocol)) {
-    throw new Error('Base URL must use HTTP or HTTPS.');
+    throw new Error('API 基础地址必须使用 HTTP 或 HTTPS。');
   }
   if (parsedUrl.username || parsedUrl.password) {
-    throw new Error('Base URL must not contain embedded credentials.');
+    throw new Error('API 基础地址不能包含用户名或密码。');
   }
   if (parsedUrl.search || parsedUrl.hash) {
-    throw new Error('Base URL must not contain a query string or fragment.');
+    throw new Error('API 基础地址不能包含查询参数或片段标识。');
   }
 
   return parsedUrl.toString().replace(/\/+$/, '');
@@ -47,7 +47,7 @@ function normalizeBaseUrl(value) {
 function createCompatibleClientOptions(apiKey, baseUrl) {
   const baseURL = normalizeBaseUrl(baseUrl);
   if (!baseURL) {
-    throw new Error('Set a Base URL for the Custom provider.');
+    throw new Error('请为自定义模型服务设置 API 基础地址。');
   }
 
   const normalizedApiKey = typeof apiKey === 'string' ? apiKey.trim() : '';

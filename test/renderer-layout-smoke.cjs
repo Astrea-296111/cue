@@ -2,7 +2,8 @@
 
 // Run with npm run test:ui on a desktop (or under Xvfb). Electron and the actual
 // renderer run normally; model transport and screenshot capture are fixtures.
-const { app, ipcMain, screen, globalShortcut, dialog } = require('electron');
+const electron = require('electron');
+const { app, ipcMain, screen, globalShortcut, dialog } = electron;
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -36,7 +37,15 @@ class OpenAI {
   }
 }
 const originalLoad = Module._load;
+const localizationPreload = path.join(__dirname, 'helpers/renderer-localization-preload.cjs');
+class TestWindow extends electron.BrowserWindow {
+  constructor(options) {
+    super({ ...options, webPreferences: { ...options.webPreferences,
+      sandbox: false, preload: localizationPreload } });
+  }
+}
 Module._load = function (id, parent, isMain) {
+  if (id === 'electron') return { ...electron, BrowserWindow: TestWindow };
   if (id === 'openai') return OpenAI;
   if (id.startsWith('.') && parent) {
     const resolved = Module._resolveFilename(id, parent, isMain);
@@ -101,6 +110,16 @@ app.on('browser-window-created', (_event, win) => {
       assert.equal(layout.icons, false); assert.equal(layout.prep, false);
       assert.ok(Math.max(...layout.rows) - Math.min(...layout.rows) <= 1);
       assert.deepEqual(layout.clipped, []);
+      assert.equal(await js("document.documentElement.lang"), 'zh-CN');
+      assert.deepEqual(await js("['.drag-label','.tb-hide span:last-child','#smart-toggle span:last-child','.ts-title','#clear-transcript-btn'].map(s=>document.querySelector(s).textContent)"),
+        ['拖动', '收起', '深度思考', '对话记录', '清空记录']);
+      for (const [status, text, className] of [['loading','正在加载本地模型','loading'], ['ready','本地识别已就绪','local'], ['error','识别异常','error'], ['off','未监听','off']]) {
+        win.webContents.send('stt:status', { provider: 'local', status });
+        await until(() => js(`document.getElementById('stt-status').textContent===${JSON.stringify(text)}`), 'Chinese STT status');
+        assert.equal(await js(`document.getElementById('stt-status').classList.contains('stt-${className}')`), true);
+        assert.equal(await js("document.getElementById('stt-status').getBoundingClientRect().bottom <= document.querySelector('.ai-text').getBoundingClientRect().top"), true,
+          'Chinese status must stay above the answer, including on short screens');
+      }
 
       const before = await controls();
       const texts = ['短字幕', '中英文字幕 Mixed English words '.repeat(20), '连续超长单词'.repeat(150)];
@@ -151,10 +170,56 @@ app.on('browser-window-created', (_event, win) => {
         values:['resume-text','job-description','star-stories','salary-target'].map(id=>document.getElementById(id).value)};})()`);
       assert.ok(settings.bottom <= settings.viewport + 1);
       assert.deepEqual(settings.values, ['PROFILE_RETAINED', 'JD_RETAINED', 'STORIES_RETAINED', 'SALARY_RETAINED']);
+      assert.equal(await js("document.querySelector('.s-title').textContent"), '设置');
+      assert.equal(await js("document.getElementById('s-close').textContent"), '完成');
+      for (const tab of ['keys', 'transcription', 'profile', 'prep', 'style', 'qa']) {
+        await js(`document.querySelector('.s-tab[data-tab=${tab}]').click()`);
+        await until(() => js(`!document.querySelector('.s-tab-pane[data-pane=${tab}]').classList.contains('hidden')`), 'settings tab ' + tab);
+        assert.equal(await js(`document.querySelector('.s-tab-pane[data-pane=${tab}]').classList.contains('hidden')`), false, 'Settings tab: ' + tab);
+        const copy = await js(`document.querySelector('.s-tab-pane[data-pane=${tab}]').innerText`);
+        assert.match(copy, /[\u4e00-\u9fff]/);
+        assert.doesNotMatch(copy, /Your resume|Project knowledge|Speech-to-text provider|AI rules|Salary target/);
+      }
+      assert.equal(await js("document.querySelector('#provider-seg [data-provider=custom]').textContent"), '自定义');
+      assert.equal(await js("document.querySelector('#cloud-stt-language [value=auto]').textContent"), '自动 / 多语言');
+      if (process.env.CUE_UI_SETTINGS_SCREENSHOT) {
+        const shot = await win.webContents.capturePage(); fs.writeFileSync(process.env.CUE_UI_SETTINGS_SCREENSHOT, shot.toPNG());
+      }
       await js("document.getElementById('s-close').click()");
       await until(() => js("document.getElementById('settings-scrim').classList.contains('hidden')"), 'settings close');
+      await js("document.getElementById('logo-btn').click()");
+      const titles = ['欢迎使用 Cue', '授权屏幕与语音访问', '配置模型服务', 'Zoom 屏幕共享设置', '设置完成'];
+      for (let i = 0; i < titles.length; i++) {
+        assert.equal(await js("document.getElementById('ob-title').textContent"), titles[i]);
+        assert.equal(await js("document.getElementById('ob-next').textContent"), i === titles.length - 1 ? '完成' : '下一步');
+        if (i === 1 && process.env.CUE_UI_WINDOWS_BUILD) {
+          const oldWindows = Number(process.env.CUE_UI_WINDOWS_BUILD) < 22000;
+          assert.deepEqual(await js("[...document.querySelectorAll('#ob-buttons button')].map(b=>b.textContent)"),
+            oldWindows ? ['打开麦克风设置'] : ['打开麦克风设置','打开屏幕录制设置']);
+          await js("document.querySelector('#ob-buttons button').click()");
+          assert.deepEqual(await js("cueTest.openedPanes()"), ['ms-settings:privacy-microphone']);
+        }
+        await js("document.getElementById('ob-next').click()");
+      }
+      assert.equal(await js("document.getElementById('onboard-scrim').classList.contains('hidden')"), true);
+      // The real permission page consumes unchanged 'granted'/'denied' values.
+      const permissionWindow = new TestWindow({ show: false, width: 620, height: 700,
+        webPreferences: { contextIsolation: true, zoomFactor: 1.25 } });
+      await permissionWindow.loadFile(path.join(root, 'renderer/permissions.html'));
+      const permissionJS = source => permissionWindow.webContents.executeJavaScript(source);
+      await until(() => permissionJS("document.getElementById('status-mic').textContent.includes('未授权')"), 'permission page');
+      assert.equal(await permissionJS("document.getElementById('status-screen').textContent"), '尚未申请');
+      assert.equal(await permissionJS("document.getElementById('continue-btn').disabled"), true);
+      await permissionJS("document.getElementById('btn-mic').click()");
+      assert.deepEqual(await permissionJS("cueTest.openedPanes()"), ['x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone']);
+      await permissionJS("cueTest.setPermissions({mic:'granted',screen:'granted'}); document.getElementById('check-btn').click()");
+      await until(() => permissionJS("!document.getElementById('continue-btn').disabled"), 'permission grant');
+      assert.equal(await permissionJS("document.getElementById('status-mic').textContent"), '已授权');
+      assert.equal(await permissionJS("document.getElementById('check-btn').textContent"), '重新检查');
+      permissionWindow.destroy();
       await js("document.getElementById('hide-btn').click()");
       assert.equal(await js("document.getElementById('panel').classList.contains('collapsed')"), true);
+      assert.equal(await js("document.querySelector('.tb-hide span:last-child').textContent"), '展开');
       assert.ok(await js("document.getElementById('panel-wrap').getBoundingClientRect().height < 2"));
       await js("document.getElementById('hide-btn').click()"); await settled();
       stable(before, await controls());
@@ -167,7 +232,8 @@ app.on('browser-window-created', (_event, win) => {
       win.webContents.sendInputEvent({ type: 'mouseUp', clickCount: 1, ...point });
       await tick(); assert.equal(win.isDestroyed(), false);
       console.log('UI_LAYOUT_OK', JSON.stringify({ size:win.getSize(),zoom,scale:display.scaleFactor,layout,caption,messages,settings,
-        captionUpdates:30,stableControls:true,sayInterruption:true,solveButton:true,singleClickKeepsRunning:true }));
+        captionUpdates:30,stableControls:true,sayInterruption:true,solveButton:true,singleClickKeepsRunning:true,
+        chineseSettings:true,chineseOnboarding:true,chinesePermissions:true,windowsBuildFixture:process.env.CUE_UI_WINDOWS_BUILD || null }));
       allowedToQuit = true;
       if (process.env.CUE_UI_QUIT_SHORTCUT) {
         assert.ok(globalShortcut.isRegistered('CommandOrControl+Shift+X'));

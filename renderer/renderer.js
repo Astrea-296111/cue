@@ -24,7 +24,7 @@
     input.placeholder = DEFAULT_QWEN_ASR_MODEL;
     input.value = String(current.value || DEFAULT_QWEN_ASR_MODEL).trim();
     input.setAttribute('list', 'qwen-asr-model-suggestions');
-    input.setAttribute('aria-label', 'Qwen ASR model ID');
+    input.setAttribute('aria-label', 'Qwen ASR 模型 ID');
 
     const suggestions = document.createElement('datalist');
     suggestions.id = 'qwen-asr-model-suggestions';
@@ -40,7 +40,7 @@
     const note = document.createElement('div');
     note.className = 's-note';
     note.textContent =
-      'You can type any Qwen ASR model ID. The model must support the DashScope WebSocket streaming ASR protocol. Save settings and restart Listening to apply a changed model.';
+      '可输入兼容的 Qwen ASR 模型 ID。模型须支持 DashScope WebSocket 流式 ASR 协议；更改后保存设置并重新开启监听。';
 
     current.replaceWith(input);
     input.insertAdjacentElement('afterend', suggestions);
@@ -388,10 +388,10 @@
       updateQuestionReadyState();
       syncPlaceholder();
       updateHistoryBadge(); // Update badge after removing from history
-      showToast('Question restored', 1500);
+      showToast('已恢复问题', 1500);
       return true;
     }
-    showToast('No question to restore', 1500);
+    showToast('没有可恢复的问题', 1500);
     return false;
   }
 
@@ -423,7 +423,7 @@
         composer.classList.add('stt-ready');
         updateSendButtonState(); // FIX #9: Update send button when ready
         // Subtle notification that question is ready
-        showToast('Press Enter to answer', 2500);
+        showToast('按 Enter 回答', 2500);
       }
     }, 1800);
 
@@ -497,8 +497,8 @@
     
     // FIX #10: Show undo hint when explicitly cleared
     if (showUndoHint && hadContent) {
-      const undoHint = isWindows ? 'Ctrl+Z to undo' : '⌘Z to undo';
-      showToast(`Cleared · ${undoHint}`, 2000);
+      const undoHint = isWindows ? 'Ctrl+Z 撤销' : '⌘Z 撤销';
+      showToast(`已清空 · ${undoHint}`, 2000);
     }
   }
 
@@ -618,7 +618,7 @@
         // Even if question seems incomplete, force send
         send();
       } else {
-        showToast('No question to answer', 1500);
+        showToast('请先输入或识别到问题', 1500);
       }
     }
   });
@@ -627,7 +627,7 @@
   const sendBtn = document.getElementById('send-btn');
   if (sendBtn) {
     const forceKey = isWindows ? 'Ctrl+Shift+A' : '⌘⇧A';
-    sendBtn.title = `Send · ${forceKey} to force answer`;
+    sendBtn.title = `发送 · ${forceKey} 立即回答`;
   }
 
   // Smart toggle
@@ -642,6 +642,7 @@
   function toggleHide() {
     const collapsed = $('#panel').classList.toggle('collapsed');
     $('#hide-btn').classList.toggle('collapsed', collapsed);
+    $('.tb-hide span:last-child').textContent = collapsed ? '展开' : '收起';
     $('#live-dot').style.display = collapsed ? 'none' : '';
   }
   $('#hide-btn').addEventListener('click', toggleHide);
@@ -681,7 +682,7 @@
       if (interimEl) { interimEl.textContent = ''; interimEl.classList.remove('show'); }
       // FIX #1: Use ts-list instead of non-existent transcript-list
       const list = document.getElementById('ts-list');
-      if (list) list.innerHTML = '<div class="ts-placeholder">Conversation history will appear here when listening.</div>';
+      if (list) list.innerHTML = '<div class="ts-placeholder">开始监听后，对话记录会显示在这里。</div>';
       transcriptInterimEl = null;
       clearTranscriptSidebar(); // clear the history sidebar too
       hardClearSTTFill(); // clear the input box too
@@ -736,7 +737,7 @@ micStream = stream;
       if (!track) {
         micStream.getTracks().forEach((t) => t.stop());
         micStream = null;
-        showStatus('No microphone audio track was available. Check Windows Sound settings for a working default input device, then try again.');
+        showStatus('未获取到麦克风音轨。请在 Windows 声音设置中选择可用的默认输入设备后重试。');
         return;
       }
       cue.log('mic stream started: track=' + (track.label || '(no label — permission may be stale)') + ' muted=' + track.muted);
@@ -777,15 +778,15 @@ micStream = stream;
       // Distinguishing "no device" from "denied" from "in use elsewhere"
       // turns one generic dead end into three different next actions.
       if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-        showStatus('No microphone was found. Plug one in, or pick a default input device in your OS sound settings, then try again.');
+        showStatus('未找到麦克风。请连接麦克风，或在系统声音设置中选择默认输入设备后重试。');
       } else if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') {
         showStatus(isWindows
-          ? 'Microphone permission was denied. Settings → Privacy & security → Microphone → allow cue, then try again.'
-          : 'Microphone permission was denied. System Settings → Privacy & Security → Microphone → allow cue, then try again.');
+          ? '麦克风权限被拒绝。请打开设置 → 隐私和安全性 → 麦克风，允许 Cue 访问后重试。'
+          : '麦克风权限被拒绝。请打开系统设置 → 隐私与安全性 → 麦克风，允许 Cue 访问后重试。');
       } else if (name === 'NotReadableError' || name === 'TrackStartError') {
-        showStatus('The microphone could not be started — another application may be using it exclusively. Close other apps using the mic and try again.');
+        showStatus('麦克风启动失败，可能被其他程序独占。请关闭占用麦克风的程序后重试。');
       } else {
-        showStatus('Microphone capture could not be started. Check your mic permissions and try again.');
+        showStatus('麦克风采集启动失败，请检查麦克风权限后重试。');
       }
     }
     finally {
@@ -817,7 +818,7 @@ micStream = stream;
     sysStarting = true;
     if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
       cue.log('system audio unavailable: getDisplayMedia not supported');
-      showStatus('Meeting audio capture is not available on this device build.');
+      showStatus('当前系统版本不支持系统音频采集。');
       return;
     }
     try {
@@ -829,8 +830,8 @@ micStream = stream;
         cue.log('system audio: no loopback track on this platform');
         stream.getTracks().forEach((t) => t.stop());
         showStatus(cue.platform === 'win32'
-          ? 'No system-audio loopback track detected. Make sure "Share audio" is checked in the screen share dialog, and that your audio device is not in exclusive mode.'
-          : 'No system-audio loopback track detected. Meeting audio needs macOS 14.4+ — your screen and microphone still work.');
+          ? '未检测到系统音频回环音轨。请确认屏幕共享对话框已勾选“共享音频”，且音频设备未被独占。'
+          : '未检测到系统音频回环音轨。系统音频采集需要 macOS 14.4 或更新版本，屏幕和麦克风功能仍可使用。');
         return;
       }
       sysStream = stream;
@@ -864,7 +865,7 @@ micStream = stream;
     } catch (err) {
       const message = err && err.message ? err.message : String(err);
       cue.log('system audio error: ' + message);
-      showStatus('Meeting audio could not be started. Grant screen/audio access to cue and try again.');
+      showStatus('系统音频采集启动失败，请授予 Cue 屏幕录制和音频访问权限后重试。');
     } finally {
       sysStarting = false;
     }
@@ -891,25 +892,28 @@ micStream = stream;
     dot.classList.remove('off', 'idle', 'speaking', 'transcribing');
     dot.classList.add(dotState);
     const labels = {
-      off:          'Not listening',
-      idle:         'Listening — silence detected',
-      speaking:     'Speech detected',
-      transcribing: 'Transcribing…'
+      off:          '未监听',
+      idle:         '正在监听，当前无语音',
+      speaking:     '检测到语音',
+      transcribing: '识别中…'
     };
     dot.title = labels[dotState] || '';
   }
 
   let sttState = 'disconnected';
+  const sttLabels = { disconnected: '未监听', connecting: '连接中', batch: '批量识别',
+    local: '本地识别', streaming: '流式识别', loading: '加载中', stopping: '停止中',
+    off: '未监听', error: '识别异常' };
 
   function updateSttStatus({ active, streaming } = {}) {
     const label = document.getElementById('stt-status');
     if (!label) return;
     if (active === false) {
       sttState = 'disconnected';
-      label.textContent = 'off';
+      label.textContent = sttLabels.disconnected;
     } else if (active === true) {
       sttState = streaming ? 'connecting' : 'batch';
-      label.textContent = sttState;
+      label.textContent = sttLabels[sttState];
     }
     label.className = 'stt-status stt-' + sttState;
   }
@@ -985,7 +989,7 @@ micStream = stream;
         tsSidebarInterimEl.className = 'ts-turn ts-' + channel + ' ts-interim-row';
         const chLabel = document.createElement('span');
         chLabel.className = 'ts-channel';
-        chLabel.textContent = channel === 'them' ? 'Them' : 'You';
+        chLabel.textContent = channel === 'them' ? '面试官' : '候选人';
         const txt = document.createElement('span');
         txt.className = 'ts-text ts-interim';
         tsSidebarInterimEl.appendChild(chLabel);
@@ -1013,7 +1017,7 @@ micStream = stream;
 
         const chLabel = document.createElement('span');
         chLabel.className = 'ts-channel';
-        chLabel.textContent = channel === 'them' ? 'Them' : 'You';
+        chLabel.textContent = channel === 'them' ? '面试官' : '候选人';
 
         const txt = document.createElement('span');
         txt.className = 'ts-text';
@@ -1040,7 +1044,7 @@ micStream = stream;
 
   function clearTranscriptSidebar() {
     const list = document.getElementById('ts-list');
-    if (list) list.innerHTML = '<div class="ts-placeholder">Conversation history will appear here when listening.</div>';
+    if (list) list.innerHTML = '<div class="ts-placeholder">开始监听后，对话记录会显示在这里。</div>';
     tsSidebarInterimEl = null;
     tsLastRow.you = null; tsLastRow.them = null;
     clearTimeout(tsRowTimer.you); clearTimeout(tsRowTimer.them);
@@ -1092,7 +1096,7 @@ micStream = stream;
         document.getElementById('stt-status');
 
       if (label) {
-        label.textContent = 'local';
+        label.textContent = sttLabels.local;
         label.className =
           'stt-status stt-local';
       }
@@ -1178,12 +1182,12 @@ micStream = stream;
     if (provider === 'local') {
       const label = document.getElementById('stt-status');
       const localLabels = {
-        loading: 'loading local',
-        ready: 'local',
-        transcribing: 'local',
-        stopping: 'stopping',
-        off: 'off',
-        error: 'error'
+        loading: '正在加载本地模型',
+        ready: '本地识别已就绪',
+        transcribing: '本地识别中',
+        stopping: '停止中',
+        off: '未监听',
+        error: '识别异常'
       };
       sttState = status === 'ready' || status === 'transcribing' ? 'local' : status;
       if (label) {
@@ -1200,7 +1204,7 @@ micStream = stream;
     if (status === 'connected') {
       sttState = 'streaming';
       const label = document.getElementById('stt-status');
-      if (label) { label.textContent = sttState; label.className = 'stt-status stt-streaming'; }
+      if (label) { label.textContent = sttLabels[sttState]; label.className = 'stt-status stt-streaming'; }
     }
   });
   cue.on('vad:state', ({ channel, speaking }) => {
@@ -1245,8 +1249,9 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
   if (category) {
     const pill = document.createElement('div');
     pill.className = 'category-pill';
-    pill.textContent =
-      category.charAt(0).toUpperCase() + category.slice(1);
+    pill.textContent = { technical: '技术问题', project: '项目深挖', behavioral: '行为面试',
+      motivation: '求职动机', situational: '情景问题', experience: '个人经历',
+      compensation: '薪酬与反问', general: '面试问答' }[category] || '面试问答';
 
     group.appendChild(pill);
   }
@@ -1327,7 +1332,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
       if (lower.includes('error') || lower.includes(' off')) {
         sttState = 'error';
         const label = document.getElementById('stt-status');
-        if (label) { label.textContent = sttState; label.className = 'stt-status stt-error'; }
+        if (label) { label.textContent = sttLabels[sttState]; label.className = 'stt-status stt-error'; }
       }
     }
   });
@@ -1351,10 +1356,10 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
   function updateSmartTooltip() {
     if (!settings) return;
     const m = settings.models[settings.provider] || { fast: '', smart: '' };
-    const fast = m.fast || 'fast model';
-    const smart = m.smart || 'smart model';
+    const fast = m.fast || '快速模型';
+    const smart = m.smart || '深度模型';
     const btn = document.getElementById('smart-toggle');
-    if (btn) btn.title = 'Fast: ' + fast + ' · Smart: ' + smart + ' (higher quality, ~2× slower)';
+    if (btn) btn.title = '快速：' + fast + ' · 深度：' + smart + '（质量更高，通常耗时更长）';
   }
 
   // ---- microphone permission banner --------------------------------------
@@ -1366,19 +1371,19 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
     banner.className = 'show';
     banner.innerHTML =
       '<div class="mic-perm-text">' +
-        '<strong>🎙️ Microphone access required</strong><br>' +
-        'cue needs microphone permission to hear you during calls. Grant access in System Settings, then restart cue.' +
+        '<strong>🎙️ 需要麦克风权限</strong><br>' +
+        'Cue 需要麦克风权限来识别语音。请在系统设置中允许访问，然后重启 Cue。' +
       '</div>' +
       '<div class="mic-perm-actions"></div>';
     const actions = banner.querySelector('.mic-perm-actions');
     if (cue.platform === 'darwin') {
       const openBtn = document.createElement('button');
-      openBtn.textContent = 'Open Microphone Settings';
+      openBtn.textContent = '打开麦克风设置';
       openBtn.addEventListener('click', () => cue.openPane('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'));
       actions.appendChild(openBtn);
     }
     const dismissBtn = document.createElement('button');
-    dismissBtn.textContent = 'Dismiss';
+    dismissBtn.textContent = '关闭提示';
     dismissBtn.className = 'dismiss';
     dismissBtn.addEventListener('click', () => banner.classList.remove('show'));
     actions.appendChild(dismissBtn);
@@ -1412,7 +1417,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
         error && error.message ? error.message : String(error);
 
       cue.log('open settings failed: ' + message);
-      showStatus('Could not open Settings: ' + message);
+      showStatus('无法打开设置：' + message);
     }
   }
 
@@ -1500,18 +1505,18 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
     if (!status) return;
 
     if (!projectIndexState.ready) {
-      status.textContent = 'No project source index yet. Import a folder or ZIP; indexing stays on this device.';
+      status.textContent = '尚未建立项目索引，请导入文件夹或 ZIP；索引仅保存在本机。';
       return;
     }
 
-    const source = projectIndexState.sourceName || 'Project';
+    const source = projectIndexState.sourceName || '项目';
     const size = formatProjectIndexBytes(projectIndexState.indexedBytes);
     const truncated = projectIndexState.truncatedCount
-      ? ` · ${projectIndexState.truncatedCount} item(s) truncated by safety limits`
+      ? ` · ${projectIndexState.truncatedCount} 项因大小限制被截断`
       : '';
     const projects = Array.isArray(projectIndexState.projects) ? projectIndexState.projects : [];
     const names = projects.length > 1 ? ` · ${projects.slice(-4).map(p => p.name).join(' / ')}${projects.length > 4 ? ' / …' : ''}` : '';
-    status.textContent = `${source} · ${projectIndexState.fileCount} files · ${projectIndexState.chunkCount} chunks · ${size}${names}${truncated}`;
+    status.textContent = `${source} · ${projectIndexState.fileCount} 个文件 · ${projectIndexState.chunkCount} 个片段 · ${size}${names}${truncated}`;
   }
 
   function setProjectIndexBusy(busyState) {
@@ -1527,7 +1532,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
       renderProjectIndexState(await cue.projectIndexState());
     } catch (error) {
       const status = document.getElementById('project-index-status');
-      if (status) status.textContent = 'Could not read the local project index.';
+      if (status) status.textContent = '无法读取本地项目索引。';
       cue.log('project index state failed: ' + (error?.message || error));
     }
   }
@@ -1535,7 +1540,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
   async function importProjectIndex(kind) {
     if (!cue.projectImportFolder || !cue.projectImportZip) return;
     setProjectIndexBusy(true);
-    showStatus('Indexing project locally… This can take a few seconds for a large repository.');
+    showStatus('正在本地建立项目索引…大型仓库可能需要一些时间。');
     try {
       const result = kind === 'zip'
         ? await cue.projectImportZip()
@@ -1543,9 +1548,9 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
       if (!result || result.canceled) return;
       renderProjectIndexState(result.state);
       const state = result.state || {};
-      showStatus(`Project index ready: ${state.fileCount || 0} files, ${state.chunkCount || 0} searchable chunks.`);
+      showStatus(`项目索引已就绪：${state.fileCount || 0} 个文件，${state.chunkCount || 0} 个可检索片段。`);
     } catch (error) {
-      showStatus('Project import failed: ' + (error?.message || String(error)));
+      showStatus('项目导入失败：' + (error?.message || String(error)));
     } finally {
       setProjectIndexBusy(false);
     }
@@ -1557,9 +1562,9 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
     try {
       const result = await cue.projectIndexClear();
       renderProjectIndexState(result && result.state);
-      showStatus('Local project source index cleared.');
+      showStatus('已清空本地项目索引。');
     } catch (error) {
-      showStatus('Could not clear project index: ' + (error?.message || String(error)));
+      showStatus('无法清空项目索引：' + (error?.message || String(error)));
     } finally {
       setProjectIndexBusy(false);
     }
@@ -1574,14 +1579,14 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
     card.id = 'project-index-controls';
     card.className = 'whisper-card';
     card.innerHTML =
-      '<label class="s-label">Project source index <span class="s-hint">local RAG for project docs + source code</span></label>' +
+      '<label class="s-label">项目源码索引 <span class="s-hint">项目文档和源码的本地 RAG</span></label>' +
       '<div class="whisper-actions">' +
-        '<button id="project-import-folder" class="s-action" type="button">Import folder…</button>' +
-        '<button id="project-import-zip" class="s-action" type="button">Import ZIP…</button>' +
-        '<button id="project-index-clear" class="s-action danger" type="button" disabled>Clear index</button>' +
+        '<button id="project-import-folder" class="s-action" type="button">导入文件夹…</button>' +
+        '<button id="project-import-zip" class="s-action" type="button">导入 ZIP…</button>' +
+        '<button id="project-index-clear" class="s-action danger" type="button" disabled>清空索引</button>' +
       '</div>' +
-      '<div id="project-index-status" class="s-note">Checking local project index…</div>' +
-      '<div class="s-note">Sensitive files such as .env, private keys, credential files, node_modules, .git and build output are skipped. Only the most relevant retrieved snippets are sent to your configured AI provider when answering.</div>';
+      '<div id="project-index-status" class="s-note">正在检查本地项目索引…</div>' +
+      '<div class="s-note">会跳过 .env、私钥、凭据文件、node_modules、.git 和构建产物。回答时仅向所选模型发送与当前问题相关的检索片段。</div>';
 
     textarea.insertAdjacentElement('afterend', card);
     document.getElementById('project-import-folder')?.addEventListener('click', () => void importProjectIndex('folder'));
@@ -1646,24 +1651,24 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
     try { state = await cue.appLinkState(); } catch (_) { return; }
     const callers = Object.entries((state && state.callers) || {});
     if (!callers.length) {
-      host.innerHTML = '<div class="s-caller-empty">Nothing has asked yet.</div>';
+      host.innerHTML = '<div class="s-caller-empty">暂无程序申请访问。</div>';
       return;
     }
     host.innerHTML = '';
     for (const [id, scopes] of callers) {
       const allowed = Object.entries(scopes)
         .filter(([, record]) => record && record.decision === 'granted')
-        .map(([scope]) => (scope === 'action' ? 'control' : 'read'));
+        .map(([scope]) => (scope === 'action' ? '允许控制' : '读取状态'));
       const name = (scopes.read && scopes.read.callerName) || (scopes.action && scopes.action.callerName) || id;
 
       const row = document.createElement('div');
       row.className = 's-caller';
       const label = document.createElement('span');
-      label.textContent = name + ' — ' + (allowed.length ? allowed.join(' + ') : 'denied');
+      label.textContent = name + ' — ' + (allowed.length ? allowed.join(' + ') : '未授权');
       label.title = id;
       const button = document.createElement('button');
       button.type = 'button';
-      button.textContent = 'Forget';
+      button.textContent = '移除授权';
       button.addEventListener('click', async () => {
         await cue.appLinkRevoke(id);
         fillAppLinkCallers();
@@ -1677,35 +1682,36 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
   if (uploadResumeBtn) uploadResumeBtn.addEventListener('click', async () => {
     const res = await cue.pickProfileDocument();
     if (!res || res.canceled) return;
-    if (res.error) { showStatus('Resume import failed: ' + res.error); return; }
+    if (res.error) { showStatus('简历导入失败：' + res.error); return; }
     $('#resume-text').value = res.text || '';
-    showStatus('Imported ' + res.fileName + ' — press Save to keep it.');
+    showStatus('已导入 ' + res.fileName + '；点击“完成”保存。');
   });
   const uploadJdBtn = document.getElementById('upload-jd-btn');
   if (uploadJdBtn) uploadJdBtn.addEventListener('click', async () => {
     const res = await cue.pickProfileDocument();
     if (!res || res.canceled) return;
-    if (res.error) { showStatus('Job description import failed: ' + res.error); return; }
+    if (res.error) { showStatus('岗位描述导入失败：' + res.error); return; }
     $('#job-description').value = res.text || '';
-    showStatus('Imported ' + res.fileName + ' — press Save to keep it.');
+    showStatus('已导入 ' + res.fileName + '；点击“完成”保存。');
   });
 
   function statusText() {
     const k = settings.apiKeys;
-    const labels = { openai: 'OpenAI', anthropic: 'Anthropic', gemini: 'Gemini', deepgram: 'Deepgram', custom: 'Custom', ollama: 'Ollama', groq: 'Groq', minimax: 'MiniMax', azure: 'Azure AI Foundry' };
+    const labels = { openai: 'OpenAI', anthropic: 'Anthropic', gemini: 'Gemini', deepgram: 'Deepgram', custom: '自定义', ollama: 'Ollama', groq: 'Groq', minimax: 'MiniMax', azure: 'Azure AI Foundry' };
     const has = Object.keys(labels).filter((p) => k[p]).map((p) => labels[p]);
     // 'auto' walks the same fallback chain src/stt.js builds; an explicit choice
     // is reported as-is so the status line matches what will actually be used.
     const selectedSttProvider = settings.sttProvider || 'auto';
-    const automaticStt = k.deepgram ? 'Deepgram (streaming)' : (k.openai ? 'OpenAI Realtime' : (k.groq ? 'Groq Whisper' : (k.gemini ? 'Gemini (batch)' : 'none')));
-    const stt = selectedSttProvider === 'auto' ? automaticStt : selectedSttProvider;
+    const automaticStt = k.deepgram ? 'Deepgram（流式）' : (k.openai ? 'OpenAI Realtime' : (k.groq ? 'Groq Whisper' : (k.gemini ? 'Gemini（批量）' : '未配置')));
+    const stt = selectedSttProvider === 'auto' ? automaticStt
+      : ({ local: '本地 Whisper', qwen: 'Qwen ASR', ...labels }[selectedSttProvider] || selectedSttProvider);
     const ready = [
-      settings.resumeText ? '✓ resume' : null,
-      settings.jobDescription ? '✓ JD' : null,
-      settings.starStories ? '✓ stories' : null,
-      settings.salaryTarget ? '✓ salary' : null
+      settings.resumeText ? '✓ 简历' : null,
+      settings.jobDescription ? '✓ 岗位描述' : null,
+      settings.starStories ? '✓ 经历' : null,
+      settings.salaryTarget ? '✓ 薪资' : null
     ].filter(Boolean);
-    return `${labels[settings.provider] || settings.provider} · STT: ${stt}` + (ready.length ? ' · ' + ready.join(' · ') : '');
+    return `${labels[settings.provider] || settings.provider} · 语音识别：${stt}` + (ready.length ? ' · ' + ready.join(' · ') : '');
   }
 
   document.querySelectorAll('#provider-seg button').forEach((b) => b.addEventListener('click', () => {
@@ -1746,12 +1752,14 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
   function renderWhisperModelState() {
     const model = getSelectedWhisperModel();
     if (!model) return;
-    const language = model.englishOnly ? 'English only' : 'Multilingual';
-    const recommendation = model.recommended ? ' · recommended default' : '';
+    const language = model.englishOnly ? '仅英语' : '多语言';
+    const recommendation = model.recommended ? ' · 默认推荐' : '';
     const partial = model.partialBytes > 0 && !model.installed
-      ? ` · ${formatBytes(model.partialBytes)} ready to resume`
+      ? ` · 已下载 ${formatBytes(model.partialBytes)}，可继续下载`
       : '';
-    $('#whisper-model-detail').textContent = `${formatBytes(model.bytes)} · ${language} · ${model.quantization} · ${model.hardwareTier}${recommendation}${partial}`;
+    const quantization = model.quantization === 'Full precision' ? '全精度' : model.quantization;
+    const tier = { Lightest: '资源占用极低', Light: '资源占用较低', Balanced: '均衡', Heavy: '资源占用较高', 'Very heavy': '资源占用很高' }[model.hardwareTier] || model.hardwareTier;
+    $('#whisper-model-detail').textContent = `${formatBytes(model.bytes)} · ${language} · ${quantization} · ${tier}${recommendation}${partial}`;
 
     const progressWrap = $('#whisper-progress-wrap');
     const progressPercent = model.bytes > 0 ? Math.floor((model.partialBytes / model.bytes) * 100) : 0;
@@ -1759,7 +1767,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
     $('#whisper-progress').value = progressPercent;
     $('#whisper-progress-label').textContent = `${progressPercent}%`;
     $('#whisper-download').disabled = model.installed || model.downloading;
-    $('#whisper-download').textContent = model.installed ? 'Installed' : (model.partialBytes ? 'Resume' : 'Download');
+    $('#whisper-download').textContent = model.installed ? '已安装' : (model.partialBytes ? '继续下载' : '下载');
     $('#whisper-cancel').classList.toggle('hidden', !model.downloading);
     $('#whisper-import').disabled = model.downloading;
     $('#whisper-delete').disabled = (model.installedBytes === 0 && model.partialBytes === 0) || model.downloading;
@@ -1774,8 +1782,8 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
       runtimeBadge.classList.toggle('ready', whisperOverview.runtime.available);
       runtimeBadge.classList.toggle('error', !whisperOverview.runtime.available);
       runtimeBadge.textContent = whisperOverview.runtime.available
-        ? `Ready · v${whisperOverview.runtime.version} · ${whisperOverview.runtime.target}`
-        : 'Not prepared';
+        ? `已就绪 · v${whisperOverview.runtime.version} · ${whisperOverview.runtime.target}`
+        : '未准备';
       runtimeBadge.title = whisperOverview.runtime.message || '';
 
       const select = $('#whisper-model');
@@ -1783,7 +1791,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
       for (const model of whisperOverview.models) {
         const option = document.createElement('option');
         option.value = model.id;
-        option.textContent = `${model.label} — ${formatBytes(model.bytes)}${model.recommended ? ' (recommended)' : ''}${model.installed ? ' ✓' : ''}`;
+        option.textContent = `${model.label} — ${formatBytes(model.bytes)}${model.recommended ? '（推荐）' : ''}${model.installed ? ' ✓' : ''}`;
         select.appendChild(option);
       }
       const selectionExists = whisperOverview.models.some((model) => model.id === previousSelection);
@@ -1791,11 +1799,11 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
       if (!settings.localWhisper) settings.localWhisper = {};
       settings.localWhisper.modelId = select.value;
       status.textContent = whisperOverview.runtime.available
-        ? 'Model files are verified before they can be loaded.'
+        ? '模型文件通过校验后才能加载。'
         : whisperOverview.runtime.message;
       renderWhisperModelState();
     } catch (error) {
-      status.textContent = `Could not load local model information: ${error.message}`;
+      status.textContent = `无法加载本地模型信息：${error.message}`;
     }
   }
 
@@ -1821,7 +1829,7 @@ $('#whisper-download').addEventListener(
       );
 
       $('#whisper-status').textContent =
-        'No Whisper model is selected.';
+        '请先选择 Whisper 模型。';
 
       return;
     }
@@ -1835,7 +1843,7 @@ $('#whisper-download').addEventListener(
     renderWhisperModelState();
 
     $('#whisper-status').textContent =
-      `Connecting to model server for ${model.id}…`;
+      `正在连接模型服务器，准备下载 ${model.id}…`;
 
     try {
       await cue.whisperModelDownload(
@@ -1843,7 +1851,7 @@ $('#whisper-download').addEventListener(
       );
 
       $('#whisper-status').textContent =
-        `${model.id} downloaded and verified.`;
+        `${model.id} 已下载并通过校验。`;
 
     } catch (error) {
       const message =
@@ -1856,9 +1864,9 @@ $('#whisper-download').addEventListener(
       );
 
       $('#whisper-status').textContent =
-        message.includes('cancelled')
-          ? `${model.id} download paused. Progress was kept.`
-          : `Download failed: ${message}`;
+        (error?.name === 'AbortError' || /cancelled|已取消/.test(message))
+          ? `${model.id} 下载已暂停，进度已保留。`
+          : `下载失败：${message}`;
 
     } finally {
       await refreshWhisperModels();
@@ -1874,12 +1882,12 @@ $('#whisper-download').addEventListener(
   $('#whisper-import').addEventListener('click', async () => {
     const model = getSelectedWhisperModel();
     if (!model) return;
-    $('#whisper-status').textContent = `Verifying imported ${model.id}…`;
+    $('#whisper-status').textContent = `正在校验导入的 ${model.id}…`;
     try {
       const result = await cue.whisperModelImport(model.id);
-      $('#whisper-status').textContent = result.cancelled ? 'Import cancelled.' : `${model.id} imported and verified.`;
+      $('#whisper-status').textContent = result.cancelled ? '已取消导入。' : `${model.id} 已导入并通过校验。`;
     } catch (error) {
-      $('#whisper-status').textContent = `Import failed: ${error.message}`;
+      $('#whisper-status').textContent = `导入失败：${error.message}`;
     } finally {
       await refreshWhisperModels();
     }
@@ -1887,12 +1895,12 @@ $('#whisper-download').addEventListener(
 
   $('#whisper-delete').addEventListener('click', async () => {
     const model = getSelectedWhisperModel();
-    if (!model || !window.confirm(`Delete the ${model.id} model (${formatBytes(model.bytes)}) from this computer?`)) return;
+    if (!model || !window.confirm(`从本机删除 ${model.id} 模型（${formatBytes(model.bytes)}）？`)) return;
     try {
       await cue.whisperModelDelete(model.id);
-      $('#whisper-status').textContent = `${model.id} deleted.`;
+      $('#whisper-status').textContent = `已删除 ${model.id}。`;
     } catch (error) {
-      $('#whisper-status').textContent = `Delete failed: ${error.message}`;
+      $('#whisper-status').textContent = `删除失败：${error.message}`;
     } finally {
       await refreshWhisperModels();
     }
@@ -1938,16 +1946,16 @@ cue.on(
 
       if (progress.retrying) {
         $('#whisper-status').textContent =
-          `Connection interrupted. Retrying download…`;
+          `连接中断，正在重试下载…`;
       } else {
         $('#whisper-status').textContent =
-          `Downloading ${progress.modelId}… ${progress.percent}%`;
+          `正在下载 ${progress.modelId}… ${progress.percent}%`;
       }
 
       $('#whisper-model-detail')
         .textContent =
         `${formatBytes(progress.receivedBytes)} ` +
-        `of ${formatBytes(progress.totalBytes)}`;
+        `/ ${formatBytes(progress.totalBytes)}`;
     }
   }
 );
@@ -2109,16 +2117,16 @@ cue.on(
   // ---- onboarding / first-run tutorial -----------------------------------
   const obScrim = $('#onboard-scrim');
   const permissionHelp = isWindows
-    ? 'cue needs permission to see and hear. Open Windows Privacy & security settings, allow <strong>Microphone</strong> and <strong>Screen recording</strong> for cue, then come back here.'
-    : 'cue needs two macOS permissions. Click each button, turn <strong>cue</strong> ON in the window that opens, then come back here.';
+    ? 'Cue 需要访问屏幕和语音。请打开 Windows 隐私和安全性设置，允许 Cue 使用<strong>麦克风</strong>与<strong>屏幕录制</strong>，然后返回这里。'
+    : 'Cue 需要两项 macOS 权限。依次点击下面的按钮，在系统设置中开启 <strong>Cue</strong> 的权限，然后返回这里。';
   const permissionButtons = isWindows
     ? [
-        { label: 'Open Microphone settings', action: () => cue.openPane('ms-settings:privacy-microphone') },
-        { label: 'Open Screen recording settings', action: () => cue.openPane('ms-settings:privacy-screenrecorder') }
+        { permission: 'microphone', label: '打开麦克风设置', action: () => cue.openPane('ms-settings:privacy-microphone') },
+        { permission: 'screen', label: '打开屏幕录制设置', action: () => cue.openPane('ms-settings:privacy-screenrecorder') }
       ]
     : [
-        { label: 'Open Microphone settings', action: () => cue.openPane('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone') },
-        { label: 'Open Screen Recording settings', action: () => cue.openPane('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture') }
+        { permission: 'microphone', label: '打开麦克风设置', action: () => cue.openPane('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone') },
+        { permission: 'screen', label: '打开屏幕录制设置', action: () => cue.openPane('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture') }
       ];
   const sayShortcut = isWindows ? '<span class="kbd">Ctrl</span> <span class="kbd">↵</span>' : '<span class="kbd">⌘</span> <span class="kbd">↵</span>';
   const assistShortcut = isWindows ? '<span class="kbd">Ctrl</span> <span class="kbd">⇧</span> <span class="kbd">↵</span>' : '<span class="kbd">⌘</span> <span class="kbd">⇧</span> <span class="kbd">↵</span>';
@@ -2127,29 +2135,29 @@ cue.on(
   const OB_STEPS = [
     {
       icon: '👋',
-      title: 'Welcome to cue',
-      body: 'cue is a private AI copilot that floats over your screen. It can <strong>see your screen</strong>, <strong>hear your meetings</strong>, and help you answer questions or solve coding problems — while staying hidden from most screen shares.<br><br>This quick guide gets you running in about a minute.'
+      title: '欢迎使用 Cue',
+      body: 'Cue 是悬浮在屏幕上的 AI 面试助手，可以<strong>读取屏幕</strong>、<strong>识别面试语音</strong>，辅助回答问题和修改代码。受系统与共享方式影响，通常可在屏幕共享中隐藏。<br><br>下面的引导将帮助你完成基本设置。'
     },
     {
       icon: '🔐',
-      title: 'Allow cue to see & hear',
-      body: permissionHelp + '<ul><li><strong>Microphone</strong> — to hear you</li><li><strong>Screen recording</strong> — to see your screen and hear meeting audio</li></ul>',
+      title: '授权屏幕与语音访问',
+      body: permissionHelp + '<ul><li><strong>麦克风</strong>：识别你的语音</li><li><strong>屏幕录制</strong>：读取屏幕及系统音频</li></ul>',
       buttons: permissionButtons
     },
     {
       icon: '🔑',
-      title: 'Connect an AI provider',
-      body: 'cue uses <strong>your own</strong> API key — pick <span class="hl">OpenAI</span>, <span class="hl">Anthropic</span>, <span class="hl">Google Gemini</span>, or <span class="hl">Azure AI Foundry</span>. Get a key from your provider, then paste it into cue\'s Settings.<br><br><strong>Tip:</strong> For the <em>best</em> real-time listening, add a <span class="hl">Deepgram</span> key (lowest latency streaming transcription). Otherwise, an OpenAI key enables streaming via the Realtime API, and Gemini/Whisper work as batch fallbacks.',
-      buttons: [{ label: 'Open cue Settings', action: () => { finishOnboard(); openSettings(); } }]
+      title: '配置模型服务',
+      body: 'Cue 使用<strong>你自己的</strong> API 密钥。可选择 OpenAI、Anthropic、Google Gemini、Azure AI Foundry 或兼容服务，将密钥填入设置。<br><br><strong>语音识别：</strong>可选择 Qwen ASR、Deepgram、OpenAI、Gemini 或本地 Whisper；云端识别需配置相应密钥，流式服务适合实时面试。',
+      buttons: [{ label: '打开 Cue 设置', action: () => { finishOnboard(); openSettings(); } }]
     },
     {
       icon: '🫥',
-      title: 'Stay hidden in Zoom',
-      body: 'cue is hidden from most screen shares automatically (Google Meet, Teams, QuickTime — nothing to do). <strong>Zoom needs one setting:</strong><br><br>Zoom → <span class="hl">Settings</span> → <span class="hl">Share Screen</span> → <span class="hl">Advanced</span> → <strong>Screen capture mode</strong> → choose <strong>“Advanced capture with window filtering.”</strong><br><br>Avoid “<strong>without</strong> window filtering” — that mode reveals cue.'
+      title: 'Zoom 屏幕共享设置',
+      body: 'Cue 通常可在 Google Meet、Teams 和 QuickTime 等屏幕共享中隐藏。<strong>Zoom 需要设置：</strong><br><br>Zoom → 设置 → 共享屏幕 → 高级 → <strong>屏幕捕获模式</strong>，选择<strong>“高级捕获（使用窗口过滤）”</strong>。英文界面对应 Advanced capture with window filtering。<br><br>不要选择“不使用窗口过滤”，该模式可能显示 Cue；共享前请检查效果。'
     },
     {
       icon: '✨',
-      title: 'You’re all set',
+      title: '设置完成',
       body: '使用 Cue：<ul><li>' + sayShortcut + ' 或点击<strong>如何回答</strong>，根据面试官问题和相关上下文组织口述答案</li><li>' + assistShortcut + ' 或点击<strong>屏幕与问题</strong>，根据屏幕与面试官要求修改代码或回答问题（Ctrl/Cmd+? 也可使用）</li><li>' + solveShortcut + ' 或点击<strong>截屏</strong>，解决屏幕上的技术题</li><li>点击<strong>反问</strong>，生成适合当前面试的反问</li><li>点击顶部 <strong>▢</strong> 开始语音识别</li><li>输入问题后按 <span class="kbd">↵</span> 发送</li></ul>点击 <strong>Cue 图标</strong>可重新打开指引。双击顶部 <strong>×</strong> 退出，或使用 ' + quitShortcut + '。'
     }
   ];
@@ -2164,7 +2172,7 @@ cue.on(
     const dots = $('#ob-dots'); dots.innerHTML = '';
     OB_STEPS.forEach((_, i) => { const d = document.createElement('span'); if (i === obIndex) d.className = 'on'; dots.appendChild(d); });
     $('#ob-back').style.visibility = obIndex === 0 ? 'hidden' : 'visible';
-    $('#ob-next').textContent = obIndex === OB_STEPS.length - 1 ? 'Done' : 'Next';
+    $('#ob-next').textContent = obIndex === OB_STEPS.length - 1 ? '完成' : '下一步';
     $('#ob-skip').style.visibility = obIndex === OB_STEPS.length - 1 ? 'hidden' : 'visible';
   }
   function showOnboard() { obIndex = 0; renderOnboard(); obScrim.classList.remove('hidden'); setIgnore(false); }
@@ -2199,8 +2207,8 @@ cue.on(
     if (isWindows && platformInfo.winBuild > 0 && platformInfo.winBuild < 22000) {
       // Windows 10: update the onboarding screen recording button to be more helpful
       const ob = OB_STEPS[1];
-      ob.buttons = ob.buttons.filter((b) => !b.label.toLowerCase().includes('screen'));
-      ob.body = 'cue needs microphone permission to hear you. Click the button below to open Windows microphone settings and allow cue.<br><br><strong>Screen capture works automatically on Windows 10</strong> — no additional permission needed.<ul><li><strong>Microphone</strong> — to hear you</li><li><strong>Screen recording</strong> — works automatically on Windows 10</li></ul>';
+      ob.buttons = ob.buttons.filter((b) => b.permission !== 'screen');
+      ob.body = 'Cue 需要麦克风权限才能识别你的语音。请点击下面的按钮打开 Windows 麦克风设置，允许 Cue 访问。<br><br><strong>Windows 10 可直接截取屏幕</strong>，无需单独授权屏幕录制。<ul><li><strong>麦克风</strong>：识别你的语音</li><li><strong>屏幕录制</strong>：Windows 10 默认可用</li></ul>';
     }
 
     smartBtn.classList.toggle('on', !!settings.smart);

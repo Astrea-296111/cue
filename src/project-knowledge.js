@@ -310,15 +310,15 @@ function findEocd(buffer) {
 
 function readZipEntries(buffer) {
   const eocd = findEocd(buffer);
-  if (eocd < 0) throw new Error('Invalid ZIP file: central directory not found.');
+  if (eocd < 0) throw new Error('ZIP 文件无效：未找到中央目录。');
 
   const totalEntries = buffer.readUInt16LE(eocd + 10);
   const centralSize = buffer.readUInt32LE(eocd + 12);
   const centralOffset = buffer.readUInt32LE(eocd + 16);
   if (totalEntries === 0xffff || centralOffset === 0xffffffff || centralSize === 0xffffffff) {
-    throw new Error('ZIP64 archives are not supported yet. Import the project folder instead.');
+    throw new Error('暂不支持 ZIP64 压缩包，请改为导入项目文件夹。');
   }
-  if (centralOffset + centralSize > buffer.length) throw new Error('Invalid ZIP file: bad central directory.');
+  if (centralOffset + centralSize > buffer.length) throw new Error('ZIP 文件无效：中央目录损坏。');
 
   const entries = [];
   let pos = centralOffset;
@@ -486,22 +486,22 @@ async function mergeImportedProject(project) {
 }
 
 async function importProjectFolder(rootDir) {
-  if (!rootDir) throw new Error('No project folder selected.');
+  if (!rootDir) throw new Error('未选择项目文件夹。');
   const stat = await fs.promises.stat(rootDir);
-  if (!stat.isDirectory()) throw new Error('Selected path is not a folder.');
+  if (!stat.isDirectory()) throw new Error('所选路径不是文件夹。');
 
   const index = buildIndexShell('folder', path.basename(rootDir) || 'Project');
   await walkFolder(rootDir, index, index.stats);
-  if (!index.chunks.length) throw new Error('No supported text/code files were found in this project.');
+  if (!index.chunks.length) throw new Error('项目中未找到支持的文本或代码文件。');
   const workspace = await mergeImportedProject(index);
   await warmProjectIndex();
   return getProjectIndexState(workspace);
 }
 
 async function importProjectZip(zipPath) {
-  if (!zipPath) throw new Error('No ZIP selected.');
+  if (!zipPath) throw new Error('未选择 ZIP 文件。');
   const stat = await fs.promises.stat(zipPath);
-  if (stat.size > MAX_ZIP_BYTES) throw new Error('ZIP is too large. Keep it under 96 MB or import the folder directly.');
+  if (stat.size > MAX_ZIP_BYTES) throw new Error('ZIP 文件过大，请控制在 96 MB 以内，或直接导入文件夹。');
   const zipBuffer = await fs.promises.readFile(zipPath);
   const entries = readZipEntries(zipBuffer);
   const index = buildIndexShell('zip', path.basename(zipPath));
@@ -534,7 +534,7 @@ async function importProjectZip(zipPath) {
     if (index.stats.indexedBytes >= MAX_TOTAL_TEXT_BYTES || index.chunks.length >= MAX_CHUNKS) break;
   }
 
-  if (!index.chunks.length) throw new Error('No supported text/code files were found in this ZIP.');
+  if (!index.chunks.length) throw new Error('ZIP 中未找到支持的文本或代码文件。');
   const workspace = await mergeImportedProject(index);
   await warmProjectIndex();
   return getProjectIndexState(workspace);

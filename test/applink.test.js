@@ -76,19 +76,19 @@ test('handles an empty session without inventing a timestamp', () => {
 
 test('hedges the consent sheet when the caller cannot be verified', () => {
   const unverified = consentCopy({ callerName: 'Iris', scope: 'read', verification: 'token' });
-  assert.match(unverified.message, /identifying itself as/);
-  assert.match(unverified.detail, /cannot verify/);
+  assert.match(unverified.message, /自称/);
+  assert.match(unverified.detail, /无法确认/);
   assert.equal(unverified.trusted, false);
 
   const verified = consentCopy({ callerName: 'Iris', scope: 'read', verification: 'code-signature' });
-  assert.equal(verified.message, 'Iris wants to see what cue is doing.');
-  assert.match(verified.detail, /signature has been verified/);
+  assert.equal(verified.message, 'Iris申请读取 Cue 的运行状态。');
+  assert.match(verified.detail, /代码签名已验证/);
 });
 
 test('asks separately, and differently, for control', () => {
   const copy = consentCopy({ callerName: 'Iris', scope: 'action', verification: 'token' });
-  assert.match(copy.message, /wants to control cue/);
-  assert.equal(copy.allowLabel, 'Allow control');
+  assert.match(copy.message, /申请控制 Cue/);
+  assert.equal(copy.allowLabel, '允许控制');
 });
 
 /**

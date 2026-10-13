@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
-  <title>cue — Permissions</title>
+  <title>Cue — 权限设置</title>
   <style>
     :root {
       --accent: #3C83F5;
@@ -187,19 +187,19 @@
   <div id="perm-root">
     <div class="perm-card">
       <div class="perm-icon">🔐</div>
-      <div class="perm-title">cue needs your permission</div>
+      <div class="perm-title">Cue 需要授权</div>
       <div class="perm-desc">
-        Grant <strong>Microphone</strong> and <strong>Screen Recording</strong> access so cue can hear your meetings and see your screen.
+        请授予<strong>麦克风</strong>和<strong>屏幕录制</strong>权限，让 Cue 识别面试语音并读取屏幕。
       </div>
 
       <!-- Microphone -->
       <div class="perm-row no-drag" id="row-mic">
         <span class="perm-emoji">🎙️</span>
         <div class="perm-info">
-          <div class="perm-name">Microphone</div>
-          <div class="perm-status" id="status-mic">Checking…</div>
+          <div class="perm-name">麦克风</div>
+          <div class="perm-status" id="status-mic">检查中…</div>
         </div>
-        <button class="perm-open-btn no-drag" id="btn-mic">Open Settings</button>
+        <button class="perm-open-btn no-drag" id="btn-mic">打开设置</button>
         <span class="perm-badge" id="badge-mic"></span>
       </div>
 
@@ -207,23 +207,23 @@
       <div class="perm-row no-drag" id="row-screen">
         <span class="perm-emoji">🖥️</span>
         <div class="perm-info">
-          <div class="perm-name">Screen Recording</div>
-          <div class="perm-status" id="status-screen">Checking…</div>
+          <div class="perm-name">屏幕录制</div>
+          <div class="perm-status" id="status-screen">检查中…</div>
         </div>
-        <button class="perm-open-btn no-drag" id="btn-screen">Open Settings</button>
+        <button class="perm-open-btn no-drag" id="btn-screen">打开设置</button>
         <span class="perm-badge" id="badge-screen"></span>
       </div>
 
       <div class="perm-note">
-        <strong>Tip:</strong> After toggling a permission in System Settings, click <strong>Check Again</strong> below.
-        If Screen Recording was just enabled, you may need to restart cue for it to take effect.
+        <strong>提示：</strong>更改系统权限后，请点击下面的<strong>重新检查</strong>。
+        刚开启屏幕录制权限时，可能需要重启 Cue 才能生效。
       </div>
 
       <div class="perm-actions no-drag">
         <button class="perm-ghost" id="quit-btn" aria-label="双击退出">双击退出</button>
         <div class="spacer"></div>
-        <button class="perm-check-btn" id="check-btn">Check Again</button>
-        <button class="perm-continue-btn" id="continue-btn" disabled>Continue →</button>
+        <button class="perm-check-btn" id="check-btn">重新检查</button>
+        <button class="perm-continue-btn" id="continue-btn" disabled>继续 →</button>
       </div>
     </div>
   </div>
@@ -250,7 +250,7 @@
 
         // Mic
         rowMic.className = 'perm-row no-drag ' + (micOk ? 'granted' : 'denied');
-        statusMic.textContent = micOk ? 'Granted' : (status.mic === 'not-determined' ? 'Not yet requested' : 'Not granted — open Settings to allow');
+        statusMic.textContent = micOk ? '已授权' : (status.mic === 'not-determined' ? '尚未申请' : '未授权，请打开系统设置允许访问');
         statusMic.className = 'perm-status ' + (micOk ? 'ok' : 'bad');
         badgeMic.textContent = micOk ? '✓' : '✗';
         badgeMic.className = 'perm-badge ' + (micOk ? 'ok' : 'bad');
@@ -258,7 +258,7 @@
 
         // Screen
         rowScreen.className = 'perm-row no-drag ' + (screenOk ? 'granted' : 'denied');
-        statusScreen.textContent = screenOk ? 'Granted' : (status.screen === 'not-determined' ? 'Not yet requested' : 'Not granted — open Settings to allow');
+        statusScreen.textContent = screenOk ? '已授权' : (status.screen === 'not-determined' ? '尚未申请' : '未授权，请打开系统设置允许访问');
         statusScreen.className = 'perm-status ' + (screenOk ? 'ok' : 'bad');
         badgeScreen.textContent = screenOk ? '✓' : '✗';
         badgeScreen.className = 'perm-badge ' + (screenOk ? 'ok' : 'bad');
@@ -270,7 +270,7 @@
 
       async function checkPermissions() {
         checkBtn.classList.add('checking');
-        checkBtn.textContent = 'Checking…';
+        checkBtn.textContent = '检查中…';
         try {
           const status = await cue.permissionsCheck();
           updateUI(status);
@@ -278,7 +278,7 @@
           cue.log('permissions check error: ' + e);
         } finally {
           checkBtn.classList.remove('checking');
-          checkBtn.textContent = 'Check Again';
+          checkBtn.textContent = '重新检查';
         }
       }
 

@@ -78,14 +78,14 @@ test('planned subquestions receive bounded output room and override the single-p
 test('Interview Mode preserves grounding and applies to project/scenario questions while Assist keeps code rules', () => {
   const opts = { answerPlan: getAnswerPlan('为什么这么设计？'), projectPlan: { retrieve: true, scopes: ['RepoPilot/'] } };
   const project = MODES.say.buildSystem('SOURCE_EVIDENCE', '', opts);
-  assert.match(project, /Interview Mode/);
-  assert.match(project, /设计原因、关键实现、相关 trade-off/);
+  assert.match(project, /项目与情景回答/);
+  assert.match(project, /设计原因、关键实现和相关取舍/);
   assert.match(project, /不能把推演方案/);
   assert.match(project, /只有材料证明个人职责/);
   const generic = MODES.say.buildSystem('', '', { projectPlan: { retrieve: false, activeProject: { scopes: ['RepoPilot/'] } } });
-  assert.doesNotMatch(generic, /Interview Mode/);
+  assert.doesNotMatch(generic, /项目与情景回答/);
   const screen = MODES.assist.buildSystem('', '', opts);
-  assert.doesNotMatch(screen, /Interview Mode/);
+  assert.doesNotMatch(screen, /项目与情景回答/);
   assert.match(screen, /给出修改后的代码/);
   assert.equal(MODES.assist.resolveMaxTokens({ answerPlan: opts.answerPlan }), 4096);
 });

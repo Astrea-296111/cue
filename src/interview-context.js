@@ -236,7 +236,7 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
     const selected = selectManualProjectCards(project.trim(), query, projectLimit) ||
       selectRelevantText(project.trim(), query, projectLimit);
     blocks.push(
-      '=== 项目 Interview Cards（用户提供的项目事实与个人职责） ===\n' + selected
+      '=== 项目面试卡片（用户提供的项目事实与个人职责） ===\n' + selected
     );
   }
 
