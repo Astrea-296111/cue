@@ -645,6 +645,7 @@
   }
   $('#hide-btn').addEventListener('click', toggleHide);
   cue.on('hide:toggle', toggleHide);
+  $('#hide-btn').setAttribute('aria-label', `收起/展开 · ${isMac ? '⌘P' : 'Ctrl+P'}`);
 
   // Stop = start/stop listening. Kick off system-audio capture straight from the click so
   // the user-gesture is fresh for getDisplayMedia (loopback capture needs it).
@@ -658,6 +659,7 @@
     const active = await cue.captureToggle();
     if (turningOn && !active) stopSystemAudio();
   });
+  $('#stop-btn').setAttribute('aria-label', `开始/停止录音 · ${isMac ? '⌘R' : 'Ctrl+R'}`);
 
   // Transcript toggle removed — sidebar now auto-opens with listening
 
@@ -2246,7 +2248,7 @@ cue.on(
     {
       icon: '✨',
       title: '设置完成',
-      body: '使用 Cue：<ul><li>' + sayShortcut + ' 或点击<strong>如何回答</strong>，根据面试官问题和相关上下文组织口述答案</li><li>' + assistShortcut + ' 或点击<strong>屏幕与问题</strong>，根据屏幕与面试官要求修改代码或回答问题（Ctrl/Cmd+? 也可使用）</li><li>' + solveShortcut + ' 或点击<strong>截屏</strong>，解决屏幕上的技术题</li><li>点击<strong>反问</strong>，生成适合当前面试的反问</li><li>点击顶部 <strong>▢</strong> 开始语音识别</li><li>输入问题后按 <span class="kbd">↵</span> 发送</li></ul>点击 <strong>Cue 图标</strong>可重新打开指引。双击顶部 <strong>×</strong> 退出，或使用 ' + quitShortcut + '。'
+      body: '使用 Cue：<ul><li>' + sayShortcut + ' 或点击<strong>如何回答</strong>，根据面试官问题和相关上下文组织口述答案</li><li>' + assistShortcut + ' 或点击<strong>屏幕与问题</strong>，根据屏幕与面试官要求修改代码或回答问题（Ctrl/Cmd+? 也可使用）</li><li>' + solveShortcut + ' 或点击<strong>截屏</strong>，解决屏幕上的技术题</li><li>点击<strong>反问</strong>，生成适合当前面试的反问</li><li>Ctrl/Cmd+R 或点击顶部 <strong>▢</strong> 开始/停止录音</li><li>Ctrl/Cmd+P 收起/展开界面</li><li>输入问题后按 <span class="kbd">↵</span> 发送</li></ul>点击 <strong>Cue 图标</strong>可重新打开指引。双击顶部 <strong>×</strong> 退出，或使用 ' + quitShortcut + '。'
     }
   ];
   let obIndex = 0;

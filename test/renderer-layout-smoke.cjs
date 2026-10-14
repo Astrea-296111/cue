@@ -27,7 +27,7 @@ fs.writeFileSync(path.join(data, 'cue-project-index-v2.json'), JSON.stringify({ 
   ], stats: { fileCount: 2, chunkCount: 2 } }));
 
 let allowedToQuit = false, releaseFirst;
-const calls = [], signals = [], payloads = [];
+const calls = [], signals = [], payloads = [], audioLogs = [];
 const registeredShortcuts = new Map();
 const originalRegister = globalShortcut.register.bind(globalShortcut);
 globalShortcut.register = (accelerator, callback) => {
@@ -51,11 +51,16 @@ class OpenAI {
 }
 const originalLoad = Module._load;
 const localizationPreload = path.join(__dirname, 'helpers/renderer-localization-preload.cjs');
+const testWindows = new Set();
 class TestWindow extends electron.BrowserWindow {
   constructor(options) {
     super({ ...options, webPreferences: { ...options.webPreferences,
       sandbox: false, preload: localizationPreload } });
+    testWindows.add(this);
+    this.once('closed', () => testWindows.delete(this));
   }
+  // Electron's native lookup omits subclass wrappers used for the test preload.
+  static getAllWindows() { return [...testWindows]; }
 }
 Module._load = function (id, parent, isMain) {
   if (id === 'electron') return { ...electron, BrowserWindow: TestWindow };
@@ -76,6 +81,7 @@ require('../src/store').setSettings({ onboarded: true, provider: 'custom',
   resumeText: 'PROFILE_RETAINED', jobDescription: 'JD_RETAINED',
   starStories: 'STORIES_RETAINED', salaryTarget: 'SALARY_RETAINED' });
 ipcMain.on('ask', (_event, payload) => payloads.push(payload));
+ipcMain.on('log', (_event, message) => audioLogs.push(message));
 dialog.showErrorBox = (title, message) => {
   console.error('UI_ERROR_DIALOG', title, message); process.exit(1);
 };
@@ -245,12 +251,73 @@ app.on('browser-window-created', (_event, win) => {
       assert.equal(await permissionJS("document.getElementById('status-mic').textContent"), '已授权');
       assert.equal(await permissionJS("document.getElementById('check-btn').textContent"), '重新检查');
       permissionWindow.destroy();
+
+      // Exercise the registered global shortcuts through the real entry and renderer.
+      // Media devices are synthetic; capture IPC, AudioWorklet wiring and cleanup are real.
+      await js(`(() => {
+        const source = new AudioContext();
+        const stream = source.createMediaStreamDestination().stream;
+        window.cueAudioTest = { source, stream, system: [], mic: [], gestures: [],
+          displayMedia: navigator.mediaDevices.getDisplayMedia,
+          userMedia: navigator.mediaDevices.getUserMedia };
+        navigator.mediaDevices.getDisplayMedia = async () => {
+          const active = navigator.userActivation.isActive;
+          cueAudioTest.gestures.push(active);
+          if (!active) throw new DOMException('User gesture required', 'InvalidStateError');
+          const captured = stream.clone(); cueAudioTest.system.push(captured); return captured;
+        };
+        navigator.mediaDevices.getUserMedia = async () => {
+          const captured = stream.clone(); cueAudioTest.mic.push(captured); return captured;
+        };
+      })()`);
+      assert.ok(globalShortcut.isRegistered('CommandOrControl+R'));
+      for (const [route, active] of [['shortcut', true], ['button', false], ['button', true], ['shortcut', false]]) {
+        if (route === 'shortcut') registeredShortcuts.get('CommandOrControl+R')();
+        else await win.webContents.executeJavaScript("document.getElementById('stop-btn').click()", true);
+        await until(() => js(`document.getElementById('stop-btn').classList.contains('active')===${active}`), 'recording ' + route);
+        assert.equal((await js('cue.captureState()')).active, active);
+        assert.equal(await js("document.getElementById('composer').classList.contains('listening')"), active);
+        if (active) await until(async () => audioLogs.filter(message => message === 'mic AudioWorklet processor attached').length === await js('cueAudioTest.system.length'), 'microphone capture');
+        else await until(() => js('[...cueAudioTest.system,...cueAudioTest.mic].every(s=>s.getTracks().every(t=>t.readyState===\"ended\"))'), 'audio cleanup');
+      }
+      assert.deepEqual(await js('({system:cueAudioTest.system.length,mic:cueAudioTest.mic.length,gestures:cueAudioTest.gestures})'),
+        { system: 2, mic: 2, gestures: [true, true] });
+      await js(`navigator.mediaDevices.getDisplayMedia=cueAudioTest.displayMedia;
+        navigator.mediaDevices.getUserMedia=cueAudioTest.userMedia;
+        cueAudioTest.stream.getTracks().forEach(t=>t.stop()); cueAudioTest.source.close(); delete window.cueAudioTest;`);
+      assert.ok(await js("document.getElementById('stop-btn').getAttribute('aria-label').includes('R')"));
+
+      const size = win.getSize();
+      for (const [direction, dx, dy, opposite] of [['Up',0,-25,'Down'], ['Down',0,25,'Up'], ['Left',-25,0,'Right'], ['Right',25,0,'Left']]) {
+        const origin = win.getPosition();
+        const accelerator = 'CommandOrControl+Shift+' + direction;
+        assert.ok(globalShortcut.isRegistered(accelerator));
+        registeredShortcuts.get(accelerator)();
+        // Native coordinates can round by one logical pixel at fractional DPI.
+        await until(() => Math.abs(win.getPosition()[0] - origin[0] - dx) <= 1 && Math.abs(win.getPosition()[1] - origin[1] - dy) <= 1, direction + ' movement');
+        assert.ok(win.getSize().every((value, i) => Math.abs(value - size[i]) <= 2),
+          'Movement must preserve window dimensions within native DPI rounding');
+        registeredShortcuts.get('CommandOrControl+Shift+' + opposite)();
+        await until(() => Math.abs(win.getPosition()[0] - origin[0]) <= 2 && Math.abs(win.getPosition()[1] - origin[1]) <= 2, 'movement restored');
+      }
+      const collapseControls = await controls();
+      assert.ok(globalShortcut.isRegistered('CommandOrControl+P'));
+      registeredShortcuts.get('CommandOrControl+P')();
+      await until(() => js("document.getElementById('panel').classList.contains('collapsed')"), 'collapse shortcut');
+      assert.equal(await js("document.querySelector('.tb-hide span:last-child').textContent"), '展开');
+      registeredShortcuts.get('CommandOrControl+P')(); await settled();
+      await until(() => js("!document.getElementById('panel').classList.contains('collapsed')"), 'expand shortcut');
+      assert.ok(globalShortcut.isRegistered('CommandOrControl+Shift+H'), 'Keep the original collapse shortcut');
+      registeredShortcuts.get('CommandOrControl+Shift+H')();
+      await until(() => js("document.getElementById('panel').classList.contains('collapsed')"), 'legacy collapse shortcut');
+      await js("document.getElementById('hide-btn').click()"); await settled();
+      stable(collapseControls, await controls());
       await js("document.getElementById('hide-btn').click()");
       assert.equal(await js("document.getElementById('panel').classList.contains('collapsed')"), true);
       assert.equal(await js("document.querySelector('.tb-hide span:last-child').textContent"), '展开');
       assert.ok(await js("document.getElementById('panel-wrap').getBoundingClientRect().height < 2"));
       await js("document.getElementById('hide-btn').click()"); await settled();
-      stable(before, await controls());
+      stable(collapseControls, await controls());
 
       // A single click, including a real browser input event, must keep running.
       await js("document.getElementById('quit-btn').click()"); await tick();
@@ -261,6 +328,7 @@ app.on('browser-window-created', (_event, win) => {
       await tick(); assert.equal(win.isDestroyed(), false);
       console.log('UI_LAYOUT_OK', JSON.stringify({ size:win.getSize(),zoom,scale:display.scaleFactor,layout,caption,messages,settings,
         captionUpdates:30,stableControls:true,sayInterruption:true,solveButton:true,singleClickKeepsRunning:true,
+        collapseShortcut:true,recordingShortcut:true,movementStep:25,
         chineseSettings:true,chineseOnboarding:true,chinesePermissions:true,windowsBuildFixture:process.env.CUE_UI_WINDOWS_BUILD || null }));
       allowedToQuit = true;
       if (process.env.CUE_UI_QUIT_SHORTCUT) {
@@ -270,7 +338,14 @@ app.on('browser-window-created', (_event, win) => {
         win.webContents.sendInputEvent({ type: 'mouseDown', clickCount: 2, ...point });
         win.webContents.sendInputEvent({ type: 'mouseUp', clickCount: 2, ...point });
       }
-    } catch (error) { console.error('UI_FAILED', error); process.exit(1); }
+    } catch (error) {
+      console.error('UI_FAILED', error, JSON.stringify({ audioLogs, capture: await js(`({
+        active:document.getElementById('stop-btn').classList.contains('active'),
+        system:window.cueAudioTest?.system.length,mic:window.cueAudioTest?.mic.length,
+        gestures:window.cueAudioTest?.gestures,stt:document.getElementById('stt-status').textContent
+      })`).catch(() => null) }));
+      process.exit(1);
+    }
   });
 });
 require(path.join(root, require('../package.json').main));
