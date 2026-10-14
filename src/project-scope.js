@@ -11,10 +11,16 @@ function aliases(name) {
 function buildProjectCatalog(index) {
   if (Array.isArray(index?.projects) && index.projects.length) {
     return index.projects.map(project => ({
-      name: project.name || project.sourceName || 'Project',
+      name: project.manifest?.project_name || project.name || project.sourceName || '项目',
       prefix: `@project:${project.id}`,
       projectId: project.id,
-      aliases: aliases(project.name || project.sourceName || '')
+      aliases: [...new Set([...aliases(project.manifest?.project_name || project.name || project.sourceName || ''),
+        ...(project.aliases || project.manifest?.aliases || []).filter(value => typeof value === 'string').map(value => value.trim()).filter(Boolean)])],
+      resumeOrder: Number.isInteger(project.resumeOrder ?? project.manifest?.resume_order)
+        ? (project.resumeOrder ?? project.manifest.resume_order) : null,
+      sourceRevision: project.sourceRevision || project.manifest?.source_revision || '',
+      hasManifest: !!(project.hasManifest || project.manifest),
+      manifestPath: project.manifestPath || null
     }));
   }
 

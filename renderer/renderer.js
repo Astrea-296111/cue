@@ -140,6 +140,7 @@
   }
 
   let activeRequestId = null;
+  let firstTokenRendered = false;
   let busyFailsafe = null;
   function setBusy(v) {
     busy = v;
@@ -189,25 +190,22 @@
 
   // ---- actions -----------------------------------------------------------
   let ragPrefetchTimer = null;
-  let recentRagQuestions = [];
   let lastPrefetchKey = '';
   let lastPrefetchAt = 0;
 
-  function scheduleProjectPrefetch(text, immediate = false) {
+  function scheduleProjectPrefetch(text, immediate = false, sourceKey = '') {
     const query = String(text || '').trim();
     if (query.length < 4 || typeof cue.projectPrefetch !== 'function') return;
     clearTimeout(ragPrefetchTimer);
-    const previous = recentRagQuestions.slice(-3);
-    if (previous.at(-1) === query) previous.pop();
-    const key = JSON.stringify([query, previous]);
+    const key = JSON.stringify([query, immediate, sourceKey]);
     if (key === lastPrefetchKey && Date.now() - lastPrefetchAt < 2000) return;
     const send = () => {
       lastPrefetchKey = key;
       lastPrefetchAt = Date.now();
-      cue.projectPrefetch({ text: query, previous });
+      cue.projectPrefetch({ text: query, final: immediate, sourceKey });
     };
     if (immediate) send();
-    else ragPrefetchTimer = setTimeout(send, 90);
+    else send(); // Main applies the stable-window debounce and formal routing.
   }
 
   function runMode(mode, text) {
@@ -674,7 +672,6 @@
       activeRequestId = null;
       responseCount = 0;
       setBusy(false);
-      recentRagQuestions = [];
       clearTimeout(ragPrefetchTimer);
       lastPrefetchKey = '';
       clearMessages();
@@ -1146,7 +1143,7 @@ micStream = stream;
     }
   }
   
-  cue.on('stt:interim', ({ channel, text }) => {
+  cue.on('stt:interim', ({ channel, text, utteranceKey = '', sourceId = 'stream' }) => {
     setLiveDotState('transcribing');
     const el = getOrCreateInterimEl();
     const label = channel === 'them' ? '面试官' : '候选人';
@@ -1159,17 +1156,16 @@ micStream = stream;
     // Interim text is useful for RAG prefetch only. It is deliberately NOT sent
     // as payload.text when Ctrl+Enter is pressed; answer targeting lives in main.
     if (channel === 'them' && String(text || '').trim()) {
-      scheduleProjectPrefetch(String(text).trim());
+      scheduleProjectPrefetch(String(text).trim(), false, utteranceKey ? `${sourceId}:${utteranceKey}` : '');
     }
 
     // Interviewer interim speech stays in transcript/history only.
     // Do not mirror STT into the manual input box.
   });
-  cue.on('stt:final', ({ channel, text }) => {
+  cue.on('stt:final', ({ channel, text, utteranceKey = '', sourceId = 'stream' }) => {
     setLiveDotState('idle');
     if (channel === 'them') {
-      scheduleProjectPrefetch(text, true);
-      if (String(text || '').trim()) recentRagQuestions = [...recentRagQuestions, String(text).trim()].slice(-3);
+      scheduleProjectPrefetch(text, true, utteranceKey ? `${sourceId}:${utteranceKey}` : '');
     }
     // Clear interim when we get a final
     if (interimEl) { interimEl.textContent = ''; interimEl.classList.remove('show'); }
@@ -1213,6 +1209,7 @@ micStream = stream;
 cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
   if (aiEl) finalizeAi();
   activeRequestId = requestId || null;
+  firstTokenRendered = false;
   responseCount++;
 
   // 回答区现在是倒序排列：
@@ -1281,9 +1278,53 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
   setBusy(true);
 });
   const acceptsReply = requestId => !requestId || requestId === activeRequestId;
+  cue.on('llm:evidence', ({ sources = [], missing = [], requestId }) => {
+    if (!acceptsReply(requestId) || !aiEl) return;
+    const group = aiEl.closest('.response-group');
+    if (!group) return;
+    group.querySelector('.answer-evidence')?.remove();
+    if (!sources.length && !missing.length) return;
+    const details = document.createElement('details');
+    details.className = 'answer-evidence';
+    const summary = document.createElement('summary');
+    summary.textContent = `参考依据 ${sources.length} 项${missing.length ? ` / 资料缺口 ${missing.length} 项` : ''}`;
+    const body = document.createElement('div');
+    body.className = 'evidence-body';
+    for (const source of sources) {
+      const label = document.createElement('div');
+      const type = { overview: '概览', implementation: '实现', decision: '选型理由', challenge: '困难', incident: '故障', performance: '指标', ownership: '本人职责', collaboration: '协作', environment: '环境', process: '流程', limitation: '限制', theory: '原理' }[source.docType] || '资料';
+      const truth = { implemented: '已实现', test_only: '仅测试', planned: '计划', hypothetical: '假设', abandoned: '已放弃', general_knowledge: '通用知识', unverified: '待核对' }[source.truthScope] || '待核对';
+      label.textContent = `${source.projectName || ''} · ${type} · ${truth} · ${source.path}:${source.startLine}–${source.endLine}${source.partial ? '（片段）' : ''}`;
+      const excerpt = document.createElement('pre');
+      excerpt.textContent = String(source.text || '');
+      body.append(label, excerpt);
+    }
+    for (const item of missing) {
+      const gap = document.createElement('div');
+      const type = { implementation: '实现', decision: '选型理由', constraints: '约束', challenge: '困难', incident: '真实故障', performance: '测试指标', environment: '环境', ownership: '个人职责', collaboration: '协作', process: '流程', hypothetical: '假设的实际基础' }[item.type] || '相应证据';
+      gap.textContent = typeof item === 'string' ? '资料缺口：' + item
+        : item.message || `缺少${type}资料${item.text || item.question ? '：' + (item.text || item.question) : '，或来源未能放入本轮回答。'}`;
+      body.appendChild(gap);
+    }
+    details.append(summary, body);
+    group.appendChild(details);
+  });
+  cue.on('project:active', ({ label, retrieve, requestId }) => {
+    if (!acceptsReply(requestId)) return;
+    $('#active-project-label').textContent = retrieve ? label : '当前为通用问题';
+  });
+  cue.on('project:catalog', ({ projects }) => renderProjectChoices(projects));
+  $('#current-project').addEventListener('change', async event => {
+    try { settings = await cue.projectCurrent(event.target.value); }
+    catch (error) { showStatus(error?.message || '无法切换项目。'); void refreshProjectIndexState(); }
+  });
   cue.on('llm:token', ({ text, requestId }) => {
     if (!acceptsReply(requestId)) return;
     appendToken(text);
+    if (!firstTokenRendered) {
+      firstTokenRendered = true;
+      requestAnimationFrame(() => cue.replyRendered?.(requestId));
+    }
     setBusy(true);
   });
   cue.on('llm:done', ({ requestId } = {}) => {
@@ -1499,6 +1540,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
 
   function renderProjectIndexState(state) {
     projectIndexState = state || { ready: false };
+    renderProjectChoices(projectIndexState.projects || []);
     const status = document.getElementById('project-index-status');
     const clearBtn = document.getElementById('project-index-clear');
     if (clearBtn) clearBtn.disabled = !projectIndexState.ready;
@@ -1517,7 +1559,46 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
     const projects = Array.isArray(projectIndexState.projects) ? projectIndexState.projects : [];
     const names = projects.length > 1 ? ` · ${projects.slice(-4).map(p => p.name).join(' / ')}${projects.length > 4 ? ' / …' : ''}` : '';
     status.textContent = `${source} · ${projectIndexState.fileCount} 个文件 · ${projectIndexState.chunkCount} 个片段 · ${size}${names}${truncated}`;
+    const warnings = projectIndexState.importReport?.warnings || projectIndexState.warnings || [];
+    if (warnings.length) status.textContent += ' · 导入提示：' + warnings.map(item => typeof item === 'string' ? item : item.message || item.code).slice(0, 4).join('；');
   }
+
+  function renderProjectChoices(projects) {
+    const select = $('#current-project');
+    select.replaceChildren();
+    for (const project of [{ id: '', name: '自动' }, ...(projects || [])]) {
+      const option = document.createElement('option');
+      option.value = project.id || project.projectId || '';
+      option.textContent = project.name || project.projectName || project.id || project.projectId;
+      select.appendChild(option);
+    }
+    select.value = settings?.currentProjectId || '';
+  }
+
+  function renderSemanticState(state = {}) {
+    const el = $('#project-semantic-status');
+    if (!el) return;
+    el.textContent = state.ready ? '本地语义检索已就绪。'
+      : state.error ? '本地语义检索暂不可用，继续使用基础检索：' + state.error
+        : state.message || (state.modelReady ? '模型已准备，正在建立本地语义索引。' : '本地语义检索未准备，仍可使用基础检索。');
+  }
+  async function prepareSemantic(importLocal) {
+    const controls = [$('#project-semantic-prepare'), $('#project-semantic-import')];
+    controls.forEach(button => { button.disabled = true; });
+    try {
+      const result = await cue.projectSemanticPrepare(importLocal);
+      if (!result?.canceled) renderSemanticState(result?.state);
+    } catch (error) {
+      $('#project-semantic-status').textContent = '准备失败，继续使用基础检索：' + (error?.message || String(error));
+    } finally { controls.forEach(button => { button.disabled = false; }); }
+  }
+  cue.on('project:semantic-state', renderSemanticState);
+  cue.on('project:semantic-progress', progress => {
+    const el = $('#project-semantic-status');
+    const percent = Number.isFinite(progress.percent) ? progress.percent : progress.total ? progress.received / progress.total * 100 : null;
+    const phase = { resolve: '正在核对模型版本', verify: '正在校验本地模型', download: '正在下载模型', indexing: '正在建立本地语义索引', ready: '本地语义检索已就绪' }[progress.phase] || '正在准备本地语义检索';
+    if (el) el.textContent = progress.message || `${phase}${progress.file ? ' · ' + progress.file : ''}${percent !== null ? `：${Math.round(percent)}%` : '…'}`;
+  });
 
   function setProjectIndexBusy(busyState) {
     ['project-import-folder', 'project-import-zip', 'project-index-clear'].forEach((id) => {
@@ -1586,15 +1667,21 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
         '<button id="project-index-clear" class="s-action danger" type="button" disabled>清空索引</button>' +
       '</div>' +
       '<div id="project-index-status" class="s-note">正在检查本地项目索引…</div>' +
+      '<div class="whisper-actions"><button id="project-semantic-prepare" class="s-action" type="button">准备本地语义检索</button><button id="project-semantic-import" class="s-action" type="button">选择本地模型目录…</button></div>' +
+      '<div id="project-semantic-status" class="s-note">本地语义检索未准备，仍可使用基础检索。</div>' +
       '<div class="s-note">会跳过 .env、私钥、凭据文件、node_modules、.git 和构建产物。回答时仅向所选模型发送与当前问题相关的检索片段。</div>';
 
     textarea.insertAdjacentElement('afterend', card);
     document.getElementById('project-import-folder')?.addEventListener('click', () => void importProjectIndex('folder'));
     document.getElementById('project-import-zip')?.addEventListener('click', () => void importProjectIndex('zip'));
     document.getElementById('project-index-clear')?.addEventListener('click', () => void clearProjectIndex());
+    $('#project-semantic-prepare').addEventListener('click', () => void prepareSemantic(false));
+    $('#project-semantic-import').addEventListener('click', () => void prepareSemantic(true));
+    cue.projectSemanticState?.().then(renderSemanticState).catch(() => {});
   }
 
   function fillSettings() {
+    $('#context-window-tokens').value = settings.contextWindowTokens || 16384;
     // Keys tab
     document.querySelectorAll('#provider-seg button').forEach((b) => b.classList.toggle('on', b.dataset.provider === settings.provider));
     $('#key-openai').value = settings.apiKeys.openai || '';
@@ -1977,6 +2064,7 @@ cue.on(
     if (!settings.models[settings.provider]) settings.models[settings.provider] = {};
     settings.models[settings.provider].fast = $('#model-fast').value.trim();
     settings.models[settings.provider].smart = $('#model-smart').value.trim();
+    settings.contextWindowTokens = Math.max(1024, Math.min(2000000, Number($('#context-window-tokens').value) || 16384));
     // Transcription
     settings.sttLanguage = $('#cloud-stt-language').value || 'auto';
     if (!settings.localWhisper) settings.localWhisper = {};
@@ -2188,6 +2276,7 @@ cue.on(
   // ---- boot --------------------------------------------------------------
   (async function boot() {
     settings = await cue.settingsGet();
+    void refreshProjectIndexState();
     const platformInfo = await cue.platformInfo();
 
     // R4: shortcut hints

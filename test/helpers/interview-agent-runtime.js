@@ -20,11 +20,17 @@ const defaultChunks = [
     text: 'REPO_RETRIEVAL EvidenceCache implements local BM25 and FAISS hybrid retrieval with RRF. query_expansion preserves the request scope. Cache hits reuse source evidence; missing retrieval evidence causes one scoped search.' },
   { path: 'RepoPilot/checkpoint.py', startLine: 21, endLine: 27,
     text: 'REPO_STATE LangGraph checkpoint persists tool verification and retry state. def resume(checkpoint): return graph.invoke(checkpoint). AST validation rejects broken syntax.' },
+  { path: 'RepoPilot/challenge.md', startLine: 1, endLine: 1, docType: 'challenge', truthScope: 'implemented', status: 'confirmed',
+    text: 'REPO_ONLY_SYNTHETIC 这是合成测试资料。RepoPilot 最难的地方是 Agent Loop / LangGraph 双运行时一致性；我负责在工具执行后验证状态，通过 checkpoint 恢复测试确认没有重复执行。' },
   { path: 'FlashFlow/README.md', startLine: 1, endLine: 4,
     text: 'FLASH_ONLY FlashFlow 库存项目，Redis 与任务重试，租约续期。' }
 ];
 
-function writeIndex(temp, version, chunks) {
+function writeIndex(temp, version, chunks, options = {}) {
+  if (options.indexSnapshot) {
+    fs.writeFileSync(path.join(temp, 'cue-project-index-v2.json'), JSON.stringify(options.indexSnapshot));
+    return;
+  }
   if (version === 1) {
     fs.writeFileSync(path.join(temp, 'cue-project-index-v1.json'), JSON.stringify({ version: 1, sourceName: 'projects', chunks }));
     return;
@@ -37,10 +43,10 @@ function writeIndex(temp, version, chunks) {
     const own = tagged.filter(chunk => chunk.projectName === name);
     return { id: 'fixture-' + name.toLowerCase(), name, sourceType: 'folder', sourceName: name,
       updatedAt: '2026-10-12T00:00:00.000Z', stats: { fileCount: own.length, chunkCount: own.length },
-      profile: buildSourceProjectProfile(name, own) };
+      profile: buildSourceProjectProfile(name, own), ...(options.projects || []).find(project => project.name === name) };
   });
   fs.writeFileSync(path.join(temp, 'cue-project-index-v2.json'), JSON.stringify({ version: 2, chunkerVersion: 2,
-    updatedAt: '2026-10-12T00:00:00.000Z', projects, chunks: tagged, stats: { fileCount: tagged.length, chunkCount: tagged.length } }));
+    updatedAt: '2026-10-12T00:00:00.000Z', projects, chunks: tagged, parents: options.parents || [], stats: { fileCount: tagged.length, chunkCount: tagged.length } }));
 }
 
 /**
@@ -51,7 +57,7 @@ function writeIndex(temp, version, chunks) {
  */
 function createInterviewRuntime(t, options = {}) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cue-interview-agent-'));
-  writeIndex(temp, options.indexVersion || 2, options.chunks || defaultChunks);
+  writeIndex(temp, options.indexVersion || 2, options.chunks || defaultChunks, options);
   fs.writeFileSync(path.join(temp, 'cue-data.json'), JSON.stringify({ provider: 'custom',
     baseUrl: 'https://example.invalid/v1', apiKeys: { custom: 'test-transport-only' },
     models: { custom: { fast: 'test-model' } }, smart: false, resumeText: '', ...options.settings }));
@@ -107,6 +113,7 @@ function createInterviewRuntime(t, options = {}) {
     'src/whisper-model-manager.js': {}, 'src/whisper-model-catalog.js': {},
     'src/whisper-runtime.js': {}, 'src/local-whisper-transcriber.js': {}
   };
+  if (options.semanticRetriever) mocks['src/project-embeddings.js'] = { getProjectEmbeddings: () => options.semanticRetriever };
   const shim = { _resolveFilename: (id, parent) => createRequire(parent.filename).resolve(id) };
   function load(file) {
     const relative = path.relative(root, file).replace(/\\/g, '/');
@@ -136,7 +143,7 @@ function createInterviewRuntime(t, options = {}) {
       };
     }
     if (relative === 'src/project-knowledge.js') {
-      for (const method of ['searchProjectKnowledge', 'prefetchProjectKnowledge', 'getProjectOverviewChunks', 'getProjectProfileContext']) {
+      for (const method of ['searchProjectKnowledge', 'getProjectCandidates', 'prefetchProjectKnowledge', 'getProjectOverviewChunks', 'getProjectProfileContext']) {
         const original = module.exports[method];
         module.exports[method] = function (...args) {
           const config = method === 'getProjectOverviewChunks' ? args[0] : args[1];
@@ -144,7 +151,7 @@ function createInterviewRuntime(t, options = {}) {
           searches.push({ method, query: method === 'getProjectOverviewChunks' ? '' : args[0],
             scopes: config?.scopes ? Array.from(config.scopes) : null,
             options: config ? copy(config) : null,
-            rows: Array.isArray(result) ? copy(result) : [], atCall: calls.length });
+            rows: Array.isArray(result) ? copy(result) : copy((result?.rows || []).map(row => row.chunk || row)), atCall: calls.length });
           return result;
         };
       }
@@ -199,6 +206,7 @@ function createInterviewRuntime(t, options = {}) {
       await Promise.all(pendingShortcuts.splice(0));
     },
     clear,
+    invoke: (name, payload) => handlers.get(name)(null, payload),
     captureFailure(value = true) { captureError = value; },
     get captures() { return captures; },
     async prefetch(payload) { ipc.emit('project:prefetch', null, payload); await tick(); },

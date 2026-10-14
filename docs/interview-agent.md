@@ -1,78 +1,81 @@
-# 面试助手架构
+# 面试助手与项目检索
 
-Cue 保留现有 Electron 启动入口和 STT / QuestionResolver，在确定当前问题后增加本地问题规划、覆盖清单、项目讨论状态和项目证据缓存。没有新增运行依赖或规划模型调用。
+Cue 在原有 ASR、QuestionResolver、ConversationMemory 和项目路由之上增加资料类型、逐子问证据选择与异步本地语义检索。Electron 启动链仍是 `package.json → src/custom-main.js → src/bugfix-main.js → main.js`。默认回答只调用一次生成模型，不增加在线问题规划、HyDE、模型重排或二次核验。
 
 ```mermaid
 flowchart TD
-    Q[QuestionResolver 提交快照] --> P[本地问题规划器]
-    P --> M[ConversationMemory 正式项目路由]
-    M --> C[同话题问题清单 / 项目讨论状态]
-    C --> E[项目证据缓存]
-    E -->|证据不足| R[按项目作用域检索 BM25 + hash + 源码关系]
-    E -->|充分| B[共享来源和候选人资料预算]
-    R --> B
-    B --> L[原问 + 有序子问 + 相关遗漏 → LLM]
-    L --> U[实时回答界面]
-    L -->|有效请求完成| S[来源证据 / 保守覆盖状态提交]
-    S --> M
+    S[语音 interim / final] --> P[主进程按正式项目预取]
+    Q[Ctrl+Enter / 如何回答] --> R[QuestionResolver 冻结完整问题]
+    R --> M[本地有序子问 / 正式项目路由]
+    M --> C[按子问与事实类型分组]
+    P -->|身份完全匹配才采用| C
+    C --> B[BM25 / 精确符号候选]
+    C --> E[已准备的本地 embedding worker]
+    E -->|未准备 / 失败 / 超时| B
+    B --> F[RRF 融合 / 类型和真实性选择]
+    E --> F
+    F --> T[预算 / 最终消息可见证据]
+    T --> L[一次 LLM 流式正文]
+    T --> U[折叠参考依据与资料缺口]
+    L -->|有效自然完成| H[来源依据和保守覆盖状态提交]
 ```
 
-## 问题与讨论状态
+## 按键与问题快照
 
-`planInterviewQuestion({text, partial, sourceKey, mode})` 保留原文及原文位置，识别中文、英文场景、约束和有序子问。解析不确定时保留原问；最多展开 32 个子问，`omittedQuestions` 报告超出部分，原文仍进入当前请求。可靠同源信息可以关联 partial 和完整 final；不靠相似文字合并不同发言。
+`Ctrl+Enter` 随时响应，包括尚未结束的发言和当前没有可识别问题的情况，不等待在线规划模型。新的回答请求取消旧生成，epoch 和请求身份拒绝迟到结果。`Ctrl+Shift+Enter` 或“屏幕与问题”结合本次截图、当前要求与相关历史修改代码或回答问题。其他已有快捷键保持原有行为。
 
-`ConversationMemory.begin()` 返回 `interviewPlan`、`checklist`、`projectInterviewState`；既有 recent/archive、预算、activeProject 和项目切换隔离继续生效。清空会话会重置清单及讨论状态，并增加 epoch。
+本地规划保留完整原问、场景、约束与有序子问。典型检索合并为 1–4 组，重复需求可以共享召回；超出上限的需求保留在原问中并报告缺失，不静默丢弃尾部问题或新项目名称。
 
-问题清单区分 `pending`、`covered`、`unknown`、`skipped`。覆盖指 Cue 建议的内容，不代表候选人实际说过。只有本轮有效请求成功提交、模型服务明确自然结束且本地规则找到相应回答证据，才标 covered。取消、拒答、截断、未知结束信息和部分发言不会被误记为全答完。判断保守，不是语义正确性的保证；不确定项保持 unknown。
+## 项目与资料边界
 
-新问优先，只有同话题仍适用的旧遗漏才补答。独立新题、显式项目切换与普通 Redis 八股题不会注入其他项目状态。“屏幕与问题”使用新截图和最新目标，不重发旧的未确认代码修改命令。
+可选 `interview/project.md` 清单提供稳定项目 ID、名称、别名与简历序号。`resume_order` 决定序号，导入先后不决定它。没有清单的旧项目仍可使用。界面“当前项目”默认自动，手动选择只提供默认上下文，显式项目名称或切换仍优先。通用原理题暂停项目事实，明确回到项目后恢复。项目比较按子问绑定项目，来源保留项目标签。
 
-ProjectInterviewState 将有来源的 architecture/decisions 与 discussedTopics/unresolvedTopics/currentFocus 分开。助手旧回答、假设性扩容和推演方案不能升级为项目事实。导入索引或手工资料更新会使对应旧事实失效；候选人实际发言仍按既有自述来源记录。
+会话历史用于指代，助手旧回答不能成为项目事实。清空会话保留只读导入快照和已准备模型，但清除讨论、问题缓存、预取与生成任务。重新导入、来源版本或模型变化会使相关旧结果失效。
 
-## 项目证据与源码
+导入示例见 [用户资料与项目导入](user-data-import.md)。新导入解析 Markdown 标题树、围栏、表格、父段与真实字符偏移。代码使用保守的词法解析与实际调用关系，不声称完整解析反射、动态调用、跨语言符号或所有重载。`code_refs` 与 `related_docs` 只恢复本项目中存在且可核验的片段，受跳数、邻居数与最终预算限制。旧 v1/v2 快照保持可读，重新导入才能获得新结构元数据。
 
-ActiveProjectContextCache 只缓存有文件及行号的导入证据。按正式 scopes、索引 revision 和 schema version 隔离，默认最多 8 个缓存项，每项 24 条 / 18000 字符，20 分钟 TTL。
+## 召回、选择与缺失
 
-首次问题先限量预载 README、架构、核心代码与配置，再按项目作用域正式检索。后续问题需要的实体、主题、原因、故障处置或具体符号有充分证据时，跳过搜索；否则检索后回填。通用代码流程不能仅凭“缓存里有一个方法”判充分。检查也覆盖最终 提示词预算裁剪后的证据，隐藏的资料尾部不记入本轮使用证据。
+检索先过滤 scopes，再按子问召回 BM25、精确路径/符号与可选真实 embedding 候选，使用 RRF 排名融合。128 维 feature-hash 是旧本地回退，不是学习式语义模型；真实 embedding 生效时不再把同词 hash 当作第三份等价证据重复加权。
 
-本地索引仍使用 v2 容器，兼容 v1 读取；新导入使用 chunker / metadata schema 3。**升级后重新导入项目**，即可生成新的类、方法、调用和业务映射元数据。旧快照继续可以检索，缺少的结构字段不凭空补造。导入的是快照，修改原项目源码后也需要重新导入。
+选择器区分实现、决策、困难/事故、指标、职责/协作、部署环境与一般原理。代码不能替代个人贡献，相关词不能替代真实事故与测量记录。计划、假设、弃用方案和测试数据保留原有真实性范围，未知材料保持保守。`confirmed` 只表示用户确认，不是第三方证明。
 
-Java 的类头、接口声明、方法、imports、字段类型和实际 receiver calls 可用于定位 Controller → Service → Repository。中文业务词到符号的关联来自文档或源码注释。只有唯一、证据明确的关系才展开；重载、同名类、动态调用等标为未解析或歧义。框架继承的 Repository 仅引用仓库内声明，不声称仓库里存在框架 `save()` 的实现。
+原文进入明确的数据边界，检索前缀只用于索引。最终预算包括来源标签、固定规则、完整问题、约束、历史、讨论状态与输出余量。只有实际进入最终消息的来源才能提交为本轮依据；隐藏尾部与被裁掉的指标环境不算命中。界面“参考依据/资料缺口”显示项目、文件、节选与缺失项，口述正文不强制罗列路径。
 
-检索复用 BM25 和本地 128 维 feature-hash，每个召回通道最多 50 个候选，融合和本地排序后按模式选取 3–6 条证据（代码定位及复杂题通常 5 条）。作用域在候选、融合、缓存和关系展开各阶段都受约束。
+## 本地语义检索与回退
 
-## 可选检索接口
+本地模型为 `Xenova/multilingual-e5-small` 固定 ONNX 快照，384 维 mean pooling 与 L2 normalization，分别加 `query:` / `passage:` 前缀。模型在 worker 中运行，导入时建立向量，回答时只查询已准备模型和快照。准备、校验和与故障处理见 [本地语义检索](local-semantic-search.md)。
 
-默认不启用神经 embedding、外部向量库或模型 reranker，也不发生额外网络调用。`ProjectSearch.build(chunks, options)` / `buildAsync` 保留旧调用兼容，可选以下同步接口：
+必须明确点击“准备本地语义检索”或选择已准备模型目录，`Ctrl+Enter` 和回答阶段不会下载模型。模型缺失、未 ready、快照不匹配、worker 异常或超时均继续使用基础检索并记录原因。语义最多等待约 100 ms，剩余请求预算更小时提前回退；迟到结果不修改已构造的当前提示词。
 
-```js
-const options = {
-  vectorProvider: {
-    ready: true,
-    modelVersion: 'local-model-v1',
-    search({ query, scopes, limit, candidates }) {
-      // candidates: [{ id, chunk }]，仅包含当前 scopes 的源码。
-      // 返回实际候选源 ID 和 0..1 分数；此处接自有本地服务。
-      return [];
-    }
-  },
-  reranker: {
-    ready: true,
-    modelVersion: 'local-reranker-v1',
-    rerank({ query, scopes, candidates }) {
-      // candidates: [{ id, chunk, score, confidence }]
-      return [];
-    }
-  }
-};
+向量复用依据内容、项目版本、chunker/parser/schema、模型、tokenizer、dtype 与 pooling 身份，删除或改变的文件不能借用旧向量。问题结果缓存身份包含 epoch、scopes、项目 revision、模型版本、完整问题 hash、questionVersion/sourceKey 与检索配置，来源 key 相同也不能复用纠正前的提问。
+
+## 输出与供应商
+
+固定规则放在动态资料前。答案第一两句回应当前问题，多问按原顺序覆盖；历史建议不是事实，推演保持“如果/我会”。普通口述仍使用 400、640 或复杂题 1000–1800 Token 上限，截图解释和改代码保持独立预算。上限不是目标字数。
+
+适配器保留字符串系统提示词、流式 token、取消、完成、截断与拒答信息。自然结束不能替代逐问正确性；只有有效请求完成且本地检查找到相应回答证据时才保守标记 covered。未知、取消、过期、空答或截断不误记为全答完。
+
+思考开关、usage 与 prompt-cache 信息按具体供应商协议处理，不对所有 `qwen*` 注入同一未经支持的参数。固定前缀提高复用机会但不保证缓存命中。日志区分 estimated tokens 与实际 usage，不打印 API key、整份源码或个人故事。
+
+## 验证命令与测量边界
+
+```bash
+npm test
+npm run test:ui
+npm run eval:rag -- --out /tmp/cue-rag-eval.json
+npm run benchmark:rag -- --iterations 5 --out /tmp/cue-rag-latency.json
+npm run eval:rag:semantic -- --model-dir /已准备且带校验清单的模型目录 --out /tmp/cue-rag-semantic.json
 ```
 
-外部返回的未知 ID 或其他项目证据会被忽略。服务的版本参与缓存身份。禁用、异常或异步接口退回本地检索；异步函数不在此同步路径调用。真正启用远程 embedding 需要另行接入明确的异步编排、模型版本与超时边界，当前接口不是远程服务实现。
+普通 CI 和默认评测不下载模型、不调用真实云 LLM。语义命令只校验并使用指定目录；准备失败会报告阻塞，不能把确定性候选通过当成 ONNX 成功。打包与平台检查见 [发布说明](packaging.md)。
 
-## 提示词、完成信息与测试
+评测数据位于 `test/fixtures/rag-evaluation/`：两个完全合成项目，各 30 问，其中 20 问为开发集、10 问为保留集，相同技术词对应不同实现、职责与指标。gold 与回放位于索引目录之外，问法不复制进 aliases。公开静态保留集不能替代未来独立盲测。
 
-项目深挖按当前问题需要组织结论、原因、实现、取舍与优化方向，避免反复介绍项目。简单概念题使用 400 Token 上限，普通单问 640，复杂题和多子问 1000–1800。“屏幕与问题”及带截图的手动提问按任务调整：简短解释 1200，复杂解释 2400–4096，改代码和未知截图题保留 4096。输出上限不是强制字数。
+60 问比较同步兼容检索、逐子问 typed 检索与显式已准备的真实 semantic 检索。baseline 表示在相同新索引上运行旧同步兼容路径，不是另一个 Git 提交的完整程序。报告候选来源召回、最终消息可见关键事实覆盖、多问完整覆盖、跨项目泄漏和 missing 识别；找到文件不代表关键事实进入提示词。连续回放额外使用真实 package 启动链、快捷键、runFeature 与 LLM 适配器捕获最终 SDK messages，只有 OS/硬件和模型传输使用可控模拟。
 
-`llm.stream()` 仍返回字符串并通过 onToken 流式输出，增加可选 `onCompletion({finishReason, complete, truncated, refused})`。这些元数据描述 服务结束状态，不能代替逐问语义判断。
+基准分别记录导入/索引冷启动、首次准备、暖态、有/无精确预取与受控 worker 失效。`--cpu-contention` 可测试合成 CPU 竞争，不等同于真实 Whisper。设计目标为暖态检索 P95 ≤50 ms、本地按键到请求准备 P95 ≤150 ms，结果必须按当前机器实测报告。真实网络/模型/UI 首字、Whisper 竞争和用户材料回答质量需另外测量。
 
-全量测试命令：`node --test test/*.test.js`。专项包括实际启动入口 → 启动补丁 → 主进程 → LLM 适配器发送的最终 SDK 请求、漏答与补答、项目切换、30 分钟回放、缓存失效及预算、源码三层调用证据、partial/abort/clear、各模型服务的完成状态。模型传输使用确定性模拟；真实模型回答质量与真实 TTFT 需要使用实际模型另行评测。
+本轮实测与尚未验证项目见 [检索评测记录](rag-evaluation-report.md)。每次运行记录源码与 gold 哈希；源码在测量期间改变时应重跑。
+
+可用 `--samples /人工审阅样本.json` 加载生成样本：`[{"caseId":"synthetic-tide-01","claims":[{"supported":true,"reviewNote":"与指定来源逐项核对"}]}]`。没有样本时，无依据事实比例显示未测量，不用检索分数冒充回答真实性。

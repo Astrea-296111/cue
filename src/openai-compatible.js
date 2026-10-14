@@ -57,8 +57,44 @@ function createCompatibleClientOptions(apiKey, baseUrl) {
   };
 }
 
+function isDashScopeChatEndpoint(value) {
+  try {
+    const parsed = new URL(String(value || ''));
+    return /^dashscope(?:-intl|-us)?\.aliyuncs\.com$/i.test(parsed.hostname) &&
+      /^\/compatible-mode\/v1\/?$/i.test(parsed.pathname);
+  } catch (_) { return false; }
+}
+
+// Only the original Qwen3 hybrid checkpoints are included. Instruct-2507,
+// Thinking-2507, QwQ and future/unknown aliases have different capabilities.
+// Official checkpoint documentation: github.com/QwenLM/Qwen3 (hybrid mode).
+const HYBRID_QWEN3_MODEL = /^qwen3-(?:0\.6b|1\.7b|4b|8b|14b|32b|30b-a3b|235b-a22b)$/i;
+
+function resolveChatRequestOptions({ baseURL, model, smart, explicit = {} } = {}) {
+  const result = {};
+  if (isDashScopeChatEndpoint(baseURL) && HYBRID_QWEN3_MODEL.test(String(model || ''))) {
+    result.enable_thinking = !!smart;
+  }
+  // Only explicit user settings travel to arbitrary compatible servers. Never
+  // infer an unsupported reasoning_effort from a model's name prefix.
+  if (typeof explicit.enable_thinking === 'boolean') result.enable_thinking = explicit.enable_thinking;
+  if (typeof explicit.reasoning_effort === 'string' && /^(?:none|minimal|low|medium|high|xhigh)$/i.test(explicit.reasoning_effort)) {
+    result.reasoning_effort = explicit.reasoning_effort;
+  }
+  return result;
+}
+
+function supportsStreamingUsage(baseURL) {
+  if (!baseURL) return true; // Official OpenAI client default.
+  if (isDashScopeChatEndpoint(baseURL)) return true;
+  try { return new URL(baseURL).hostname === 'api.openai.com'; } catch (_) { return false; }
+}
+
 module.exports = {
   OPTIONAL_API_KEY_PLACEHOLDER,
   createCompatibleClientOptions,
-  normalizeBaseUrl
+  normalizeBaseUrl,
+  isDashScopeChatEndpoint,
+  resolveChatRequestOptions,
+  supportsStreamingUsage
 };

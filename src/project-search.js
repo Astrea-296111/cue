@@ -16,7 +16,9 @@ const ALIASES = [
   ['重试', 'retry', 'retries'], ['一致性', 'consistency'],
   ['检索增强', 'rag'], ['大模型', 'llm'], ['向量', 'vector', 'embedding'],
   ['记忆', 'memory'], ['超时', 'timeout'], ['回调', 'callback'],
-  ['事务', 'transaction', 'transactional'], ['并发', 'concurrency', 'concurrent']
+  ['事务', 'transaction', 'transactional'], ['并发', 'concurrency', 'concurrent'],
+  ['资源准入', '资源预留', '资源预占', '资源预约', 'resource reservation', 'admission', 'reservation'],
+  ['调度', 'scheduler', 'scheduling'], ['报告生成', '结果导出', 'report generation', 'result export']
 ];
 
 
@@ -114,7 +116,11 @@ function querySpec(query) {
     groups.push(tokens);
     for (const token of tokens) { originalSet.add(token); weights.set(token, 1); }
   }
-  const boundedWeights = new Map([...weights].slice(0, 80));
+  const allWeights = [...weights];
+  // Keep the tail of long interview questions: the concrete request often
+  // follows a long scenario. This bounds posting work without making only the
+  // first clause searchable. Original questions themselves remain untouched.
+  const boundedWeights = new Map(allWeights.length <= 256 ? allWeights : [...allWeights.slice(0, 96), ...allWeights.slice(-160)]);
   const original = [...originalSet].filter(t => boundedWeights.has(t));
   const boundedGroups = groups.map(g => g.filter(t => boundedWeights.has(t))).filter(g => g.length);
   return { original, weights: boundedWeights, groups: boundedGroups, key: JSON.stringify([...boundedWeights]) };
@@ -137,7 +143,7 @@ class ProjectSearch {
 
   add(id) {
     const chunk = this.chunks[id];
-    const bodyTokens = tokenize(chunk.text);
+    const bodyTokens = tokenize(chunk.retrievalText || chunk.text);
     const body = frequency(bodyTokens);
     const fields = [body, frequency(tokenize(chunk.path)), frequency(tokenize(String(chunk.symbol || '').split('#').at(-1)))];
     const terms = new Set(fields.flatMap(f => [...f.keys()]));
@@ -219,12 +225,13 @@ class ProjectSearch {
     } catch (_) { return { rows: [], status: 'unavailable' }; }
   }
 
-  rank(query, scopes = []) {
+  rank(query, scopes = [], options = {}) {
     scopes = Array.isArray(scopes) ? [...new Set(scopes.map(String))].sort() : [];
     const spec = querySpec(query);
     const providerVersion = JSON.stringify([this.vectorProvider?.ready, this.vectorProvider?.modelVersion || this.vectorProvider?.version,
       this.reranker?.ready, this.reranker?.modelVersion || this.reranker?.version]);
-    const key = spec.key + '\n' + normalize(query) + '\n' + JSON.stringify(scopes) + '\n' + providerVersion;
+    const candidateLimit = Math.max(1, Math.min(50, Number(options.candidateLimit) || 50));
+    const key = spec.key + '\n' + normalize(query) + '\n' + JSON.stringify(scopes) + '\n' + providerVersion + '\n' + candidateLimit + ':' + (options.hashFallback !== false);
     if (this.cache.has(key)) return { ...this.remember(this.cache, key, this.cache.get(key), 32), cacheHit: true,
       candidates: 0, postingsVisited: 0, denseScanned: 0 };
     const { ids, allowed } = this.scopedIds(scopes);
@@ -243,7 +250,7 @@ class ProjectSearch {
         if (fieldMatch && weight === 1) item.fieldMatch = true;
       }
     }
-    const lexical = [...candidates.values()].sort((a, b) => b.score - a.score || a.id - b.id).slice(0, 50);
+    const lexical = [...candidates.values()].sort((a, b) => b.score - a.score || a.id - b.id).slice(0, candidateLimit);
     const queryVector = denseEmbedding(query, true);
     const hash = [];
     for (const id of ids) {
@@ -253,7 +260,7 @@ class ProjectSearch {
       hash.push({ id, similarity });
     }
     hash.sort((a, b) => b.similarity - a.similarity || a.id - b.id);
-    const dense = hash.slice(0, 50);
+    const dense = options.hashFallback === false ? [] : hash.slice(0, candidateLimit);
     const vectorResponse = this.vectorProvider?.ready === true
       ? this.providerCall(this.vectorProvider, 'search', { query, scopes: scopes.slice(), limit: 50,
         candidates: ids.map(id => ({ id, chunk: this.chunks[id] })) })
@@ -265,6 +272,11 @@ class ProjectSearch {
       if (score > (vectorById.get(row.id) || 0)) vectorById.set(row.id, score);
     }
     const vector = [...vectorById].sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 50);
+    const exact = ids.filter(id => {
+      const chunk = this.chunks[id], folded = normalize(query);
+      const symbol = this.symbols[id].split(/[.#]/).filter(part => part.length > 3);
+      return symbol.some(part => folded.includes(part)) || (chunk.path && folded.includes(normalize(chunk.path)));
+    }).slice(0, candidateLimit).map(id => ({ id, score: 1 }));
     const merged = new Map();
     const merge = (id, rank, channelScore, channel) => {
       let item = merged.get(id);
@@ -282,7 +294,17 @@ class ProjectSearch {
     };
     lexical.forEach((item, i) => merge(item.id, i, item.score, 'bm25'));
     dense.forEach((item, i) => merge(item.id, i, item.similarity, 'hash'));
+    // A learned channel replaces the deterministic hash fallback; it is not
+    // counted as another independent vote for the same lexical vocabulary.
+    if (vectorResponse.status === 'ready') {
+      for (const item of merged.values()) {
+        if (item.channels.includes('hash')) item.rrfScore -= 1 / (60 + dense.findIndex(row => row.id === item.id) + 1);
+        item.channels = item.channels.filter(channel => channel !== 'hash');
+        item.denseSimilarity = 0;
+      }
+    }
     vector.forEach(([id, score], i) => merge(id, i, score, 'vector'));
+    exact.forEach((item, i) => merge(item.id, i, item.score, 'exact'));
     const q = normalize(query);
     const rows = [];
     for (const item of merged.values()) {
@@ -297,8 +319,8 @@ class ProjectSearch {
       const similarity = item.denseSimilarity || 0;
       const vectorSimilarity = item.vectorSimilarity || 0;
       const confidence = Math.min(1, 0.36 * coverage + 0.31 * termCoverage + (item.fieldMatch ? 0.14 : 0) + (exactSymbol ? 0.32 : 0) + (aliasMatch ? 0.13 : 0) + Math.min(0.48, similarity * 0.68) + vectorSimilarity * 0.45);
-      let score = item.score * (0.5 + 0.5 * coverage) + similarity * 7.5 + vectorSimilarity * 7.5 + item.rrfScore * 30;
-      if (exactSymbol) score += 10;
+      let score = item.rrfScore * 1000;
+      if (exactSymbol) score *= 1.18;
       if (!/测试|test\b/i.test(query) && /(?:^|\/)(?:tests?|__tests__)(?:\/|$)|\.(?:test|spec)\./i.test(chunk.path)) score *= 0.85;
       if (/架构|概览|overview|architecture/i.test(query) && /readme|docs?\/|architecture/i.test(chunk.path)) score *= 1.2;
       if (chunk.importance === 'high') score *= 1.04;
@@ -327,11 +349,22 @@ class ProjectSearch {
       });
     }
     const top = rows.slice(0, 60);
+    const channelRows = (items, channel) => items.map(item => {
+      const id = Array.isArray(item) ? item[0] : item.id;
+      const row = rows.find(value => value.id === id);
+      return { id, chunk: this.chunks[id], score: Array.isArray(item) ? item[1] : (item.score || item.similarity || 0),
+        confidence: row?.confidence || 0, channels: [channel], relevance: row?.coverage || 0 };
+    });
     const result = { rows: top, cacheHit: false, candidates: merged.size, postingsVisited, denseScanned,
       denseCandidates: dense.length, lexicalCandidates: lexical.length, vectorCandidates: vector.length,
-      vectorStatus: vectorResponse.status, rerankerStatus: reranked.status };
+      vectorStatus: vectorResponse.status, rerankerStatus: reranked.status,
+      channels: { bm25: channelRows(lexical, 'bm25'), hash: vectorResponse.status === 'ready' ? [] : channelRows(dense, 'hash'),
+        exact: channelRows(exact, 'exact'), vector: channelRows(vector, 'vector') } };
     this.remember(this.cache, key, result, 32);
     return result;
+  }
+  getCandidates(query, scopes = [], options = {}) {
+    return this.rank(query, scopes, { ...options, candidateLimit: options.candidateLimit || options.limit || 25 });
   }
 }
 

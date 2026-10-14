@@ -30,6 +30,11 @@
       <div id="panel" class="glass no-drag">
         <div id="panel-columns">
           <div id="panel-main">
+            <div class="project-choice-row">
+              <label for="current-project">当前项目</label>
+              <select id="current-project" aria-label="当前项目"><option value="">自动</option></select>
+              <span id="active-project-label"></span>
+            </div>
             <div id="messages"></div>
 
             <div id="action-row">
@@ -138,6 +143,8 @@
         <label class="s-label">模型 <span class="s-hint">关闭深度思考使用快速模型，开启后使用深度模型</span></label>
         <div class="s-field"><span>快速模型</span><input id="model-fast" type="text" autocomplete="off" /></div>
         <div class="s-field"><span>深度思考</span><input id="model-smart" type="text" autocomplete="off" /></div>
+        <div class="s-field"><span>模型窗口</span><input id="context-window-tokens" type="number" min="1024" max="2000000" step="1024" aria-label="模型窗口 token 数" /></div>
+        <div class="s-note">填写服务商公布的上下文窗口 token 数；未知时保留 16384。回答会优先保留完整问题与约束。</div>
 
         <label class="s-label">助手访问权限 <span class="s-hint">管理获准读取 Cue 状态的程序</span></label>
         <div class="s-callers" id="applink-callers"></div>

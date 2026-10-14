@@ -14,7 +14,7 @@ function projectKey(chunk) {
   return root && !GENERIC_ROOT.test(root) ? 'legacy:' + root : 'legacy:root';
 }
 const key = (project, value) => project + '\n' + value;
-const sourceId = chunk => `${projectKey(chunk)}:${chunk.path}:${chunk.startLine}:${chunk.endLine}:${chunk.symbol || ''}`;
+const sourceId = chunk => chunk.id || `${projectKey(chunk)}:${chunk.path}:${chunk.startOffset ?? chunk.startLine}:${chunk.endOffset ?? chunk.endLine}:${chunk.symbol || ''}`;
 function append(map, mapKey, value) {
   let values = map.get(mapKey);
   if (!values) map.set(mapKey, values = []);
@@ -29,6 +29,7 @@ function buildProjectCodeRelations(chunks = []) {
     classes: new Map(), classNames: new Map(), edges: new Map(), mappings: [], mappingTerms: new Map(),
     chunkIds: new Map(), diagnostics: [] };
   const symbolAliases = new Map();
+  const stableIds = new Map(chunks.flatMap((chunk, id) => chunk.id ? [[chunk.id, id]] : []));
   chunks.forEach((chunk, id) => {
     graph.chunkIds.set(chunk, id);
     const project = projectKey(chunk);
@@ -57,6 +58,23 @@ function buildProjectCodeRelations(chunks = []) {
     if (declared) record.declarations.push(id);
     const method = chunk.method || (String(chunk.symbol || '').includes('#') ? chunk.symbol.split('#').at(-1) : '');
     if (method) append(record.methods, method, id);
+  });
+
+  // Import-time front matter references are resolved against the same immutable
+  // project snapshot. Reuse the graph for document→code→forward-call expansion;
+  // unresolved/ambiguous declarations never become edges to guessed symbols.
+  chunks.forEach((chunk, id) => {
+    for (const ref of [...(chunk.codeRefs || []), ...(chunk.relatedDocs || [])]) {
+      if (ref.status !== 'resolved') continue;
+      for (const stableId of (ref.targetIds || []).slice(0, 6)) {
+        const targetId = stableIds.get(stableId), target = chunks[targetId];
+        if (!target || projectKey(target) !== projectKey(chunk) || target.path !== ref.path) continue;
+        append(graph.edges, id, { status: 'resolved', reason: 'declared-project-reference', targetId,
+          fromSymbol: chunk.symbol || '', toSymbol: target.symbol || target.path,
+          sourcePath: chunk.path, ...(Number.isInteger(ref.sourceLine) ? { sourceLine: ref.sourceLine } : {}),
+          targetPath: target.path, targetLine: target.startLine, projectId: chunk.projectId || '' });
+      }
+    }
   });
   for (const record of graph.classes.values()) {
     // Class names are query aliases only if a source declaration exists.
@@ -188,7 +206,7 @@ function expandProjectCodeQuery(query, graph, options = {}) {
       projectId: mapping.projectId, text: mapping.text, symbols: refs });
     if (symbols.size >= maxSymbols || mappings.length >= 4) break;
   }
-  return { query: symbols.size ? `${query}\n源码资料中的业务符号：${[...symbols].join(' ')}`.slice(0, 2400) : query, mappings };
+  return { query: symbols.size ? `${query}\n源码资料中的业务符号：${[...symbols].join(' ')}` : query, mappings };
 }
 
 function expandProjectCodeRelations(rows, graph, options = {}) {

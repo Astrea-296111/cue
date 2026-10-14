@@ -98,6 +98,8 @@ class ConversationMemory {
       previousPlan: this.lastPlan,
       activeProjectPlan: this.activeProjectPlan,
       catalog,
+      manualProjectId: settings.currentProjectId || '',
+      interviewPlan,
       answerHint: this.recent.at(-1)?.answer || ''
     });
     const policy = contextPolicy(mode, current, this.recent.length + this.archive.length > 0, plan);
@@ -146,8 +148,10 @@ class ConversationMemory {
     const chosen = [];
     // Keep project follow-ups inside their identity even after an explicit switch
     // or a generic technical interlude. Retain all entries for broad recap modes.
-    const sameThread = entry => policy === 'broad' || !plan.retrieve || !plan.scopes?.length ||
-      (entry.plan?.retrieve && sameProjectScopes(plan.scopes, entry.plan.scopes));
+    const sameThread = entry => policy === 'broad' || (plan.retrieve
+      ? plan.scopes?.length ? entry.plan?.retrieve && sameProjectScopes(plan.scopes, entry.plan.scopes)
+        : entry.plan?.retrieve && !entry.plan.scopes?.length && entry.plan.projectLabel === plan.projectLabel
+      : !entry.plan?.retrieve);
     for (let i = this.recent.length - 1; i >= 0 && chosen.length < maxRecent; i--) {
       const entry = this.recent[i];
       if (!sameThread(entry)) continue;
@@ -253,6 +257,13 @@ class ConversationMemory {
   getInterviewState(scopes = this.activeProjectPlan?.scopes || []) {
     if (scopes.length !== 1) return null;
     return this.projectInterviewStates.get(scopes[0])?.snapshot() || null;
+  }
+
+  invalidateSources() {
+    // Preserve user conversation, but no completed request or source reference
+    // from an older import snapshot can be committed into the new snapshot.
+    this.epoch++;
+    this.projectInterviewStates.clear();
   }
 }
 
