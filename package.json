@@ -5,7 +5,6 @@
   "license": "GPL-3.0-or-later",
   "author": "cue",
   "main": "src/custom-main.js",
-
   "scripts": {
     "start": "electron .",
     "test": "node --test test/*.test.js",
@@ -13,16 +12,17 @@
     "dist": "electron-builder --mac",
     "dist:linux": "electron-builder --linux --x64",
     "dist:linux:arm64": "electron-builder --linux --arm64",
-
     "prepare:whisper": "node scripts/prepare-whisper-runtime-fixed.js",
-
     "pack:win": "electron-builder --win --dir",
     "postinstall": "node scripts/rename-electron.js",
     "dist:win": "electron-builder --win portable",
-
-    "dist:win:installer": "electron-builder --win nsis"
+    "dist:win:installer": "electron-builder --win nsis",
+    "test:semantic": "node scripts/semantic-smoke.cjs",
+    "test:semantic:runtime": "node scripts/semantic-smoke.cjs --runtime-only",
+    "eval:rag": "node scripts/evaluate-rag.js",
+    "benchmark:rag": "node scripts/evaluate-rag.js --benchmark",
+    "eval:rag:semantic": "node scripts/evaluate-rag.js --semantic"
   },
-
   "devDependencies": {
     "electron": "33.2.1",
     "electron-builder": "^26.15.3",
@@ -30,14 +30,13 @@
     "resedit": "^3.0.2",
     "tar": "^7.5.22"
   },
-
   "engines": {
     "node": ">=22.12.0"
   },
-
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
     "@google/genai": "^2.12.0",
+    "@huggingface/transformers": "3.8.1",
     "lucide-static": "^0.468.0",
     "mammoth": "^1.8.0",
     "openai": "^4.73.0",
@@ -45,7 +44,3 @@
     "ws": "^8.18.0"
   }
 }
-
-
-
-

@@ -9,11 +9,11 @@ const enter = 'CommandOrControl+Return';
 const assist = 'CommandOrControl+Shift+Return';
 const tcsAnswer = '平台压缩是 TCS 的最大难点，微信和 Facebook 的 JPEG 二次压缩影响图片恢复率。';
 const repoAnswer = 'RepoPilot 的架构是 Agent Loop 与 LangGraph 双运行时，工具执行后进行 AST 验证，再从 checkpoint 恢复。';
-const formalSearches = app => app.searches.filter(row => row.method === 'searchProjectKnowledge');
+const formalSearches = app => app.searches.filter(row => row.method === 'getProjectCandidates');
 const lastSystem = app => app.calls.at(-1).messages[0].content;
 
 function assertScoped(app) {
-  for (const row of app.searches.filter(row => ['searchProjectKnowledge', 'prefetchProjectKnowledge'].includes(row.method))) {
+  for (const row of app.searches.filter(row => ['getProjectCandidates', 'searchProjectKnowledge', 'prefetchProjectKnowledge'].includes(row.method))) {
     assert.equal(row.scopes?.length, 1, 'each runtime retrieval must have exactly one authoritative project scope');
     for (const hit of row.rows) {
       if (row.scopes[0].startsWith('@project:')) assert.equal(hit.projectId, row.scopes[0].slice('@project:'.length));
@@ -226,7 +226,7 @@ test('30-minute real runtime keeps project facts source-faithful across more tha
   assert.doesNotMatch(JSON.stringify(app.calls.at(-1).messages), /REPO_ONLY|ASSISTANT_INVENTED_FACT/);
 });
 
-test('project Redis decisions and outage follow-ups reuse sufficient source evidence while unknown code needs search', async t => {
+test('project Redis decisions and outage follow-ups reselect scoped typed evidence while unknown code needs search', async t => {
   const chunks = [
     { path: 'Order/README.md', startLine: 1, endLine: 5,
       text: '# Order 项目\n项目使用 MySQL。项目选择 Redis，因为缓存降低数据库读压力。\nRedis 不可用时采用熔断限流和数据库回源降级，恢复后逐步预热缓存。\n订单系统架构采用无状态 API 服务和数据库事务。\n代码入口是 OrderController。' }
@@ -237,11 +237,12 @@ test('project Redis decisions and outage follow-ups reuse sufficient source evid
   let count = formalSearches(app).length;
   app.answer('选择 Redis 是因为缓存降低数据库读压力，但需要处理缓存一致性。');
   await app.ask('say', '为什么选择 Redis？');
-  assert.equal(formalSearches(app).length, count);
+  assert.ok(formalSearches(app).length > count, 'a new requirement must be reselected rather than reuse an overview as a decision');
   assert.match(lastSystem(app), /降低数据库读压力/);
   app.answer('Redis失效时先熔断限流，通过数据库回源降级，恢复后逐步预热缓存。');
   await app.ask('say', '如果 Redis 失效怎么办？');
-  assert.equal(formalSearches(app).length, count);
+  assert.ok(formalSearches(app).length > count);
+  count = formalSearches(app).length;
   await app.ask('say', '这块代码中的 UnknownHandler 怎么实现？');
   assert.equal(formalSearches(app).length, count + 1);
   assertScoped(app);
@@ -264,7 +265,7 @@ test('source-code question sends a cited Controller-Service-Repository chain to 
   assert.match(source, /orderService\.createOrder/);
   assert.match(source, /orderRepository\.save/);
   assert.match(source, /interface OrderRepository extends JpaRepository/);
-  assert.match(source, /调用关系/);
+  assert.match(source, /已核对引用|调用关系/);
   assertScoped(app);
 });
 

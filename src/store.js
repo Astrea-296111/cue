@@ -22,6 +22,8 @@ const DEFAULTS = {
   // 候选人资料
   resumeText: '',
   projectKnowledge: '', // 简历项目知识文档：架构、链路、难点、指标、故障、取舍、复盘等
+  currentProjectId: '', // 空值表示自动；只作为无显式项目时的默认选择。
+  contextWindowTokens: 16384,
   jobDescription: '',
 
   // 面试准备

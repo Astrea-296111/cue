@@ -24,6 +24,7 @@ class ProjectInterviewState {
     this.discussedTopics = [];
     this.unresolvedTopics = [];
     this.currentFocus = null;
+    this.currentEntity = null;
     this.indexRevision = null;
     this.manualFingerprint = null;
     this.lastRequestId = 0;
@@ -48,16 +49,25 @@ class ProjectInterviewState {
     const accepted = [];
     for (const item of flattenEvidence(evidence)) {
       if (!['imported', 'manual'].includes(item.sourceType)) continue;
+      if (item.provenance === 'derived_hint') continue;
       if (/assistant|generated|llm/i.test(String(item.origin || item.source || ''))) continue;
       if (!Number.isInteger(item.startLine) || !Number.isInteger(item.endLine) || item.startLine < 1 || item.endLine < item.startLine) continue;
       if (item.sourceType === 'imported' && !inProjectScope(item, this.scopes)) continue;
       if (item.sourceType === 'manual' && item.path !== 'settings.projectKnowledge') continue;
       if (item.scopes?.length && !item.scopes.some(scope => this.scopes.includes(scope))) continue;
-      const id = stableId(`${item.sourceType}:${item.projectId || this.scopes[0]}:${item.path}:${item.startLine}:${item.endLine}`);
+      const id = stableId(`${item.sourceType}:${item.projectId || this.scopes[0]}:${item.path}:${item.startLine}:${item.endLine}:${item.startOffset ?? ''}:${item.endOffset ?? ''}`);
       this.evidence.delete(id);
       this.evidence.set(id, { id, sourceType: item.sourceType, scope: this.scopes[0],
         projectId: item.projectId || null, path: String(item.path).slice(0, 500), startLine: item.startLine, endLine: item.endLine,
-        text: String(item.text).slice(0, 2200), partial: !!item.partial,
+        text: String(item.text), partial: !!item.partial,
+        startOffset: Number.isInteger(item.startOffset) ? item.startOffset : null,
+        endOffset: Number.isInteger(item.endOffset) ? item.endOffset : null,
+        projectName: item.projectName || null, docType: item.docType || null,
+        truthScope: item.truthScope || null, status: item.status || null,
+        provenance: item.provenance || (item.sourceType === 'manual' ? 'user_authored' : 'imported'),
+        headingPath: Array.isArray(item.headingPath) ? [...item.headingPath] : item.headingPath || null,
+        codeRefs: Array.isArray(item.codeRefs) ? item.codeRefs.map(ref => ({ ...ref })) : [],
+        relatedDocs: Array.isArray(item.relatedDocs) ? [...item.relatedDocs] : [],
         topics: (item.topics || item.interviewTopics || []).filter(topic => typeof topic === 'string').slice(0, 12),
         symbol: typeof item.symbol === 'string' ? item.symbol.slice(0, 160) : null,
         revision: item.sourceType === 'imported' ? this.indexRevision : this.manualFingerprint });
@@ -75,7 +85,9 @@ class ProjectInterviewState {
       ['pending', 'unknown'].includes(question.status)).map(question => question.text.slice(0, 500)).slice(-16);
     this.currentFocus = { question: request.question.slice(0, 500), topics: [...new Set(topics)].slice(0, 12),
       symbols: [...new Set(accepted.map(item => item.symbol).filter(Boolean))].slice(0, 8),
+      sourceRefs: accepted.map(item => item.id),
       requestId: request.id };
+    this.currentEntity = this.currentFocus.symbols.at(-1) || this.currentFocus.topics.at(-1) || this.currentEntity;
     return true;
   }
 
@@ -84,6 +96,8 @@ class ProjectInterviewState {
     this.decisions = [];
     for (const item of this.evidence.values()) {
       if (item.partial) continue;
+      if (item.docType === 'theory') continue;
+      if (['planned', 'hypothetical', 'abandoned', 'general_knowledge'].includes(item.truthScope)) continue;
       // Detect explicit source statements only. Mentioning a technology, or a
       // hypothetical alternative, does not establish that the project uses it.
       for (const [category, technologies] of Object.entries(TECH)) {
@@ -93,7 +107,8 @@ class ProjectInterviewState {
             !/假设|如果|假如|可能|建议|计划|可选|(?:不|未|没有|并非|无需|禁止).{0,6}(?:采用|使用|选择|基于)|\b(?:if|would|could|may|might|should|not|never|without|alternative|consider\w*|plan\w*|don't|doesn't|didn't)\b/i.test(part));
           if (!statement) continue;
           const entries = this.architecture[category] || (this.architecture[category] = []);
-          if (!entries.some(entry => entry.technology === technology)) entries.push({ technology, sourceRefs: [item.id] });
+          if (!entries.some(entry => entry.technology === technology)) entries.push({ technology, sourceRefs: [item.id],
+            truthScope: item.truthScope || 'unverified', revision: item.revision });
           if (/因为|为了|原因|考虑|代价|取舍|\b(?:because|in order to|trade.?off|reason)\b/i.test(statement)) {
             this.decisions.push({ technology, sourceText: statement.slice(0, 600), sourceRefs: [item.id] });
           }
@@ -107,7 +122,9 @@ class ProjectInterviewState {
     const unresolvedTopics = checklist ? checklist.questions.filter(question =>
       ['pending', 'unknown'].includes(question.status)).map(question => question.text.slice(0, 500)).slice(-16) : [...this.unresolvedTopics];
     return { project: this.project, scopes: [...this.scopes], currentFocus: this.currentFocus ? {
-      ...this.currentFocus, topics: [...this.currentFocus.topics], symbols: [...this.currentFocus.symbols] } : null,
+      ...this.currentFocus, topics: [...this.currentFocus.topics], symbols: [...this.currentFocus.symbols],
+      sourceRefs: [...(this.currentFocus.sourceRefs || [])] } : null,
+      currentEntity: this.currentEntity,
       architecture: JSON.parse(JSON.stringify(this.architecture)), decisions: this.decisions.map(decision => ({ ...decision, sourceRefs: [...decision.sourceRefs] })),
       discussedTopics: [...this.discussedTopics], unresolvedTopics,
       evidence: [...this.evidence.values()].map(item => ({ ...item, topics: [...item.topics] })),

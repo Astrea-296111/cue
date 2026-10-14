@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('cue', {
   whisperModelImport: (modelId) => ipcRenderer.invoke('whisper:model-import', modelId),
   platformInfo: () => ipcRenderer.invoke('platform:info'),
   ask: (payload) => ipcRenderer.send('ask', payload),
+  replyRendered: (requestId) => ipcRenderer.send('llm:rendered', requestId),
   captureToggle: () => ipcRenderer.invoke('capture:toggle').catch((err) => {
     console.error('[cue] captureToggle error', err);
     return false;
@@ -31,13 +32,16 @@ contextBridge.exposeInMainWorld('cue', {
   projectImportZip: () => ipcRenderer.invoke('project:import-zip'),
   projectIndexClear: () => ipcRenderer.invoke('project:index-clear'),
   projectPrefetch: (query) => ipcRenderer.send('project:prefetch', query),
+  projectCurrent: (projectId) => ipcRenderer.invoke('project:current', projectId),
+  projectSemanticState: () => ipcRenderer.invoke('project:semantic-state'),
+  projectSemanticPrepare: (importLocal = false) => ipcRenderer.invoke('project:semantic-prepare', { importLocal }),
   quit: () => ipcRenderer.send('app:quit'),
   permissionsCheck: () => ipcRenderer.invoke('permissions:check'),
   permissionsRequest: () => ipcRenderer.invoke('permissions:request'),
   permissionsContinue: () => ipcRenderer.send('permissions:continue'),
   log: (msg) => ipcRenderer.send('log', msg),
   on: (channel, cb) => {
-    const allowed = ['capture:state', 'llm:start', 'llm:token', 'llm:done', 'llm:error', 'status', 'transcript', 'stt:interim', 'stt:final', 'stt:status', 'vad:state', 'applink:consent-request', 'hide:toggle', 'shortcut:mode', 'whisper:download-progress', 'whisper:models-changed'];
+    const allowed = ['capture:state', 'llm:start', 'llm:token', 'llm:done', 'llm:error', 'llm:evidence', 'project:active', 'project:catalog', 'project:semantic-progress', 'project:semantic-state', 'status', 'transcript', 'stt:interim', 'stt:final', 'stt:status', 'vad:state', 'applink:consent-request', 'hide:toggle', 'shortcut:mode', 'whisper:download-progress', 'whisper:models-changed'];
     if (!allowed.includes(channel)) return;
     ipcRenderer.on(channel, (_e, data) => cb(data));
   }

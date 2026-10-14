@@ -1,9 +1,9 @@
 const { app, BrowserWindow, ipcMain, globalShortcut, screen, session, desktopCapturer, shell, dialog, systemPreferences,net } = require('electron');
 const path = require('path');
 const { performance } = require('perf_hooks');
-const { withCurrentQuestion, isLikelyFollowUp } = require('./src/project-query');
+const { withCurrentQuestion, isLikelyFollowUp, planProjectRetrieval } = require('./src/project-query');
 const { QuestionResolver } = require('./src/question-resolver');
-const { planInterviewQuestion } = require('./src/interview-question-planner');
+const { planInterviewQuestion, stableId } = require('./src/interview-question-planner');
 const { formatInterviewChecklist } = require('./src/interview-checklist');
 const { formatProjectInterviewState } = require('./src/project-interview-state');
 const { UI_SCALE, initialWindowLayout, attachWindowLayout } = require('./src/window-layout');
@@ -16,14 +16,18 @@ const { parseDocumentFile } = require('./src/resume');
 const { createLLM } = require('./src/llm');
 const { MODES, shouldCaptureScreen, getAnswerPlan, contextCharsFor } = require('./src/prompts');
 const { ConversationMemory } = require('./src/conversation-memory');
-const { getProjectCatalog, getProjectIndexRevision, warmProjectIndex } = require('./src/project-knowledge');
+const { getProjectCatalog, getProjectIndexRevision, getProjectIndexSnapshot, warmProjectIndex } = require('./src/project-knowledge');
+const { getProjectEmbeddings } = require('./src/project-embeddings');
+const { ProjectRagSession, sourceEvents, formatRetrievalRequirements } = require('./src/project-rag-session');
+const { retrieveProjectEvidenceAsync } = require('./src/retrieval-coordinator');
+const { prepareFinalRequest, visibleEvidence } = require('./src/final-request-budget');
 const { rms16 } = require('./src/wav');
 const { createStreamingSTT } = require('./src/stt-streaming');
 const { normalizeTranscript, TranscriptDeduper } = require('./src/transcript-normalizer');
 const { normalizeTechnicalVocabulary } = require('./src/technical-vocabulary');
 const { isSpeechNoise } = require('./src/speech-noise-filter');
 const { AdaptiveVAD, AudioRingBuffer } = require('./src/vad');
-const { buildInterviewContextBundle, detectCategory } = require('./src/interview-context');
+const { buildInterviewContextBundleAsync, detectCategory } = require('./src/interview-context');
 const { startAppLink, stopAppLink, recordEvent, appLinkConsentState, revokeAppLinkCaller } = require('./src/applink');
 
 // macOS system-audio loopback (the "them" channel via getDisplayMedia) does not
@@ -69,6 +73,63 @@ const conversation = new ConversationMemory();
 const questionResolver = new QuestionResolver();
 const transcriptDeduper = new TranscriptDeduper();
 let activeGeneration = null;
+const uiReplyTimings = new Map();
+let semanticRetriever = null;
+let formalProjectPlan = null;
+function getSemanticRetriever() {
+  if (!semanticRetriever) semanticRetriever = getProjectEmbeddings({
+    directory: path.join(app.getPath('userData'), 'project-semantic'),
+    snapshotProvider: getProjectIndexSnapshot, revisionProvider: getProjectIndexRevision,
+    fetchImpl: (url, options) => net.fetch(url, options)
+  });
+  return semanticRetriever;
+}
+const ragSession = new ProjectRagSession({
+  retrieve: input => retrieveProjectEvidenceAsync({ ...input, includeCandidates: true, semanticRetriever: getSemanticRetriever() }),
+  isCurrent: input => input.epoch === conversation.epoch && input.projectRevision === getProjectIndexRevision() &&
+    input.modelVersion === (getSemanticRetriever().status().modelVersion || 'base')
+});
+function retrievalInput(question, projectPlan, interviewPlan, contextBudget, sourceKey = '') {
+  return { question, projectPlan, interviewPlan, contextBudget, sourceKey,
+    questionVersion: interviewPlan?.questionVersion || stableId(question),
+    epoch: conversation.epoch, projectRevision: getProjectIndexRevision(),
+    modelVersion: getSemanticRetriever().status().modelVersion || 'base' };
+}
+function scheduleProjectPrefetch(payload) {
+  const text = String(typeof payload === 'string' ? payload : payload?.text || '').trim();
+  if (text.length < 4) return;
+  const settings = store.getSettings();
+  const interviewPlan = planInterviewQuestion({ text, mode: 'say', sourceKey: payload?.sourceKey || '' });
+  const projectPlan = planProjectRetrieval([{ channel: 'them', text }], 'say', {
+    catalog: getProjectCatalog(), previousPlan: conversation.lastPlan,
+    activeProjectPlan: formalProjectPlan?.activeProject || conversation.activeProjectPlan,
+    manualProjectId: settings.currentProjectId, interviewPlan,
+    answerHint: conversation.recent.at(-1)?.answer || ''
+  });
+  const budget = contextCharsFor('say', getAnswerPlan(text, interviewPlan));
+  ragSession.schedule(retrievalInput(text, projectPlan, interviewPlan, budget, payload?.sourceKey || ''),
+    { immediate: !!payload?.final });
+}
+function stopGenerationForSources() {
+  const previous = activeGeneration;
+  activeGeneration = null;
+  previous?.controller.abort();
+  state.busy = false;
+  ragSession.reset();
+  semanticRetriever?.resetSession?.();
+  uiReplyTimings.clear();
+  conversation.invalidateSources();
+  if (previous) send('llm:done', { requestId: previous.id, canceled: true });
+}
+sourceEvents.on('changed', () => {
+  stopGenerationForSources();
+  const semantic = getSemanticRetriever();
+  semantic.invalidate('project-import');
+  if (semantic.status().modelReady) semantic.indexSnapshot(getProjectIndexSnapshot(), { revision: getProjectIndexRevision() })
+    .then(() => send('project:semantic-state', semantic.status()))
+    .catch(() => send('project:semantic-state', semantic.status()));
+  send('project:catalog', { projects: getProjectCatalog() });
+});
 const transcript = []; // { channel, text, ts } — capped at MAX_TRANSCRIPT_TURNS
 const MAX_TRANSCRIPT_TURNS = 200; // ~30–40 minutes of conversation at normal pace
 const FLUSH_MS = 900;
@@ -169,14 +230,14 @@ function publishTranscript(channel, text, meta = {}) {
   const normalized = normalizeSpeechText(text, settings, recentInterviewerText());
   if (!normalized) return;
   if (channel === 'them' && isSpeechNoise(normalized)) {
-    console.log('[stt-noise-filter]', JSON.stringify(normalized));
+    console.log('[stt-noise-filter]', JSON.stringify({ chars: normalized.length }));
     return;
   }
 
   const ts = Date.now();
   const verdict = transcriptDeduper.accept(channel, normalized, ts);
   if (verdict.drop) {
-    console.log('[stt-dedup]', channel, verdict.reason, JSON.stringify(normalized.slice(0, 120)));
+    console.log('[stt-dedup]', channel, verdict.reason, JSON.stringify({ chars: normalized.length }));
     return;
   }
 
@@ -692,6 +753,10 @@ async function runFeature(mode, userText) {
     if (!question && ['ask', 'answerThis'].includes(mode)) throw new Error('请先输入问题或等待识别到面试官发言。');
     const request = conversation.begin({ mode, question, transcript: contextTranscript,
       settings, catalog: getProjectCatalog(), interviewPlan, evidenceRevision: getProjectIndexRevision() });
+    if (request.plan.projectSwitched) ragSession.retainScopes(request.plan.scopes);
+    formalProjectPlan = request.plan;
+    emit('project:active', { projectId: request.plan.projectIds?.length === 1 ? request.plan.projectIds[0] : '',
+      label: request.plan.projectLabel || '', reason: request.plan.reason, retrieve: request.plan.retrieve });
     const checklistText = interviewPlan ? formatInterviewChecklist(request.checklist, { maxChars: 2600 }) : '';
     // Only spend prompt/retrieval/output budgets on old pending items that are
     // actually shown this round. The original current question remains intact.
@@ -701,6 +766,7 @@ async function runFeature(mode, userText) {
         pending: request.checklist.pending.filter(item => checklistText.includes(item.text)) };
     }
     const effectiveInterviewPlan = interviewPlan ? { ...interviewPlan,
+      scenario: interviewPlan.scenario || request.checklist?.scenario || '',
       subQuestions: [...interviewPlan.subQuestions, ...(request.checklist?.pending || [])] } : null;
     const answerPlan = getAnswerPlan(question, effectiveInterviewPlan);
 
@@ -720,12 +786,16 @@ async function runFeature(mode, userText) {
     if (!owned()) return;
     const screenMs = performance.now() - screenStarted;
     const contextStarted = performance.now();
-    const contextBundle = buildInterviewContextBundle(settings, mode, contextTranscript,
-      { requestId: timing.requestId, projectPlan: request.plan, smart: !!settings.smart,
+    const retrieval = retrievalInput(question, request.plan, effectiveInterviewPlan, contextCharsFor(mode, answerPlan), sourceKey);
+    const contextBundle = await buildInterviewContextBundleAsync(settings, mode, contextTranscript,
+      { ...retrieval, requestId: timing.requestId, projectPlan: request.plan, smart: !!settings.smart,
         answerComplexity: answerPlan.level, interviewPlan: effectiveInterviewPlan,
-        contextBudget: contextCharsFor(mode, answerPlan), projectState: request.projectInterviewState });
+        contextBudget: contextCharsFor(mode, answerPlan), projectState: request.projectInterviewState,
+        signal: generation.controller.signal, deadlineAt: Date.now() + 100,
+        semanticRetriever: getSemanticRetriever(), prefetchedRetrieval: ragSession.take(retrieval) });
+    if (!owned() || generation.controller.signal.aborted) return;
     request.evidenceRevision = contextBundle.evidence.find(item => item.sourceType === 'imported')?.revision || getProjectIndexRevision();
-    const system = def.buildSystem ? def.buildSystem(contextBundle.context, settings.aiRules || '',
+    const initialSystem = def.buildSystem ? def.buildSystem(contextBundle.context, settings.aiRules || '',
       { answerPlan, interviewPlan, projectPlan: request.plan, hasImage: !!imageDataUrl }) : (def.system || '');
     const responseContext = { transcript: contextTranscript, userText: question, answerPlan, partial, hasImage: !!imageDataUrl };
     const built = def.build(responseContext);
@@ -742,13 +812,32 @@ async function runFeature(mode, userText) {
     const progress = formatProjectInterviewState(projectState, { maxChars: 1200 });
     const scenarioText = interviewPlan?.scenario || request.checklist?.scenario;
     const scenario = interviewPlan && scenarioText ? '=== 当前假设场景（不代表项目实际指标） ===\n' + scenarioText : '';
-    const current = [topic, memory, built, scenario, checklist, progress].filter(Boolean).join('\n\n');
-    const turns = [...history, { role: 'user', text: current }];
+    const prepared = prepareFinalRequest({ system: initialSystem, history, maxTokens,
+      contextWindow: settings.contextWindowTokens || 16384, imageDataUrl, evidence: contextBundle.evidence,
+      currentSections: [
+        { id: 'topic', text: topic, priority: 1 }, { id: 'memory', text: memory, priority: 0 },
+        { id: 'question', text: built, protected: true }, { id: 'scenario', text: scenario, protected: true },
+        { id: 'evidence-needs', text: formatRetrievalRequirements(contextBundle), protected: true },
+        { id: 'checklist', text: checklist, priority: 3 }, { id: 'progress', text: progress, priority: 2 }
+      ] });
+    const { system, turns } = prepared;
+    if (!prepared.fits) throw new Error('完整问题与必要约束超过当前模型窗口，请在设置中填写正确的模型窗口，或分批提交问题。');
+    let sentEvidence = prepared.evidence;
+    emit('llm:evidence', { sources: sentEvidence.map(item => ({ id: item.id, projectName: item.projectName,
+      path: item.path, startLine: item.startLine, endLine: item.endLine, text: item.text,
+      docType: item.docType, truthScope: item.truthScope, status: item.status, partial: item.partial })),
+      missing: [...(contextBundle.missing || []), ...(prepared.missing || [])] });
     const requestSent = performance.now();
+    generation.timing = timing;
+    generation.requestSent = requestSent;
+    uiReplyTimings.set(generation.id, { epoch: generation.epoch, started: timing.started });
+    while (uiReplyTimings.size > 32) uiReplyTimings.delete(uiReplyTimings.keys().next().value);
     console.log('[latency][prompt] ' + JSON.stringify({ requestId: timing.requestId, mode,
       screenMs: +screenMs.toFixed(2), contextMs: +(requestSent - contextStarted).toFixed(2),
       promptChars: system.length + turns.reduce((n, t) => n + t.text.length, 0), systemChars: system.length,
       hasImage: !!imageDataUrl, maxTokens, answerComplexity: answerPlan.level,
+      questionVersion: retrieval.questionVersion, projectRevision: retrieval.projectRevision,
+      retrieval: contextBundle.stats || {}, finalBudget: prepared.stats,
       ...request.stats, prepareMs: +(requestSent - timing.started).toFixed(2) }));
 
     let watchdog = null;
@@ -775,6 +864,13 @@ async function runFeature(mode, userText) {
       const result = await Promise.race([
         llm.stream({ system, turns, imageDataUrl, signal: generation.controller.signal, mode,
           maxTokens,
+          onRequest: serialized => {
+            if (!owned()) return;
+            sentEvidence = visibleEvidence(prepared.evidence, serialized);
+          },
+          onUsage: usage => {
+            if (owned()) console.log('[latency][usage] ' + JSON.stringify({ requestId: timing.requestId, ...usage }));
+          },
           onCompletion: metadata => {
             if (owned() && !streamSettled && !generation.controller.signal.aborted) completion = metadata;
           },
@@ -794,7 +890,15 @@ async function runFeature(mode, userText) {
         emit('llm:token', { text: answer });
       }
       if (!answer.trim()) throw new Error('模型没有返回正文，请检查模型与思考模式设置后重试。');
-      const committed = conversation.commit(request, answer, { completion, evidence: contextBundle.evidence });
+      const visibleIds = new Set(sentEvidence.map(item => item.id));
+      request.unavailableEvidenceQuestionIds = (contextBundle.byQuestion || []).filter(item => {
+        if (!item.scopes?.length) return false;
+        if (item.sourceRefs?.some(id => !visibleIds.has(id))) return true;
+        const hypothetical = item.evidenceNeeds?.some(need => need.type === 'hypothetical' || need.hypothetical === true);
+        return (item.missing || []).some(gap => !hypothetical || ['ownership', 'collaboration', 'performance'].includes(gap.type) ||
+          gap.type === 'incident' && item.evidenceNeeds?.some(need => need.type === 'incident' && !need.hypothetical));
+      }).map(item => item.id);
+      const committed = conversation.commit(request, answer, { completion, evidence: sentEvidence });
       if (committed && liveMode && resolved?.text === question) questionResolver.markSubmitted(resolved);
     } finally {
       streamSettled = true;
@@ -818,6 +922,30 @@ async function runFeature(mode, userText) {
 // -------- IPC --------
 ipcMain.handle('settings:get', () => store.getSettings());
 ipcMain.handle('settings:set', (_e, patch) => { sttDisabled = false; return store.setSettings(patch); });
+ipcMain.on('project:prefetch', (_event, payload) => scheduleProjectPrefetch(payload));
+ipcMain.handle('project:semantic-state', () => getSemanticRetriever().status());
+ipcMain.handle('project:semantic-prepare', async (_event, payload = {}) => {
+  let directory;
+  if (payload.importLocal) {
+    const selection = await dialog.showOpenDialog(win, { title: '选择已校验的本地语义模型目录', properties: ['openDirectory'] });
+    if (selection.canceled || !selection.filePaths[0]) return { canceled: true };
+    directory = selection.filePaths[0];
+  }
+  const semantic = getSemanticRetriever();
+  stopGenerationForSources();
+  await semantic.prepare({ directory, onProgress: progress => send('project:semantic-progress', progress) });
+  await semantic.indexSnapshot(getProjectIndexSnapshot(), { revision: getProjectIndexRevision(),
+    onProgress: progress => send('project:semantic-progress', progress) });
+  send('project:semantic-state', semantic.status());
+  return { canceled: false, state: semantic.status() };
+});
+ipcMain.handle('project:current', (_event, projectId) => {
+  const id = String(projectId || '');
+  if (id && !getProjectCatalog().some(project => (project.id || project.projectId) === id)) throw new Error('此项目已不在当前索引中，请重新选择。');
+  stopGenerationForSources();
+  formalProjectPlan = null;
+  return store.setSettings({ currentProjectId: id });
+});
 ipcMain.handle('capture:toggle', () => {
   const targetState = !desiredCaptureState;
   desiredCaptureState = targetState;
@@ -931,6 +1059,10 @@ ipcMain.handle('transcript:clear', () => {
   if (previous) previous.controller.abort();
   state.busy = false;
   conversation.reset();
+  uiReplyTimings.clear();
+  formalProjectPlan = null;
+  ragSession.reset();
+  semanticRetriever?.resetSession?.();
   questionResolver.reset();
   transcriptDeduper.reset();
   if (previous) send('llm:done', { requestId: previous.id, canceled: true });
@@ -939,6 +1071,13 @@ ipcMain.handle('transcript:clear', () => {
   return { ok: true };
 });
 ipcMain.on('ask', (_e, payload) => runFeature(payload?.mode, payload?.text));
+ipcMain.on('llm:rendered', (_event, requestId) => {
+  const timing = uiReplyTimings.get(requestId);
+  if (!timing || timing.epoch !== conversation.epoch || performance.now() - timing.started > 60000) return;
+  uiReplyTimings.delete(requestId);
+  console.log('[latency][ui] ' + JSON.stringify({ requestId,
+    firstVisibleAckMs: +(performance.now() - timing.started).toFixed(2) }));
+});
 ipcMain.on('mic:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('you', arrayBuffer); });
 ipcMain.on('system:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('them', arrayBuffer); });
 ipcMain.on('mouse:ignore', (_e, v) => { if (win) win.setIgnoreMouseEvents(!!v, { forward: true }); });
@@ -1158,6 +1297,11 @@ session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
   // Prepare the existing local index in the background instead of charging its
   // complete cold build to the first interview answer after app restart.
   warmProjectIndex().catch(error => console.warn('[rag] warmup unavailable:', error?.code || error?.name || 'Error'));
+  // Warm only an already prepared local model. This never initiates downloads.
+  const semantic = getSemanticRetriever();
+  semantic.warm().then(() => semantic.indexSnapshot(getProjectIndexSnapshot(), { revision: getProjectIndexRevision() }))
+    .then(() => send('project:semantic-state', semantic.status()))
+    .catch(() => send('project:semantic-state', semantic.status()));
 }
 
 // -------- lifecycle --------
@@ -1182,6 +1326,11 @@ app.whenReady().then(async () => {
 });
 
 app.on('will-quit', () => {
+  activeGeneration?.controller.abort();
+  activeGeneration = null;
+  uiReplyTimings.clear();
+  ragSession.reset();
+  semanticRetriever?.close()?.catch(() => {});
   globalShortcut.unregisterAll();
   // Best effort, deliberately not blocking the quit: the library also removes
   // the instance file from a `process.on('exit')` handler, and a file left

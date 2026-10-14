@@ -13,7 +13,7 @@ const {
   dialog
 } = require('electron');
 const projectKnowledge = require('./project-knowledge');
-const { planProjectRetrieval } = require('./project-query');
+const { notifyProjectSourcesChanged } = require('./project-rag-session');
 const { moveWindow } = require('./window-layout');
 
 function installModuleHooks() {
@@ -99,6 +99,7 @@ ipcMain.handle('project:import-folder', async () => {
     : await dialog.showOpenDialog(options);
   if (result.canceled || !result.filePaths[0]) return { canceled: true };
   const state = await projectKnowledge.importProjectFolder(result.filePaths[0]);
+  notifyProjectSourcesChanged(state);
   return { canceled: false, state };
 });
 
@@ -114,39 +115,17 @@ ipcMain.handle('project:import-zip', async () => {
     : await dialog.showOpenDialog(options);
   if (result.canceled || !result.filePaths[0]) return { canceled: true };
   const state = await projectKnowledge.importProjectZip(result.filePaths[0]);
+  notifyProjectSourcesChanged(state);
   return { canceled: false, state };
 });
 
 ipcMain.handle('project:index-clear', async () => {
   const state = await projectKnowledge.clearProjectIndex();
+  notifyProjectSourcesChanged(state);
   return { ok: true, state };
 });
 
-ipcMain.on('project:prefetch', (_event, payload) => {
-  // renderer sends { text, previous }. Older builds sent a bare string; accept
-  // both so the prefetch path is actually live instead of silently discarding
-  // every object payload.
-  const text = typeof payload === 'string' ? payload.trim() : String(payload?.text || '').trim();
-  if (text.length < 4) return;
-  const previous = Array.isArray(payload?.previous) ? payload.previous.slice(-2) : [];
-  const plan = planProjectRetrieval([...previous, text].map(text => ({ channel: 'them', text })), 'say', {
-    catalog: projectKnowledge.getProjectCatalog()
-  });
-  // Ambiguous prefetch is optional; never warm a cross-project result set.
-  if (!plan.retrieve || !plan.scopes.length) return;
-
-  setImmediate(() => {
-    const started = Date.now();
-    projectKnowledge.prefetchProjectKnowledge(plan.query, {
-      limit: 4,
-      maxChars: 2800,
-      minScore: 3.2,
-      scopes: plan.scopes
-    });
-    const elapsed = Date.now() - started;
-    if (elapsed >= 2) console.log(`[latency][rag] prefetch=${elapsed}ms`);
-  });
-});
+// Project prefetch is owned by main.js together with its authoritative session.
 
 // Hooks must be active before bugfix-main loads ../main.js, because main.js
 // destructures createLLM at module-load time. Project RAG belongs to project-context.

@@ -23,8 +23,10 @@ const tcsAnswer = '最大的困难是对抗平台压缩，微信和 Facebook 会
 const repoAnswer = 'RepoPilot 的困难是 Agent Loop / LangGraph 双运行时一致性和工具验证闭环。';
 const turn = text => [{ channel: 'them', text }];
 const chunks = [
-  { path: 'TCS/README.md', startLine: 1, endLine: 3, text: 'TCS_ONLY 项目最难的地方是平台压缩、微信和 Facebook 的 JPEG 图片恢复率。' },
-  { path: 'RepoPilot/README.md', startLine: 1, endLine: 3, text: 'REPO_ONLY RepoPilot agent 项目最难的是 Agent Loop / LangGraph 双运行时一致性，AST BM25 FAISS RRF 检索和工具验证闭环。' },
+  { path: 'TCS/README.md', startLine: 1, endLine: 1, docType: 'challenge', truthScope: 'implemented',
+    text: 'TCS_ONLY 项目最难的地方是平台压缩、微信和 Facebook 的 JPEG 图片恢复率。' },
+  { path: 'RepoPilot/README.md', startLine: 1, endLine: 1, docType: 'challenge', truthScope: 'implemented',
+    text: 'REPO_ONLY RepoPilot agent 项目最难的是 Agent Loop / LangGraph 双运行时一致性，AST BM25 FAISS RRF 检索和工具验证闭环。' },
   { path: 'FlashFlow/README.md', startLine: 1, endLine: 2, text: 'FLASH_ONLY FlashFlow 库存项目，Redis 与任务重试。' }
 ];
 
@@ -157,13 +159,14 @@ function runtime(t, extraSettings = {}) {
     vm.runInContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
     module.context = context;
     if (relative === 'src/project-knowledge.js') {
-      for (const method of ['searchProjectKnowledge', 'prefetchProjectKnowledge', 'getProjectOverviewChunks', 'getProjectProfileContext']) {
+      for (const method of ['getProjectCandidates', 'searchProjectKnowledge', 'prefetchProjectKnowledge', 'getProjectOverviewChunks', 'getProjectProfileContext']) {
         const original = module.exports[method];
         module.exports[method] = function (...args) {
           const options = method === 'getProjectOverviewChunks' ? args[0] : args[1];
           const result = original.apply(this, args);
-          searches.push({ method, scopes: options?.scopes ? Array.from(options.scopes) : null,
-            paths: Array.isArray(result) ? result.map(item => item.path) : [] });
+          const rows = Array.isArray(result) ? result : result.rows?.map(row => row.chunk) || [];
+          searches.push({ method, sdkCalls: calls.length, scopes: options?.scopes ? Array.from(options.scopes) : null,
+            paths: rows.map(item => item.path) });
           return result;
         };
       }
@@ -222,9 +225,9 @@ test('package entry sends clean RepoPilot SDK messages after TCS and keeps subse
   const messages = app.calls[2].messages;
   assert.equal(messages.filter(m => m.role === 'assistant').length, 0);
   assert.doesNotMatch(JSON.stringify(messages), /二次压缩|TCS_ONLY|TCS_MANUAL|FLASH_RESUME|FLASH_MANUAL/);
-  assert.match(messages[0].content, /REPO_ONLY/);
-  assert.match(messages[0].content, /REPO_RESUME/);
-  assert.match(messages[0].content, /REPO_MANUAL/);
+  assert.match(JSON.stringify(messages), /REPO_ONLY/);
+  assert.ok(app.events.findLast(event => event.channel === 'llm:evidence').sources.every(source =>
+    source.path.startsWith('RepoPilot/') || source.sourceType === 'manual'));
   app.final('那为什么用了 LangGraph？');
   await app.ask();
   assert.match(app.calls[3].messages.find(m => m.role === 'assistant').content, /双运行时一致性/);
@@ -232,25 +235,33 @@ test('package entry sends clean RepoPilot SDK messages after TCS and keeps subse
   assert.match(app.value('conversation.recent[3].plan.projectLabel'), /RepoPilot/);
 });
 
-test('real bootstrap has one scoped retrieval per request, and scoped prefetch never adds legacy evidence', async t => {
+test('real bootstrap uses only the formal scoped candidate channel, and scoped prefetch never adds legacy evidence', async t => {
   const app = runtime(t);
   await switchRuntime(app);
   const scoped = Array.from(app.value('conversation.recent[2].plan.scopes'));
   assert.equal(scoped.length, 1);
   assert.match(app.value('conversation.recent[2].plan.projectLabel'), /RepoPilot/);
-  const search = app.searches.filter(c => c.method === 'searchProjectKnowledge');
-  assert.equal(search.length, 3, 'one authoritative Project RAG search per answer');
-  assert.deepEqual(search[2].scopes, scoped);
-  assert.ok(search[2].paths.length > 0);
-  assert.ok(search[2].paths.every(p => p.startsWith('RepoPilot/')));
-  await app.prefetch({ text: switchQuestion, previous: ['介绍 TCS 项目？'] });
-  const prefetch = app.searches.find(c => c.method === 'prefetchProjectKnowledge');
-  assert.deepEqual(prefetch.scopes, scoped);
+  const search = app.searches.filter(c => c.method === 'getProjectCandidates');
+  for (const request of [0, 1, 2]) assert.ok(search.some(call => call.sdkCalls === request), `formal retrieval request ${request}`);
+  assert.ok(app.searches.every(call => call.scopes?.length), 'no unscoped legacy search');
+  assert.equal(app.searches.some(call => call.method === 'searchProjectKnowledge' || call.method === 'prefetchProjectKnowledge'), false,
+    'async formal retrieval replaces the legacy duplicate channel');
+  const switched = search.filter(call => call.sdkCalls === 2);
+  assert.ok(switched.length > 0 && switched.every(call => JSON.stringify(call.scopes) === JSON.stringify(scoped)));
+  assert.ok(switched.some(call => call.paths.length));
+  assert.ok(switched.every(call => call.paths.every(path => path.startsWith('RepoPilot/'))));
+  const beforePrefetch = app.searches.length;
+  await app.prefetch({ text: switchQuestion, final: true, previous: ['介绍 TCS 项目？'] });
+  const prefetch = app.searches.slice(beforePrefetch);
+  assert.ok(prefetch.length > 0);
+  assert.ok(prefetch.every(call => JSON.stringify(call.scopes) === JSON.stringify(scoped)));
   const count = app.searches.length;
-  await app.prefetch({ text: 'Redis 为什么快？', previous: [switchQuestion] });
+  await app.prefetch({ text: 'Redis 为什么快？', final: true, previous: [switchQuestion] });
   assert.equal(app.searches.length, count, 'generic questions must not trigger project prefetch');
-  await app.prefetch({ text: '这个项目最难在哪里？', previous: ['那为什么用了 LangGraph？'] });
-  assert.equal(app.searches.length, count, 'ambiguous prefetch must not search all projects');
+  await app.prefetch({ text: '这个项目最难在哪里？', final: true, previous: ['那为什么用了 LangGraph？'] });
+  const followup = app.searches.slice(count);
+  assert.ok(followup.length > 0, 'main process resolves referential prefetch from the authoritative active project');
+  assert.ok(followup.every(call => JSON.stringify(call.scopes) === JSON.stringify(scoped)), 'referential prefetch never searches all projects');
 });
 
 for (const mode of ['ask', 'answerThis', 'assist']) {
@@ -262,8 +273,10 @@ for (const mode of ['ask', 'answerThis', 'assist']) {
     assert.equal(app.calls.length, 2);
     assert.equal(app.value('conversation.recent[1].plan.projectSwitched'), true);
     assert.doesNotMatch(JSON.stringify(app.calls[1].messages), /二次压缩|TCS_ONLY/);
-    assert.match(app.calls[1].messages[0].content, /REPO_ONLY/);
-    assert.equal(app.searches.filter(c => c.method === 'searchProjectKnowledge').length, 2);
+    assert.match(JSON.stringify(app.calls[1].messages), /REPO_ONLY/);
+    assert.ok(app.searches.filter(c => c.method === 'getProjectCandidates' && c.sdkCalls === 1)
+      .every(call => call.scopes?.length && call.paths.every(path => path.startsWith('RepoPilot/'))));
+    assert.equal(app.searches.some(c => c.method === 'searchProjectKnowledge' || c.method === 'prefetchProjectKnowledge'), false);
   });
 }
 
@@ -282,6 +295,26 @@ test('runtime suspends RAG on Redis then returns to RepoPilot with clean message
   await app.ask();
   assert.match(app.value('conversation.recent[4].plan.projectLabel'), /RepoPilot/);
   assert.doesNotMatch(JSON.stringify(app.calls[4].messages), /二次压缩|Redis 使用/);
+});
+
+test('explicit generic discourse excludes project evidence and assistant history at the final SDK request', async t => {
+  const app = runtime(t);
+  await switchRuntime(app);
+  const count = app.searches.length;
+  app.answer('原理：重复投递要求消费者幂等。');
+  await app.ask('ask', '单独问 RabbitMQ 为什么至少一次会重复？');
+  const generic = app.calls.at(-1).messages;
+  assert.equal(app.searches.length, count);
+  assert.equal(generic.some(message => message.role === 'assistant'), false);
+  assert.doesNotMatch(JSON.stringify(generic), /REPO_ONLY|TCS_ONLY|双运行时一致性|平台压缩/);
+  assert.equal(app.value('conversation.recent.at(-1).plan.retrieve'), false);
+  await app.ask('ask', '那如何处理呢？');
+  assert.equal(app.value('conversation.recent.at(-1).plan.retrieve'), false);
+  assert.match(JSON.stringify(app.calls.at(-1).messages), /重复投递要求消费者幂等/);
+  assert.doesNotMatch(JSON.stringify(app.calls.at(-1).messages), /REPO_ONLY|TCS_ONLY/);
+  await app.ask('ask', '回到刚才那个项目，最难的地方是什么？');
+  assert.match(JSON.stringify(app.calls.at(-1).messages), /REPO_ONLY/);
+  assert.doesNotMatch(JSON.stringify(app.calls.at(-1).messages), /TCS_ONLY|平台压缩/);
 });
 
 for (const scenario of [

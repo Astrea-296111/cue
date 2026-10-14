@@ -9,17 +9,21 @@ const SHORT_FOLLOWUP = /^(?:那|那么|所以|再|然后)?(?:具体)?(?:为什�
 const OVERVIEW = /(?:介绍|讲讲|说说|概述).{0,10}(?:项目|系统|架构)|整体架构|总体架构|技术栈|项目概况|架构概览|\b(?:overview|tech stack|overall architecture|walk me through)\b/i;
 const SPECIFIC = /幂等|回调|重试|限流|熔断|一致性|死锁|事务|缓存|支付|具体实现|\b(?:retry|idempotenc\w*|callback|cache|circuit|transaction)\b/i;
 const CODE_SYMBOL = /\b(?:[A-Z][a-z0-9]+){2,}\b|\b[a-z]+(?:[A-Z][a-z0-9]+)+\b|\b[a-z]+_[a-z_]+\b/;
-const { resolveResumeProject } = require('./resume-project-resolver');
+const { resolveProjectMentions, aliasMentions } = require('./resume-project-resolver');
 const { isCodeChangeRequest } = require('./question-resolver');
 
 const TOPIC_SWITCH = /换个|换一(?:个|道)|下一个问题|接下来.{0,5}(?:聊|讲|问)|不聊|先不说|新话题|\b(?:new topic|next question|switch to)\b/i;
 const GENERIC_QUESTION = /^(?:(?:那|那么|再|请|你)(?:就|给我)?\s*)?(?:什么是|介绍(?:一下)?|讲讲|说说|讲一下|解释(?:一下)?).{0,10}(?:redis|mysql|java|jvm|gc\b|hashmap|线程|事务|索引|spring|kafka|goroutine|channel|gmp\b|http|tcp|操作系统|计算机网络)|^(?:redis|mysql|java|jvm|spring|hashmap|线程|事务|索引|kafka|http|tcp).{0,18}(?:是什么|有哪些|有几种|哪些|支持什么|的区别|有什么区别|数据结构|数据类型|底层原理|为什么快|为何快)|^(?:what is|explain|tell me about)\s+(?:redis|mysql|java|http|tcp|hashmap)\b/i;
 const CLEAR_NON_PROJECT = /自我介绍|为什么(?:投|选择|想来|申请).{0,16}(?:公司|岗位|职位|我们|这里)|职业规划|期望薪资|薪资|多久(?:能|可以)到岗|什么时候到岗|你的优点|你的缺点|优势是什么|缺点是什么|为什么离职|学校|专业|研究方向|算法题|leetcode|手撕|写(?:一段|个)?代码|反问|还有什么想问|\b(?:tell me about yourself|career goals|salary|compensation|why this company|why this role|leetcode)\b/i;
 const NEW_UNNAMED_PROJECT = /另一个项目|另外一个项目|下一个项目|换个项目|换一个项目/i;
+// A technology list cannot enumerate every interview topic. Explicit discourse
+// cues detach principles from project facts regardless of the technology name.
+const DETACH_PROJECT = /(?:不|别|无需|不要|先不)(?:结合|涉及|针对|联系|套用)[^，,。？！?!;；\n]{0,24}(?:项目|你的实现|实际实现)|(?:不|别|不要|先不)(?:谈|聊)\s*(?:这个|那个|当前|刚才的)?\s*项目|(?:脱离|跳出)[^，,。？！?!;；\n]{0,12}项目|\b(?:without (?:the |your )?project|independent(?:ly)? of (?:the |your )?project)\b/i;
+const GENERIC_OPENING = /^(?:(?:那|那么|现在|接下来|另外|再)\s*)?(?:单独(?:问|聊|讲)(?:一下)?|一般(?:来说|而言)|从(?:通用|一般)(?:原理|概念|角度)|就(?:一般|通用)(?:原理|情况))|(?:只|单纯)(?:问|讨论|讲).{0,12}(?:通用|一般|原理|概念)|\b(?:in general|generally speaking|as a general (?:concept|principle)|a separate (?:conceptual|general) question)\b/i;
 
 function isLikelyFollowUp(text) {
   const value = String(text || '').trim();
-  if (!value || TOPIC_SWITCH.test(value)) return false;
+  if (!value || TOPIC_SWITCH.test(value) || isClearProjectExit(value)) return false;
   if (REFERENTIAL.test(value) || SHORT_FOLLOWUP.test(value) || PROJECT_CONTINUATION.test(value) || isCodeChangeRequest(value)) return true;
   const explicitTechnicalQuestion = GENERIC_QUESTION.test(value) ||
     /(?:redis|mysql|java|jvm|hashmap|spring|kafka|goroutine|http|tcp|线程).{0,20}(?:数据类型|数据结构|几种|哪些|支持什么|线程状态|底层原理|区别|是什么|定义)/i.test(value);
@@ -42,45 +46,18 @@ function buildPrefetchQuery(payload) {
 }
 
 function namedProjects(text, catalog) {
-  const folded = String(text).normalize('NFKC').toLowerCase();
-  return catalog.filter(project => project.aliases.some(alias => {
-    const name = alias.toLowerCase();
-    const at = folded.indexOf(name);
-    if (at < 0) return false;
-    // Do not match "foo" inside "foobar"; Chinese surrounding text is fine.
-    return !/[a-z0-9_]/i.test(folded[at - 1] || '') && !/[a-z0-9_]/i.test(folded[at + name.length] || '');
-  }));
-}
-
-function matchResumeProjectToCatalog(resumeProject, catalog) {
-  if (!resumeProject) return [];
-  const aliases = [resumeProject.key, resumeProject.name, ...(resumeProject.aliases || [])]
-    .map(value => String(value || '').normalize('NFKC').toLowerCase())
-    .filter(Boolean);
-  const matched = (catalog || []).filter(project => {
-    const candidates = [project.name, ...(project.aliases || [])]
-      .map(value => String(value || '').normalize('NFKC').toLowerCase())
-      .filter(Boolean);
-    return candidates.some(candidate => aliases.some(alias => candidate === alias || candidate.includes(alias) || alias.includes(candidate)));
-  });
-  if (matched.length) return matched;
-  return [{ name: resumeProject.name, prefix: resumeProject.prefix, aliases: resumeProject.aliases || [resumeProject.key] }];
-}
-
-function hasBoundedAlias(text, alias) {
-  const folded = String(text || '').normalize('NFKC').toLowerCase();
-  const name = String(alias || '').normalize('NFKC').toLowerCase();
-  const at = folded.indexOf(name);
-  if (at < 0) return false;
-  if (!/[a-z0-9_]/i.test(name)) return true;
-  return !/[a-z0-9_]/i.test(folded[at - 1] || '') && !/[a-z0-9_]/i.test(folded[at + name.length] || '');
+  return (catalog || []).filter(project => [project.name, ...(project.aliases || [])]
+    .some(alias => aliasMentions(text, alias).length));
 }
 
 function resolveProjects(text, catalog) {
-  text = String(text || '').replace(/\bagent\s+项目/gi, 'agent项目');
-  const resumeProject = resolveResumeProject(text);
-  const validResumeReference = resumeProject && (resumeProject.aliases || []).some(alias => hasBoundedAlias(text, alias));
-  return validResumeReference ? matchResumeProjectToCatalog(resumeProject, catalog) : namedProjects(text, catalog);
+  const seen = new Set();
+  return resolveProjectMentions(text, catalog).filter(mention => !mention.excluded).map(mention => mention.project).filter(project => {
+    const id = project.projectId || project.prefix || project.key || project.name;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
 }
 
 function interviewerTurns(transcript) {
@@ -130,13 +107,15 @@ function isClearProjectExit(text) {
   const value = String(text || '').trim();
   if (!value) return false;
   if (CLEAR_NON_PROJECT.test(value)) return true;
+  if (DETACH_PROJECT.test(value)) return true;
+  if (GENERIC_OPENING.test(value) && !PROJECT_REFERENCE.test(value) && !PROJECT_CONTINUATION.test(value)) return true;
   if (GENERIC_QUESTION.test(value) && !PROJECT_REFERENCE.test(value) && !PROJECT_CONTINUATION.test(value)) return true;
   return false;
 }
 
 function planProjectRetrieval(transcript, mode = 'say', options = {}) {
   const turns = interviewerTurns(transcript);
-  const text = String(turns.at(-1)?.text || '').trim().slice(0, 1200);
+  const text = String(turns.at(-1)?.text || '').trim();
   if (!['say', 'answerThis', 'assist', 'ask'].includes(mode)) {
     return { retrieve: false, query: text, reason: 'mode', overview: false, scopes: [], activeProject: activeSnapshot(options.activeProjectPlan || options.previousPlan) };
   }
@@ -145,11 +124,22 @@ function planProjectRetrieval(transcript, mode = 'say', options = {}) {
   let activeProject = activeSnapshot(options.activeProjectPlan) || activeSnapshot(previous);
   const previousProject = activeProject;
   let explicitlyResolved = false;
+  const manualProjectId = options.manualProjectId || options.currentProjectId || null;
+  const manualProject = catalog.find(project => project.projectId === manualProjectId || project.prefix === manualProjectId);
+  const manualSelectionChanged = !!manualProject && (!!options.manualProjectChanged || previous?.manualProjectId !== manualProjectId);
+  if (manualProject && (!activeProject || manualSelectionChanged)) {
+    activeProject = { scopes: [manualProject.prefix], anchor: manualProject.name, question: '', label: manualProject.name,
+      projectIds: [manualProject.projectId].filter(Boolean), source: 'manual-default' };
+  }
 
   for (const turn of turns) {
-    const current = String(turn.text || '').trim().slice(0, 1200);
+    const current = String(turn.text || '').trim();
     const named = resolveProjects(current, catalog);
-    const direct = named.length > 0 || directProjectQuestion(current);
+    // An interface/code reference after a generic algorithm question continues
+    // that code discussion; it does not create an unnamed project thread.
+    const unboundCodeFollowup = previous?.retrieve === false && !activeProject && !named.length &&
+      !/项目|课题|论文|\bproject\b/i.test(current);
+    const direct = named.length > 0 || (!unboundCodeFollowup && directProjectQuestion(current));
     const followup = isLikelyFollowUp(current);
     const newUnnamedProject = NEW_UNNAMED_PROJECT.test(current) && !named.length;
     const hardSwitch = TOPIC_SWITCH.test(current);
@@ -163,7 +153,9 @@ function planProjectRetrieval(transcript, mode = 'say', options = {}) {
         scopes: named.map(project => project.prefix),
         anchor: current.slice(0, 500),
         question: current,
-        label: named.map(project => project.name || project.prefix).filter(Boolean).join(' / ')
+        label: named.map(project => project.name || project.prefix).filter(Boolean).join(' / '),
+        projectIds: named.map(project => project.projectId).filter(Boolean),
+        source: 'explicit'
       };
     }
 
@@ -172,12 +164,14 @@ function planProjectRetrieval(transcript, mode = 'say', options = {}) {
     // question suspends (but does not erase) that project thread, so ‘只有五种吗’
     // follows Redis instead of jumping back to the old project. An explicit
     // ‘回到刚才那个项目/项目里你负责什么’ can resume the suspended thread.
-    const wasProjectActive = previous ? previous.projectActive !== false : !!activeProject;
-    const useActiveProject = !!activeProject && !named.length && !newUnnamedProject && !clearExit && !hardSwitch &&
+    const wasProjectActive = manualProject && previous?.manualProjectId !== manualProjectId
+      ? true : previous ? previous.projectActive !== false : !!activeProject;
+    const useActiveProject = !!activeProject && !named.length && !newUnnamedProject && !clearExit &&
+      (!hardSwitch || explicitProjectContinuation || PROJECT_REFERENCE.test(current)) &&
       (wasProjectActive || explicitProjectContinuation);
     const inheritPrevious = !!previous?.retrieve && !hardSwitch && !newUnnamedProject && !clearExit &&
       (followup || (direct && !named.length));
-    const retrieve = named.length > 0 || direct || useActiveProject || inheritPrevious;
+    const retrieve = named.length > 0 || !clearExit && (direct || useActiveProject || inheritPrevious);
     const scopes = named.length
       ? named.map(project => project.prefix)
       : (useActiveProject ? activeProject.scopes.slice() : (inheritPrevious ? previous.scopes || [] : []));
@@ -195,7 +189,7 @@ function planProjectRetrieval(transcript, mode = 'say', options = {}) {
       ? [previous?.question || '', activeProject?.anchor || anchor]
       : [];
     const query = [current, ...hints.map(value => String(value || '').slice(0, 350))]
-      .filter(Boolean).join('\n').slice(0, 1400);
+      .filter(Boolean).join('\n');
 
     const reason = named.length ? 'named-project'
       : inheritsProject ? 'active-project-followup'
@@ -215,6 +209,8 @@ function planProjectRetrieval(transcript, mode = 'say', options = {}) {
       scopes,
       activeProject: activeProject ? { ...activeProject, scopes: activeProject.scopes.slice() } : null,
       projectLabel: activeProject?.label || '',
+      projectIds: catalog.filter(project => scopes.includes(project.prefix)).map(project => project.projectId).filter(Boolean),
+      manualProjectId,
       projectActive,
       reason,
       overview: retrieve && OVERVIEW.test(current) && !SPECIFIC.test(current)
@@ -233,13 +229,42 @@ function planProjectRetrieval(transcript, mode = 'say', options = {}) {
     overview: false
   };
   plan.previousProject = previousProject;
-  plan.projectSwitched = !!previousProject && explicitlyResolved && !!plan.activeProject &&
+  plan.catalog = catalog;
+  plan.projectMentions = resolveProjectMentions(text, catalog).map(({ start, end, kind, project, excluded }) => ({
+    start, end, kind, excluded, projectId: project.projectId || null, name: project.name, scope: project.prefix
+  }));
+  if (options.interviewPlan) plan.subQuestionScopes = scopeInterviewQuestions(options.interviewPlan, plan, catalog);
+  plan.projectSwitched = !!previousProject && (explicitlyResolved || manualSelectionChanged) && !!plan.activeProject &&
     !sameProjectScopes(previousProject.scopes, plan.activeProject.scopes);
   if ((plan.reason === 'project-followup' || plan.reason === 'active-project-followup') && options.answerHint &&
       /第.{0,3}点|后.{0,3}种|前.{0,3}种|那个|这个|继续|展开|你提到|你说/.test(text)) {
-    plan.query = (plan.query + '\n上轮回答中的检索线索：\n' + String(options.answerHint).slice(0, 400)).slice(0, 1800);
+    plan.query = plan.query + '\n上轮回答中的检索线索：\n' + String(options.answerHint).slice(0, 400);
   }
   return plan;
+}
+
+// Names in setup clauses remain available to later asks. A generic subquestion
+// suspends facts only for that ask, even when another ask is about a project.
+function scopeInterviewQuestions(interviewPlan, projectPlan, catalog = projectPlan.catalog || []) {
+  const originalText = String(interviewPlan?.originalText || projectPlan.question || '');
+  const mentions = resolveProjectMentions(originalText, catalog).filter(mention => !mention.excluded);
+  return [...(interviewPlan?.subQuestions || []), ...(interviewPlan?.omittedSubQuestions || [])].map(question => {
+    const own = mentions.filter(mention => mention.start >= question.start && mention.start < question.end);
+    const before = mentions.filter(mention => mention.end <= question.start);
+    const preceding = before.at(-1);
+    const generic = !own.length && isClearProjectExit(question.text);
+    const fallbackScopes = mentions.length && !preceding && !own.length
+      ? (!projectPlan.projectSwitched ? projectPlan.previousProject?.scopes || [] : [])
+      : projectPlan.scopes || [];
+    const projectChoices = own.length ? own.map(mention => mention.project)
+      : !generic && preceding ? [preceding.project]
+        : !generic ? catalog.filter(project => fallbackScopes.includes(project.prefix)) : [];
+    const scopes = generic ? [] : [...new Set(projectChoices.length ? projectChoices.map(project => project.prefix) : fallbackScopes)];
+    return { questionId: question.id, start: question.start, end: question.end, scopes,
+      projectIds: [...new Set(projectChoices.map(project => project.projectId).filter(Boolean))],
+      reason: generic ? 'generic-question' : own.length ? 'explicit-question-project' : preceding ? 'preceding-project-mention'
+        : scopes.length ? 'active-project' : 'unresolved-project' };
+  });
 }
 
 module.exports = {
@@ -250,5 +275,7 @@ module.exports = {
   buildPrefetchQuery,
   directProjectQuestion,
   isClearProjectExit,
-  sameProjectScopes
+  sameProjectScopes,
+  resolveProjects,
+  scopeInterviewQuestions
 };

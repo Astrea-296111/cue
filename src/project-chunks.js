@@ -1,8 +1,11 @@
 'use strict';
 const path = require('path');
+const { createHash } = require('crypto');
+const { parseFrontMatter, markdownSections, retrievalPrefix, hash } = require('./project-document-parser');
 const TARGET = 1800;
 const MAX = 2400;
 const METADATA_SCHEMA_VERSION = 3;
+const CONDITIONAL_BODY = /(?:^|\n)\s*(?:[-*>]\s*)?(?:如果|假设|假如|计划(?:中|是|将|在|使用|实现|改为|引入)|待实现|尚未实现|未实现|后续计划|未来(?:准备|计划)|not implemented|planned\b|TODO\b)/i;
 
 // Conservative lexical boundary detection, not an AST parser. Strings/comments
 // are masked before brace matching; unsupported syntax falls back to line windows.
@@ -125,10 +128,10 @@ function javaClassMetadata(span, maskedText, text) {
     role: roleFor('', span.symbol, text, span.kind, 'java') };
 }
 
-function chunkText(filePath, text) {
+function chunkText(filePath, text, options = {}) {
   const safePath = String(filePath || '').replace(/\\/g, '/');
   const language = ({ '.java': 'java', '.go': 'go', '.py': 'python', '.js': 'javascript', '.cjs': 'javascript', '.mjs': 'javascript', '.ts': 'typescript', '.tsx': 'typescript', '.jsx': 'javascript' })[path.extname(safePath).toLowerCase()] || 'text';
-  const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
+  const lines = String(text || '').split('\n');
   const source = lines.join('\n');
   const maskedSource = maskCode(source, language === 'python');
   const masked = maskedSource.split('\n');
@@ -137,8 +140,16 @@ function chunkText(filePath, text) {
   const imports = language === 'java' ? [...maskedSource.matchAll(/^\s*import\s+(?:static\s+)?([\w.$]+(?:\.\*)?)\s*;/gm)].map(m => m[1]) : [];
   const packageName = language === 'java' ? /^\s*package\s+([\w.]+)\s*;/m.exec(maskedSource)?.[1] || '' : '';
   const chunks = [];
+  const parents = [];
+  Object.defineProperty(chunks, 'parents', { value: parents });
+  const defaultMetadata = { docType: 'implementation', truthScope: language === 'text' ? 'unverified' : /(?:^|\/)(?:test|tests|__tests__)(?:\/|$)|(?:Test|Spec)\.[^/]+$|\.(?:test|spec)\./i.test(safePath) ? 'test_only' : 'implemented',
+    status: 'draft', topics: [], aliases: [], codeRefs: [], relatedDocs: [], headingPath: [], provenance: 'imported', offsetEncoding: 'utf16', docTypeDeclared: language !== 'text', metadataDeclared: false, parserKind: 'lexical', parserVersion: 'cue-lexical-4', parserQuality: 'conservative', ...options.metadata };
   function emit(start, end, symbol = '', kind = 'text', metadata = {}) {
     if (end <= start) return;
+    const parentId = metadata.parentId || hash(safePath + ':' + offsets[start] + ':' + offsets[end] + ':' + symbol);
+    if (!parents.some(parent => parent.id === parentId)) parents.push({ id: parentId, path: safePath,
+      text: source.slice(offsets[start], Math.min(source.length, offsets[end] - 1)), startLine: start + 1, endLine: end,
+      startOffset: offsets[start], endOffset: Math.min(source.length, offsets[end] - 1), symbol, kind, ...defaultMetadata, ...metadata });
     let cursor = start;
     while (cursor < end) {
       let stop = cursor, chars = 0;
@@ -156,33 +167,65 @@ function chunkText(filePath, text) {
       for (let offset = 0; offset < body.length; offset += MAX) {
         const part = body.slice(offset, offset + MAX);
         if (!part.trim()) continue;
+        const startOffset = offsets[cursor] + offset;
+        const startLine = cursor + 1 + (body.slice(0, offset).match(/\n/g) || []).length;
+        const endLine = startLine + (part.match(/\n/g) || []).length;
         const role = roleFor(safePath, symbol, part, kind, language);
         // Reuse the existing source-profile topic vocabulary. This is lexical
         // source classification, not a claim about runtime behavior.
         const { TOPICS } = require('./project-profile');
         const interviewTopics = TOPICS.filter(topic => topic.re.test(`${safePath}\n${symbol}\n${part}`)).map(topic => topic.key);
-        chunks.push({ path: safePath, startLine: cursor + 1, endLine: stop,
+        const record = { path: safePath, startLine, endLine, startOffset, endOffset: startOffset + part.length,
           text: part, language, symbol, kind, metadataSchemaVersion: METADATA_SCHEMA_VERSION,
           type: kind === 'class' || metadata.parentClass && kind === 'context' ? 'class' : /^(method|function)$/.test(kind) ? 'function' : 'document',
           parentClass: '', method: kind === 'method' ? symbol.split('#').at(-1) : '', methods: [],
           imports, packageName, fieldTypes: {}, localTypes: {}, extends: [], implements: [], description: '', declarationLine: cursor + 1, descriptionLine: null,
           role, importance: /(?:^|\/)(?:test|tests|__tests__|build|dist|generated)(?:\/|$)|(?:Test|Spec)\.[^/]+$|\.(?:test|spec)\./i.test(safePath) ? 'low' : /^(?:controller|service|repository)$/.test(role) || /(?:^|\/)readme\./i.test(safePath) ? 'high' : 'normal',
-          interviewTopics, ...metadata, calls: language === 'text' ? [] : sourceCalls(part, cursor + 1 + (body.slice(0, offset).match(/\n/g) || []).length, language === 'python', metadata.localTypes),
-          ...(cursor !== start || stop !== end || body.length > MAX ? { partial: true } : {}) });
+          interviewTopics, ...defaultMetadata, ...metadata, parentId,
+          calls: language === 'text' ? [] : sourceCalls(part, startLine, language === 'python', metadata.localTypes),
+          ...(cursor !== start || stop !== end || body.length > MAX ? { partial: true } : {}) };
+        if (language === 'text' && record.truthScope === 'implemented' && CONDITIONAL_BODY.test(part)) {
+          record.declaredTruthScope = 'implemented'; record.truthScope = 'unverified';
+          record.truthWarnings = ['原文包含计划、条件或未实现范围，不能仅凭 front matter 升级为已实现'];
+        }
+        record.id = hash(safePath + ':' + startOffset + ':' + record.endOffset + ':' + part);
+        record.contentHash = createHash('sha256').update(part).digest('hex');
+        record.retrievalText = [retrievalPrefix(record, options.projectName), part].filter(Boolean).join('\n');
+        chunks.push(record);
       }
       cursor = stop;
     }
   }
 
   if (/\.mdx?$/i.test(safePath)) {
-    let start = 0, title = '', fenced = false;
-    for (let i = 0; i < lines.length; i++) {
-      if (/^\s*(```|~~~)/.test(lines[i])) fenced = !fenced;
-      if (!fenced && /^#{1,6}\s+/.test(lines[i])) {
-        emit(start, i, title, 'section'); start = i; title = lines[i].replace(/^#+\s+/, '');
+    const parsed = parseFrontMatter(source), fields = parsed.metadata;
+    Object.defineProperty(chunks, 'warnings', { value: parsed.warnings });
+    const frontLines = source.slice(0, parsed.bodyOffset).split('\n');
+    const codeRefs = fields.code_refs.map(ref => {
+      const line = frontLines.findIndex(value => /^\s*(?:-\s*)?path\s*:/.test(value) && value.includes(ref.path));
+      return { ...ref, ...(line >= 0 ? { sourceLine: line + 1 } : {}) };
+    });
+    const referenceLines = {};
+    for (const ref of fields.related_docs) {
+      const line = frontLines.findIndex(value => /^\s*(?:-\s|related_docs\s*:)/.test(value) && value.includes(ref));
+      if (line >= 0) referenceLines[ref] = line + 1;
+    }
+    const declared = { ...defaultMetadata, docType: fields.doc_type, truthScope: fields.truth_scope, status: fields.status,
+      docTypeDeclared: fields.docTypeDeclared, metadataDeclared: fields.metadataDeclared,
+      topics: fields.topics, aliases: fields.aliases, codeRefs, relatedDocs: fields.related_docs, referenceLines,
+      declaredProjectId: typeof fields.project_id === 'string' ? fields.project_id : '', sourceRevision: typeof fields.source_revision === 'string' ? fields.source_revision : '',
+      parserKind: 'markdown', parserVersion: 'cue-markdown-4', parserQuality: parsed.valid === false ? 'front-matter-fallback' : 'structured' };
+    for (const section of markdownSections(parsed, safePath)) {
+      const metadata = { ...declared, headingPath: section.headingPath, parentId: section.id };
+      emit(section.startLine - 1, section.endLine - (section.text.endsWith('\n') ? 1 : 0), section.title, 'section', metadata);
+      const parent = parents.find(item => item.id === section.id);
+      if (parent) Object.assign(parent, { text: section.parentText, startOffset: section.startOffset, endOffset: section.parentEndOffset,
+        endLine: section.startLine + (section.parentText.match(/\n/g) || []).length - (section.parentText.endsWith('\n') ? 1 : 0), parentId: section.parentHeading || '' });
+      if (parent?.truthScope === 'implemented' && CONDITIONAL_BODY.test(parent.text)) {
+        parent.declaredTruthScope = 'implemented'; parent.truthScope = 'unverified';
+        parent.truthWarnings = ['父段包含计划或条件范围，引用时保留原文限制'];
       }
     }
-    emit(start, lines.length, title, 'section');
     return chunks;
   }
   if (language === 'text') { emit(0, lines.length); return chunks; }
@@ -204,10 +247,14 @@ function chunkText(filePath, text) {
         end++;
       }
     } else {
-      const signature = masked.slice(i, i + 6).join('\n');
+      let signature = masked.slice(i, i + 6).join('\n');
       let match;
       if ((match = /^\s*(?:(?:export|default|public|private|protected|abstract|final|static)\s+)*(?:class|interface|enum|record)\s+(\w+)/.exec(line))) {
         name = match[1]; kind = 'class';
+        // Real Java records often list more than six typed components. Bound
+        // the header scan but keep the actual opening brace/source span instead
+        // of losing the type and fabricating an unresolved class reference.
+        signature = masked.slice(i, i + 96).join('\n');
       } else if (language === 'go' && (match = /^\s*func\s+(?:\([^)]*\)\s*)?(\w+)\s*\(/.exec(line))) name = match[1];
       else if ((match = /^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s*\*?\s*(\w+)\s*\(/.exec(line))) name = match[1];
       else if ((match = /^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?(?:\([^)]*\)|\w+)\s*=>\s*\{/.exec(signature))) name = match[1];

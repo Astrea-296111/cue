@@ -108,19 +108,41 @@ function selectManualProjectCards(text, query, limit = 1800) {
 }
 
 function buildSourceProjectProfile(name, chunks = []) {
-  const sample = chunks.slice(0, 1200);
-  const technologyText = sample.map(c => `${c.path}\n${c.symbol || ''}\n${String(c.text || '').slice(0, 1200)}`).join('\n');
+  // Import-time sampling considers the complete bounded snapshot. Typed cards
+  // and source/configuration distribution determine priority, never scan order.
+  const sample = chunks;
+  const technologyText = sample.map(c => `${c.path}\n${c.symbol || ''}\n${c.text || ''}`).join('\n');
   const technologies = TECH_NAMES.filter(term => new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(technologyText)).slice(0, 24);
+  const technologySources = technologies.map(term => {
+    const re = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const source = sample.find(chunk => re.test(chunk.text || ''));
+    const at = source ? re.exec(source.text).index : 0;
+    return { term, ...(source ? { path: source.path, line: source.startLine + (source.text.slice(0, at).match(/\n/g) || []).length } : {}) };
+  });
+  const types = { overview: ['overview'], architecture: ['overview', 'implementation'], responsibility: ['ownership', 'collaboration'], performance: ['performance'], deploy: ['environment', 'process'], testing: ['performance'], tradeoff: ['decision'], reliability: ['challenge', 'incident', 'limitation'] };
+  const priority = (chunk, topic) => (types[topic.key]?.includes(chunk.docType) ? 12 : 0) +
+    (chunk.status === 'confirmed' ? 3 : 0) + (chunk.truthScope === 'implemented' || chunk.truthScope === 'test_only' ? 2 : 0) +
+    (/\.(?:mdx?|ya?ml|properties|toml|json)$/i.test(chunk.path) ? 2 : 0) + (chunk.importance === 'high' ? 1 : 0);
   const cards = [];
   for (const topic of TOPICS) {
-    const matches = sample
-      .filter(chunk => topic.re.test(`${chunk.path}\n${chunk.symbol || ''}\n${chunk.text || ''}`))
-      .slice(0, 3)
-      .map(chunk => ({ path: chunk.path, startLine: chunk.startLine, endLine: chunk.endLine,
-        symbol: chunk.symbol || '', text: clip(chunk.text, 520) }));
+    const seenPaths = new Set();
+    const matches = sample.filter(chunk => (types[topic.key]?.includes(chunk.docType) || topic.re.test(`${chunk.path}\n${chunk.symbol || ''}\n${chunk.text || ''}`)) &&
+      (topic.key !== 'responsibility' || ['ownership', 'collaboration'].includes(chunk.docType)))
+      .sort((a, b) => priority(b, topic) - priority(a, topic) || String(a.path).localeCompare(String(b.path)) || a.startLine - b.startLine)
+      .filter(chunk => { if (seenPaths.has(chunk.path)) return false; seenPaths.add(chunk.path); return true; })
+      .slice(0, 4).map(chunk => {
+        let end = Math.min(chunk.text.length, 520);
+        const newline = chunk.text.lastIndexOf('\n', end);
+        if (end < chunk.text.length && newline > 80) end = newline;
+        const text = chunk.text.slice(0, end);
+        return { id: chunk.id, path: chunk.path, startLine: chunk.startLine, endLine: chunk.startLine + (text.match(/\n/g) || []).length,
+          startOffset: chunk.startOffset, endOffset: chunk.startOffset == null ? undefined : chunk.startOffset + text.length,
+          docType: chunk.docType, truthScope: chunk.truthScope, status: chunk.status, provenance: chunk.provenance,
+          symbol: chunk.symbol || '', text, partial: !!chunk.partial || end < chunk.text.length };
+      });
     if (matches.length) cards.push({ key: topic.key, title: topic.label, evidence: matches });
   }
-  return { name: clean(name) || 'Project', technologies, cards };
+  return { name: clean(name) || 'Project', technologies, technologySources, cards, profileSchemaVersion: 2 };
 }
 
 function selectSourceProfileCards(profile, query, limit = 1100) {
@@ -135,16 +157,14 @@ function selectSourceProfileCards(profile, query, limit = 1100) {
   let out = '';
   for (const { card } of selected) {
     for (const ev of card.evidence || []) {
-      const label = `【${profile.name} · ${card.title}】${ev.path}:${ev.startLine}-${ev.endLine}${ev.symbol ? ' ' + ev.symbol : ''}\n`;
+      const label = `【${profile.name} · ${card.title}】${ev.path}:${ev.startLine}-${ev.endLine}${ev.symbol ? ' ' + ev.symbol : ''}${ev.partial ? '（节选）' : ''}\n`;
       const room = limit - out.length - label.length - 2;
       if (room < 90) break;
-      out += (out ? '\n\n' : '') + label + clip(ev.text, Math.min(420, room));
+      // Profile text remains a verbatim quotation; skip excerpts that cannot fit.
+      if (ev.text.length <= room) out += (out ? '\n\n' : '') + label + ev.text;
     }
   }
-  if (profile.technologies?.length && out.length < limit - 80) {
-    out += `${out ? '\n\n' : ''}技术栈线索：${profile.technologies.join('、')}`;
-  }
-  return clip(out, limit);
+  return out;
 }
 
 module.exports = {

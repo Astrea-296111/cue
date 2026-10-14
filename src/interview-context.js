@@ -11,6 +11,10 @@ const { createHash } = require('crypto');
 const { RESUME_PROJECTS, resolveResumeProject } = require('./resume-project-resolver');
 const { planProjectRetrieval } = require('./project-query');
 const { getProjectCatalog } = require('./project-knowledge');
+const { retrieveProjectEvidenceAsync } = require('./retrieval-coordinator');
+const { selectEvidence, inferDocType, evidenceId } = require('./evidence-selector');
+const { activeProjectContextCache } = require('./project-context');
+const { formatRetrievedProjectContext } = require('./project-knowledge');
 
 const CATEGORY_PATTERNS = {
   project: [
@@ -184,9 +188,13 @@ function selectProjectSection(text, plan) {
   if (!plan?.retrieve || plan.scopes?.length !== 1) return null;
   const label = plan.projectLabel || plan.activeProject?.label || '';
   if (!label) return null;
-  const target = resolveResumeProject(label) || { key: label, name: label, aliases: [label] };
-  const projects = RESUME_PROJECTS.some(project => project.key === target.key)
-    ? RESUME_PROJECTS : [...RESUME_PROJECTS, target];
+  const catalog = getProjectCatalog();
+  const configured = catalog.find(project => plan.scopes.includes(project.prefix) || project.name === label || (project.aliases || []).includes(label));
+  const target = configured ? { ...configured, key: configured.projectId || configured.name,
+    aliases: configured.aliases || [configured.name] } : resolveResumeProject(label) || { key: label, name: label, aliases: [label] };
+  const catalogProjects = catalog.map(project => ({ ...project, key: project.projectId || project.name, aliases: project.aliases || [project.name] }));
+  const projects = [...catalogProjects, ...RESUME_PROJECTS.filter(project => !catalogProjects.some(item => item.name === project.name)),
+    ...(!catalogProjects.some(project => project.key === target.key) && !RESUME_PROJECTS.some(project => project.key === target.key) ? [target] : [])];
   const parts = [];
   let selected = false, recognized = false;
   for (const line of String(text || '').replace(/\r\n?/g, '\n').split('\n')) {
@@ -199,7 +207,7 @@ function selectProjectSection(text, plan) {
       }));
     if (project) {
       recognized = true;
-      selected = project.key === target.key;
+      selected = project.key === target.key || project.name === target.name;
     } else if (/^(?:教育(?:经历|背景)|工作经历|实习经历|技能|专业技能|education|experience|skills)\s*[:：]?$/i.test(heading)) {
       selected = false;
     }
@@ -261,7 +269,8 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
         );
       }
       if (hasStories) {
-        blocks.push('=== 与项目相关的 STAR/亮点 ===\n' + clip(stories.trim(), 900));
+        const selected = selectProjectSection(stories, projectPlan);
+        if (selected) blocks.push('=== 与项目相关的 STAR/亮点 ===\n' + selectRelevantText(selected, query, 900));
       }
       break;
 
@@ -269,7 +278,7 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
       if (hasStories) {
         blocks.push(
           '=== STAR 故事 ===\n' +
-          clip(stories.trim(), 2100) +
+          selectRelevantText(stories.trim(), query, 2100) +
           '\n回答行为题时优先复用真实故事：背景 -> 任务 -> 我的行动 -> 结果/复盘。'
         );
       } else {
@@ -286,7 +295,7 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
 
     case 'situational':
       if (workStyle) blocks.push('=== 决策与协作风格 ===\n' + clip(workStyle, 500));
-      if (hasStories) blocks.push('=== 可参考的历史经历 ===\n' + clip(stories, 750));
+      if (hasStories) blocks.push('=== 可参考的历史经历 ===\n' + selectRelevantText(stories, query, 750));
       break;
 
     case 'compensation':
@@ -299,7 +308,7 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
       break;
 
     default:
-      if (hasStories) blocks.push('=== 关键经历亮点 ===\n' + clip(stories, 550));
+      if (hasStories) blocks.push('=== 关键经历亮点 ===\n' + selectRelevantText(stories, query, 550));
       if (workStyle) blocks.push('=== 工作方式 ===\n' + clip(workStyle, 300));
       break;
   }
@@ -371,6 +380,76 @@ function buildInterviewContextBundle(settings, mode, transcript, request = {}) {
     evidence: [...visible, ...manual], plan, stats: { ...stats, contextBudget: budget } };
 }
 
+function legacySourceEvidence(rawValue, path, plan, { stories = false } = {}) {
+  if (!plan?.retrieve || plan.scopes?.length !== 1) return [];
+  const raw = String(rawValue || '');
+  if (!raw.trim()) return [];
+  const bound = selectProjectSection(raw, plan);
+  // A legacy story without a project label is not automatically the personal
+  // history of every imported project. Keep it available for general behavior
+  // questions, and recommend importing labeled Markdown for project drilling.
+  if (stories && bound === null) return [];
+  const selected = bound ?? raw;
+  if (!selected) return [];
+  const revision = 'manual:' + createHash('sha256').update(raw).digest('hex').slice(0, 24);
+  const cards = parseManualProjectProfile(selected).cards;
+  return cards.map(card => {
+    const at = raw.indexOf(card.text);
+    if (at < 0) return null;
+    const item = { sourceType: 'manual', provenance: 'user_authored', path, revision,
+      projectId: plan.activeProject?.projectId || (plan.scopes[0].startsWith('@project:') ? plan.scopes[0].slice(9) : null),
+      projectName: plan.projectLabel || '', scopes: [...plan.scopes], text: card.text,
+      startOffset: at, endOffset: at + card.text.length,
+      startLine: raw.slice(0, at).split('\n').length,
+      endLine: raw.slice(0, at + card.text.length).split('\n').length,
+      truthScope: 'unverified', status: 'draft', headingPath: [card.title], topics: card.topics,
+      score: .02, partial: false };
+    item.docType = inferDocType(item); item.id = evidenceId(item); return item;
+  }).filter(Boolean);
+}
+
+async function buildInterviewContextBundleAsync(settings, mode, transcript, request = {}) {
+  if (mode === 'leetcode') return { context: null, evidence: [], plan: request.projectPlan || null,
+    byQuestion: [], missing: [], stats: {} };
+  const plan = request.projectPlan || planProjectRetrieval(transcript, mode,
+    { catalog: getProjectCatalog(), interviewPlan: request.interviewPlan });
+  // Old installations can have only a hand-written, unstructured project
+  // paragraph. Preserve that input without issuing an unscoped index search
+  // or inventing an imported project identity for it.
+  if (plan.retrieve && !plan.scopes?.length && !getProjectCatalog().length &&
+      String(settings.projectKnowledge || '').trim() && !/^#{1,6}\s/m.test(settings.projectKnowledge)) {
+    const legacy = buildInterviewContextBundle(settings, mode, transcript, { ...request, projectPlan: plan });
+    return { ...legacy, byQuestion: [], missing: [{ reason: 'manual-project-unbound',
+      message: '手工资料尚未绑定稳定项目；选型、职责与指标只能依据其明确原文。' }],
+      stats: { ...legacy.stats, fallbackReason: 'manual-project-unbound' } };
+  }
+  const query = request.interviewPlan?.originalText || plan.question || plan.query || '';
+  const budget = Number.isFinite(request.contextBudget) ? Math.max(0, request.contextBudget) : 4800;
+  let candidate = buildCandidateContext(plan.retrieve ? { ...settings, projectKnowledge: '', starStories: '' } : settings,
+    mode, transcript, plan.retrieve, query, plan) || '';
+  if (plan.retrieve) candidate = candidate.replace(/\n?（未提供手工项目知识文档。）\n?/g, '').trim();
+  const candidateLimit = plan.retrieve ? Math.min(1200, Math.floor(budget / 3)) : budget;
+  if (candidate.length > candidateLimit) candidate = selectRelevantText(candidate, query, candidateLimit);
+  const sourceBudget = Math.max(0, budget - candidate.length - (candidate ? 2 : 0));
+  const retrieved = await retrieveProjectEvidenceAsync({ ...request, question: query, projectPlan: plan,
+    contextBudget: sourceBudget, includeCandidates: true, projectContextCache: request.projectContextCache || activeProjectContextCache });
+  let selected = retrieved;
+  if (plan.retrieve) {
+    const manual = [...legacySourceEvidence(settings.projectKnowledge, 'settings.projectKnowledge', plan),
+      ...legacySourceEvidence(settings.starStories, 'settings.starStories', plan, { stories: true })];
+    if (manual.length) selected = { ...retrieved, ...selectEvidence({ candidates: [...(retrieved.candidates || retrieved.evidence), ...manual],
+      question: query, interviewPlan: request.interviewPlan, projectPlan: plan, contextBudget: sourceBudget,
+      formatContext: formatRetrievedProjectContext,
+      unretrieved: retrieved.missing.filter(item => item.reason === 'group-limit') }) };
+  }
+  const context = [selected.context, candidate].filter(Boolean).join('\n\n') || null;
+  const visible = selected.evidence.filter(item => context?.includes(`[来源 ${item.id}]`) && context.includes(item.text));
+  return { context, evidence: visible, plan, byQuestion: selected.byQuestion || [], missing: selected.missing || [],
+    revision: retrieved.revision, identity: retrieved.identity,
+    ...(request.includeCandidates ? { candidates: retrieved.candidates } : {}),
+    stats: { ...retrieved.stats, ...selected.stats, contextBudget: budget, contextChars: context?.length || 0 } };
+}
+
 function buildInterviewContext(settings, mode, transcript, request = {}) {
   return buildInterviewContextBundle(settings, mode, transcript, request).context;
 }
@@ -405,6 +484,7 @@ function buildResumeContext(resumeText, jobDescription, mode) {
 module.exports = {
   buildInterviewContext,
   buildInterviewContextBundle,
+  buildInterviewContextBundleAsync,
   buildResumeContext,
   detectCategory,
   parseResume

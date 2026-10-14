@@ -3,8 +3,9 @@
 const { tokenize } = require('./project-search');
 const { TOPICS } = require('./project-profile');
 const { inProjectScope } = require('./project-scope');
+const { selectEvidence } = require('./evidence-selector');
 
-const CACHE_SCHEMA_VERSION = 1;
+const CACHE_SCHEMA_VERSION = 2;
 const TECH_RE = /\b(?:redis|mysql|postgres(?:ql)?|kafka|rabbitmq|rocketmq|langgraph|langchain|mongodb|react|docker|kubernetes|jwt|oauth|grpc|websocket|faiss|bm25|rag)\b/gi;
 const CODE_REQUEST = /(?:代码|源码|哪个(?:文件|方法|类)|在哪(?:里)?实现|具体实现|定位|调用链|source|implementation|which (?:file|method|class)|where .*implement)/i;
 const RATIONALE = /为什么|为何|选型|取舍|不用|why|trade.?off|choose|chosen/i;
@@ -18,7 +19,7 @@ function normalizeScopes(scopes = []) {
 }
 
 function evidenceKey(item) {
-  return `${item.projectId || ''}:${item.path}:${item.startLine}:${item.endLine}`;
+  return `${item.projectId || ''}:${item.path}:${item.startOffset ?? item.startLine}:${item.endOffset ?? item.endLine}:${item.revision || ''}`;
 }
 
 function sourceEvidence(item, scopes) {
@@ -69,6 +70,12 @@ function supports(item, need) {
 }
 
 function assessEvidence(items, scopes, query, interviewPlan) {
+  if (interviewPlan?.subQuestions?.some(question => question.evidenceNeeds?.length)) {
+    const selected = selectEvidence({ candidates: items, question: query, interviewPlan,
+      projectPlan: { scopes }, contextBudget: 18000 });
+    return { hit: !!selected.evidence.length && !selected.missing.length,
+      evidence: selected.evidence, missing: [...new Set(selected.missing.map(item => item.text))], byQuestion: selected.byQuestion };
+  }
   const needs = requirements(query, interviewPlan), missing = [], selected = [], extra = [], seen = new Set();
   const add = item => {
     if (!seen.has(evidenceKey(item))) { selected.push({ ...item }); seen.add(evidenceKey(item)); }
@@ -94,10 +101,11 @@ class ActiveProjectContextCache {
     this.entries = new Map();
   }
 
-  key(scopes, revision) { return JSON.stringify([this.schemaVersion, String(revision || ''), normalizeScopes(scopes)]); }
+  key(scopes, revision, identity = {}) { return JSON.stringify([this.schemaVersion, String(revision || ''), normalizeScopes(scopes),
+    identity.modelVersion || '', identity.retrievalConfigVersion || '']); }
 
-  get(scopes, revision) {
-    const key = this.key(scopes, revision);
+  get(scopes, revision, identity = {}) {
+    const key = this.key(scopes, revision, identity);
     const entry = this.entries.get(key);
     if (!entry) return null;
     if (this.now() - entry.updatedAt > this.ttlMs) { this.entries.delete(key); return null; }
@@ -105,35 +113,38 @@ class ActiveProjectContextCache {
     return entry;
   }
 
-  put(scopes, revision, evidence, { seed = false } = {}) {
+  put(scopes, revision, evidence, { seed = false, modelVersion = '', retrievalConfigVersion = '' } = {}) {
     const normalized = normalizeScopes(scopes);
     if (!normalized.length || !revision) return null;
-    const key = this.key(normalized, revision);
+    const identity = { modelVersion, retrievalConfigVersion };
+    const key = this.key(normalized, revision, identity);
     // An updated index cannot reuse any excerpt from the previous revision.
     for (const [oldKey, entry] of this.entries) {
       if (JSON.stringify(entry.scopes) === JSON.stringify(normalized) && oldKey !== key) this.entries.delete(oldKey);
     }
-    const old = this.get(normalized, revision);
+    const old = this.get(normalized, revision, identity);
     const seen = new Set(), selected = [];
     let chars = 0;
     for (const item of [...(evidence || []), ...(old?.evidence || [])]) {
       if (!sourceEvidence(item, normalized) || seen.has(evidenceKey(item))) continue;
       const room = this.maxChars - chars;
       if (selected.length >= this.maxEvidence || room < 100) break;
-      const text = item.text.length > room ? item.text.slice(0, room) : item.text;
-      const excerpt = item.text.length > room ? { ...item, text,
-        endLine: item.startLine + (text.match(/\n/g) || []).length, partial: true } : { ...item };
+      // Source cache never manufactures a prefix excerpt that silently loses
+      // the result or verification at the end of a story/table/function.
+      if (item.text.length > room) continue;
+      const excerpt = { ...item };
       excerpt.topics = [...(item.topics || [])];
       selected.push(excerpt); seen.add(evidenceKey(item)); chars += excerpt.text.length;
     }
-    const entry = { scopes: normalized, revision, evidence: selected, updatedAt: this.now(), searched: old?.searched || !seed };
+    const entry = { scopes: normalized, revision, modelVersion, retrievalConfigVersion,
+      evidence: selected, updatedAt: this.now(), searched: old?.searched || !seed };
     this.entries.delete(key); this.entries.set(key, entry);
     while (this.entries.size > this.maxEntries) this.entries.delete(this.entries.keys().next().value);
     return entry;
   }
 
-  lookup(scopes, revision, query, interviewPlan) {
-    const entry = this.get(scopes, revision);
+  lookup(scopes, revision, query, interviewPlan, identity = {}) {
+    const entry = this.get(scopes, revision, identity);
     if (!entry || !entry.searched) return { hit: false, evidence: [], missing: requirements(query, interviewPlan).map(n => n.text) };
     return assessEvidence(entry.evidence, entry.scopes, query, interviewPlan);
   }

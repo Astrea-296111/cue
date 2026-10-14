@@ -12,6 +12,19 @@ const Module = require('node:module');
 const root = path.resolve(__dirname, '..');
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'cue-renderer-layout-'));
 app.setPath('userData', data);
+// Synthetic sources exercise the actual retrieval-to-renderer reference fold.
+fs.writeFileSync(path.join(data, 'cue-project-index-v2.json'), JSON.stringify({ version: 2,
+  chunkerVersion: 4, metadataSchemaVersion: 3, updatedAt: '2026-10-14T00:00:00Z',
+  projects: [{ id: 'ui-synthetic', name: 'UI合成项目', aliases: ['演示源'], hasManifest: true,
+    sourceType: 'folder', sourceName: 'UI合成项目', stats: { fileCount: 2, chunkCount: 2 } }],
+  chunks: [
+    { id: 'ui-decision', projectId: 'ui-synthetic', projectName: 'UI合成项目', path: 'interview/decision.md',
+      startLine: 1, endLine: 1, docType: 'decision', truthScope: 'implemented', status: 'confirmed',
+      text: 'UI_SOURCE_DECISION 我在演示源选择 MySQL，因为必须同一事务校验额度；未选择 Redis，代价是需要处理事务锁竞争。' },
+    { id: 'ui-code', projectId: 'ui-synthetic', projectName: 'UI合成项目', path: 'src/reserve.js',
+      startLine: 1, endLine: 1, docType: 'implementation', truthScope: 'implemented', status: 'confirmed',
+      text: 'UI_SOURCE_CODE function reserve(id) { return mysql.transaction(id); }' }
+  ], stats: { fileCount: 2, chunkCount: 2 } }));
 
 let allowedToQuit = false, releaseFirst;
 const calls = [], signals = [], payloads = [];
@@ -111,6 +124,8 @@ app.on('browser-window-created', (_event, win) => {
       assert.ok(Math.max(...layout.rows) - Math.min(...layout.rows) <= 1);
       assert.deepEqual(layout.clipped, []);
       assert.equal(await js("document.documentElement.lang"), 'zh-CN');
+      assert.equal(await js("document.querySelector('#current-project option').textContent"), '自动');
+      assert.ok(await js("document.getElementById('current-project').getBoundingClientRect().height >= 20"));
       assert.deepEqual(await js("['.drag-label','.tb-hide span:last-child','#smart-toggle span:last-child','.ts-title','#clear-transcript-btn'].map(s=>document.querySelector(s).textContent)"),
         ['拖动', '收起', '深度思考', '对话记录', '清空记录']);
       for (const [status, text, className] of [['loading','正在加载本地模型','loading'], ['ready','本地识别已就绪','local'], ['error','识别异常','error'], ['off','未监听','off']]) {
@@ -161,6 +176,16 @@ app.on('browser-window-created', (_event, win) => {
       assert.equal(captures, 2);
       stable(before, await controls());
       assert.ok(globalShortcut.isRegistered('CommandOrControl+H'));
+      const sourceCount = calls.length;
+      await js("cue.ask({mode:'say',text:'演示源项目为什么选择 MySQL？'});");
+      await until(() => calls.length === sourceCount + 1, 'scoped source request');
+      await until(() => js("!!document.querySelector('.answer-evidence')"), 'reference fold');
+      assert.ok(JSON.stringify(calls.at(-1).messages).includes('UI_SOURCE_DECISION'));
+      assert.equal(await js("document.querySelector('.answer-evidence').open"), false);
+      await js("document.querySelector('.answer-evidence summary').click()");
+      assert.ok(await js("document.querySelector('.answer-evidence').textContent.includes('UI_SOURCE_DECISION')"));
+      await until(() => js("!document.getElementById('send-btn').classList.contains('busy')"), 'reference reply complete');
+      stable(before, await controls());
       const messages = await js("({client:document.getElementById('messages').clientHeight,scroll:document.getElementById('messages').scrollHeight})");
       assert.ok(messages.client > 0 && messages.scroll > messages.client);
 
@@ -172,6 +197,9 @@ app.on('browser-window-created', (_event, win) => {
       assert.deepEqual(settings.values, ['PROFILE_RETAINED', 'JD_RETAINED', 'STORIES_RETAINED', 'SALARY_RETAINED']);
       assert.equal(await js("document.querySelector('.s-title').textContent"), '设置');
       assert.equal(await js("document.getElementById('s-close').textContent"), '完成');
+      assert.equal(await js("document.getElementById('project-semantic-prepare').textContent"), '准备本地语义检索');
+      assert.equal(await js("document.getElementById('project-semantic-import').textContent"), '选择本地模型目录…');
+      assert.equal(await js("document.getElementById('context-window-tokens').value"), '16384');
       for (const tab of ['keys', 'transcription', 'profile', 'prep', 'style', 'qa']) {
         await js(`document.querySelector('.s-tab[data-tab=${tab}]').click()`);
         await until(() => js(`!document.querySelector('.s-tab-pane[data-pane=${tab}]').classList.contains('hidden')`), 'settings tab ' + tab);

@@ -31,7 +31,21 @@ module.exports = {
   appId: "com.cue.assistant",
   productName: "Cue",
   asar: true,
+  // The worker and native/runtime resources must resolve outside the ASAR.
+  // Model weights stay in userData and are never bundled in regular installers.
+  asarUnpack: [
+    'src/project-embedding-worker.cjs',
+    'node_modules/@huggingface/**/*',
+    'node_modules/onnxruntime-node/**/*',
+    'node_modules/onnxruntime-common/**/*',
+    'node_modules/onnxruntime-web/**/*',
+    'node_modules/sharp/**/*',
+    'node_modules/@img/**/*',
+    'node_modules/detect-libc/**/*',
+    'node_modules/semver/**/*',
+  ],
   publish: null,
+  beforePack: 'scripts/verify-semantic-packaging.cjs',
   artifactName: "${productName}-${version}-${os}-${arch}.${ext}",
   // An allowlist, so anything new has to be added here or it simply is not in
   // the shipped app — and the only symptom is a require() that throws at

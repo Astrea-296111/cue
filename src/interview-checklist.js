@@ -19,7 +19,8 @@ function scopeKey(plan) {
 function copyEntry(entry, current = false) {
   return { id: entry.id, text: entry.text, status: entry.status, answered: entry.status === 'covered',
     current, partial: entry.partial, sourceKey: entry.sourceKey, intent: entry.intent,
-    topics: [...entry.topics], ...(entry.answerEvidence ? { answerEvidence: entry.answerEvidence } : {}) };
+    topics: [...entry.topics], evidenceNeeds: (entry.evidenceNeeds || []).map(need => ({ ...need })),
+    ...(entry.answerEvidence ? { answerEvidence: entry.answerEvidence } : {}) };
 }
 
 function coverageEvidence(question, answer, index, total) {
@@ -102,7 +103,7 @@ class InterviewChecklist {
         this.entries.set(entry.id, entry);
       }
       Object.assign(entry, { text: sub.text, partial: !!interviewPlan.partial, sourceKey: interviewPlan.sourceKey,
-        intent: sub.intent, topics: [...(sub.topics || [])], lastRequestedId: id });
+        intent: sub.intent, topics: [...(sub.topics || [])], evidenceNeeds: (sub.evidenceNeeds || []).map(need => ({ ...need })), lastRequestedId: id });
       if (oldPartial && !interviewPlan.partial) { entry.status = 'pending'; delete entry.answerEvidence; }
       ids.push(entry.id);
     }
@@ -126,7 +127,8 @@ class InterviewChecklist {
       const entry = this.entries.get(frozen.id);
       // A newer snapshot can refine a partial. Its old answer must not cover it.
       if (!entry || entry.epoch !== request.epoch || entry.lastRequestedId > request.id || entry.status === 'skipped') continue;
-      const evidence = provenComplete ? coverageEvidence(frozen, answer, index, questions.length) : '';
+      const missingSource = request.unavailableEvidenceQuestionIds?.some(id => frozen.id === id || frozen.id.endsWith(':' + id));
+      const evidence = provenComplete && !missingSource ? coverageEvidence(frozen, answer, index, questions.length) : '';
       if (evidence) { entry.status = 'covered'; entry.answerEvidence = evidence; }
       else if (entry.status !== 'covered') entry.status = 'unknown';
     }
