@@ -143,7 +143,9 @@ const ASSIST_ACCELERATOR = 'CommandOrControl+Shift+Return';
 // On a standard keyboard, ? is Shift+/, so Ctrl+? is Ctrl+Shift+/.
 const LEGACY_ASSIST_ACCELERATOR = 'CommandOrControl+Shift+/';
 const HIDE_ACCELERATOR = 'CommandOrControl+Shift+H';
-const MOVE_STEP = 20;
+const COLLAPSE_ACCELERATOR = 'CommandOrControl+P';
+const RECORD_ACCELERATOR = 'CommandOrControl+R';
+const MOVE_STEP = 25;
 const MOVE_DIRECTIONS = { Up: [0, -1], Down: [0, 1], Left: [-1, 0], Right: [1, 0] };
 
 function isCueOverlayWindow(win) {
@@ -188,11 +190,22 @@ function installShortcutOverrides() {
   globalShortcut.unregister(ASSIST_ACCELERATOR);
   globalShortcut.unregister(LEGACY_ASSIST_ACCELERATOR);
   globalShortcut.unregister(HIDE_ACCELERATOR);
+  globalShortcut.unregister(COLLAPSE_ACCELERATOR);
+  globalShortcut.unregister(RECORD_ACCELERATOR);
 
   registerShortcut('如何回答', SAY_ACCELERATOR, () => sendMode('say'));
   registerShortcut('屏幕与问题', ASSIST_ACCELERATOR, () => sendMode('assist'));
   registerShortcut('屏幕与问题（Ctrl+?）', LEGACY_ASSIST_ACCELERATOR, () => sendMode('assist'));
   registerShortcut('Hide', HIDE_ACCELERATOR, toggleHide);
+  registerShortcut('收起/展开', COLLAPSE_ACCELERATOR, toggleHide);
+  registerShortcut('开始/停止录音', RECORD_ACCELERATOR, () => {
+    // System-audio capture needs a browser user gesture. Reuse the button with
+    // Electron's userGesture flag so background shortcuts start both streams.
+    forEachCueWindow((win) => {
+      win.webContents.executeJavaScript("document.getElementById('stop-btn')?.click()", true)
+        .catch((error) => console.warn('[cue] 录音快捷键失败:', error.message));
+    });
+  });
 
   for (const [direction, [dx, dy]] of Object.entries(MOVE_DIRECTIONS)) {
     const accelerator = `CommandOrControl+Shift+${direction}`;
