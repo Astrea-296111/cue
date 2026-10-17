@@ -102,6 +102,13 @@ app.on('browser-window-created', (_event, win) => {
     if (!win.webContents.getURL().endsWith('/renderer/index.html')) return;
     const js = code => win.webContents.executeJavaScript(code);
     const settled = () => until(() => js("document.getElementById('panel').getAnimations().every(a=>a.playState!=='running')"), 'panel animation');
+    async function toggleWindowVisibility(visible) {
+      assert.equal(win.isVisible(), !visible);
+      assert.ok(globalShortcut.isRegistered('CommandOrControl+P'), 'Shortcut must remain registered while hidden');
+      registeredShortcuts.get('CommandOrControl+P')();
+      await until(() => win.isVisible() === visible, visible ? 'restore entire window' : 'hide entire window');
+      assert.equal(win.isDestroyed(), false, 'Hiding must keep the window and session alive');
+    }
     const controls = () => js(`Object.fromEntries([...document.querySelectorAll('.act, #smart-toggle, #history-btn, #more-btn, #send-btn')].map(el=>{
       const r=el.getBoundingClientRect();return [el.id||el.dataset.mode,{x:r.x,y:r.y,width:r.width,height:r.height}];
     }))`);
@@ -197,6 +204,10 @@ app.on('browser-window-created', (_event, win) => {
 
       await js("document.getElementById('more-btn').click()");
       await until(() => js("!document.getElementById('settings-scrim').classList.contains('hidden')"), 'settings');
+      await toggleWindowVisibility(false);
+      await toggleWindowVisibility(true);
+      assert.equal(await js("document.getElementById('settings-scrim').classList.contains('hidden')"), false,
+        'Settings must hide with the window and remain open after restoring');
       const settings = await js(`(() => {const r=document.getElementById('settings').getBoundingClientRect();return {bottom:r.bottom,viewport:innerHeight,font:getComputedStyle(document.querySelector('.s-title')).fontSize,
         values:['resume-text','job-description','star-stories','salary-target'].map(id=>document.getElementById(id).value)};})()`);
       assert.ok(settings.bottom <= settings.viewport + 1);
@@ -279,6 +290,12 @@ app.on('browser-window-created', (_event, win) => {
         assert.equal(await js("document.getElementById('composer').classList.contains('listening')"), active);
         if (active) await until(async () => audioLogs.filter(message => message === 'mic AudioWorklet processor attached').length === await js('cueAudioTest.system.length'), 'microphone capture');
         else await until(() => js('[...cueAudioTest.system,...cueAudioTest.mic].every(s=>s.getTracks().every(t=>t.readyState===\"ended\"))'), 'audio cleanup');
+        if (route === 'shortcut' && active) {
+          await toggleWindowVisibility(false);
+          assert.equal((await js('cue.captureState()')).active, true, 'Recording must continue while hidden');
+          assert.ok(await js('[...cueAudioTest.system,...cueAudioTest.mic].every(s=>s.getTracks().every(t=>t.readyState===\"live\"))'));
+          await toggleWindowVisibility(true);
+        }
       }
       assert.deepEqual(await js('({system:cueAudioTest.system.length,mic:cueAudioTest.mic.length,gestures:cueAudioTest.gestures})'),
         { system: 2, mic: 2, gestures: [true, true] });
@@ -301,15 +318,23 @@ app.on('browser-window-created', (_event, win) => {
         await until(() => Math.abs(win.getPosition()[0] - origin[0]) <= 2 && Math.abs(win.getPosition()[1] - origin[1]) <= 2, 'movement restored');
       }
       const collapseControls = await controls();
-      assert.ok(globalShortcut.isRegistered('CommandOrControl+P'));
-      registeredShortcuts.get('CommandOrControl+P')();
-      await until(() => js("document.getElementById('panel').classList.contains('collapsed')"), 'collapse shortcut');
-      assert.equal(await js("document.querySelector('.tb-hide span:last-child').textContent"), '展开');
-      registeredShortcuts.get('CommandOrControl+P')(); await settled();
-      await until(() => js("!document.getElementById('panel').classList.contains('collapsed')"), 'expand shortcut');
+      const view = () => js(`({collapsed:document.getElementById('panel').classList.contains('collapsed'),
+        input:document.getElementById('input').value,messages:document.getElementById('messages').innerHTML})`);
+      const savedView = await view(), savedBounds = win.getBounds();
+      for (let i = 0; i < 3; i++) {
+        await toggleWindowVisibility(false);
+        assert.deepEqual(await view(), savedView, 'Hiding must preserve the current answer and input');
+        await toggleWindowVisibility(true);
+        assert.deepEqual(await view(), savedView);
+        assert.deepEqual(win.getBounds(), savedBounds, 'Restoring must preserve window position and size');
+      }
       assert.ok(globalShortcut.isRegistered('CommandOrControl+Shift+H'), 'Keep the original collapse shortcut');
       registeredShortcuts.get('CommandOrControl+Shift+H')();
       await until(() => js("document.getElementById('panel').classList.contains('collapsed')"), 'legacy collapse shortcut');
+      await toggleWindowVisibility(false);
+      await toggleWindowVisibility(true);
+      assert.equal(await js("document.getElementById('panel').classList.contains('collapsed')"), true,
+        'Restoring must preserve the prior collapsed state');
       await js("document.getElementById('hide-btn').click()"); await settled();
       stable(collapseControls, await controls());
       await js("document.getElementById('hide-btn').click()");
@@ -328,7 +353,7 @@ app.on('browser-window-created', (_event, win) => {
       await tick(); assert.equal(win.isDestroyed(), false);
       console.log('UI_LAYOUT_OK', JSON.stringify({ size:win.getSize(),zoom,scale:display.scaleFactor,layout,caption,messages,settings,
         captionUpdates:30,stableControls:true,sayInterruption:true,solveButton:true,singleClickKeepsRunning:true,
-        collapseShortcut:true,recordingShortcut:true,movementStep:25,
+        collapseShortcut:true,fullWindowVisibilityShortcut:true,recordingShortcut:true,movementStep:25,
         chineseSettings:true,chineseOnboarding:true,chinesePermissions:true,windowsBuildFixture:process.env.CUE_UI_WINDOWS_BUILD || null }));
       allowedToQuit = true;
       if (process.env.CUE_UI_QUIT_SHORTCUT) {

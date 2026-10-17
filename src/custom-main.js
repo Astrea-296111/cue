@@ -143,7 +143,7 @@ const ASSIST_ACCELERATOR = 'CommandOrControl+Shift+Return';
 // On a standard keyboard, ? is Shift+/, so Ctrl+? is Ctrl+Shift+/.
 const LEGACY_ASSIST_ACCELERATOR = 'CommandOrControl+Shift+/';
 const HIDE_ACCELERATOR = 'CommandOrControl+Shift+H';
-const COLLAPSE_ACCELERATOR = 'CommandOrControl+P';
+const VISIBILITY_ACCELERATOR = 'CommandOrControl+P';
 const RECORD_ACCELERATOR = 'CommandOrControl+R';
 const MOVE_STEP = 25;
 const MOVE_DIRECTIONS = { Up: [0, -1], Down: [0, 1], Left: [-1, 0], Right: [1, 0] };
@@ -177,6 +177,13 @@ function toggleHide() {
   });
 }
 
+function toggleWindowVisibility() {
+  forEachCueWindow((win) => {
+    if (win.isVisible()) win.hide();
+    else win.showInactive();
+  });
+}
+
 function registerShortcut(name, accelerator, handler) {
   const ok = globalShortcut.register(accelerator, handler);
   if (!ok) {
@@ -190,14 +197,14 @@ function installShortcutOverrides() {
   globalShortcut.unregister(ASSIST_ACCELERATOR);
   globalShortcut.unregister(LEGACY_ASSIST_ACCELERATOR);
   globalShortcut.unregister(HIDE_ACCELERATOR);
-  globalShortcut.unregister(COLLAPSE_ACCELERATOR);
+  globalShortcut.unregister(VISIBILITY_ACCELERATOR);
   globalShortcut.unregister(RECORD_ACCELERATOR);
 
   registerShortcut('如何回答', SAY_ACCELERATOR, () => sendMode('say'));
   registerShortcut('屏幕与问题', ASSIST_ACCELERATOR, () => sendMode('assist'));
   registerShortcut('屏幕与问题（Ctrl+?）', LEGACY_ASSIST_ACCELERATOR, () => sendMode('assist'));
   registerShortcut('Hide', HIDE_ACCELERATOR, toggleHide);
-  registerShortcut('收起/展开', COLLAPSE_ACCELERATOR, toggleHide);
+  registerShortcut('隐藏/恢复整个窗口', VISIBILITY_ACCELERATOR, toggleWindowVisibility);
   registerShortcut('开始/停止录音', RECORD_ACCELERATOR, () => {
     // System-audio capture needs a browser user gesture. Reuse the button with
     // Electron's userGesture flag so background shortcuts start both streams.
