@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain, globalShortcut, screen, session, desktopCapturer, shell, dialog, systemPreferences,net } = require('electron');
 const path = require('path');
-const { debugProtectionDisabled, requestWindowProtection, showWindowWithProtection } = require('./src/window-protection');
+const { requestWindowProtection, showWindowWithProtection } = require('./src/window-protection');
 const { performance } = require('perf_hooks');
 const { withCurrentQuestion, isLikelyFollowUp, planProjectRetrieval } = require('./src/project-query');
 const { QuestionResolver } = require('./src/question-resolver');
@@ -394,8 +394,7 @@ function createWindow() {
 
   win = new BrowserWindow(winOptions);
 
-  const protectionOptions = { isPackaged: app.isPackaged };
-  requestWindowProtection(win, protectionOptions);
+  requestWindowProtection(win);
 
   win.setAlwaysOnTop(true, 'screen-saver', 1);
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -419,10 +418,10 @@ function createWindow() {
   win.setTitle('Microsoft Edge Update'); // set before load
 
   win.webContents.on('did-finish-load', () => {
-    showWindowWithProtection(win, protectionOptions);
+    showWindowWithProtection(win);
     win.setTitle('Microsoft Edge Update');
     // Warn about missing content protection on old Windows builds
-    if (isWindows && !debugProtectionDisabled(protectionOptions) && !WIN_SUPPORTS_CONTENT_PROTECTION) {
+    if (isWindows && !WIN_SUPPORTS_CONTENT_PROTECTION) {
       send('status', {
         message: `当前 Windows 版本（内部版本 ${WIN_BUILD}）仅支持旧版窗口保护，录屏可能显示黑色区域。完整窗口排除需要 Windows 10 内部版本 19041 或更新版本；录屏软件是否遵守保护仍需实测。`
       });
@@ -1210,7 +1209,7 @@ function createPermissionsWindow() {
     }
   });
   permWin.loadFile(path.join(__dirname, 'renderer', 'permissions.html'));
-  permWin.webContents.on('did-finish-load', () => showWindowWithProtection(permWin, { isPackaged: app.isPackaged, activate: true }));
+  permWin.webContents.on('did-finish-load', () => showWindowWithProtection(permWin, { activate: true }));
 }
 
 // -------- launch (called after permissions are confirmed) --------

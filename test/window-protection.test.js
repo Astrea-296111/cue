@@ -21,44 +21,39 @@ function window() {
     get visible() { return visible; } };
 }
 
-for (const value of [undefined, '', '0', 'false', 'true']) {
-  test(`CUE_NO_PROTECT=${String(value)} cannot silently disable protection`, () => {
+for (const value of [undefined, '', '0', 'false', 'true', '1']) {
+  test(`CUE_NO_PROTECT=${String(value)} cannot disable protection`, t => {
+    const previous = process.env.CUE_NO_PROTECT;
+    if (value === undefined) delete process.env.CUE_NO_PROTECT;
+    else process.env.CUE_NO_PROTECT = value;
+    t.after(() => {
+      if (previous === undefined) delete process.env.CUE_NO_PROTECT;
+      else process.env.CUE_NO_PROTECT = previous;
+    });
     const fixture = window();
-    assert.equal(showWindowWithProtection(fixture.win, { env: { CUE_NO_PROTECT: value } }), true);
+    assert.equal(showWindowWithProtection(fixture.win), true);
     assert.deepEqual(fixture.calls, [['protect', true], ['showInactive']]);
   });
 }
 
-test('an explicit developer bypass is allowed only for unpackaged windows and warns once', t => {
-  const warning = t.mock.method(console, 'warn', () => {});
+test('focused consent and permission windows request protection before showing', () => {
   const fixture = window();
-  const options = { env: { CUE_NO_PROTECT: '1' }, isPackaged: false };
-  assert.equal(showWindowWithProtection(fixture.win, options), true);
-  assert.equal(showWindowWithProtection(fixture.win, options), true);
-  assert.deepEqual(fixture.calls, [['showInactive'], ['showInactive']]);
-  assert.equal(warning.mock.callCount(), 1);
-});
-
-test('packaged applications ignore the developer bypass and request protection before showing', () => {
-  const fixture = window();
-  assert.equal(showWindowWithProtection(fixture.win,
-    { env: { CUE_NO_PROTECT: '1' }, isPackaged: true, activate: true }), true);
+  assert.equal(showWindowWithProtection(fixture.win, { activate: true }), true);
   assert.deepEqual(fixture.calls, [['protect', true], ['show']]);
 });
 
 test('a rejected native request hides the window, blocks restore and logs the failure without throwing', t => {
   const error = t.mock.method(console, 'error', () => {});
   const fixture = window();
-  const options = { env: {} };
-  showWindowWithProtection(fixture.win, options);
+  showWindowWithProtection(fixture.win);
   fixture.fail(true);
-  assert.equal(showWindowWithProtection(fixture.win, options), false);
+  assert.equal(showWindowWithProtection(fixture.win), false);
   assert.equal(fixture.visible, false);
   assert.deepEqual(fixture.calls.slice(-2), [['protect', true], ['hide']]);
   assert.equal(error.mock.callCount(), 1);
   assert.match(error.mock.calls[0].arguments.join(' '), /native protection request failed/);
   fixture.fail(false);
-  assert.equal(showWindowWithProtection(fixture.win, options), true);
+  assert.equal(showWindowWithProtection(fixture.win), true);
   assert.equal(fixture.visible, true);
   assert.deepEqual(fixture.calls.slice(-2), [['protect', true], ['showInactive']]);
 });
@@ -66,7 +61,7 @@ test('a rejected native request hides the window, blocks restore and logs the fa
 test('every hide and restore requests protection again before displaying the window', () => {
   const fixture = window();
   for (let i = 0; i < 10; i++) {
-    assert.equal(showWindowWithProtection(fixture.win, { env: {} }), true);
+    assert.equal(showWindowWithProtection(fixture.win), true);
     fixture.win.hide();
   }
   assert.deepEqual(fixture.calls, Array.from({ length: 10 }, () => [['protect', true], ['showInactive'], ['hide']]).flat());

@@ -10,7 +10,6 @@ const os = require('node:os');
 const path = require('node:path');
 const Module = require('node:module');
 const root = path.resolve(__dirname, '..');
-const { debugProtectionDisabled } = require('../src/window-protection');
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'cue-renderer-layout-'));
 app.setPath('userData', data);
 // Synthetic sources exercise the actual retrieval-to-renderer reference fold.
@@ -65,7 +64,7 @@ class TestWindow extends electron.BrowserWindow {
     for (const method of ['setContentProtection', 'show', 'showInactive']) {
       const native = this[method].bind(this);
       this[method] = (...args) => {
-        if (method !== 'setContentProtection' && !debugProtectionDisabled({ isPackaged: app.isPackaged })) {
+        if (method !== 'setContentProtection') {
           const previous = trace.at(-1);
           assert.equal(previous?.method, 'setContentProtection', 'Protection must be requested immediately before display');
           assert.equal(previous.args[0], true);
@@ -393,7 +392,7 @@ app.on('browser-window-created', (_event, win) => {
       await js("document.getElementById('hide-btn').click()"); await settled();
       stable(collapseControls, await controls());
 
-      if (!debugProtectionDisabled({ isPackaged: app.isPackaged })) {
+      {
         await toggleWindowVisibility(false);
         failNativeProtection = true;
         registeredShortcuts.get('CommandOrControl+P')();
@@ -415,7 +414,7 @@ app.on('browser-window-created', (_event, win) => {
       console.log('UI_LAYOUT_OK', JSON.stringify({ size:win.getSize(),zoom,scale:display.scaleFactor,layout,caption,messages,settings,
         captionUpdates:30,stableControls:true,sayInterruption:true,solveButton:true,singleClickKeepsRunning:true,
         collapseShortcut:true,fullWindowVisibilityShortcut:true,recordingShortcut:true,technicalShortcut:true,movementStep:25,
-        createdHidden:true,protectionRequested:!debugProtectionDisabled({ isPackaged: app.isPackaged }),protectionFailureBlocked,
+        createdHidden:true,protectionRequested:true,protectionFailureBlocked,
         chineseSettings:true,chineseOnboarding:true,chinesePermissions:true,windowsBuildFixture:process.env.CUE_UI_WINDOWS_BUILD || null }));
       allowedToQuit = true;
       if (process.env.CUE_UI_QUIT_SHORTCUT) {
