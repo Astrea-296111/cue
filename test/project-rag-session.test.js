@@ -11,7 +11,7 @@ test('prefetch identity binds full corrected text and every session/source/model
   const base = input();
   for (const patch of [{ question: '项目甲没有重试，如何处理？' }, { epoch: 2 },
     { projectRevision: 'snapshot-b' }, { modelVersion: 'e5-b' }, { sourceKey: 'asr:2' },
-    { questionVersion: 'correction' }, { projectPlan: { retrieve: true, scopes: ['@project:b'] } }]) {
+    { questionVersion: 'correction' }, { hashFallback: false }, { projectPlan: { retrieve: true, scopes: ['@project:b'] } }]) {
     assert.notEqual(retrievalIdentity(base), retrievalIdentity({ ...base, ...patch }));
   }
 });

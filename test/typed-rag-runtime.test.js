@@ -68,13 +68,14 @@ test('final window removes whole source blocks and commits only SDK-visible refe
   assert.match(currentText(r.calls[0]), /星舟为什么选择 MySQL/);
 });
 
-test('formal async path aborts delayed semantic work before clear and preserves only new SDK messages', async t => {
+test('deep-mode formal async path aborts delayed semantic work before clear and preserves only new SDK messages', async t => {
   const wait = deferred();
   let r, sawSignal;
   const semantic = { status: () => ({ ready: true, modelVersion: 'controlled-worker-v1' }),
     queryCandidates: async request => { sawSignal = request.signal; await wait.promise; return { rows: [], reason: 'test-late' }; },
     invalidate() {}, close() {} };
-  r = createInterviewRuntime(t, { chunks, projects, semanticRetriever: semantic });
+  r = createInterviewRuntime(t, { chunks, projects, semanticRetriever: semantic,
+    settings: { smart: true, models: { custom: { smart: 'test-model' } } } });
   const first = r.ask('say', '星舟为什么选择 MySQL？');
   await new Promise(resolve => setImmediate(resolve));
   assert.ok(sawSignal);

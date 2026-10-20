@@ -105,13 +105,16 @@ class ConversationMemory {
     const policy = contextPolicy(mode, current, this.recent.length + this.archive.length > 0, plan);
     const configured = Number(settings.conversationContextChars);
     const isolated = policy === 'independent' || policy === 'project-switch';
-    const defaultBudget = isolated ? 0
+    const legacyBudget = isolated ? 0
       : policy === 'followup' ? (settings.smart ? 9000 : 6000)
         : policy === 'referential' ? (settings.smart ? 14000 : 9000)
           : (settings.smart ? 32000 : 20000);
+    const oralFast = !settings.smart && ['say', 'answerThis'].includes(mode);
+    const defaultBudget = oralFast && policy === 'followup' ? 2400
+      : oralFast && policy === 'referential' ? 3600 : legacyBudget;
     const budget = isolated ? 0
       : Number.isFinite(configured) && configured >= 4000
-        ? Math.min(48000, Math.floor(configured), Math.max(defaultBudget, 4000))
+        ? Math.min(48000, Math.floor(configured), Math.max(legacyBudget, 4000))
         : defaultBudget;
     const snapshot = this.buildHistory(current, plan, budget, policy);
     const spokenContext = plan.projectSwitched ? '' : excerpt(transcript.filter(t => t.channel === 'you' && t.ts > this.lastStartedAt)

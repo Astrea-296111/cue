@@ -369,7 +369,8 @@ test('short follow-ups and explicit screenshots have consistent routing', () => 
 });
 
 test('OpenAI-compatible adapter preserves history roles, hides reasoning, and forwards abort signal', async () => {
-  let sent, requestOptions, activity = 0;
+  let sent, requestOptions;
+  const activity = [];
   class OpenAI {
     constructor() { this.chat = { completions: { create: async (body, options) => {
       sent = body; requestOptions = options;
@@ -386,12 +387,12 @@ test('OpenAI-compatible adapter preserves history roles, hides reasoning, and fo
   let output = '';
   await llm.stream({ system: '规则', turns: [{ role: 'user', text: '旧问题' }, { role: 'assistant', text: '旧答案' }, { role: 'user', text: '追问' }],
     imageDataUrl: 'data:image/png;base64,AA==', signal: controller.signal,
-    onToken: t => { output += t; }, onActivity: () => activity++ });
+    onToken: t => { output += t; }, onActivity: event => activity.push(event.phase) });
   assert.equal(sent.messages[2].role, 'assistant');
   assert.equal(typeof sent.messages[1].content, 'string');
   assert.equal(sent.messages.at(-1).content[1].type, 'image_url');
   assert.equal(output, '正确正文');
-  assert.equal(activity, 2);
+  assert.deepEqual(activity, ['provider-response', 'reasoning', 'provider-event']);
   assert.equal(requestOptions.signal, controller.signal);
 });
 

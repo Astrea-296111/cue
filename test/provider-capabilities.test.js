@@ -10,11 +10,11 @@ const { DATA_START, DATA_END, prepareFinalRequest, requestText, visibleEvidence 
 const { resolveChatRequestOptions } = require('../src/openai-compatible');
 
 function runtime(provider, frames, overrides = {}) {
-  const sdk = [], observed = [], usage = [], tokens = [];
+  const sdk = [], observed = [], usage = [], tokens = [], clients = [];
   const file = path.resolve(__dirname, '../src/llm.js'), requireActual = createRequire(file);
   const iterable = () => (async function* () { for (const frame of frames) yield frame; })();
   class OpenAI {
-    constructor() { this.chat = { completions: { create: async request => { sdk.push(request); return iterable(); } } }; }
+    constructor(options) { clients.push(options); this.chat = { completions: { create: async request => { sdk.push(request); return iterable(); } } }; }
   }
   OpenAI.AzureOpenAI = OpenAI;
   class Anthropic {
@@ -35,7 +35,7 @@ function runtime(provider, frames, overrides = {}) {
   const settings = { provider, smart: false, baseUrl: 'https://example.invalid/v1',
     azureEndpoint: 'https://example.openai.azure.com', apiKeys: { [provider]: 'unit-key' },
     models: { [provider]: { fast: 'qwen3-8b', smart: 'qwen3-8b' } }, ...overrides };
-  return { sdk, observed, usage, tokens, async stream(extra = {}) {
+  return { sdk, observed, usage, tokens, clients, async stream(extra = {}) {
     return module.exports.createLLM(settings).stream({ system: '固定规则', turns: [{ role: 'user', text: '问题' }],
       maxTokens: 400, onRequest: request => observed.push(request), onUsage: value => usage.push(value),
       onToken: text => tokens.push(text), ...extra });
@@ -53,6 +53,52 @@ test('Qwen options depend on exact endpoint and hybrid capability; explicit sett
   assert.deepEqual(resolveChatRequestOptions({ baseURL: 'http://localhost:1234/v1', model: 'qwen3-8b' }), {});
   assert.deepEqual(resolveChatRequestOptions({ baseURL: dashscope, model: 'qwen3-8b', explicit: { enable_thinking: true, reasoning_effort: 'high' } }),
     { enable_thinking: true, reasoning_effort: 'high' });
+});
+
+test('qwen-flash sends a supported fast-mode request on DashScope, while deep and explicit settings remain authoritative', async () => {
+  for (const host of ['dashscope.aliyuncs.com', 'dashscope-intl.aliyuncs.com', 'dashscope-us.aliyuncs.com']) {
+    const config = { baseUrl: `https://${host}/compatible-mode/v1`, models: { custom: { fast: 'qwen-flash', smart: 'qwen-flash' } } };
+    const fast = runtime('custom', [], config);
+    await fast.stream({ mode: 'say' });
+    assert.equal(fast.sdk[0].enable_thinking, false);
+    assert.equal(fast.sdk[0].reasoning_effort, undefined, 'Use the provider field instead of guessing OpenAI reasoning support');
+    assert.equal(fast.clients[0].maxRetries, 0);
+    const deep = runtime('custom', [], { ...config, smart: true });
+    await deep.stream({ mode: 'say' });
+    assert.equal(deep.sdk[0].enable_thinking, true);
+    assert.equal(deep.clients[0].maxRetries, undefined);
+    const explicit = runtime('custom', [], { ...config, providerOptions: { custom: { enable_thinking: true } } });
+    await explicit.stream({ mode: 'say' });
+    assert.equal(explicit.sdk[0].enable_thinking, true);
+  }
+  assert.deepEqual(resolveChatRequestOptions({ baseURL: 'https://proxy.invalid/v1', model: 'qwen-flash', smart: false }), {});
+});
+
+test('original hybrid Qwen3 uses documented soft thinking control on compatible endpoints without unsupported protocol fields', async () => {
+  const local = runtime('custom', []);
+  await local.stream();
+  assert.ok(local.sdk[0].messages[0].content.endsWith('/no_think'));
+  assert.equal(local.sdk[0].enable_thinking, undefined);
+  const explicit = runtime('custom', [], { providerOptions: { custom: { enable_thinking: true } } });
+  await explicit.stream();
+  assert.ok(!explicit.sdk[0].messages[0].content.includes('/no_think'));
+});
+
+test('Gemini Flash fast mode disables default hidden thinking without changing Pro or unknown model capabilities', async () => {
+  for (const model of ['gemini-2.5-flash', 'gemini-2.5-flash-lite']) {
+    const fast = runtime('gemini', [], { models: { gemini: { fast: model } } });
+    await fast.stream();
+    assert.equal(fast.sdk[0].config.thinkingConfig.thinkingBudget, 0);
+  }
+  const deep = runtime('gemini', [], { smart: true, models: { gemini: { smart: 'gemini-2.5-flash' } } });
+  await deep.stream();
+  assert.equal(deep.sdk[0].config.thinkingConfig, undefined);
+  const pro = runtime('gemini', [], { models: { gemini: { fast: 'gemini-2.5-pro' } } });
+  await pro.stream();
+  assert.equal(pro.sdk[0].config.thinkingConfig, undefined);
+  const explicit = runtime('gemini', [], { models: { gemini: { fast: 'gemini-2.5-flash' } }, providerOptions: { gemini: { thinkingConfig: { thinkingBudget: 512 } } } });
+  await explicit.stream();
+  assert.equal(explicit.sdk[0].config.thinkingConfig.thinkingBudget, 512);
 });
 
 test('final compatible SDK request uses supported thinking fields and never blindly reasoning_effort:none', async () => {

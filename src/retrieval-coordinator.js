@@ -22,7 +22,8 @@ function retrievalIdentity(request, revision, modelVersion = '') {
     modelVersion, createHash('sha256').update(String(request.question || request.interviewPlan?.originalText || '')).digest('hex'),
     request.questionVersion ?? null, request.sourceKey || request.interviewPlan?.sourceKey || '', RETRIEVAL_CONFIG_VERSION,
     createHash('sha256').update(JSON.stringify([request.interviewPlan?.scenario || '', request.interviewPlan?.constraints || [],
-      request.interviewPlan?.subQuestions?.map(q => [q.text, q.evidenceNeeds]) || [], request.projectPlan?.subQuestionScopes || []])).digest('hex')]);
+      request.interviewPlan?.subQuestions?.map(q => [q.text, q.evidenceNeeds]) || [], request.projectPlan?.subQuestionScopes || []])).digest('hex'),
+    request.hashFallback !== false]);
 }
 
 function groupQuestions(question, interviewPlan, projectPlan) {
@@ -152,7 +153,7 @@ async function retrieveProjectEvidenceAsync(request = {}) {
   } else if (plan.retrieve && plan.scopes?.length) {
     const bases = groups.map(group => {
       const at = performance.now();
-      const base = lexicalCandidates(group, current, { candidateLimit: CANDIDATE_LIMIT, hashFallback: true });
+      const base = lexicalCandidates(group, current, { candidateLimit: CANDIDATE_LIMIT, hashFallback: request.hashFallback !== false });
       lexicalMs += performance.now() - at; searchCalls++;
       return base;
     });

@@ -33,7 +33,7 @@ function retrievalIdentity(input) {
     revision: input.projectRevision, modelVersion: input.modelVersion || 'base',
     question: String(input.question || ''), questionVersion: input.questionVersion || '',
     sourceKey: input.sourceKey || '', config: RETRIEVAL_CONFIG_VERSION,
-    needs: input.interviewPlan?.subQuestions || [], budget: input.contextBudget
+    needs: input.interviewPlan?.subQuestions || [], budget: input.contextBudget, hashFallback: input.hashFallback !== false
   })).digest('hex');
 }
 
