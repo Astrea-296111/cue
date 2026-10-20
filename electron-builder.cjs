@@ -34,6 +34,8 @@ module.exports = {
   // The worker and native/runtime resources must resolve outside the ASAR.
   // Model weights stay in userData and are never bundled in regular installers.
   asarUnpack: [
+    'node_modules/koffi/**/*',
+    'node_modules/@koromix/**/*',
     'src/project-embedding-worker.cjs',
     'node_modules/@huggingface/**/*',
     'node_modules/onnxruntime-node/**/*',

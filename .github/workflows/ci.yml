@@ -60,6 +60,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify native Windows capture exclusion
+        run: npm run test:protection -- --native-only
+
       - name: Package Windows app
         run: npm run pack:win
 

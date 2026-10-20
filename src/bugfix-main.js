@@ -20,7 +20,7 @@ const {
   screen
 } = require('electron');
 const { moveWindow } = require('./window-layout');
-const { requestWindowProtection } = require('./window-protection');
+const { requestWindowProtection, setProtectedMouseEvents } = require('./window-protection');
 
 let forcedPassthrough = false;
 let manualDragState = null;
@@ -75,7 +75,8 @@ function setWindowPassthrough(
   // IMPORTANT:
   // This is only used by the project's existing hover-based passthrough and
   // the explicit Ctrl/Cmd+Shift+I shortcut. We do NOT force it on by default.
-  win.setIgnoreMouseEvents(
+  setProtectedMouseEvents(
+    win,
     !!ignore,
     { forward: true }
   );
