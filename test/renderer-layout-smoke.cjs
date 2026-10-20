@@ -10,6 +10,7 @@ const os = require('node:os');
 const path = require('node:path');
 const Module = require('node:module');
 const root = path.resolve(__dirname, '..');
+const { debugProtectionDisabled } = require('../src/window-protection');
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'cue-renderer-layout-'));
 app.setPath('userData', data);
 // Synthetic sources exercise the actual retrieval-to-renderer reference fold.
@@ -52,10 +53,32 @@ class OpenAI {
 const originalLoad = Module._load;
 const localizationPreload = path.join(__dirname, 'helpers/renderer-localization-preload.cjs');
 const testWindows = new Set();
+const protectionTraces = new WeakMap();
+let failNativeProtection = false, protectionFailureBlocked = false;
 class TestWindow extends electron.BrowserWindow {
   constructor(options) {
     super({ ...options, webPreferences: { ...options.webPreferences,
       sandbox: false, preload: localizationPreload } });
+    this.testCreatedVisible = this.isVisible();
+    const trace = [];
+    protectionTraces.set(this, trace);
+    for (const method of ['setContentProtection', 'show', 'showInactive']) {
+      const native = this[method].bind(this);
+      this[method] = (...args) => {
+        if (method !== 'setContentProtection' && !debugProtectionDisabled({ isPackaged: app.isPackaged })) {
+          const previous = trace.at(-1);
+          assert.equal(previous?.method, 'setContentProtection', 'Protection must be requested immediately before display');
+          assert.equal(previous.args[0], true);
+          assert.equal(previous.succeeded, true);
+        }
+        const entry = { method, args, succeeded: false };
+        trace.push(entry);
+        if (method === 'setContentProtection' && failNativeProtection) throw Error('UI_PROTECTION_FAILURE_FIXTURE');
+        const result = native(...args);
+        entry.succeeded = true;
+        return result;
+      };
+    }
     testWindows.add(this);
     this.once('closed', () => testWindows.delete(this));
   }
@@ -121,6 +144,7 @@ app.on('browser-window-created', (_event, win) => {
     }
     try {
       await until(() => js("document.getElementById('code-shortcut-hint').textContent.includes('H')"), 'renderer boot');
+      assert.equal(win.testCreatedVisible, false, 'The window must be created hidden before requesting protection');
       await settled();
       const display = screen.getPrimaryDisplay(), zoom = win.webContents.getZoomFactor();
       assert.ok(Math.abs(win.getSize()[0] - Math.round(display.bounds.width * .3 * 1.25)) <= 2);
@@ -369,6 +393,18 @@ app.on('browser-window-created', (_event, win) => {
       await js("document.getElementById('hide-btn').click()"); await settled();
       stable(collapseControls, await controls());
 
+      if (!debugProtectionDisabled({ isPackaged: app.isPackaged })) {
+        await toggleWindowVisibility(false);
+        failNativeProtection = true;
+        registeredShortcuts.get('CommandOrControl+P')();
+        await tick();
+        assert.equal(win.isVisible(), false, 'A failed native protection request must not restore the window');
+        assert.equal(protectionTraces.get(win).at(-1).succeeded, false);
+        failNativeProtection = false;
+        await toggleWindowVisibility(true);
+        protectionFailureBlocked = true;
+      }
+
       // A single click, including a real browser input event, must keep running.
       await js("document.getElementById('quit-btn').click()"); await tick();
       const quit = await js("(() => {const r=document.getElementById('quit-btn').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()");
@@ -379,6 +415,7 @@ app.on('browser-window-created', (_event, win) => {
       console.log('UI_LAYOUT_OK', JSON.stringify({ size:win.getSize(),zoom,scale:display.scaleFactor,layout,caption,messages,settings,
         captionUpdates:30,stableControls:true,sayInterruption:true,solveButton:true,singleClickKeepsRunning:true,
         collapseShortcut:true,fullWindowVisibilityShortcut:true,recordingShortcut:true,technicalShortcut:true,movementStep:25,
+        createdHidden:true,protectionRequested:!debugProtectionDisabled({ isPackaged: app.isPackaged }),protectionFailureBlocked,
         chineseSettings:true,chineseOnboarding:true,chinesePermissions:true,windowsBuildFixture:process.env.CUE_UI_WINDOWS_BUILD || null }));
       allowedToQuit = true;
       if (process.env.CUE_UI_QUIT_SHORTCUT) {

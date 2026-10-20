@@ -20,6 +20,7 @@ const {
   screen
 } = require('electron');
 const { moveWindow } = require('./window-layout');
+const { requestWindowProtection } = require('./window-protection');
 
 let forcedPassthrough = false;
 let manualDragState = null;
@@ -606,16 +607,8 @@ function installPointerNeutralMode(
     win.setResizable(false);
   } catch (_) {}
 
-  // Retain the project's content-protection request.
-  try {
-    if (
-      !process.env.CUE_NO_PROTECT
-    ) {
-      win.setContentProtection(
-        true
-      );
-    }
-  } catch (_) {}
+  // Keep the same policy as first display and Ctrl+P restore; log failures.
+  requestWindowProtection(win, { isPackaged: app.isPackaged });
 
   // Native system context menu is outside the protected renderer surface.
   if (

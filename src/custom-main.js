@@ -15,6 +15,7 @@ const {
 const projectKnowledge = require('./project-knowledge');
 const { notifyProjectSourcesChanged } = require('./project-rag-session');
 const { moveWindow } = require('./window-layout');
+const { showWindowWithProtection } = require('./window-protection');
 
 function installModuleHooks() {
   const llmTarget = path.resolve(__dirname, 'llm.js');
@@ -181,7 +182,7 @@ function toggleHide() {
 function toggleWindowVisibility() {
   forEachCueWindow((win) => {
     if (win.isVisible()) win.hide();
-    else win.showInactive();
+    else showWindowWithProtection(win, { isPackaged: app.isPackaged });
   });
 }
 
