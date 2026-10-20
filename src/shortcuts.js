@@ -6,6 +6,7 @@ const DEFAULTS = {
   say: 'CommandOrControl+Return',
   // Assist — current screen + interviewer requirements (Ctrl+? remains an alias).
   assist: 'CommandOrControl+Shift+Return',
+  technical: 'CommandOrControl+L',
   leetcode: 'CommandOrControl+H',
   quit: 'CommandOrControl+Shift+X',
   hide: 'CommandOrControl+Shift+H',

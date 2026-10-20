@@ -115,7 +115,7 @@ function interviewShapeInstruction({ interviewPlan, projectPlan } = {}) {
 
 function contextCharsFor(mode, answerPlan) {
   if (mode === 'say' || mode === 'answerThis') return answerPlan?.level === 'complex' ? 4800 : 3600;
-  return { assist: 4800, ask: 5000, followup: 6000, recap: 14000, leetcode: 0 }[mode] ?? 3600;
+  return { assist: 4800, technical: 4800, ask: 5000, followup: 6000, recap: 14000, leetcode: 0 }[mode] ?? 3600;
 }
 
 const REALTIME_CONTEXT_RULES = `
@@ -142,8 +142,8 @@ test_only 是测试结果，planned/abandoned/unverified 不能说成已上线�
 
 const BASE_RULES = '默认使用简体中文，准确直接。口述答案用候选人第一人称；八股题简答，复杂题展开。Cue 是辅助工具，不是候选人的简历项目。';
 
-const SCREEN_TASK_RULES = `
-屏幕技术题覆盖 ACM、AI Coding、Debug、SQL、系统设计。算法题给核心思路、复杂度和可提交代码；调试题给最可能根因、验证和修复步骤；SQL 给查询思路和 SQL；系统设计先给架构主干再展开题目要求的关键取舍。不要为完整而粘贴无关模板。
+const TECHNICAL_TASK_RULES = `
+技术题覆盖 ACM、AI Coding、Debug、SQL、系统设计。算法题给核心思路、复杂度和可提交代码；调试题给最可能根因、验证和修复步骤；SQL 给查询思路和 SQL；系统设计先给架构主干再展开题目要求的关键取舍。不要为完整而粘贴无关模板。
 `;
 
 const ASSIST_SCREEN_RULES = `
@@ -157,10 +157,29 @@ const MODES = {
   assist: {
     needsScreen: true, userBubble: null, small: false, resumeMode: 'assist', maxTokens: 4096,
     buildSystem(contextBlock, aiRules) {
-      return applyRules(buildSystem('你是 cue，结合屏幕与面试官要求修改代码或回答问题。' + BASE_RULES + '\n' + REALTIME_CONTEXT_RULES + PROJECT_GROUNDING_RULES + SCREEN_TASK_RULES + '\n' + ASSIST_SCREEN_RULES, contextBlock, 4800), aiRules, 'assist');
+      return applyRules(buildSystem('你是 cue，结合屏幕与面试官要求修改代码或回答问题。' + BASE_RULES + '\n' + REALTIME_CONTEXT_RULES + PROJECT_GROUNDING_RULES + TECHNICAL_TASK_RULES + '\n' + ASSIST_SCREEN_RULES, contextBlock, 4800), aiRules, 'assist');
     },
     build(ctx) { return `${formatRealtimeConversation(ctx.transcript, { partial: ctx.partial })}\n\n结合本次截图完成当前要求。`; },
     resolveMaxTokens(ctx) { return screenTokenBudget(ctx); }
+  },
+  technical: {
+    needsScreen: false, userBubble: '上下文解题', small: false, maxTokens: 4096,
+    buildSystem(contextBlock, aiRules) {
+      const rules = '\n上下文解题：只依据当前面试官问题和相关对话作答，本轮没有截图，不猜测屏幕代码。' +
+        '追问沿用已明确的语言、接口、输入输出和边界约束，最新要求优先。' +
+        '代码题给可运行代码或完整受影响函数，不受口述句数限制；概念题直接解释，不强行写代码。' +
+        '缺少关键题意或待修改代码时明确指出缺口，不编造条件。';
+      return applyRules(buildSystem('你是 cue，根据面试官的问题和最近上下文解决代码题、技术题。' + BASE_RULES +
+        REALTIME_CONTEXT_RULES + PROJECT_GROUNDING_RULES + TECHNICAL_TASK_RULES + rules, contextBlock, 4800), aiRules, 'technical');
+    },
+    build(ctx) {
+      if (!latestInterviewerTurn(ctx.transcript)) return '用户主动触发上下文解题，但尚未识别到面试官问题。请简短提示需要题目，不编造代码或技术题。';
+      return `${formatRealtimeConversation(ctx.transcript, { partial: ctx.partial })}\n\n根据当前问题和相关上下文解题；本轮没有截图。`;
+    },
+    resolveMaxTokens(ctx = {}) {
+      const answerPlan = ctx.answerPlan || getAnswerPlan(ctx.userText);
+      return answerPlan.level === 'brief' ? answerPlan.maxTokens : screenTokenBudget({ ...ctx, answerPlan });
+    }
   },
   say: {
     needsScreen: false, userBubble: '如何回答', small: false, resumeMode: 'say', maxTokens: 640, oral: true,
@@ -191,7 +210,7 @@ const MODES = {
   ask: {
     needsScreen: true, userBubble: null, small: false, resumeMode: 'ask', maxTokens: 640,
     buildSystem(contextBlock, aiRules, opts = {}) {
-      const taskRules = opts.hasImage ? SCREEN_TASK_RULES + ASSIST_SCREEN_RULES : HUMAN_INTERVIEW_RULES + interviewShapeInstruction(opts);
+      const taskRules = opts.hasImage ? TECHNICAL_TASK_RULES + ASSIST_SCREEN_RULES : HUMAN_INTERVIEW_RULES + interviewShapeInstruction(opts);
       return applyRules(buildSystem('你是 cue，中文技术面试助手。' + BASE_RULES + REALTIME_CONTEXT_RULES + PROJECT_GROUNDING_RULES + taskRules, contextBlock, 5000), aiRules, 'ask');
     },
     build(ctx) { return `用户当前问题：${cleanText(ctx.userText)}${ctx.hasImage ? '' : '\n\n' + answerShapeInstruction(ctx.answerPlan)}`; },
@@ -205,7 +224,7 @@ const MODES = {
   },
   leetcode: {
     needsScreen: true, userBubble: '截屏', small: false, resumeMode: 'leetcode', maxTokens: 4096,
-    buildSystem() { return '你是资深中文技术面试现场题助手，默认使用简体中文。' + SCREEN_TASK_RULES + '\n按截图中的提交形式输出：ACM 包含标准输入输出与完整 main；LeetCode 使用题目指定的方法签名。'; },
+    buildSystem() { return '你是资深中文技术面试现场题助手，默认使用简体中文。' + TECHNICAL_TASK_RULES + '\n按截图中的提交形式输出：ACM 包含标准输入输出与完整 main；LeetCode 使用题目指定的方法签名。'; },
     build() { return '请识别并解决本次截图中的技术题。'; },
     resolveMaxTokens(ctx) { return screenTokenBudget(ctx); }
   }

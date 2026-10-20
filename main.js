@@ -48,7 +48,7 @@ let win = null;
 // false when another application already owns the combination, and nothing used
 // to look at that — so the only symptom was a key that did nothing. Iris reads
 // this and can say which key is taken instead of guessing from a screenshot.
-const shortcutState = { assist: false, say: false, leetcode: false, quit: false };
+const shortcutState = { assist: false, say: false, technical: false, leetcode: false, quit: false };
 const isMac = process.platform === 'darwin';
 const isWindows = process.platform === 'win32';
 
@@ -695,22 +695,23 @@ async function runFeature(mode, userText) {
   if (!def) { send('llm:error', { message: '未知的回答模式。' }); return; }
 
   const explicit = typeof userText === 'string' ? userText.trim() : '';
-  const liveMode = mode === 'say' || mode === 'assist';
+  const manualAnswer = mode === 'say' || mode === 'technical';
+  const liveMode = manualAnswer || mode === 'assist';
   const resolved = liveMode || mode === 'answerThis'
-    ? questionResolver.resolveForSubmit({ allowPartial: mode === 'say' }) : null;
+    ? questionResolver.resolveForSubmit({ allowPartial: manualAnswer }) : null;
   const lastSpeech = transcript.filter(t => t.channel === 'them').at(-1);
   const lastQuestion = conversation.recent.at(-1)?.question || '';
   const question = mode === 'leetcode' ? '请解决当前屏幕上的技术题'
     : explicit || (mode === 'assist' ? (resolved?.text || lastQuestion || '')
-      : mode === 'say' ? (resolved?.text || lastQuestion || lastSpeech?.text || '')
+      : manualAnswer ? (resolved?.text || lastQuestion || lastSpeech?.text || '')
         : mode === 'answerThis' ? (resolved?.text || '') : (lastQuestion || lastSpeech?.text || ''));
 
-  if (state.busy && mode !== 'say') {
+  if (state.busy && !manualAnswer) {
     send('status', { message: '当前回答仍在生成；请等待本轮完成或清空会话后再提交。' });
     return;
   }
 
-  if (state.busy && mode === 'say') {
+  if (state.busy && manualAnswer) {
     const previous = activeGeneration;
     activeGeneration = null;
     if (previous) previous.controller.abort();
@@ -733,7 +734,7 @@ async function runFeature(mode, userText) {
   const fromResolved = !explicit && resolved?.text === question;
   const partial = fromResolved && !!resolved?.partial;
   const sourceKey = fromResolved && resolved?.keys?.size === 1 ? Array.from(resolved.keys)[0] : '';
-  const interviewPlan = ['say', 'answerThis', 'ask', 'assist'].includes(mode) && question
+  const interviewPlan = ['say', 'answerThis', 'ask', 'assist', 'technical'].includes(mode) && question
     ? planInterviewQuestion({ text: question, partial, sourceKey, mode }) : null;
   const timing = replyLatency.start(mode, question);
   const generation = { id: timing.requestId, controller: new AbortController(), epoch: conversation.epoch };
@@ -1126,6 +1127,7 @@ ipcMain.on('permissions:continue', async () => {
 function registerShortcuts() {
   shortcutState.assist = globalShortcut.register('CommandOrControl+Shift+Return', () => runFeature('assist', ''));
   shortcutState.say = globalShortcut.register('CommandOrControl+Return', () => runFeature('say', ''));
+  shortcutState.technical = globalShortcut.register('CommandOrControl+L', () => runFeature('technical', ''));
   shortcutState.leetcode = globalShortcut.register('CommandOrControl+H', () => runFeature('leetcode', ''));
   shortcutState.hide = globalShortcut.register('CommandOrControl+Shift+/', () => send('hide:toggle', {}));
   shortcutState.quit = globalShortcut.register('CommandOrControl+Shift+X', () => app.quit());

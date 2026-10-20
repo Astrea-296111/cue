@@ -209,9 +209,9 @@
   }
 
   function runMode(mode, text) {
-    // Ctrl+Enter explicitly requests a fresh reply, including during generation.
+    // Manual answer shortcuts request a fresh reply, including during generation.
     // The main process aborts the previous request; other modes retain the guard.
-    if (busy && mode !== 'say') return;
+    if (busy && mode !== 'say' && mode !== 'technical') return;
 
     // Never promote renderer-side interim ASR text into an explicit question.
     // The main process owns the QuestionResolver and decides whether the newest
@@ -227,7 +227,7 @@
 
   // Global shortcut bridge from src/custom-main.js.
   cue.on('shortcut:mode', ({ mode } = {}) => {
-    if (mode === 'say' || mode === 'assist') runMode(mode, '');
+    if (mode === 'say' || mode === 'assist' || mode === 'technical') runMode(mode, '');
   });
 
   const input = $('#input');
@@ -594,6 +594,11 @@
   
   // FIX #13: Global keyboard shortcut for force-answer (Ctrl+Shift+A / Cmd+Shift+A)
   document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'l') {
+      e.preventDefault();
+      if (!e.repeat) runMode('technical', '');
+      return;
+    }
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       if (!e.repeat) runMode(e.shiftKey ? 'assist' : 'say', '');
@@ -2220,6 +2225,7 @@ cue.on(
       ];
   const sayShortcut = isWindows ? '<span class="kbd">Ctrl</span> <span class="kbd">↵</span>' : '<span class="kbd">⌘</span> <span class="kbd">↵</span>';
   const assistShortcut = isWindows ? '<span class="kbd">Ctrl</span> <span class="kbd">⇧</span> <span class="kbd">↵</span>' : '<span class="kbd">⌘</span> <span class="kbd">⇧</span> <span class="kbd">↵</span>';
+  const technicalShortcut = '<span class="kbd">' + (isMac ? '⌘' : 'Ctrl') + '</span> <span class="kbd">L</span>';
   const solveShortcut = isWindows ? '<span class="kbd">Ctrl</span> <span class="kbd">H</span>' : '<span class="kbd">⌘</span> <span class="kbd">H</span>';
   const quitShortcut = isWindows ? '<span class="kbd">Ctrl</span><span class="kbd">⇧</span><span class="kbd">X</span>' : '<span class="kbd">⌘</span><span class="kbd">⇧</span><span class="kbd">X</span>';
   const OB_STEPS = [
@@ -2248,7 +2254,7 @@ cue.on(
     {
       icon: '✨',
       title: '设置完成',
-      body: '使用 Cue：<ul><li>' + sayShortcut + ' 或点击<strong>如何回答</strong>，根据面试官问题和相关上下文组织口述答案</li><li>' + assistShortcut + ' 或点击<strong>屏幕与问题</strong>，根据屏幕与面试官要求修改代码或回答问题（Ctrl/Cmd+? 也可使用）</li><li>' + solveShortcut + ' 或点击<strong>截屏</strong>，解决屏幕上的技术题</li><li>点击<strong>反问</strong>，生成适合当前面试的反问</li><li>Ctrl/Cmd+R 或点击顶部 <strong>▢</strong> 开始/停止录音</li><li>Ctrl/Cmd+P 隐藏整个窗口（含顶部工具栏），再按一次恢复；录音和上下文保留</li><li>输入问题后按 <span class="kbd">↵</span> 发送</li></ul>点击 <strong>Cue 图标</strong>可重新打开指引。双击顶部 <strong>×</strong> 退出，或使用 ' + quitShortcut + '。'
+      body: '使用 Cue：<ul><li>' + sayShortcut + ' 或点击<strong>如何回答</strong>，根据面试官问题和相关上下文组织口述答案</li><li>' + assistShortcut + ' 或点击<strong>屏幕与问题</strong>，根据屏幕与面试官要求修改代码或回答问题（Ctrl/Cmd+? 也可使用）</li><li>' + technicalShortcut + ' <strong>上下文解题</strong>，只根据面试官问题和相关上下文回答代码题、技术题，不截图</li><li>' + solveShortcut + ' 或点击<strong>截屏</strong>，解决屏幕上的技术题</li><li>点击<strong>反问</strong>，生成适合当前面试的反问</li><li>Ctrl/Cmd+R 或点击顶部 <strong>▢</strong> 开始/停止录音</li><li>Ctrl/Cmd+P 隐藏整个窗口（含顶部工具栏），再按一次恢复；录音和上下文保留</li><li>输入问题后按 <span class="kbd">↵</span> 发送</li></ul>点击 <strong>Cue 图标</strong>可重新打开指引。双击顶部 <strong>×</strong> 退出，或使用 ' + quitShortcut + '。'
     }
   ];
   let obIndex = 0;

@@ -140,6 +140,7 @@ console.log('[cue][turbo] safe hotfix active: RAG prefetch + resolved-question f
 
 const SAY_ACCELERATOR = 'CommandOrControl+Return';
 const ASSIST_ACCELERATOR = 'CommandOrControl+Shift+Return';
+const TECHNICAL_ACCELERATOR = 'CommandOrControl+L';
 // On a standard keyboard, ? is Shift+/, so Ctrl+? is Ctrl+Shift+/.
 const LEGACY_ASSIST_ACCELERATOR = 'CommandOrControl+Shift+/';
 const HIDE_ACCELERATOR = 'CommandOrControl+Shift+H';
@@ -195,6 +196,7 @@ function registerShortcut(name, accelerator, handler) {
 function installShortcutOverrides() {
   globalShortcut.unregister(SAY_ACCELERATOR);
   globalShortcut.unregister(ASSIST_ACCELERATOR);
+  globalShortcut.unregister(TECHNICAL_ACCELERATOR);
   globalShortcut.unregister(LEGACY_ASSIST_ACCELERATOR);
   globalShortcut.unregister(HIDE_ACCELERATOR);
   globalShortcut.unregister(VISIBILITY_ACCELERATOR);
@@ -202,6 +204,7 @@ function installShortcutOverrides() {
 
   registerShortcut('如何回答', SAY_ACCELERATOR, () => sendMode('say'));
   registerShortcut('屏幕与问题', ASSIST_ACCELERATOR, () => sendMode('assist'));
+  registerShortcut('上下文解题', TECHNICAL_ACCELERATOR, () => sendMode('technical'));
   registerShortcut('屏幕与问题（Ctrl+?）', LEGACY_ASSIST_ACCELERATOR, () => sendMode('assist'));
   registerShortcut('Hide', HIDE_ACCELERATOR, toggleHide);
   registerShortcut('隐藏/恢复整个窗口', VISIBILITY_ACCELERATOR, toggleWindowVisibility);
