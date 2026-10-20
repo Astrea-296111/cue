@@ -182,7 +182,7 @@ function toggleHide() {
 function toggleWindowVisibility() {
   forEachCueWindow((win) => {
     if (win.isVisible()) win.hide();
-    else showWindowWithProtection(win, { isPackaged: app.isPackaged });
+    else showWindowWithProtection(win);
   });
 }
 

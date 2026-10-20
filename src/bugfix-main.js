@@ -608,7 +608,7 @@ function installPointerNeutralMode(
   } catch (_) {}
 
   // Keep the same policy as first display and Ctrl+P restore; log failures.
-  requestWindowProtection(win, { isPackaged: app.isPackaged });
+  requestWindowProtection(win);
 
   // Native system context menu is outside the protected renderer surface.
   if (

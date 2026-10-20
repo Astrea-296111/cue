@@ -60,7 +60,7 @@ function askInWindow(win, copy, scope) {
 
     // cue deliberately never steals focus — except here. A question about who
     // may read your screen activity is the one thing that should interrupt.
-    if (!win.isVisible() && !showWindowWithProtection(win, { isPackaged: app.isPackaged, activate: true })) {
+    if (!win.isVisible() && !showWindowWithProtection(win, { activate: true })) {
       settle(false);
       return;
     }
