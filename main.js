@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain, globalShortcut, screen, session, desktopCapturer, shell, dialog, systemPreferences,net } = require('electron');
 const path = require('path');
-const { requestWindowProtection, showWindowWithProtection } = require('./src/window-protection');
+const { requestWindowProtection, showWindowWithProtection, attachWindowProtection, setProtectedMouseEvents } = require('./src/window-protection');
 const { performance } = require('perf_hooks');
 const { withCurrentQuestion, isLikelyFollowUp, planProjectRetrieval } = require('./src/project-query');
 const { QuestionResolver } = require('./src/question-resolver');
@@ -394,6 +394,7 @@ function createWindow() {
 
   win = new BrowserWindow(winOptions);
 
+  attachWindowProtection(win);
   requestWindowProtection(win);
 
   win.setAlwaysOnTop(true, 'screen-saver', 1);
@@ -1072,7 +1073,7 @@ ipcMain.on('llm:rendered', (_event, requestId) => {
 });
 ipcMain.on('mic:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('you', arrayBuffer); });
 ipcMain.on('system:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('them', arrayBuffer); });
-ipcMain.on('mouse:ignore', (_e, v) => { if (win) win.setIgnoreMouseEvents(!!v, { forward: true }); });
+ipcMain.on('mouse:ignore', (_e, v) => { if (win) setProtectedMouseEvents(win, !!v); });
 ipcMain.on('open-pane', (_e, url) => { shell.openExternal(url).catch(() => {}); });
 ipcMain.on('app:quit', () => app.quit());
 ipcMain.on('log', (_e, msg) => console.log('[renderer]', msg));
@@ -1208,6 +1209,8 @@ function createPermissionsWindow() {
       zoomFactor: UI_SCALE,
     }
   });
+  attachWindowProtection(permWin);
+  requestWindowProtection(permWin);
   permWin.loadFile(path.join(__dirname, 'renderer', 'permissions.html'));
   permWin.webContents.on('did-finish-load', () => showWindowWithProtection(permWin, { activate: true }));
 }

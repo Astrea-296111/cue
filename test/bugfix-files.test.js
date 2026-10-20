@@ -41,7 +41,7 @@ test('passthrough shortcut overrides renderer mouse state until toggled off and 
     setTimeout, clearTimeout, require(id) {
       if (id === 'electron') return electron;
       if (id === './window-layout') return require('../src/window-layout');
-      if (id === './window-protection') return require('../src/window-protection');
+      if (id === './window-protection') return require('../src/window-protection').createWindowProtection({ platform: 'linux' });
       if (id === '../main.js') {
         // Upstream listeners must be replaced, rather than accumulating.
         ipcMain.on('mouse:ignore', () => { throw Error('Old listener was not replaced'); });

@@ -2,7 +2,9 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { requestWindowProtection, showWindowWithProtection } = require('../src/window-protection');
+const { createWindowProtection } = require('../src/window-protection');
+// These fixtures have no OS window handle. Native checks have separate tests.
+const { requestWindowProtection, showWindowWithProtection } = createWindowProtection({ platform: 'linux' });
 
 function window() {
   const calls = [];

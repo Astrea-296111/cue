@@ -15,9 +15,10 @@ function verifySemanticPackaging(context) {
   const ort = path.join(modules, 'onnxruntime-node', 'bin', 'napi-v3', platform, arch, 'onnxruntime_binding.node');
   const required = [sharp, ort];
   if (platform === 'win32') required.push(path.join(path.dirname(ort), 'onnxruntime.dll'),
-    path.join(path.dirname(ort), 'DirectML.dll'), path.join(path.dirname(sharp), 'libvips-42.dll'));
+    path.join(path.dirname(ort), 'DirectML.dll'), path.join(path.dirname(sharp), 'libvips-42.dll'),
+    path.join(modules, '@koromix', `koffi-win32-${arch}`, `win32_${arch}`, 'koffi.node'));
   const missing = required.filter(file => !fs.existsSync(file));
-  if (missing.length) throw new Error(`缺少 ${platform}/${arch} 的本地语义运行库，已停止打包。请在目标系统执行 npm ci；跨系统构建时须先安装 lockfile 中该平台的 Sharp 可选依赖。缺少：${missing.join('、')}`);
+  if (missing.length) throw new Error(`缺少 ${platform}/${arch} 的本地原生运行库，已停止打包。请在目标系统执行 npm ci；跨系统构建时须准备目标平台的 Sharp、ONNX 和 Koffi 依赖。缺少：${missing.join('、')}`);
 }
 
 module.exports = verifySemanticPackaging;
