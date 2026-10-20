@@ -15,6 +15,7 @@
 const { app, dialog, ipcMain } = require('electron');
 const { AppLinkServer } = require('../vendor/app-link');
 const { describeState, consentCopy } = require('./applink-state');
+const { showWindowWithProtection } = require('./window-protection');
 
 let link = null;
 let consentSeq = 0;
@@ -59,7 +60,10 @@ function askInWindow(win, copy, scope) {
 
     // cue deliberately never steals focus — except here. A question about who
     // may read your screen activity is the one thing that should interrupt.
-    if (!win.isVisible()) win.show();
+    if (!win.isVisible() && !showWindowWithProtection(win, { isPackaged: app.isPackaged, activate: true })) {
+      settle(false);
+      return;
+    }
     app.focus({ steal: true });
     win.focus();
 

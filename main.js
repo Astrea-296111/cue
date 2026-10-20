@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, globalShortcut, screen, session, desktopCapturer, shell, dialog, systemPreferences,net } = require('electron');
 const path = require('path');
+const { debugProtectionDisabled, requestWindowProtection, showWindowWithProtection } = require('./src/window-protection');
 const { performance } = require('perf_hooks');
 const { withCurrentQuestion, isLikelyFollowUp, planProjectRetrieval } = require('./src/project-query');
 const { QuestionResolver } = require('./src/question-resolver');
@@ -363,6 +364,7 @@ function createWindow() {
   const layout = initialWindowLayout(screen, savedSettings, H);
 
   const winOptions = {
+    show: false,
     width: layout.width,
     height: layout.height,
     x: layout.x,
@@ -392,18 +394,8 @@ function createWindow() {
 
   win = new BrowserWindow(winOptions);
 
-  // Fix 2: Only call setContentProtection if the OS supports it.
-  // On Windows, WDA_EXCLUDEFROMCAPTURE requires build 19041+ (Windows 10 May 2020 Update).
-  // On older builds we skip it silently to avoid a no-op and send a warning to the renderer.
-  const shouldProtect = !process.env.CUE_NO_PROTECT;
-  if (shouldProtect) {
-    if (WIN_SUPPORTS_CONTENT_PROTECTION) {
-      win.setContentProtection(true);
-    } else {
-      // Will notify the renderer after it loads
-      console.log(`[cue] Windows build ${WIN_BUILD} < 19041 — setContentProtection not supported. Window may appear in screen shares.`);
-    }
-  }
+  const protectionOptions = { isPackaged: app.isPackaged };
+  requestWindowProtection(win, protectionOptions);
 
   win.setAlwaysOnTop(true, 'screen-saver', 1);
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -427,12 +419,12 @@ function createWindow() {
   win.setTitle('Microsoft Edge Update'); // set before load
 
   win.webContents.on('did-finish-load', () => {
-    win.showInactive();
+    showWindowWithProtection(win, protectionOptions);
     win.setTitle('Microsoft Edge Update');
     // Warn about missing content protection on old Windows builds
-    if (isWindows && shouldProtect && !WIN_SUPPORTS_CONTENT_PROTECTION) {
+    if (isWindows && !debugProtectionDisabled(protectionOptions) && !WIN_SUPPORTS_CONTENT_PROTECTION) {
       send('status', {
-        message: `当前 Windows 版本（内部版本 ${WIN_BUILD}）不支持在屏幕共享中隐藏窗口。该功能需要 Windows 10 内部版本 19041 或更新版本，或 Windows 11。`
+        message: `当前 Windows 版本（内部版本 ${WIN_BUILD}）仅支持旧版窗口保护，录屏可能显示黑色区域。完整窗口排除需要 Windows 10 内部版本 19041 或更新版本；录屏软件是否遵守保护仍需实测。`
       });
     }
   });
@@ -1198,6 +1190,7 @@ function createPermissionsWindow() {
   const W = Math.round(Math.min(workArea.width / 2, 500) * UI_SCALE);
   const H = Math.round(Math.min(workArea.height / 2, 540) * UI_SCALE);
   permWin = new BrowserWindow({
+    show: false,
     width: W,
     height: H,
     x: Math.round(workArea.x + (workArea.width - W) / 2),
@@ -1217,7 +1210,7 @@ function createPermissionsWindow() {
     }
   });
   permWin.loadFile(path.join(__dirname, 'renderer', 'permissions.html'));
-  permWin.webContents.on('did-finish-load', () => permWin.show());
+  permWin.webContents.on('did-finish-load', () => showWindowWithProtection(permWin, { isPackaged: app.isPackaged, activate: true }));
 }
 
 // -------- launch (called after permissions are confirmed) --------
