@@ -6,8 +6,8 @@ const { planInterviewQuestion, stableId } = require('./interview-question-planne
 const { InterviewChecklist } = require('./interview-checklist');
 const { ProjectInterviewState } = require('./project-interview-state');
 
-const ANSWER_MODES = new Set(['ask', 'say', 'assist', 'answerThis', 'leetcode']);
-const INTERVIEW_MODES = new Set(['ask', 'say', 'assist', 'answerThis']);
+const ANSWER_MODES = new Set(['ask', 'say', 'assist', 'technical', 'answerThis', 'leetcode']);
+const INTERVIEW_MODES = new Set(['ask', 'say', 'assist', 'technical', 'answerThis']);
 const REFERENTIAL_FOLLOWUP = /刚才|前面|上一个|回到|这段|这个解法|这道题|这个实现|第[一二三四五六七八九十\d]+|后[一二三四五六七八九十\d]+|你提到|你说的|这个|那个|继续|展开|为什么这样|怎么保证|what about|you mentioned|the second|the last/i;
 const clean = value => String(value || '').trim();
 const userMessage = entry => entry.spokenContext
@@ -214,7 +214,7 @@ class ConversationMemory {
     // The main runner owns generation/abort checks; also reject stale or duplicate
     // direct callers so an old same-epoch answer cannot roll back project state.
     if (request.id !== this.sequence || request.id <= this.lastCommittedId) return false;
-    if (request.mode === 'say' && !clean(request.question)) return false;
+    if (['say', 'technical'].includes(request.mode) && !clean(request.question)) return false;
     this.lastCommittedId = request.id;
     this.checklist.commit(request, answer, completion);
     const checklist = this.checklist.snapshot(request);

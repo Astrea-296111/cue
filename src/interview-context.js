@@ -238,7 +238,7 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
   const hasJD = jd.trim().length > 0;
   const blocks = [];
 
-  const realtime = ['say', 'answerThis', 'assist', 'ask'].includes(mode);
+  const realtime = ['say', 'answerThis', 'assist', 'ask', 'technical'].includes(mode);
   if ((projectRelevant || (!realtime && category === 'project')) && hasProject) {
     const projectLimit = realtime ? 1800 : 3000;
     const selected = selectManualProjectCards(project.trim(), query, projectLimit) ||

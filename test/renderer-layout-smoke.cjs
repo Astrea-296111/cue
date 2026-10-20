@@ -202,6 +202,30 @@ app.on('browser-window-created', (_event, win) => {
       const messages = await js("({client:document.getElementById('messages').clientHeight,scroll:document.getElementById('messages').scrollHeight})");
       assert.ok(messages.client > 0 && messages.scroll > messages.client);
 
+      assert.ok(globalShortcut.isRegistered('CommandOrControl+L'));
+      for (const route of ['global-hidden', 'local']) {
+        const count = calls.length, capturedBefore = captures;
+        if (route === 'global-hidden') {
+          await toggleWindowVisibility(false);
+          registeredShortcuts.get('CommandOrControl+L')();
+        } else {
+          assert.equal(await js(`document.dispatchEvent(new KeyboardEvent('keydown',
+            {key:'l',ctrlKey:true,bubbles:true,cancelable:true}))`), false);
+        }
+        await until(() => calls.length === count + 1, 'Ctrl+L ' + route);
+        assert.equal(payloads.at(-1).mode, 'technical');
+        assert.equal(captures, capturedBefore, 'Ctrl+L must not capture the screen');
+        assert.ok(calls.at(-1).messages.every(message => typeof message.content === 'string'));
+        assert.match(calls.at(-1).messages[0].content, /本轮没有截图/);
+        assert.match(calls.at(-1).messages[0].content, /UI_SOURCE_DECISION/);
+        await until(() => js("!document.getElementById('send-btn').classList.contains('busy')"), 'Ctrl+L complete');
+        assert.ok(await js("document.getElementById('messages').innerText.includes('上下文解题')"));
+        if (route === 'global-hidden') {
+          assert.equal(win.isVisible(), false, 'Answering must preserve the hidden window');
+          await toggleWindowVisibility(true);
+        }
+      }
+
       await js("document.getElementById('more-btn').click()");
       await until(() => js("!document.getElementById('settings-scrim').classList.contains('hidden')"), 'settings');
       await toggleWindowVisibility(false);
@@ -237,6 +261,7 @@ app.on('browser-window-created', (_event, win) => {
       for (let i = 0; i < titles.length; i++) {
         assert.equal(await js("document.getElementById('ob-title').textContent"), titles[i]);
         assert.equal(await js("document.getElementById('ob-next').textContent"), i === titles.length - 1 ? '完成' : '下一步');
+        if (i === titles.length - 1) assert.match(await js("document.getElementById('ob-body').textContent"), /L.*上下文解题.*不截图/);
         if (i === 1 && process.env.CUE_UI_WINDOWS_BUILD) {
           const oldWindows = Number(process.env.CUE_UI_WINDOWS_BUILD) < 22000;
           assert.deepEqual(await js("[...document.querySelectorAll('#ob-buttons button')].map(b=>b.textContent)"),
@@ -353,7 +378,7 @@ app.on('browser-window-created', (_event, win) => {
       await tick(); assert.equal(win.isDestroyed(), false);
       console.log('UI_LAYOUT_OK', JSON.stringify({ size:win.getSize(),zoom,scale:display.scaleFactor,layout,caption,messages,settings,
         captionUpdates:30,stableControls:true,sayInterruption:true,solveButton:true,singleClickKeepsRunning:true,
-        collapseShortcut:true,fullWindowVisibilityShortcut:true,recordingShortcut:true,movementStep:25,
+        collapseShortcut:true,fullWindowVisibilityShortcut:true,recordingShortcut:true,technicalShortcut:true,movementStep:25,
         chineseSettings:true,chineseOnboarding:true,chinesePermissions:true,windowsBuildFixture:process.env.CUE_UI_WINDOWS_BUILD || null }));
       allowedToQuit = true;
       if (process.env.CUE_UI_QUIT_SHORTCUT) {

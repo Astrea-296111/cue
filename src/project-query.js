@@ -116,7 +116,7 @@ function isClearProjectExit(text) {
 function planProjectRetrieval(transcript, mode = 'say', options = {}) {
   const turns = interviewerTurns(transcript);
   const text = String(turns.at(-1)?.text || '').trim();
-  if (!['say', 'answerThis', 'assist', 'ask'].includes(mode)) {
+  if (!['say', 'answerThis', 'assist', 'ask', 'technical'].includes(mode)) {
     return { retrieve: false, query: text, reason: 'mode', overview: false, scopes: [], activeProject: activeSnapshot(options.activeProjectPlan || options.previousPlan) };
   }
   const catalog = options.catalog || [];
