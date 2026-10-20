@@ -86,12 +86,13 @@ function getSemanticRetriever() {
   return semanticRetriever;
 }
 const ragSession = new ProjectRagSession({
-  retrieve: input => retrieveProjectEvidenceAsync({ ...input, includeCandidates: true, semanticRetriever: getSemanticRetriever() }),
+  retrieve: input => retrieveProjectEvidenceAsync({ ...input, includeCandidates: true,
+    hashFallback: input.hashFallback, semanticRetriever: getSemanticRetriever() }),
   isCurrent: input => input.epoch === conversation.epoch && input.projectRevision === getProjectIndexRevision() &&
     input.modelVersion === (getSemanticRetriever().status().modelVersion || 'base')
 });
 function retrievalInput(question, projectPlan, interviewPlan, contextBudget, sourceKey = '') {
-  return { question, projectPlan, interviewPlan, contextBudget, sourceKey,
+  return { question, projectPlan, interviewPlan, contextBudget, sourceKey, hashFallback: !!store.getSettings().smart,
     questionVersion: interviewPlan?.questionVersion || stableId(question),
     epoch: conversation.epoch, projectRevision: getProjectIndexRevision(),
     modelVersion: getSemanticRetriever().status().modelVersion || 'base' };
@@ -728,7 +729,7 @@ async function runFeature(mode, userText) {
   const sourceKey = fromResolved && resolved?.keys?.size === 1 ? Array.from(resolved.keys)[0] : '';
   const interviewPlan = ['say', 'answerThis', 'ask', 'assist', 'technical'].includes(mode) && question
     ? planInterviewQuestion({ text: question, partial, sourceKey, mode }) : null;
-  const timing = replyLatency.start(mode, question);
+  const timing = replyLatency.start(mode, question, { sourceKeys: fromResolved ? resolved?.keys || [] : [] });
   const generation = { id: timing.requestId, controller: new AbortController(), epoch: conversation.epoch };
   activeGeneration = generation;
   state.busy = true;
@@ -750,7 +751,7 @@ async function runFeature(mode, userText) {
     formalProjectPlan = request.plan;
     emit('project:active', { projectId: request.plan.projectIds?.length === 1 ? request.plan.projectIds[0] : '',
       label: request.plan.projectLabel || '', reason: request.plan.reason, retrieve: request.plan.retrieve });
-    const checklistText = interviewPlan ? formatInterviewChecklist(request.checklist, { maxChars: 2600 }) : '';
+    const checklistText = interviewPlan ? formatInterviewChecklist(request.checklist, { maxChars: 2600, includeCurrent: !!settings.smart }) : '';
     // Only spend prompt/retrieval/output budgets on old pending items that are
     // actually shown this round. The original current question remains intact.
     if (request.checklist) {
@@ -765,9 +766,29 @@ async function runFeature(mode, userText) {
 
     let imageDataUrl = null;
     const screenStarted = performance.now();
-    if (shouldCaptureScreen(mode, question)) {
+    const needsScreen = shouldCaptureScreen(mode, question);
+    // Screen capture and local context preparation are independent. Start the
+    // capture now; await its handled result after context, with no abandoned
+    // rejecting promise when the request is cancelled.
+    const screenPromise = needsScreen ? captureScreenshot().then(image => ({ image, ms: performance.now() - screenStarted }), error => ({ error })) : null;
+    const contextStarted = performance.now();
+    const fast = !settings.smart && ['say', 'answerThis', 'ask', 'assist', 'technical', 'leetcode'].includes(mode);
+    const retrieval = { ...retrievalInput(question, request.plan, effectiveInterviewPlan, contextCharsFor(mode, answerPlan), sourceKey), hashFallback: !fast };
+    const contextBundle = await buildInterviewContextBundleAsync(settings, mode, contextTranscript,
+      { ...retrieval, requestId: timing.requestId, projectPlan: request.plan, smart: !!settings.smart,
+        answerComplexity: answerPlan.level, interviewPlan: effectiveInterviewPlan,
+        contextBudget: contextCharsFor(mode, answerPlan), projectState: request.projectInterviewState,
+        signal: generation.controller.signal, deadlineAt: Date.now() + (fast ? 0 : 100), semanticWaitMs: fast ? 0 : 100,
+        hashFallback: !fast,
+        semanticRetriever: getSemanticRetriever(), prefetchedRetrieval: ragSession.take(retrieval) });
+    const contextMs = performance.now() - contextStarted;
+    let screenMs = 0;
+    if (needsScreen) {
       try {
-        imageDataUrl = await captureScreenshot();
+        const capture = await screenPromise;
+        if (capture.error) throw capture.error;
+        imageDataUrl = capture.image;
+        screenMs = capture.ms;
         if (!imageDataUrl) throw new Error('未找到可用的屏幕来源。');
       } catch (e) {
         if (!owned()) return;
@@ -777,19 +798,11 @@ async function runFeature(mode, userText) {
       }
     }
     if (!owned()) return;
-    const screenMs = performance.now() - screenStarted;
-    const contextStarted = performance.now();
-    const retrieval = retrievalInput(question, request.plan, effectiveInterviewPlan, contextCharsFor(mode, answerPlan), sourceKey);
-    const contextBundle = await buildInterviewContextBundleAsync(settings, mode, contextTranscript,
-      { ...retrieval, requestId: timing.requestId, projectPlan: request.plan, smart: !!settings.smart,
-        answerComplexity: answerPlan.level, interviewPlan: effectiveInterviewPlan,
-        contextBudget: contextCharsFor(mode, answerPlan), projectState: request.projectInterviewState,
-        signal: generation.controller.signal, deadlineAt: Date.now() + 100,
-        semanticRetriever: getSemanticRetriever(), prefetchedRetrieval: ragSession.take(retrieval) });
     if (!owned() || generation.controller.signal.aborted) return;
     request.evidenceRevision = contextBundle.evidence.find(item => item.sourceType === 'imported')?.revision || getProjectIndexRevision();
-    const initialSystem = def.buildSystem ? def.buildSystem(contextBundle.context, settings.aiRules || '',
+    const builtSystem = def.buildSystem ? def.buildSystem(contextBundle.context, settings.aiRules || '',
       { answerPlan, interviewPlan, projectPlan: request.plan, hasImage: !!imageDataUrl }) : (def.system || '');
+    const initialSystem = llm.prepareSystem ? llm.prepareSystem(builtSystem) : builtSystem;
     const responseContext = { transcript: contextTranscript, userText: question, answerPlan, partial, hasImage: !!imageDataUrl };
     const built = def.build(responseContext);
     const maxTokens = def.resolveMaxTokens?.(responseContext) || def.maxTokens;
@@ -804,7 +817,8 @@ async function runFeature(mode, userText) {
     const projectState = request.projectInterviewState;
     const progress = formatProjectInterviewState(projectState, { maxChars: 1200 });
     const scenarioText = interviewPlan?.scenario || request.checklist?.scenario;
-    const scenario = interviewPlan && scenarioText ? '=== 当前假设场景（不代表项目实际指标） ===\n' + scenarioText : '';
+    const scenario = interviewPlan && scenarioText && !built.includes(scenarioText)
+      ? '=== 当前假设场景（不代表项目实际指标） ===\n' + scenarioText : '';
     const prepared = prepareFinalRequest({ system: initialSystem, history, maxTokens,
       contextWindow: settings.contextWindowTokens || 16384, imageDataUrl, evidence: contextBundle.evidence,
       currentSections: [
@@ -826,7 +840,8 @@ async function runFeature(mode, userText) {
     uiReplyTimings.set(generation.id, { epoch: generation.epoch, started: timing.started });
     while (uiReplyTimings.size > 32) uiReplyTimings.delete(uiReplyTimings.keys().next().value);
     console.log('[latency][prompt] ' + JSON.stringify({ requestId: timing.requestId, mode,
-      screenMs: +screenMs.toFixed(2), contextMs: +(requestSent - contextStarted).toFixed(2),
+      screenMs: +screenMs.toFixed(2), contextMs: +contextMs.toFixed(2),
+      provider: llm.provider, model: llm.model, smart: !!settings.smart,
       promptChars: system.length + turns.reduce((n, t) => n + t.text.length, 0), systemChars: system.length,
       hasImage: !!imageDataUrl, maxTokens, answerComplexity: answerPlan.level,
       questionVersion: retrieval.questionVersion, projectRevision: retrieval.projectRevision,
@@ -860,6 +875,12 @@ async function runFeature(mode, userText) {
           onRequest: serialized => {
             if (!owned()) return;
             sentEvidence = visibleEvidence(prepared.evidence, serialized);
+            console.log('[latency][model] ' + JSON.stringify({ requestId: timing.requestId,
+              provider: llm.provider, model: llm.model, smart: !!settings.smart,
+              enableThinking: serialized.enable_thinking ?? null,
+              reasoningEffort: serialized.reasoning_effort ?? null,
+              thinkingBudget: serialized.config?.thinkingConfig?.thinkingBudget ?? null,
+              automaticRetriesDisabled: fast && llm.provider !== 'gemini' && llm.provider !== 'ollama' }));
           },
           onUsage: usage => {
             if (owned()) console.log('[latency][usage] ' + JSON.stringify({ requestId: timing.requestId, ...usage }));
@@ -867,10 +888,12 @@ async function runFeature(mode, userText) {
           onCompletion: metadata => {
             if (owned() && !streamSettled && !generation.controller.signal.aborted) completion = metadata;
           },
-          onActivity: () => { if (owned() && !streamSettled && !generation.controller.signal.aborted) rearm(); },
+          onActivity: event => { if (owned() && !streamSettled && !generation.controller.signal.aborted) { timing.activity(event); rearm(); } },
           onToken: text => {
             if (!owned() || streamSettled || generation.controller.signal.aborted || !text) return;
             answer += text;
+            const uiTiming = uiReplyTimings.get(generation.id);
+            if (uiTiming && uiTiming.firstTokenAt == null) uiTiming.firstTokenAt = performance.now();
             timing.firstToken(requestSent);
             rearm();
             emit('llm:token', { text });
@@ -1069,7 +1092,8 @@ ipcMain.on('llm:rendered', (_event, requestId) => {
   if (!timing || timing.epoch !== conversation.epoch || performance.now() - timing.started > 60000) return;
   uiReplyTimings.delete(requestId);
   console.log('[latency][ui] ' + JSON.stringify({ requestId,
-    firstVisibleAckMs: +(performance.now() - timing.started).toFixed(2) }));
+    firstVisibleAckMs: +(performance.now() - timing.started).toFixed(2),
+    tokenToPaintAckMs: timing.firstTokenAt == null ? null : +(performance.now() - timing.firstTokenAt).toFixed(2) }));
 });
 ipcMain.on('mic:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('you', arrayBuffer); });
 ipcMain.on('system:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('them', arrayBuffer); });

@@ -118,11 +118,12 @@ test('formal learned hits resolve to canonical imported source text before SDK m
   assert.doesNotMatch(actual, /FABRICATED_DATA/);
 });
 
-test('semantic timeout aborts inference and still sends the base facts to the SDK', async t => {
+test('deep-mode semantic timeout aborts inference and still sends the base facts to the SDK', async t => {
   let signal;
   const semanticRetriever = { status: () => ({ ready: true, modelVersion: 'fixture-slow' }),
     queryCandidates: request => { signal = request.signal; return new Promise(() => {}); }, invalidate() {}, close() {} };
-  const app = createInterviewRuntime(t, { semanticRetriever });
+  const app = createInterviewRuntime(t, { semanticRetriever,
+    settings: { smart: true, models: { custom: { smart: 'test-model' } } } });
   const start = performance.now();
   await app.ask('say', 'RepoPilot 项目为什么使用 LangGraph？');
   assert.ok(performance.now() - start < 600, 'a hung semantic worker must not hold the answer request');

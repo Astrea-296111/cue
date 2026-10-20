@@ -69,10 +69,26 @@ function isDashScopeChatEndpoint(value) {
 // Thinking-2507, QwQ and future/unknown aliases have different capabilities.
 // Official checkpoint documentation: github.com/QwenLM/Qwen3 (hybrid mode).
 const HYBRID_QWEN3_MODEL = /^qwen3-(?:0\.6b|1\.7b|4b|8b|14b|32b|30b-a3b|235b-a22b)$/i;
+// DashScope's qwen-flash hybrid alias uses enable_thinking, not the generic
+// OpenAI reasoning_effort field. Keep the host and model capability scoped.
+const DASHSCOPE_FLASH_MODEL = /^qwen-flash(?:-\d{4}-\d{2}-\d{2})?$/i;
+
+function isHybridQwen3(model) {
+  return HYBRID_QWEN3_MODEL.test(String(model || '').split('/').at(-1));
+}
+
+function qwenFastInstruction({ model, smart, explicit = {} } = {}) {
+  // Qwen3 documents /no_think as a model instruction, including on compatible
+  // servers with no enable_thinking protocol field. Never apply it to an
+  // unknown alias, a thinking-only model, or an explicit reasoning preference.
+  if (smart || !isHybridQwen3(model) || explicit.enable_thinking === true ||
+      (explicit.reasoning_effort && !['none', 'minimal'].includes(explicit.reasoning_effort))) return '';
+  return '/no_think';
+}
 
 function resolveChatRequestOptions({ baseURL, model, smart, explicit = {} } = {}) {
   const result = {};
-  if (isDashScopeChatEndpoint(baseURL) && HYBRID_QWEN3_MODEL.test(String(model || ''))) {
+  if (isDashScopeChatEndpoint(baseURL) && (isHybridQwen3(model) || DASHSCOPE_FLASH_MODEL.test(String(model || '')))) {
     result.enable_thinking = !!smart;
   }
   // Only explicit user settings travel to arbitrary compatible servers. Never
@@ -96,5 +112,6 @@ module.exports = {
   normalizeBaseUrl,
   isDashScopeChatEndpoint,
   resolveChatRequestOptions,
+  qwenFastInstruction,
   supportsStreamingUsage
 };

@@ -150,7 +150,8 @@ class ProjectSearch {
     this.lengths[id] = Math.max(1, bodyTokens.length);
     this.totalLength += this.lengths[id];
     this.symbols[id] = normalize(chunk.symbol || '');
-    this.embeddings[id] = denseEmbedding(`${chunk.path} ${chunk.symbol || ''} ${chunk.text}`);
+    // Hash vectors are an optional fallback. Eagerly building them for every
+    // imported source stalls the first live request even on lexical-only paths.
     for (const term of terms) {
       let list = this.postings.get(term);
       if (!list) this.postings.set(term, list = []);
@@ -251,13 +252,17 @@ class ProjectSearch {
       }
     }
     const lexical = [...candidates.values()].sort((a, b) => b.score - a.score || a.id - b.id).slice(0, candidateLimit);
-    const queryVector = denseEmbedding(query, true);
     const hash = [];
-    for (const id of ids) {
-      denseScanned++;
-      const similarity = cosineDense(queryVector, this.embeddings[id]);
-      if (similarity < 0.16) continue;
-      hash.push({ id, similarity });
+    if (options.hashFallback !== false) {
+      const queryVector = denseEmbedding(query, true);
+      for (const id of ids) {
+        denseScanned++;
+        const chunk = this.chunks[id];
+        const vector = this.embeddings[id] ||= denseEmbedding(`${chunk.path} ${chunk.symbol || ''} ${chunk.text}`);
+        const similarity = cosineDense(queryVector, vector);
+        if (similarity < 0.16) continue;
+        hash.push({ id, similarity });
+      }
     }
     hash.sort((a, b) => b.similarity - a.similarity || a.id - b.id);
     const dense = options.hashFallback === false ? [] : hash.slice(0, candidateLimit);

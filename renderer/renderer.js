@@ -1407,7 +1407,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
     const fast = m.fast || '快速模型';
     const smart = m.smart || '深度模型';
     const btn = document.getElementById('smart-toggle');
-    if (btn) btn.title = '快速：' + fast + ' · 深度：' + smart + '（质量更高，通常耗时更长）';
+    if (btn) btn.title = '快速：' + fast + '（优先首字速度，支持时关闭模型思考） · 深度：' + smart + '（通常耗时更长）';
   }
 
   // ---- microphone permission banner --------------------------------------

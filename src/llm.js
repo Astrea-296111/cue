@@ -1,8 +1,9 @@
 // LLM factory — OpenAI, Anthropic, Gemini and OpenAI-compatible providers.
 // Explicit mode budgets win; the larger legacy defaults serve standalone callers.
 
-const { createCompatibleClientOptions, resolveChatRequestOptions, supportsStreamingUsage } = require('./openai-compatible');
+const { createCompatibleClientOptions, resolveChatRequestOptions, supportsStreamingUsage, qwenFastInstruction } = require('./openai-compatible');
 const { createUsageReporter } = require('./provider-metrics');
+const { realtimeTransportOptions, geminiThinkingConfig } = require('./model-latency-policy');
 
 const CUSTOM_PROVIDER = 'custom';
 const CURRENT_GEMINI_DEFAULT = 'gemini-2.5-flash';
@@ -153,9 +154,9 @@ function finishStream(onCompletion, signal, full, finishReason, options = {}) {
   if (typeof onCompletion === 'function') onCompletion({ finishReason: reason, complete, truncated, refused });
 }
 
-async function streamOpenAI({ apiKey, baseURL, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity, onCompletion, onRequest, onUsage, requestOptions = {} }) {
+async function streamOpenAI({ apiKey, baseURL, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity, onCompletion, onRequest, onUsage, requestOptions = {}, transportOptions = {} }) {
   const OpenAI = require('openai');
-  const client = new OpenAI(baseURL ? { apiKey, baseURL } : { apiKey });
+  const client = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}), ...transportOptions });
   const messages = [{ role: 'system', content: system }];
 
   turns.forEach((turn, index) => {
@@ -185,13 +186,14 @@ async function streamOpenAI({ apiKey, baseURL, model, system, turns, imageDataUr
   if (typeof onRequest === 'function') onRequest(request);
   const reportUsage = createUsageReporter('openai-compatible', onUsage);
   const stream = await client.chat.completions.create(request, { signal });
+  onActivity?.({ phase: 'provider-response' });
 
   let full = '';
   let finishReason = null;
   let truncated = false, refused = false, toolUse = false;
   for await (const part of stream) {
     if (signal?.aborted) throw new Error('回答已取消。');
-    if (typeof onActivity === 'function') onActivity();
+    onActivity?.({ phase: part.choices?.[0]?.delta?.reasoning_content || part.choices?.[0]?.delta?.reasoning ? 'reasoning' : 'provider-event' });
     reportUsage(part.usage);
     const choice = part.choices && part.choices[0];
     const delta = choice && choice.delta && choice.delta.content;
@@ -225,7 +227,7 @@ function normalizeAzureBaseURL(raw) {
   return url;
 }
 
-async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, endpoint, signal, onActivity, onCompletion, onRequest, onUsage, requestOptions = {} }) {
+async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, endpoint, signal, onActivity, onCompletion, onRequest, onUsage, requestOptions = {}, transportOptions = {} }) {
   const url = normalizeAzureBaseURL(endpoint);
   if (!url) {
     throw new Error('未配置 Azure 服务地址，请在设置中填写 Azure AI Foundry 或 Azure OpenAI 地址。');
@@ -253,7 +255,8 @@ async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxToke
     client = new OpenAI.AzureOpenAI({
       endpoint: url.replace(/\/openai$/i, ''),
       apiKey,
-      apiVersion: '2024-10-21'
+      apiVersion: '2024-10-21',
+      ...transportOptions
     });
   } else {
     const azureFetch = async (input, init) => {
@@ -262,7 +265,7 @@ async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxToke
       headers.delete('authorization');
       return fetch(input, { ...init, headers });
     };
-    client = new OpenAI({ baseURL: url, apiKey, fetch: azureFetch });
+    client = new OpenAI({ baseURL: url, apiKey, fetch: azureFetch, ...transportOptions });
   }
 
   const request = {
@@ -276,13 +279,14 @@ async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxToke
   if (typeof onRequest === 'function') onRequest(request);
   const reportUsage = createUsageReporter('openai-compatible', onUsage);
   const stream = await client.chat.completions.create(request, { signal });
+  onActivity?.({ phase: 'provider-response' });
 
   let full = '';
   let finishReason = null;
   let truncated = false, refused = false, toolUse = false;
   for await (const part of stream) {
     if (signal?.aborted) throw new Error('回答已取消。');
-    if (typeof onActivity === 'function') onActivity();
+    onActivity?.({ phase: part.choices?.[0]?.delta?.reasoning_content || part.choices?.[0]?.delta?.reasoning ? 'reasoning' : 'provider-event' });
     reportUsage(part.usage);
     const choice = part.choices && part.choices[0];
     const delta = choice && choice.delta && choice.delta.content;
@@ -304,9 +308,9 @@ async function streamAzure({ apiKey, model, system, turns, imageDataUrl, maxToke
   return full;
 }
 
-async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity, onCompletion, onRequest, onUsage }) {
+async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity, onCompletion, onRequest, onUsage, transportOptions = {} }) {
   const Anthropic = require('@anthropic-ai/sdk');
-  const client = new Anthropic({ apiKey });
+  const client = new Anthropic({ apiKey, ...transportOptions });
 
   const messages = turns.map((turn, index) => {
     const last = index === turns.length - 1;
@@ -339,13 +343,14 @@ async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, max
   if (typeof onRequest === 'function') onRequest(request);
   const reportUsage = createUsageReporter('anthropic', onUsage);
   const stream = await client.messages.create(request, { signal });
+  onActivity?.({ phase: 'provider-response' });
 
   let full = '';
   let stopReason = null;
   let truncated = false, refused = false, toolUse = false;
   for await (const event of stream) {
     if (signal?.aborted) throw new Error('回答已取消。');
-    if (typeof onActivity === 'function') onActivity();
+    onActivity?.({ phase: event.delta?.type === 'thinking_delta' ? 'reasoning' : 'provider-event' });
     reportUsage(event.type === 'message_start' ? event.message?.usage : event.usage);
     if (
       event.type === 'content_block_delta' &&
@@ -370,7 +375,7 @@ async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, max
   return full;
 }
 
-async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity, onCompletion, onRequest, onUsage }) {
+async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity, onCompletion, onRequest, onUsage, thinkingConfig }) {
   const { GoogleGenAI } = require('@google/genai');
   const ai = new GoogleGenAI({ apiKey });
 
@@ -395,19 +400,21 @@ async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTok
     config: {
       systemInstruction: system,
       maxOutputTokens: maxTokens,
+      ...(thinkingConfig ? { thinkingConfig } : {}),
       abortSignal: signal
     }
   };
   if (typeof onRequest === 'function') onRequest(request);
   const reportUsage = createUsageReporter('gemini', onUsage);
   const stream = await ai.models.generateContentStream(request);
+  onActivity?.({ phase: 'provider-response' });
 
   let full = '';
   let finishReason = null;
   let truncated = false, refused = false, toolUse = false;
   for await (const chunk of stream) {
     if (signal?.aborted) throw new Error('回答已取消。');
-    if (typeof onActivity === 'function') onActivity();
+    onActivity?.({ phase: chunk.candidates?.[0]?.content?.parts?.some(part => part.thought) ? 'reasoning' : 'provider-event' });
     reportUsage(chunk.usageMetadata);
     const text = chunk && chunk.text;
     if (text) {
@@ -547,6 +554,12 @@ function createLLM(settings) {
   }
 
   const ready = !configurationError && !!model;
+  const providerOptions = settings.providerOptions?.[provider] || {};
+  const prepareSystem = (system, options = providerOptions) => {
+    const suffix = qwenFastInstruction({ model, smart: !!settings.smart, explicit: options });
+    const text = String(system || '');
+    return suffix && !text.trimEnd().endsWith(suffix) ? text + '\n' + suffix : text;
+  };
 
   return {
     provider,
@@ -555,6 +568,7 @@ function createLLM(settings) {
     baseURL,
     ready,
     configurationError,
+    prepareSystem,
 
     async stream(params = {}) {
       if (!ready) {
@@ -562,18 +576,22 @@ function createLLM(settings) {
       }
 
       const maxTokens = resolveMaxTokens(settings, params);
+      const explicit = { ...providerOptions, ...(params.requestOptions || {}),
+        ...(typeof params.enable_thinking === 'boolean' ? { enable_thinking: params.enable_thinking } : {}),
+        ...(typeof params.reasoning_effort === 'string' ? { reasoning_effort: params.reasoning_effort } : {}) };
       const args = {
         apiKey,
         baseURL,
         endpoint,
         model,
         ...params,
-        requestOptions: resolveChatRequestOptions({ baseURL, model, smart: !!settings.smart,
-          explicit: { ...(settings.providerOptions?.[provider] || {}), ...(params.requestOptions || {}),
-            ...(typeof params.enable_thinking === 'boolean' ? { enable_thinking: params.enable_thinking } : {}),
-            ...(typeof params.reasoning_effort === 'string' ? { reasoning_effort: params.reasoning_effort } : {}) } }),
+        system: prepareSystem(params.system, explicit),
+        requestOptions: resolveChatRequestOptions({ baseURL, model, smart: !!settings.smart, explicit }),
+        transportOptions: realtimeTransportOptions(settings, params.mode),
+        thinkingConfig: geminiThinkingConfig(model, !!settings.smart, providerOptions.thinkingConfig),
         maxTokens,
         turns: sanitizeTurns(params.turns),
+        onActivity: typeof params.onActivity === 'function' ? params.onActivity : () => {},
         onToken: typeof params.onToken === 'function' ? params.onToken : () => {}
       };
 

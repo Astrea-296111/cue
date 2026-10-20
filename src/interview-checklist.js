@@ -167,10 +167,12 @@ class InterviewChecklist {
   }
 }
 
-function formatInterviewChecklist(checklist, { maxChars = 1800 } = {}) {
+function formatInterviewChecklist(checklist, { maxChars = 1800, includeCurrent = true } = {}) {
   if (!checklist?.questions?.length || maxChars <= 0) return '';
   const heading = '=== 本轮问题清单（先回答当前新问，再补相关遗漏；覆盖指 Cue 建议，非候选人实际发言） ===';
-  const lines = checklist.questions.filter(q => q.current || UNRESOLVED.has(q.status)).map((q, index) =>
+  const relevant = checklist.questions.filter(q => q.current ? includeCurrent : UNRESOLVED.has(q.status));
+  if (!relevant.length) return '';
+  const lines = relevant.map((q, index) =>
     `${index + 1}. ${q.current ? '当前' : '此前未确认覆盖'}${q.partial ? '（发言未完整，不补全）' : ''}：${q.text}`);
   let output = heading;
   for (const line of lines) {
