@@ -8,6 +8,7 @@ const { existsSync } = require('node:fs');
 const { performance } = require('node:perf_hooks');
 const { inProjectScope } = require('./project-scope');
 const { MODEL_CONFIG, prepareModel, readSelectedModel } = require('./project-embedding-model');
+const { RETRIEVAL_POLICY } = require('./project-prefetch-policy');
 const DIMENSIONS = 384;
 const digest = value => createHash('sha256').update(value).digest('hex');
 const abortError = reason => reason instanceof Error ? reason : Object.assign(new Error(String(reason || '任务已取消')), { name: 'AbortError' });
@@ -18,17 +19,24 @@ function defaultWorkerFactory() {
   return new Worker(existsSync(unpacked) ? unpacked : packaged);
 }
 class EmbeddingWorkerQueue {
-  constructor({ workerFactory = defaultWorkerFactory, maxQueue = 8, onFailure } = {}) {
+  constructor({ workerFactory = defaultWorkerFactory, maxQueue = 8, onFailure, recoveryMs = RETRIEVAL_POLICY.workerRecoveryMs } = {}) {
     this.workerFactory = workerFactory; this.maxQueue = maxQueue;
     this.onFailure = onFailure;
     this.worker = null; this.active = null; this.queue = []; this.nextId = 0; this.closed = false;
+    this.recoveryMs = recoveryMs;
   }
   start() {
     if (this.worker) return;
     if (this.closed) throw new Error('worker-closed');
-    this.worker = this.workerFactory();
-    this.worker.on('message', message => {
+    if (this.termination) {
+      this.termination.then(() => { if (!this.closed) { this.start(); this.drain(); } }).catch(error => this.fail(error));
+      return;
+    }
+    const worker = this.worker = this.workerFactory();
+    worker.on('message', message => {
+      if (this.worker !== worker) return;
       if (this.active?.id !== message.id) return;
+      clearTimeout(this.recoveryTimer); this.recoveryTimer = null;
       const job = this.active; this.active = null;
       job.cleanup();
       if (!job.settled) {
@@ -38,14 +46,23 @@ class EmbeddingWorkerQueue {
       }
       this.drain();
     });
-    this.worker.on('error', error => this.fail(error));
-    this.worker.on('exit', code => {
+    worker.on('error', error => { if (this.worker === worker) this.fail(error); });
+    worker.on('exit', code => {
+      if (this.worker !== worker) return;
       this.worker = null;
       if (!this.closed) this.fail(new Error(`embedding-worker-exited:${code}`));
     });
     this.worker.unref?.();
   }
   fail(error) {
+    clearTimeout(this.recoveryTimer); this.recoveryTimer = null;
+    const failed = this.worker; this.worker = null;
+    if (failed) {
+      const barrier = Promise.resolve(failed.terminate()).catch(() => {}).finally(() => {
+        if (this.termination === barrier) this.termination = null;
+      });
+      this.termination = barrier;
+    }
     for (const job of [this.active, ...this.queue].filter(Boolean)) {
       job.cleanup(); if (!job.settled) { job.settled = true; job.reject(error); }
     }
@@ -64,10 +81,22 @@ class EmbeddingWorkerQueue {
         job.settled = true; job.cleanup(); job.reject(abortError(reason));
         const queued = this.queue.indexOf(job);
         if (queued >= 0) this.queue.splice(queued, 1);
-        if (this.active === job) this.worker?.postMessage({ op: 'cancel', id: job.id });
+        if (this.active === job) {
+          this.worker?.postMessage({ op: 'cancel', id: job.id });
+          // Native inference may finish normally after cancellation. A hung
+          // worker gets one bounded recovery, not a restart on each ASR word.
+          this.recoveryTimer = setTimeout(() => {
+            if (this.active === job) this.fail(new Error('semantic-worker-unresponsive'));
+          }, this.recoveryMs);
+        }
       };
       const onAbort = () => cancel(signal.reason);
-      job.cleanup = () => { clearTimeout(timer); signal?.removeEventListener('abort', onAbort); };
+      job.cleanup = () => {
+        clearTimeout(timer);
+        if (this.active === job) { clearTimeout(this.recoveryTimer); this.recoveryTimer = null; }
+        signal?.removeEventListener('abort', onAbort);
+      };
+      deadlineAt = Number.isFinite(deadlineAt) ? deadlineAt : Date.now() + 30000;
       if (Number.isFinite(deadlineAt)) {
         if (deadlineAt <= Date.now()) { cancel('semantic-timeout'); return; }
         timer = setTimeout(() => cancel('semantic-timeout'), deadlineAt - Date.now());
@@ -85,8 +114,9 @@ class EmbeddingWorkerQueue {
     this.worker.postMessage({ id: job.id, op: job.op, payload: job.payload });
   }
   close() {
-    this.closed = true; this.fail(new Error('worker-closed'));
-    return this.worker?.terminate();
+    this.closed = true;
+    this.fail(new Error('worker-closed'));
+    return this.termination;
   }
 }
 
@@ -225,6 +255,8 @@ class ProjectEmbeddings {
   invalidate(reason = 'index-changed') {
     this.generation++; this.indexController?.abort(reason); this.vectors = null; this.snapshot = null; this.queryCache.clear();
     this.phase = this.modelReady ? 'model-ready' : 'not-prepared';
+    if (this.queue.worker && !this.queue.closed) this.queue.run('clear-index', {}, { priority: 2,
+      deadlineAt: Date.now() + 1000 }).catch(() => {});
   }
   resetSession() { this.queryCache.clear(); }
   async indexSnapshot(snapshot, { revision, onProgress } = {}) {
@@ -284,6 +316,13 @@ class ProjectEmbeddings {
         const metadata = { schema: 1, dimensions: DIMENSIONS, modelIdentity: this.model.identity, configuration: MODEL_CONFIG, identity, revision, records, chunkerVersion: snapshot.chunkerVersion, parserVersion: snapshot.parserVersion, metadataSchemaVersion: snapshot.metadataSchemaVersion };
         await saveVectorStore(path.join(this.directory, 'vectors'), metadata, matrix, controller.signal);
         if (generation !== this.generation || (this.revisionProvider?.() && this.revisionProvider() !== revision)) throw abortError('index-stale');
+        // Install once per immutable revision. Structured clone keeps the main
+        // matrix usable for persistence/incremental indexing; queries only send
+        // 384 floats and compact options, never the full source corpus.
+        await this.queue.run('install-index', { revision, modelVersion: modelIdentity, matrix,
+          records: records.map(record => ({ ...record, projectId: snapshot.chunks[record.index]?.projectId,
+            path: snapshot.chunks[record.index]?.path })) }, { signal: controller.signal, priority: -1 });
+        if (generation !== this.generation || controller.signal.aborted) throw abortError('index-stale');
         this.snapshot = snapshot; this.vectors = { records, matrix, revision, identity, modelIdentity }; this.phase = 'ready'; this.error = '';
         return { ...this.status(), reused, computed, segments: records.length };
       } catch (error) {
@@ -315,19 +354,11 @@ class ProjectEmbeddings {
       }
       if (generation !== this.generation || signal?.aborted) return empty('stale-result');
       if (Date.now() >= deadlineAt) return empty('semantic-timeout');
-      const best = new Map(), { records, matrix } = this.vectors;
-      let scanned = 0;
-      for (let row = 0; row < records.length; row++) {
-        if (row % 64 === 0 && Date.now() >= deadlineAt) return empty('semantic-timeout');
-        const record = records[row], chunk = this.snapshot.chunks[record.index];
-        if (!chunk || !inProjectScope(chunk, scopes)) continue;
-        let similarity = 0;
-        for (let col = 0; col < DIMENSIONS; col++) similarity += vector[col] * matrix[row * DIMENSIONS + col];
-        scanned++;
-        const previous = best.get(record.id);
-        if (!previous || similarity > previous.similarity) best.set(record.id, { id: record.id, chunk, score: similarity, similarity, tokenStart: record.tokenStart, tokenEnd: record.tokenEnd });
-      }
-      return { rows: [...best.values()].sort((a, b) => b.similarity - a.similarity).slice(0, Math.max(1, Math.min(60, limit))), revision: this.vectors.revision, modelVersion: this.model.identity, stats: { semanticMs: performance.now() - started, scanned, queryCacheHit } };
+      const result = await this.queue.run('scan', { vector, scopes, limit, revision: this.vectors.revision,
+        modelVersion: this.model.identity, deadlineAt }, { signal, deadlineAt, priority: 1 });
+      if (generation !== this.generation || signal?.aborted || result.revision !== this.vectors?.revision ||
+        result.modelVersion !== this.model.identity) return empty('stale-result');
+      return { ...result, stats: { ...result.stats, semanticMs: performance.now() - started, queryCacheHit } };
     } catch (error) {
       const reason = signal?.aborted ? 'aborted' : /semantic-timeout/.test(error.message) ? 'semantic-timeout' : /semantic-queue-full/.test(error.message) ? 'semantic-queue-full' : 'semantic-failed';
       return { ...empty(reason), error: error.message };

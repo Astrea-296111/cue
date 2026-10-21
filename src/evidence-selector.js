@@ -94,6 +94,7 @@ function questionRequirements(question, interviewPlan, projectPlan) {
 }
 
 function relevant(item, question) {
+  if (item.validatedQuestionIds?.length && !item.validatedQuestionIds.includes(question.id)) return false;
   const ownQuestion = !item.questionIds?.length || item.questionIds.includes(question.id);
   if (ownQuestion && (item.relevanceApproved || item.channels?.includes('exact') || item.channels?.includes('semantic') || item.channels?.includes('vector'))) return true;
   if (ownQuestion && (item.coverage > .12 || item.relevance > .12 || item.confidence >= .32)) return true;
@@ -107,6 +108,8 @@ function relevant(item, question) {
 function supportsNeed(item, need, question) {
   if (!question.scopes.length || !inProjectScope(item, question.scopes) || !relevant(item, question) || item.provenance === 'derived_hint') return false;
   const docType = inferDocType(item);
+  if (['ownership', 'collaboration'].includes(need.type) && /团队负责人|技术负责人|管理职责|负责管理|带领团队|team lead|management responsibility/i.test(question.text) &&
+    !/(?:我|本人|候选人|人物|成员|工程师)[^。；\n]{0,8}(?:担任[^。；\n]{0,8}(?:团队|技术)负责人|负责(?:团队管理|管理团队)|带领[^。；\n]{0,8}团队|管理[^。；\n]{0,8}团队)|(?:I (?:led|managed)|my management)/i.test(item.text)) return false;
   if (docType === 'implementation' && item.kind === 'context' && (String(item.text).match(/[A-Za-z0-9\u3400-\u9fff]/g) || []).length < 20) return false;
   const adoption = need.type === 'implementation' && /是不是|是否|已经|采用|用了|支持|currently|already|using/i.test(question.text);
   const allowedTypes = need.type === 'context' ? [...new Set([...need.docTypes, 'decision', 'ownership', 'collaboration', 'challenge', 'environment', 'process', 'limitation'])] :
@@ -167,10 +170,23 @@ function selectEvidence({ candidates = [], question = '', interviewPlan, project
     else {
       const winner = (item.score || 0) > (old.score || 0) ? item : old;
       unique.set(item.id, { ...winner, relation: old.relation || item.relation,
+        ...((old.validatedQuestionIds || item.validatedQuestionIds) ? { validatedQuestionIds:
+          [...new Set([...(old.validatedQuestionIds || old.questionIds || []), ...(item.validatedQuestionIds || item.questionIds || [])])] } : {}),
         questionIds: [...new Set([...(old.questionIds || []), ...(item.questionIds || [])])] });
     }
   }
   const ranked = [...unique.values()].sort((a, b) => (b.score || 0) - (a.score || 0));
+  // The same demand is checked during allocation, detail selection and final
+  // coverage. Cache only within this immutable selection, never across questions.
+  const supportMemo = new Map();
+  const supports = (item, need, q) => {
+    let byNeed = supportMemo.get(q);
+    if (!byNeed) supportMemo.set(q, byNeed = new Map());
+    let bySource = byNeed.get(need);
+    if (!bySource) byNeed.set(need, bySource = new Map());
+    if (!bySource.has(item)) bySource.set(item, supportsNeed(item, need, q));
+    return bySource.get(item);
+  };
   const selected = [], selectedIds = new Set();
   const render = items => formatContext ? formatContext(items, { maxChars: 9000 }) : items.map(formatEvidenceBlock).join('\n\n');
   const add = item => {
@@ -188,7 +204,7 @@ function selectEvidence({ candidates = [], question = '', interviewPlan, project
   // Round-robin demands before details prevents the first lengthy subquestion
   // or overview from consuming every source slot.
   const demands = questions.flatMap(q => q.evidenceNeeds.map(need => ({ q, need,
-    matches: ranked.filter(item => supportsNeed(item, need, q)).sort((a, b) =>
+    matches: ranked.filter(item => supports(item, need, q)).sort((a, b) =>
       (b.status === 'confirmed' ? 1 : 0) - (a.status === 'confirmed' ? 1 : 0) ||
       (b.score || 0) - (a.score || 0)) })));
   const supplement = item => item.sourceType === 'manual' && ['ownership', 'collaboration'].includes(inferDocType(item)) &&
@@ -217,10 +233,10 @@ function selectEvidence({ candidates = [], question = '', interviewPlan, project
   for (const item of details) {
     const file = `${item.projectId}:${item.path}`;
     if (coveredFiles.has(file)) continue;
-    if ((demands.some(d => supportsNeed(item, d.need, d.q)) || supplement(item)) && add(item)) coveredFiles.add(file);
+    if ((demands.some(d => supports(item, d.need, d.q)) || supplement(item)) && add(item)) coveredFiles.add(file);
   }
   for (const item of details) {
-    if (demands.some(d => supportsNeed(item, d.need, d.q)) || supplement(item)) add(item);
+    if (demands.some(d => supports(item, d.need, d.q)) || supplement(item)) add(item);
   }
   // Verify actual formatted visibility, not merely planned source selection.
   const context = render(selected);
@@ -231,8 +247,8 @@ function selectEvidence({ candidates = [], question = '', interviewPlan, project
       return { id: q.id, text: q.text, scopes: [], evidenceNeeds: q.evidenceNeeds, sourceRefs: [], missing: [] };
     }
     for (const need of q.evidenceNeeds) {
-      const allMatches = ranked.filter(item => supportsNeed(item, need, q));
-      const matches = visible.filter(item => supportsNeed(item, need, q));
+      const allMatches = ranked.filter(item => supports(item, need, q));
+      const matches = visible.filter(item => supports(item, need, q));
       for (const item of matches) refs.add(item.id);
       const absentScopes = q.scopes.filter(scope => !matches.some(item => inProjectScope(item, [scope])));
       const missingDetails = (need.requires || []).filter(facet => FACETS[facet] && !matches.some(item => FACETS[facet].test(item.text)));

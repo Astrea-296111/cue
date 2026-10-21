@@ -17,7 +17,10 @@ const { parseDocumentFile } = require('./src/resume');
 const { createLLM } = require('./src/llm');
 const { MODES, shouldCaptureScreen, getAnswerPlan, contextCharsFor } = require('./src/prompts');
 const { ConversationMemory } = require('./src/conversation-memory');
-const { getProjectCatalog, getProjectIndexRevision, getProjectIndexSnapshot, warmProjectIndex } = require('./src/project-knowledge');
+const { getProjectCatalog: readProjectCatalog, getProjectIndexRevision: readProjectIndexRevision,
+  getProjectIndexSnapshot: readProjectIndexSnapshot, warmProjectIndex, refreshProjectIndex } = require('./src/project-knowledge');
+const { activeProjectContextCache } = require('./src/project-context');
+const { enabled: realtimePrefetchEnabled, adjacentNeeds } = require('./src/project-prefetch-policy');
 const { getProjectEmbeddings } = require('./src/project-embeddings');
 const { ProjectRagSession, sourceEvents, formatRetrievalRequirements } = require('./src/project-rag-session');
 const { retrieveProjectEvidenceAsync } = require('./src/retrieval-coordinator');
@@ -77,6 +80,10 @@ let activeGeneration = null;
 const uiReplyTimings = new Map();
 let semanticRetriever = null;
 let formalProjectPlan = null;
+const preparedReadOptions = () => ({ preparedOnly: realtimePrefetchEnabled(store.getSettings()) });
+const getProjectCatalog = () => readProjectCatalog(preparedReadOptions());
+const getProjectIndexRevision = () => readProjectIndexRevision(preparedReadOptions());
+const getProjectIndexSnapshot = () => readProjectIndexSnapshot(preparedReadOptions());
 function getSemanticRetriever() {
   if (!semanticRetriever) semanticRetriever = getProjectEmbeddings({
     directory: path.join(app.getPath('userData'), 'project-semantic'),
@@ -87,21 +94,27 @@ function getSemanticRetriever() {
 }
 const ragSession = new ProjectRagSession({
   retrieve: input => retrieveProjectEvidenceAsync({ ...input, includeCandidates: true,
-    hashFallback: input.hashFallback, semanticRetriever: getSemanticRetriever() }),
+    projectContextCache: input.realtimeEvidencePrefetch ? activeProjectContextCache : undefined,
+    semanticRetriever: getSemanticRetriever() }),
+  onEvent: metrics => console.log('[latency][background] ' + JSON.stringify(metrics)),
   isCurrent: input => input.epoch === conversation.epoch && input.projectRevision === getProjectIndexRevision() &&
     input.modelVersion === (getSemanticRetriever().status().modelVersion || 'base')
 });
 function retrievalInput(question, projectPlan, interviewPlan, contextBudget, sourceKey = '') {
   return { question, projectPlan, interviewPlan, contextBudget, sourceKey, hashFallback: !!store.getSettings().smart,
+    realtimeEvidencePrefetch: realtimePrefetchEnabled(store.getSettings()),
     questionVersion: interviewPlan?.questionVersion || stableId(question),
     epoch: conversation.epoch, projectRevision: getProjectIndexRevision(),
     modelVersion: getSemanticRetriever().status().modelVersion || 'base' };
 }
 function scheduleProjectPrefetch(payload) {
-  const text = String(typeof payload === 'string' ? payload : payload?.text || '').trim();
+  if (typeof payload !== 'string' && (!payload || typeof payload.text !== 'string')) return;
+  const text = String(typeof payload === 'string' ? payload : payload.text).trim();
+  if (text.length > 24000) return;
   if (text.length < 4) return;
+  const sourceKey = typeof payload?.sourceKey === 'string' && payload.sourceKey.length <= 4096 ? payload.sourceKey : '';
   const settings = store.getSettings();
-  const interviewPlan = planInterviewQuestion({ text, mode: 'say', sourceKey: payload?.sourceKey || '' });
+  const interviewPlan = planInterviewQuestion({ text, mode: 'say', sourceKey });
   const projectPlan = planProjectRetrieval([{ channel: 'them', text }], 'say', {
     catalog: getProjectCatalog(), previousPlan: conversation.lastPlan,
     activeProjectPlan: formalProjectPlan?.activeProject || conversation.activeProjectPlan,
@@ -109,8 +122,35 @@ function scheduleProjectPrefetch(payload) {
     answerHint: conversation.recent.at(-1)?.answer || ''
   });
   const budget = contextCharsFor('say', getAnswerPlan(text, interviewPlan));
-  ragSession.schedule(retrievalInput(text, projectPlan, interviewPlan, budget, payload?.sourceKey || ''),
-    { immediate: !!payload?.final });
+  ragSession.schedule({ ...retrievalInput(text, projectPlan, interviewPlan, budget, sourceKey),
+    exactEligible: !payload?.partial },
+    { immediate: payload?.final === true, origin: payload?.final === true ? 'final' : 'interim' });
+  if (!projectPlan.retrieve) ragSession.pause();
+}
+
+const snapshotSourceKey = snapshot => {
+  const keys = [...(snapshot?.keys || [])].sort();
+  return keys.length > 1 ? JSON.stringify(keys) : keys[0] || '';
+};
+function observeProjectPrefetch(final) {
+  const preview = questionResolver.previewForPrefetch();
+  if (!preview.text) return;
+  scheduleProjectPrefetch({ text: preview.text, final, sourceKey: snapshotSourceKey(preview), partial: preview.partial });
+}
+
+function prepareAdjacentEvidence(retrieval, sources) {
+  if (!retrieval.realtimeEvidencePrefetch || !realtimePrefetchEnabled(store.getSettings()) ||
+    retrieval.epoch !== conversation.epoch || retrieval.projectRevision !== getProjectIndexRevision() ||
+    formalProjectPlan !== retrieval.projectPlan || !formalProjectPlan?.retrieve) return;
+  for (const hint of adjacentNeeds(retrieval, sources)) {
+    const labels = { decision: '选型理由取舍', implementation: '实现源码', ownership: '个人职责', collaboration: '协作分工',
+      challenge: '困难处理验证', limitation: '限制边界', performance: '测试指标', environment: '测试环境' };
+    const question = hint.topics.join(' ') + ' ' + hint.types.map(type => labels[type]).join(' ');
+    const sub = { id: 'adjacent', text: question, evidenceNeeds: hint.types.map(type => ({ type })) };
+    ragSession.schedulePrediction({ ...retrieval, question, questionVersion: stableId(question), sourceKey: '',
+      hashFallback: false, predictionSourceIds: hint.sourceIds, interviewPlan: { subQuestions: [sub] },
+      projectPlan: { ...retrieval.projectPlan, subQuestionScopes: [{ questionId: sub.id, scopes: retrieval.projectPlan.scopes }] } });
+  }
 }
 function stopGenerationForSources() {
   const previous = activeGeneration;
@@ -118,6 +158,7 @@ function stopGenerationForSources() {
   previous?.controller.abort();
   state.busy = false;
   ragSession.reset();
+  activeProjectContextCache.clear();
   semanticRetriever?.resetSession?.();
   uiReplyTimings.clear();
   conversation.invalidateSources();
@@ -126,7 +167,7 @@ function stopGenerationForSources() {
 sourceEvents.on('changed', () => {
   stopGenerationForSources();
   const semantic = getSemanticRetriever();
-  semantic.invalidate('project-import');
+  semantic.invalidate?.('project-import');
   if (semantic.status().modelReady) semantic.indexSnapshot(getProjectIndexSnapshot(), { revision: getProjectIndexRevision() })
     .then(() => send('project:semantic-state', semantic.status()))
     .catch(() => send('project:semantic-state', semantic.status()));
@@ -179,8 +220,8 @@ function send(channel, data) {
   // Keep answer targeting in the main process so keyboard shortcuts, renderer
   // buttons and every STT provider all share exactly the same question state.
   if (channel === 'vad:state') questionResolver.speechState(data);
-  if (channel === 'stt:interim') questionResolver.observe(data, false);
-  if (channel === 'transcript') questionResolver.observe(data, true);
+  if (channel === 'stt:interim') { questionResolver.observe(data, false); if (data.channel === 'them') observeProjectPrefetch(false); }
+  if (channel === 'transcript') { questionResolver.observe(data, true); if (data.channel === 'them') observeProjectPrefetch(true); }
   replyLatency.observe(channel, data);
   if (win && !win.isDestroyed()) win.webContents.send(channel, data);
 }
@@ -726,7 +767,7 @@ async function runFeature(mode, userText) {
   const contextTranscript = withCurrentQuestion(freshTranscript, question);
   const fromResolved = !explicit && resolved?.text === question;
   const partial = fromResolved && !!resolved?.partial;
-  const sourceKey = fromResolved && resolved?.keys?.size === 1 ? Array.from(resolved.keys)[0] : '';
+  const sourceKey = fromResolved ? snapshotSourceKey(resolved) : '';
   const interviewPlan = ['say', 'answerThis', 'ask', 'assist', 'technical'].includes(mode) && question
     ? planInterviewQuestion({ text: question, partial, sourceKey, mode }) : null;
   const timing = replyLatency.start(mode, question, { sourceKeys: fromResolved ? resolved?.keys || [] : [] });
@@ -747,6 +788,8 @@ async function runFeature(mode, userText) {
     if (!question && ['ask', 'answerThis'].includes(mode)) throw new Error('请先输入问题或等待识别到面试官发言。');
     const request = conversation.begin({ mode, question, transcript: contextTranscript,
       settings, catalog: getProjectCatalog(), interviewPlan, evidenceRevision: getProjectIndexRevision() });
+    request.plan.preparedOnly = realtimePrefetchEnabled(settings) && !settings.smart;
+    if (!request.plan.retrieve) ragSession.pause();
     if (request.plan.projectSwitched) ragSession.retainScopes(request.plan.scopes);
     formalProjectPlan = request.plan;
     emit('project:active', { projectId: request.plan.projectIds?.length === 1 ? request.plan.projectIds[0] : '',
@@ -773,14 +816,16 @@ async function runFeature(mode, userText) {
     const screenPromise = needsScreen ? captureScreenshot().then(image => ({ image, ms: performance.now() - screenStarted }), error => ({ error })) : null;
     const contextStarted = performance.now();
     const fast = !settings.smart && ['say', 'answerThis', 'ask', 'assist', 'technical', 'leetcode'].includes(mode);
-    const retrieval = { ...retrievalInput(question, request.plan, effectiveInterviewPlan, contextCharsFor(mode, answerPlan), sourceKey), hashFallback: !fast };
+    const retrieval = { ...retrievalInput(question, request.plan, effectiveInterviewPlan, contextCharsFor(mode, answerPlan), sourceKey),
+      requestId: timing.requestId, hashFallback: !fast };
     const contextBundle = await buildInterviewContextBundleAsync(settings, mode, contextTranscript,
       { ...retrieval, requestId: timing.requestId, projectPlan: request.plan, smart: !!settings.smart,
         answerComplexity: answerPlan.level, interviewPlan: effectiveInterviewPlan,
         contextBudget: contextCharsFor(mode, answerPlan), projectState: request.projectInterviewState,
         signal: generation.controller.signal, deadlineAt: Date.now() + (fast ? 0 : 100), semanticWaitMs: fast ? 0 : 100,
+        execution: fast ? 'fast' : 'deep', realtimeEvidencePrefetch: realtimePrefetchEnabled(settings),
         hashFallback: !fast,
-        semanticRetriever: getSemanticRetriever(), prefetchedRetrieval: ragSession.take(retrieval) });
+        semanticRetriever: getSemanticRetriever(), prefetchedRetrieval: ragSession.take(retrieval, { metadata: true }) });
     const contextMs = performance.now() - contextStarted;
     let screenMs = 0;
     if (needsScreen) {
@@ -829,6 +874,13 @@ async function runFeature(mode, userText) {
       ] });
     const { system, turns } = prepared;
     if (!prepared.fits) throw new Error('完整问题与必要约束超过当前模型窗口，请在设置中填写正确的模型窗口，或分批提交问题。');
+    if (prepared.stats.droppedEvidence) {
+      // A pool hit is sufficient only for the evidence that actually survives
+      // the final model window, not just the earlier source character budget.
+      contextBundle.stats.poolSufficientHit = false;
+      if (contextBundle.stats.retrievalPath === 'pool-covered') contextBundle.stats.retrievalPath = 'pool-partial';
+      contextBundle.stats.finalBudgetDroppedSources = prepared.stats.droppedEvidence;
+    }
     let sentEvidence = prepared.evidence;
     emit('llm:evidence', { sources: sentEvidence.map(item => ({ id: item.id, projectName: item.projectName,
       path: item.path, startLine: item.startLine, endLine: item.endLine, text: item.text,
@@ -897,6 +949,10 @@ async function runFeature(mode, userText) {
             timing.firstToken(requestSent);
             rearm();
             emit('llm:token', { text });
+            if (!generation.adjacentQueued) {
+              generation.adjacentQueued = true;
+              setImmediate(() => prepareAdjacentEvidence(retrieval, sentEvidence));
+            }
           }
         }), stopped
       ]);
@@ -914,6 +970,9 @@ async function runFeature(mode, userText) {
         return (item.missing || []).some(gap => !hypothetical || ['ownership', 'collaboration', 'performance'].includes(gap.type) ||
           gap.type === 'incident' && item.evidenceNeeds?.some(need => need.type === 'incident' && !need.hypothetical));
       }).map(item => item.id);
+      if (contextBundle.missing?.some(gap => ['index-not-ready', 'unresolved-project'].includes(gap.reason))) {
+        request.unavailableEvidenceQuestionIds.push(...(effectiveInterviewPlan?.subQuestions || []).map(item => item.id));
+      }
       const committed = conversation.commit(request, answer, { completion, evidence: sentEvidence });
       if (committed && liveMode && resolved?.text === question) questionResolver.markSubmitted(resolved);
     } finally {
@@ -937,7 +996,20 @@ async function runFeature(mode, userText) {
 
 // -------- IPC --------
 ipcMain.handle('settings:get', () => store.getSettings());
-ipcMain.handle('settings:set', (_e, patch) => { sttDisabled = false; return store.setSettings(patch); });
+ipcMain.handle('settings:set', (_e, patch) => {
+  sttDisabled = false;
+  const before = store.getSettings();
+  const next = store.setSettings(patch);
+  const identity = settings => JSON.stringify([settings.realtimeEvidencePrefetch, settings.smart, settings.provider,
+    settings.models, settings.currentProjectId, settings.baseUrl, settings.projectKnowledge, settings.starStories]);
+  if (identity(before) !== identity(next)) {
+    ragSession.reset(); semanticRetriever?.resetSession?.();
+    if (before.realtimeEvidencePrefetch !== next.realtimeEvidencePrefetch || before.projectKnowledge !== next.projectKnowledge ||
+      before.starStories !== next.starStories) activeProjectContextCache.clear();
+    if (!realtimePrefetchEnabled(before) && realtimePrefetchEnabled(next)) warmProjectIndex().catch(() => {});
+  }
+  return next;
+});
 ipcMain.on('project:prefetch', (_event, payload) => scheduleProjectPrefetch(payload));
 ipcMain.handle('project:semantic-state', () => getSemanticRetriever().status());
 ipcMain.handle('project:semantic-prepare', async (_event, payload = {}) => {
@@ -1078,6 +1150,7 @@ ipcMain.handle('transcript:clear', () => {
   uiReplyTimings.clear();
   formalProjectPlan = null;
   ragSession.reset();
+  activeProjectContextCache.clear();
   semanticRetriever?.resetSession?.();
   questionResolver.reset();
   transcriptDeduper.reset();
@@ -1318,6 +1391,10 @@ session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
   // Prepare the existing local index in the background instead of charging its
   // complete cold build to the first interview answer after app restart.
   warmProjectIndex().catch(error => console.warn('[rag] warmup unavailable:', error?.code || error?.name || 'Error'));
+  const indexWatch = setInterval(() => refreshProjectIndex().then(() => warmProjectIndex())
+    .catch(error => console.warn('[rag] index refresh unavailable:', error?.code || error?.name || 'Error')), 2000);
+  indexWatch.unref?.();
+  app.once('will-quit', () => clearInterval(indexWatch));
   // Warm only an already prepared local model. This never initiates downloads.
   const semantic = getSemanticRetriever();
   semantic.warm().then(() => semantic.indexSnapshot(getProjectIndexSnapshot(), { revision: getProjectIndexRevision() }))

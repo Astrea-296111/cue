@@ -165,8 +165,10 @@ function createInterviewRuntime(t, options = {}) {
     return id.startsWith('.') ? load(native.resolve(id)) : native(id);
   };
   const entry = load(path.join(root, require('../../package.json').main));
+  const ready = options.coldIndex ? Promise.resolve() : load(path.join(root, 'src/project-knowledge.js')).warmProjectIndex();
   const context = modules.get(path.join(root, 'main.js')).context;
   async function submit(mode, text = '') {
+    await ready;
     time++;
     for (const listener of ipc.listeners('ask')) await listener(null, { mode, text });
   }
@@ -182,7 +184,7 @@ function createInterviewRuntime(t, options = {}) {
   entry.installShortcutOverrides();
   const value = expression => vm.runInContext(expression, context);
   const clear = () => handlers.get('transcript:clear')(null);
-  t.after(() => { clear(); fs.rmSync(temp, { recursive: true, force: true }); });
+  t.after(async () => { await ready.catch(() => {}); clear(); fs.rmSync(temp, { recursive: true, force: true }); });
   function speech(channel, text, final, meta = {}) {
     time += 100;
     Object.assign(context, { __text: text, __channel: channel,
@@ -190,7 +192,7 @@ function createInterviewRuntime(t, options = {}) {
     return value(`${final ? 'publishTranscript' : 'publishInterim'}(__channel, __text, __meta)`);
   }
   return {
-    temp, calls, requestOptions, requests, commits, searches, events, loaded, logs, value,
+    temp, ready, calls, requestOptions, requests, commits, searches, events, loaded, logs, value,
     snapshot: expression => copy(value(expression)),
     exports: relative => load(path.join(root, relative)),
     answer(text, config = {}) { transport = null; response = { text, finishReason: 'stop', ...config }; },
@@ -206,11 +208,12 @@ function createInterviewRuntime(t, options = {}) {
       await Promise.all(pendingShortcuts.splice(0));
     },
     clear,
-    invoke: (name, payload) => handlers.get(name)(null, payload),
+    invoke: async (name, payload) => { await ready; return handlers.get(name)(null, payload); },
     captureFailure(value = true) { captureError = value; },
     get captures() { return captures; },
-    async prefetch(payload) { ipc.emit('project:prefetch', null, payload); await tick(); },
+    async prefetch(payload) { await ready; ipc.emit('project:prefetch', null, payload); await tick(); },
     async waitForCalls(count) {
+      await ready;
       for (let attempt = 0; attempt < 100; attempt++) {
         if (calls.length >= count) return;
         await tick();

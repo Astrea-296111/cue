@@ -17,6 +17,7 @@ const { TOPICS } = require('./project-profile');
 const { buildProjectCodeRelations, expandProjectCodeQuery, expandProjectCodeRelations } = require('./project-code-relations');
 const { retrievalPrefix, relativePath, hash } = require('./project-document-parser');
 const { MANIFEST_PATH, parseProjectManifest, excludedByManifest, applyProjectManifest } = require('./project-pack-manifest');
+const { evidenceId } = require('./evidence-selector');
 
 const INDEX_VERSION = 2;
 const INDEX_FILE = 'cue-project-index-v2.json';
@@ -73,6 +74,10 @@ let preparedSearchIndex = null;
 let preparedSearch = null;
 let preparedRelations = null;
 let chunksByFile = null;
+let chunksById = null;
+let rowById = null;
+let parentsById = null;
+let refreshing = null;
 let warming = null;
 let lastSearchStats = {};
 let catalogIndex = null;
@@ -83,13 +88,14 @@ function resetSearchRuntime() {
   preparedSearch = null;
   preparedRelations = null;
   chunksByFile = null;
+  chunksById = null; rowById = null; parentsById = null;
   warming = null;
   catalogIndex = null;
   catalog = [];
 }
 
-function getProjectCatalog() {
-  const index = loadIndexSync();
+function getProjectCatalog(options = {}) {
+  const index = options.preparedOnly ? cache : loadIndexSync();
   if (catalogIndex !== index) {
     catalogIndex = index;
     catalog = buildProjectCatalog(index);
@@ -98,20 +104,79 @@ function getProjectCatalog() {
 }
 
 async function warmProjectIndex() {
-  const index = loadIndexSync();
+  const index = await refreshProjectIndex();
   if (!index) return;
   if (preparedSearchIndex === index && preparedSearch) return;
   if (warming && warming.index === index) return warming.promise;
   const job = { index };
-  job.promise = ProjectSearch.buildAsync(index.chunks).then(search => {
+  warming = job;
+  job.promise = ProjectSearch.buildAsync(index.chunks, { isCurrent: () => cache === index && warming === job }).then(search => {
     if (cache === index && warming === job && !preparedSearch) {
       preparedSearchIndex = index;
       preparedSearch = search;
       prepareRelations(index);
     }
-  }).finally(() => { if (warming === job) warming = null; });
-  warming = job;
+  }).catch(error => { if (error.name !== 'AbortError') throw error; })
+    .finally(() => { if (warming === job) warming = null; });
   return job.promise;
+}
+
+// All disk change detection runs outside the fast request. A generation check
+// prevents a slow external read from replacing an in-app import/clear.
+function refreshProjectIndex() {
+  if (refreshing) return refreshing;
+  const generation = indexGeneration;
+  const job = (async () => {
+    let target = indexPath(), stat;
+    try { stat = await fs.promises.stat(target); }
+    catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      target = indexPath(LEGACY_INDEX_FILE);
+      try { stat = await fs.promises.stat(target); }
+      catch (legacyError) {
+        if (legacyError.code !== 'ENOENT') throw legacyError;
+        if (generation === indexGeneration && cache) {
+          discardIndex(); require('./project-rag-session').notifyProjectSourcesChanged({ external: true });
+        }
+        return cache;
+      }
+    }
+    const stamp = fileStamp(target, stat);
+    if (cache && stamp === cacheFileStamp) return cache;
+    if (generation !== indexGeneration) return cache;
+    if (cache) {
+      discardIndex();
+      require('./project-rag-session').notifyProjectSourcesChanged({ external: true });
+    }
+    const owner = indexGeneration;
+    const serialized = await fs.promises.readFile(target, 'utf8');
+    if (owner !== indexGeneration) return cache;
+    const parsed = normalizeWorkspace(JSON.parse(serialized));
+    if (!parsed || !Array.isArray(parsed.chunks) || parsed.chunks.some(c => !c || typeof c.text !== 'string' || typeof c.path !== 'string')) throw new Error('invalid-project-index');
+    cache = parsed; cacheFileStamp = stamp; cacheMtimeMs = stat.mtimeMs;
+    indexGeneration++; indexFingerprint = fingerprint(serialized); resetSearchRuntime();
+    getProjectCatalog({ preparedOnly: true });
+    if (generation > 0) require('./project-rag-session').notifyProjectSourcesChanged({ external: true });
+    return cache;
+  })().finally(() => { if (refreshing === job) refreshing = null; });
+  refreshing = job;
+  return job;
+}
+
+function getPreparedProjectIndexSnapshot() {
+  const index = cache, revision = getProjectIndexRevision({ preparedOnly: true });
+  const sources = chunksById, parents = parentsById;
+  const resolveSource = item => {
+    const parent = parents?.get(String(item.id));
+    const source = sources?.get(String(item.id)) || parent;
+    if (!source || source.projectId !== item.projectId || source.path !== item.path ||
+      source.startLine !== item.startLine || source.endLine !== item.endLine ||
+      source.startOffset !== item.startOffset || source.endOffset !== item.endOffset || source.text !== item.text) return null;
+    return source === parent ? { ...parent, fullParent: true, partial: !!parent.filePartial,
+      ancestorParentId: parent.parentId, parentId: parent.id } : source;
+  };
+  return { index, chunks: index?.chunks || [], projects: index?.projects || [], revision,
+    ready: !!(index && preparedSearchIndex === index && preparedSearch), byId: chunksById, resolveSource };
 }
 
 function indexPath(file = INDEX_FILE) {
@@ -397,12 +462,14 @@ async function writeIndex(index) {
       throw error;
     }
   }
+  let publishedStamp = '', publishedMtime = Date.now();
+  try { const stat = await fs.promises.stat(target); publishedMtime = stat.mtimeMs; publishedStamp = fileStamp(target, stat); } catch (_) {}
   cache = index;
+  cacheMtimeMs = publishedMtime; cacheFileStamp = publishedStamp;
   indexGeneration++;
   indexFingerprint = fingerprint(serialized);
   resetSearchRuntime();
-  try { const stat = await fs.promises.stat(target); cacheMtimeMs = stat.mtimeMs; cacheFileStamp = fileStamp(target, stat); }
-  catch (_) { cacheMtimeMs = Date.now(); cacheFileStamp = ''; }
+  require('./project-rag-session').notifyProjectSourcesChanged({ revision: getProjectIndexRevision({ preparedOnly: true }) });
 }
 
 function projectIdFor(sourceType, sourceName) {
@@ -634,9 +701,11 @@ async function importProjectZip(zipPath) {
 
 function fingerprint(text) { return createHash('sha256').update(text).digest('hex').slice(0, 24); }
 function fileStamp(target, stat) { return `${target}:${stat.mtimeMs}:${stat.ctimeMs}:${stat.size}:${stat.ino}`; }
-function discardIndex() {
+function discardIndex({ notify = false } = {}) {
+  const changed = !!(cache || cacheFileStamp);
   if (cache || cacheFileStamp) indexGeneration++;
   cache = null; cacheMtimeMs = 0; cacheFileStamp = ''; indexFingerprint = 'empty'; resetSearchRuntime();
+  if (notify && changed) require('./project-rag-session').notifyProjectSourcesChanged({ external: true });
 }
 
 function loadIndexSync() {
@@ -646,7 +715,7 @@ function loadIndexSync() {
   catch (_) {
     target = indexPath(LEGACY_INDEX_FILE);
     try { stat = fs.statSync(target); }
-    catch (_) { discardIndex(); return null; }
+    catch (_) { discardIndex({ notify: true }); return null; }
   }
   const stamp = fileStamp(target, stat);
   if (cache && cacheFileStamp === stamp) return cache;
@@ -654,17 +723,19 @@ function loadIndexSync() {
     const serialized = fs.readFileSync(target, 'utf8');
     const parsed = normalizeWorkspace(JSON.parse(serialized));
     if (!parsed || !Array.isArray(parsed.chunks) || parsed.chunks.some(c => !c || typeof c.text !== 'string' || typeof c.path !== 'string')) {
-      discardIndex(); return null;
+      discardIndex({ notify: true }); return null;
     }
+    const previous = cache;
     cache = parsed;
     cacheMtimeMs = stat.mtimeMs;
     cacheFileStamp = stamp;
     indexGeneration++;
     indexFingerprint = fingerprint(serialized);
     resetSearchRuntime();
+    if (previous) require('./project-rag-session').notifyProjectSourcesChanged({ external: true });
     return cache;
   } catch (_) {
-    discardIndex();
+    discardIndex({ notify: true });
     return null;
   }
 }
@@ -707,6 +778,7 @@ async function clearProjectIndex() {
   indexGeneration++;
   indexFingerprint = 'empty';
   resetSearchRuntime();
+  require('./project-rag-session').notifyProjectSourcesChanged({ revision: getProjectIndexRevision({ preparedOnly: true }) });
   return getProjectIndexState(null);
 }
 
@@ -760,7 +832,13 @@ function selectChunks(rows, options = {}) {
 function prepareRelations(index) {
   preparedRelations = buildProjectCodeRelations(index.chunks);
   chunksByFile = new Map();
-  for (const chunk of index.chunks) {
+  chunksById = new Map(); rowById = new Map();
+  parentsById = new Map((index.projects || []).flatMap(project => (project.parents || []).map(parent => [String(parent.id), parent])));
+  for (const [row, chunk] of index.chunks.entries()) {
+    const id = String(chunk.id || hash(`${chunk.projectId}:${chunk.path}:${chunk.startLine}:${chunk.startOffset ?? ''}:${chunk.text}`));
+    chunksById.set(id, chunk); rowById.set(id, row);
+    const legacyId = evidenceId(chunk);
+    chunksById.set(legacyId, chunk); rowById.set(legacyId, row);
     const key = `${chunk.projectId || ''}:${chunk.path}`;
     if (!chunksByFile.has(key)) chunksByFile.set(key, []);
     chunksByFile.get(key).push(chunk);
@@ -805,20 +883,21 @@ function getProjectProfileContext(query, options = {}) {
   return out.slice(0, maxChars);
 }
 
-function getProjectIndexRevision() {
-  const index = loadIndexSync();
+function getProjectIndexRevision(options = {}) {
+  const index = options.preparedOnly ? cache : loadIndexSync();
   return `${indexGeneration}:${indexFingerprint}:chunks${index?.chunkerVersion || 1}:metadata${index?.metadataSchemaVersion || 1}:profile${index?.profileSchemaVersion || 1}`;
 }
 
-function getProjectIndexSnapshot() {
+function getProjectIndexSnapshot(options = {}) {
+  if (options.preparedOnly) return getPreparedProjectIndexSnapshot();
   const index = loadIndexSync();
   return { index, chunks: index?.chunks || [], projects: index?.projects || [], revision: getProjectIndexRevision() };
 }
 
 function getProjectParentEvidence(selected, options = {}) {
-  const index = loadIndexSync();
-  if (!index || !options.scopes?.length || options.revision && options.revision !== getProjectIndexRevision()) return [];
-  const parents = new Map((index.projects || []).flatMap(project => (project.parents || []).map(parent => [parent.id, parent])));
+  const index = options.preparedOnly ? cache : loadIndexSync();
+  if (!index || !options.scopes?.length || options.revision && options.revision !== getProjectIndexRevision(options)) return [];
+  const parents = parentsById || (options.preparedOnly ? new Map() : new Map((index.projects || []).flatMap(project => (project.parents || []).map(parent => [parent.id, parent]))));
   const out = [], seen = new Set(); let used = 0;
   const limit = bounded(options.limit, 2, 0, 6), maxChars = bounded(options.maxChars, 6000, 0, 18000);
   for (const source of selected || []) {
@@ -833,22 +912,23 @@ function getProjectParentEvidence(selected, options = {}) {
 }
 
 function getProjectCandidates(query, options = {}) {
-  const index = loadIndexSync();
-  if (!index?.chunks.length) return { rows: [], channels: {}, revision: getProjectIndexRevision(), candidates: 0 };
+  const index = options.preparedOnly ? cache : loadIndexSync();
+  if (!index?.chunks.length) return { rows: [], channels: {}, revision: getProjectIndexRevision(options), candidates: 0, reason: 'index-not-ready' };
   if (preparedSearchIndex !== index || !preparedSearch) {
+    if (options.preparedOnly) return { rows: [], channels: {}, revision: getProjectIndexRevision(options), reason: 'index-not-ready' };
     preparedSearch = ProjectSearch.build(index.chunks); preparedSearchIndex = index; prepareRelations(index);
   }
   const mapped = expandProjectCodeQuery(String(query || ''), preparedRelations, { scopes: options.scopes || [], maxSymbols: 6 });
   const ranked = preparedSearch.getCandidates ? preparedSearch.getCandidates(mapped.query, options.scopes || [], options) : preparedSearch.rank(mapped.query, options.scopes || [], options);
-  return { ...ranked, revision: getProjectIndexRevision(), mappings: mapped.mappings || [] };
+  return { ...ranked, revision: getProjectIndexRevision(options), mappings: mapped.mappings || [] };
 }
 
 function getRelatedProjectEvidence(selected, options = {}) {
-  const index = loadIndexSync();
-  if (!index || !options.scopes?.length || options.revision && options.revision !== getProjectIndexRevision()) return [];
-  if (!preparedRelations) prepareRelations(index);
+  const index = options.preparedOnly ? cache : loadIndexSync();
+  if (!index || !options.scopes?.length || options.revision && options.revision !== getProjectIndexRevision(options)) return [];
+  if (!preparedRelations) { if (options.preparedOnly) return []; prepareRelations(index); }
   const own = (selected || []).filter(chunk => inProjectScope(chunk, options.scopes));
-  const ids = new Map(index.chunks.flatMap((chunk, id) => chunk.id ? [[chunk.id, id]] : []));
+  const ids = rowById;
   const identity = chunk => chunk.id || hash(`${chunk.projectId}:${chunk.path}:${chunk.startLine}:${chunk.startOffset ?? ''}:${chunk.text}`);
   const locate = chunk => {
     if (ids.has(chunk.id)) return ids.get(chunk.id);
@@ -1026,6 +1106,6 @@ module.exports = {
   searchProjectKnowledge, prefetchProjectKnowledge, getProjectOverviewChunks,
   formatRetrievedProjectContext, getProjectProfileContext, shouldIndexPath, queryTerms, warmProjectIndex,
   getLastSearchStats: () => ({ ...lastSearchStats }), getProjectCatalog,
-  getProjectIndexRevision, getProjectIndexSnapshot, getProjectCandidates, getRelatedProjectEvidence, getProjectParentEvidence,
+  getProjectIndexRevision, getProjectIndexSnapshot, getPreparedProjectIndexSnapshot, refreshProjectIndex, getProjectCandidates, getRelatedProjectEvidence, getProjectParentEvidence,
   getProjectSeedEvidence, getProjectProfileEvidence, toProjectEvidence
 };

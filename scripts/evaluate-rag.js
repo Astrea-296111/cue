@@ -126,7 +126,7 @@ async function main() {
       } catch (error) { loadError = { code: error.code || error.name, message: error.message }; }
     }
     const modelStatus = semantic?.status() || { ready: false, reason: 'not-requested' };
-    const modes = ['baseline', 'typed', 'fast', ...(semantic && !loadError ? ['semantic'] : [])];
+    const modes = ['baseline', 'typed', 'fast', 'realtime', ...(semantic && !loadError ? ['semantic'] : [])];
     const settings = {}, reports = [], firstLocalPrepareMs = {};
     const { ActiveProjectContextCache } = require('../src/active-project-context-cache');
     const contextCaches = new Map(modes.map(mode => [mode, new ActiveProjectContextCache()]));
@@ -144,6 +144,8 @@ async function main() {
         projectContextCache: contextCaches.get(mode),
         semanticRetriever: mode === 'semantic' ? semantic : null, semanticThreshold: opts.semanticThreshold,
         ...(mode === 'fast' ? { hashFallback: false, semanticWaitMs: 0 } : {}), ...extra };
+      if (mode === 'realtime') Object.assign(request, { hashFallback: false, semanticWaitMs: 0,
+        execution: 'fast', realtimeEvidencePrefetch: true });
       const transcript = [{ channel: 'them', text: item.question }];
       const bundle = mode === 'baseline'
         ? context.buildInterviewContextBundle(settings, 'say', transcript, request)

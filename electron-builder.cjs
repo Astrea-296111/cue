@@ -37,6 +37,7 @@ module.exports = {
     'node_modules/koffi/**/*',
     'node_modules/@koromix/**/*',
     'src/project-embedding-worker.cjs',
+    'src/project-scope.js',
     'node_modules/@huggingface/**/*',
     'node_modules/onnxruntime-node/**/*',
     'node_modules/onnxruntime-common/**/*',

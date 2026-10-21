@@ -180,6 +180,7 @@ function runtime(t, extraSettings = {}) {
     return id.startsWith('.') ? load(native.resolve(id)) : native(id);
   };
   load(path.join(root, require('../package.json').main));
+  const ready = load(path.join(root, 'src/project-knowledge.js')).warmProjectIndex();
   const context = cache.get(path.join(root, 'main.js')).context;
   context.__window = { isDestroyed: () => false, webContents: { send: (channel, data) => events.push({ channel, ...data }) } };
   vm.runInContext('win = __window', context);
@@ -193,10 +194,12 @@ function runtime(t, extraSettings = {}) {
       value("publishTranscript('them', __text, { sourceId: 'test', utteranceKey: 'u' + __seq, utteranceOrder: __seq })");
     },
     async ask(mode = 'say', text = '') {
+      await ready;
       // Invoke the actual ordered IPC listeners, including custom-main's hook.
       for (const listener of ipc.listeners('ask')) await listener(null, { mode, text });
     },
     async prefetch(payload) {
+      await ready;
       ipc.emit('project:prefetch', null, payload);
       await new Promise(resolve => setImmediate(resolve));
     }

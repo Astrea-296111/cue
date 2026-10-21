@@ -13,7 +13,6 @@ const {
   dialog
 } = require('electron');
 const projectKnowledge = require('./project-knowledge');
-const { notifyProjectSourcesChanged } = require('./project-rag-session');
 const { moveWindow } = require('./window-layout');
 const { showWindowWithProtection } = require('./window-protection');
 
@@ -100,7 +99,6 @@ ipcMain.handle('project:import-folder', async () => {
     : await dialog.showOpenDialog(options);
   if (result.canceled || !result.filePaths[0]) return { canceled: true };
   const state = await projectKnowledge.importProjectFolder(result.filePaths[0]);
-  notifyProjectSourcesChanged(state);
   return { canceled: false, state };
 });
 
@@ -116,13 +114,11 @@ ipcMain.handle('project:import-zip', async () => {
     : await dialog.showOpenDialog(options);
   if (result.canceled || !result.filePaths[0]) return { canceled: true };
   const state = await projectKnowledge.importProjectZip(result.filePaths[0]);
-  notifyProjectSourcesChanged(state);
   return { canceled: false, state };
 });
 
 ipcMain.handle('project:index-clear', async () => {
   const state = await projectKnowledge.clearProjectIndex();
-  notifyProjectSourcesChanged(state);
   return { ok: true, state };
 });
 

@@ -168,6 +168,7 @@ class ProjectSearch {
   static async buildAsync(chunks, options = {}) {
     const index = new ProjectSearch(chunks, options);
     for (let i = 0; i < chunks.length; i++) {
+      if (i % 40 === 0 && options.isCurrent && !options.isCurrent()) throw Object.assign(new Error('index-warm-stale'), { name: 'AbortError' });
       index.add(i);
       if (i % 40 === 39) await new Promise(resolve => setImmediate(resolve));
     }
