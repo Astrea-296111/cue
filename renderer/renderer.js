@@ -48,6 +48,9 @@
   }
 
   installEditableQwenAsrModelControl();
+  const projectChooser = window.CueCaptureSafeSelect.install($('#current-project'));
+  const answerModeChooser = window.CueCaptureSafeSelect.install($('#realtime-answer-mode'));
+  new MutationObserver(() => window.CueCaptureSafeSelect.close()).observe($('#panel'), { attributes: true, attributeFilter: ['class'] });
 
   // ---- paint icons -------------------------------------------------------
   $('#logo-btn').innerHTML = icon('logo', { size: 18 });
@@ -260,6 +263,7 @@
   });
   function syncAnswerMode() {
     $('#realtime-answer-mode').value = settings?.realtimeAnswerMode === 'standard' ? 'standard' : 'instant';
+    answerModeChooser.sync();
     if (!diagnosticRequestId) $('#answer-execution-profile').textContent = $('#realtime-answer-mode').value === 'instant'
       ? '极速 · 使用已配置快速模型' : '标准 · 遵循深度思考开关';
     updateSmartTooltip();
@@ -1546,6 +1550,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
 
   async function openSettings() {
     try {
+      window.CueCaptureSafeSelect.close();
       // Settings 是全屏交互层，打开时必须关闭鼠标穿透。
       setIgnore(false);
 
@@ -1682,6 +1687,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
       select.appendChild(option);
     }
     select.value = settings?.currentProjectId || '';
+    projectChooser.sync();
   }
 
   function renderSemanticState(state = {}) {
@@ -2295,7 +2301,7 @@ cue.on(
         el &&
         el.closest &&
         el.closest(
-          '#toolbar, #panel-wrap, #transcript-sidebar, #settings-scrim, #onboard-scrim, #consent-scrim'
+          '#toolbar, #panel-wrap, #transcript-sidebar, #settings-scrim, #onboard-scrim, #consent-scrim, .capture-safe-options'
         )
       );
 

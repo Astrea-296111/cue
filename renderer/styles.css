@@ -903,7 +903,20 @@ button:focus { outline: none; }
 #answer-target-text { flex: 1; -webkit-user-select: text; user-select: text; }
 #answer-target-panel button { flex: 0 0 auto; padding: 1px 5px; border: 1px solid var(--bd-hair); border-radius: 4px; background: var(--fill-1); color: var(--tx-2); font: inherit; cursor: pointer; }
 #answer-target-panel button:disabled { opacity: .35; cursor: default; }
-#realtime-answer-mode { height: 20px; flex: 0 0 auto; max-width: 108px; border: 1px solid var(--bd-hair); border-radius: 4px; background: rgba(25,25,25,.85); color: var(--tx-1); font: inherit; }
+#realtime-answer-mode-trigger { height: 20px; flex: 0 0 auto; max-width: 108px; border: 1px solid var(--bd-hair); border-radius: 4px; background: rgba(25,25,25,.85); color: var(--tx-1); font: inherit; }
+.project-choice-row .capture-safe-trigger { min-width: 72px; max-width: 42%; height: 22px; padding: 1px 4px; color: var(--tx-1); background: rgba(25,25,25,.85); border: 1px solid rgba(255,255,255,.15); border-radius: 5px; font: inherit; line-height: 18px; }
+/* Same DOM/compositor surface as the protected main window; no native popup. */
+select[data-capture-safe][hidden] { display: none !important; }
+.capture-safe-trigger { display: inline-flex; align-items: center; gap: 6px; min-width: 0; cursor: pointer; -webkit-app-region: no-drag; }
+.capture-safe-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.capture-safe-trigger::after { content: ''; flex: 0 0 auto; width: 5px; height: 5px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; transform: translateY(-2px) rotate(45deg); margin: 0 3px; }
+.capture-safe-trigger:focus-visible { outline: 2px solid #8bb9ff; outline-offset: 2px; }
+.capture-safe-options { position: fixed; z-index: 15; min-width: 0; max-width: calc(100vw - 16px); max-height: min(240px, calc(100vh - 16px)); overflow-y: auto; overscroll-behavior: contain; padding: 3px; border: 1px solid rgba(255,255,255,.20); border-radius: 6px; background: #25272c; color: var(--tx-1); box-shadow: 0 4px 16px rgba(0,0,0,.4); font: 12px/1.5 var(--font); pointer-events: auto; -webkit-app-region: no-drag; }
+.capture-safe-options[hidden] { display: none !important; }
+.capture-safe-options [role="option"] { padding: 4px 8px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 3px; }
+.capture-safe-options [role="option"][aria-selected="true"] { font-weight: 600; }
+.capture-safe-options [role="option"].active { background: #215caa; color: #fff; }
+.capture-safe-options [role="option"][aria-disabled="true"] { opacity: .4; cursor: default; }
 #answer-next-target { flex: 1; color: var(--tx-mut); }
 #answer-execution-profile { flex: 1 1 52%; color: #a6c9ff; }
 #answer-execution-profile.warning { color: #f6cf8a; }

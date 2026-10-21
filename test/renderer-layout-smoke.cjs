@@ -28,6 +28,7 @@ fs.writeFileSync(path.join(data, 'cue-project-index-v2.json'), JSON.stringify({ 
 
 let allowedToQuit = false, releaseFirst;
 const calls = [], signals = [], payloads = [], audioLogs = [], renderAcks = [];
+const mouseIgnoreEvents = [];
 const registeredShortcuts = new Map();
 const originalRegister = globalShortcut.register.bind(globalShortcut);
 globalShortcut.register = (accelerator, callback) => {
@@ -176,7 +177,10 @@ app.on('browser-window-created', (_event, win) => {
       assert.equal(await js("document.documentElement.lang"), 'zh-CN');
       assert.equal(await js("document.querySelector('#current-project option').textContent"), '自动');
       assert.equal(await js("document.getElementById('realtime-answer-mode').value"), 'instant');
-      assert.ok(await js("document.getElementById('current-project').getBoundingClientRect().height >= 20"));
+      assert.ok(await js("document.getElementById('current-project-trigger').getBoundingClientRect().height >= 20"));
+      const protectedDropdowns = await require('./helpers/protected-dropdown-checks.cjs')({
+        win, js, until, windowCount: () => testWindows.size, mouseIgnoreEvents
+      });
       assert.deepEqual(await js("['.drag-label','.tb-hide span:last-child','#smart-toggle span:last-child','.ts-title','#clear-transcript-btn'].map(s=>document.querySelector(s).textContent)"),
         ['拖动', '收起', '深度思考', '对话记录', '清空记录']);
       for (const [status, text, className] of [['loading','正在加载本地模型','loading'], ['ready','本地识别已就绪','local'], ['error','识别异常','error'], ['off','未监听','off']]) {
@@ -491,7 +495,7 @@ app.on('browser-window-created', (_event, win) => {
         latestTargetPreview:true,frozenTargetAndNext:true,explicitEdit:true,explicitRetry:true,consumedTargetDoesNotRepeat:true,
         profileAndMetricsOwnership:true,nonemptyFirstBodyAck:true,doubleRafApproximation:true,
         collapseShortcut:true,fullWindowVisibilityShortcut:true,recordingShortcut:true,technicalShortcut:true,movementStep:25,
-        createdHidden:true,protectionRequested:true,protectionFailureBlocked,
+        createdHidden:true,protectionRequested:true,protectionFailureBlocked,protectedDropdowns,
         chineseSettings:true,chineseOnboarding:true,chinesePermissions:true,windowsBuildFixture:process.env.CUE_UI_WINDOWS_BUILD || null }));
       allowedToQuit = true;
       if (process.env.CUE_UI_QUIT_SHORTCUT) {
@@ -512,3 +516,5 @@ app.on('browser-window-created', (_event, win) => {
   });
 });
 require(path.join(root, require('../package.json').main));
+// The integration entry replaces this channel's upstream listeners at load.
+ipcMain.on('mouse:ignore', (_event, value) => mouseIgnoreEvents.push(value));
