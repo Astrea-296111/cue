@@ -15,6 +15,10 @@ const { captureScreenshot } = require('./src/screen');
 const { createSTT } = require('./src/stt');
 const { parseDocumentFile } = require('./src/resume');
 const { createLLM } = require('./src/llm');
+const { resolveInstantPolicy } = require('./src/instant-answer-policy');
+const { InstantContextCards, buildInstantContext } = require('./src/instant-answer-context');
+const { peekReadyEvidence } = require('./src/instant-ready-evidence');
+const { getBuildIdentity } = require('./src/build-info');
 const { MODES, shouldCaptureScreen, getAnswerPlan, contextCharsFor } = require('./src/prompts');
 const { ConversationMemory } = require('./src/conversation-memory');
 const { getProjectCatalog: readProjectCatalog, getProjectIndexRevision: readProjectIndexRevision,
@@ -75,6 +79,13 @@ let sttDisabled = false; // set when the key can't reach any speech model (stops
 const buffers = { you: [], them: [] };
 const conversation = new ConversationMemory();
 const questionResolver = new QuestionResolver();
+questionResolver.reset({ epoch: conversation.epoch });
+const instantCards = new InstantContextCards(store.getSettings());
+let lastFrozenSnapshot = null;
+let lastScreenSnapshot = null;
+let latestUiRequestId = null;
+const targetModes = new Map();
+let streamingSessionSequence = 0;
 const transcriptDeduper = new TranscriptDeduper();
 let activeGeneration = null;
 const uiReplyTimings = new Map();
@@ -87,7 +98,8 @@ const getProjectIndexSnapshot = () => readProjectIndexSnapshot(preparedReadOptio
 function getSemanticRetriever() {
   if (!semanticRetriever) semanticRetriever = getProjectEmbeddings({
     directory: path.join(app.getPath('userData'), 'project-semantic'),
-    snapshotProvider: getProjectIndexSnapshot, revisionProvider: getProjectIndexRevision,
+    snapshotProvider: () => readProjectIndexSnapshot({ preparedOnly: true }),
+    revisionProvider: () => readProjectIndexRevision({ preparedOnly: true }),
     fetchImpl: (url, options) => net.fetch(url, options)
   });
   return semanticRetriever;
@@ -97,32 +109,37 @@ const ragSession = new ProjectRagSession({
     projectContextCache: input.realtimeEvidencePrefetch ? activeProjectContextCache : undefined,
     semanticRetriever: getSemanticRetriever() }),
   onEvent: metrics => console.log('[latency][background] ' + JSON.stringify(metrics)),
-  isCurrent: input => input.epoch === conversation.epoch && input.projectRevision === getProjectIndexRevision() &&
+  isCurrent: input => input.epoch === conversation.epoch && input.projectRevision === readProjectIndexRevision({ preparedOnly: true }) &&
     input.modelVersion === (getSemanticRetriever().status().modelVersion || 'base')
 });
-function retrievalInput(question, projectPlan, interviewPlan, contextBudget, sourceKey = '') {
-  return { question, projectPlan, interviewPlan, contextBudget, sourceKey, hashFallback: !!store.getSettings().smart,
+function retrievalInput(question, projectPlan, interviewPlan, contextBudget, sourceKey = '', snapshot = null) {
+  return { question, questionId: snapshot?.questionId || undefined, questionRevision: snapshot?.questionId ? snapshot.revision : undefined,
+    projectPlan, interviewPlan, contextBudget, sourceKey, hashFallback: !!store.getSettings().smart,
     realtimeEvidencePrefetch: realtimePrefetchEnabled(store.getSettings()),
     questionVersion: interviewPlan?.questionVersion || stableId(question),
-    epoch: conversation.epoch, projectRevision: getProjectIndexRevision(),
-    modelVersion: getSemanticRetriever().status().modelVersion || 'base' };
+    epoch: conversation.epoch, projectRevision: readProjectIndexRevision({ preparedOnly: true }),
+    modelVersion: semanticRetriever?.status().modelVersion || 'base' };
 }
 function scheduleProjectPrefetch(payload) {
+  if (activeGeneration?.policy.instant && !activeGeneration.firstContent) return;
   if (typeof payload !== 'string' && (!payload || typeof payload.text !== 'string')) return;
   const text = String(typeof payload === 'string' ? payload : payload.text).trim();
   if (text.length > 24000) return;
   if (text.length < 4) return;
   const sourceKey = typeof payload?.sourceKey === 'string' && payload.sourceKey.length <= 4096 ? payload.sourceKey : '';
   const settings = store.getSettings();
+  const preview = payload?.snapshot || questionResolver.previewForPrefetch();
+  if (settings.realtimeAnswerMode !== 'standard' && (!preview.text || preview.text !== text)) return;
   const interviewPlan = planInterviewQuestion({ text, mode: 'say', sourceKey });
   const projectPlan = planProjectRetrieval([{ channel: 'them', text }], 'say', {
-    catalog: getProjectCatalog(), previousPlan: conversation.lastPlan,
+    catalog: readProjectCatalog({ preparedOnly: true }), previousPlan: conversation.lastPlan,
     activeProjectPlan: formalProjectPlan?.activeProject || conversation.activeProjectPlan,
     manualProjectId: settings.currentProjectId, interviewPlan,
     answerHint: conversation.recent.at(-1)?.answer || ''
   });
   const budget = contextCharsFor('say', getAnswerPlan(text, interviewPlan));
-  ragSession.schedule({ ...retrievalInput(text, projectPlan, interviewPlan, budget, sourceKey),
+  getSemanticRetriever();
+  ragSession.schedule({ ...retrievalInput(text, projectPlan, interviewPlan, budget, sourceKey, preview),
     exactEligible: !payload?.partial },
     { immediate: payload?.final === true, origin: payload?.final === true ? 'final' : 'interim' });
   if (!projectPlan.retrieve) ragSession.pause();
@@ -132,10 +149,16 @@ const snapshotSourceKey = snapshot => {
   const keys = [...(snapshot?.keys || [])].sort();
   return keys.length > 1 ? JSON.stringify(keys) : keys[0] || '';
 };
+function currentTargetEnvelope() {
+  return { snapshot: questionResolver.resolveForSubmit({ allowPartial: true, epoch: conversation.epoch }),
+    frozenSnapshot: activeGeneration?.snapshot || lastFrozenSnapshot, state: state.busy ? 'answering' : 'idle',
+    requestId: activeGeneration?.id || latestUiRequestId, epoch: conversation.epoch };
+}
+function publishQuestionTarget() { send('question:target', currentTargetEnvelope()); }
 function observeProjectPrefetch(final) {
   const preview = questionResolver.previewForPrefetch();
   if (!preview.text) return;
-  scheduleProjectPrefetch({ text: preview.text, final, sourceKey: snapshotSourceKey(preview), partial: preview.partial });
+  scheduleProjectPrefetch({ text: preview.text, final, sourceKey: snapshotSourceKey(preview), partial: preview.partial, snapshot: preview });
 }
 
 function prepareAdjacentEvidence(retrieval, sources) {
@@ -162,6 +185,11 @@ function stopGenerationForSources() {
   semanticRetriever?.resetSession?.();
   uiReplyTimings.clear();
   conversation.invalidateSources();
+  questionResolver.reset({ epoch: conversation.epoch });
+  lastFrozenSnapshot = null; latestUiRequestId = null;
+  lastScreenSnapshot = null;
+  targetModes.clear();
+  publishQuestionTarget();
   if (previous) send('llm:done', { requestId: previous.id, canceled: true });
 }
 sourceEvents.on('changed', () => {
@@ -224,6 +252,7 @@ function send(channel, data) {
   if (channel === 'transcript') { questionResolver.observe(data, true); if (data.channel === 'them') observeProjectPrefetch(true); }
   replyLatency.observe(channel, data);
   if (win && !win.isDestroyed()) win.webContents.send(channel, data);
+  if (['vad:state', 'stt:interim', 'transcript'].includes(channel) && data?.channel === 'them') publishQuestionTarget();
 }
 
 function getWhisperRuntime() {
@@ -278,7 +307,9 @@ function publishTranscript(channel, text, meta = {}) {
   }
 
   const ts = Date.now();
-  const verdict = transcriptDeduper.accept(channel, normalized, ts);
+  // Stable speech identity owns revisions; text-similarity dedupe must not
+  // discard a shorter corrected final before the resolver can inspect its order.
+  const verdict = meta.utteranceKey ? { drop: false, text: normalized } : transcriptDeduper.accept(channel, normalized, ts);
   if (verdict.drop) {
     console.log('[stt-dedup]', channel, verdict.reason, JSON.stringify({ chars: normalized.length }));
     return;
@@ -293,6 +324,11 @@ function publishTranscript(channel, text, meta = {}) {
     if (i >= 0) transcript.splice(i, 1);
   }
 
+  if (meta.utteranceKey) {
+    const same = transcript.findLastIndex(turn => turn.channel === channel && turn.sourceId === meta.sourceId &&
+      turn.sourceSessionId === meta.sourceSessionId && turn.utteranceKey === meta.utteranceKey);
+    if (same >= 0) transcript.splice(same, 1);
+  }
   const turn = { ...meta, channel, text: verdict.text, ts };
   pushTranscript(turn);
   send('transcript', turn);
@@ -545,13 +581,14 @@ function initStreamingSTT() {
   const settings = store.getSettings();
   streamingMode = false;
 
+  const sourceSessionId = `stream-session-${++streamingSessionSequence}`;
   ['you', 'them'].forEach((channel) => {
     const sttInstance = createStreamingSTT(settings, channel, {
       onTranscript: (ch, text, meta = {}) => {
-        publishTranscript(ch, text, { ...meta, sourceId: meta.sourceId || 'stream' });
+        publishTranscript(ch, text, { ...meta, sourceId: meta.sourceId || 'stream', sourceSessionId: meta.sourceSessionId || sourceSessionId });
       },
       onInterim: (ch, text, meta = {}) => {
-        publishInterim(ch, text, { ...meta, sourceId: meta.sourceId || 'stream' });
+        publishInterim(ch, text, { ...meta, sourceId: meta.sourceId || 'stream', sourceSessionId: meta.sourceSessionId || sourceSessionId });
       },
       onError: (err) => {
         console.log('[streaming-stt] error', err.provider, err.message);
@@ -724,31 +761,37 @@ async function setCapturing(active) {
 }
 
 // -------- feature runner --------
-async function runFeature(mode, userText) {
+async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
+  const triggerAt = performance.now();
   const def = MODES[mode];
   if (!def) { send('llm:error', { message: '未知的回答模式。' }); return; }
-
+  const settings = store.getSettings();
   const explicit = typeof userText === 'string' ? userText.trim() : '';
-  const manualAnswer = mode === 'say' || mode === 'technical';
-  const liveMode = manualAnswer || mode === 'assist';
-  const resolved = liveMode || mode === 'answerThis'
-    ? questionResolver.resolveForSubmit({ allowPartial: manualAnswer }) : null;
-  const lastSpeech = transcript.filter(t => t.channel === 'them').at(-1);
-  const lastQuestion = conversation.recent.at(-1)?.question || '';
+  const voiceAnswer = ['say', 'answerThis', 'ask', 'assist', 'technical'].includes(mode);
+  const liveMode = voiceAnswer;
+  let resolved = explicit ? questionResolver.manualSnapshot(explicit, { epoch: conversation.epoch })
+    : retrySnapshot || (voiceAnswer ? questionResolver.resolveForSubmit({ allowPartial: true, epoch: conversation.epoch }) : null);
+  if (mode === 'assist' && !explicit && !resolved?.text) {
+    const requirement = lastScreenSnapshot?.epoch === conversation.epoch && !resolved?.awaitingNewQuestion
+      ? lastScreenSnapshot.text : '请解决当前屏幕上的技术题';
+    resolved = questionResolver.manualSnapshot(requirement, { epoch: conversation.epoch });
+  }
   const question = mode === 'leetcode' ? '请解决当前屏幕上的技术题'
-    : explicit || (mode === 'assist' ? (resolved?.text || lastQuestion || '')
-      : manualAnswer ? (resolved?.text || lastQuestion || lastSpeech?.text || '')
-        : mode === 'answerThis' ? (resolved?.text || '') : (lastQuestion || lastSpeech?.text || ''));
-
-  if (state.busy && !manualAnswer) {
-    send('status', { message: '当前回答仍在生成；请等待本轮完成或清空会话后再提交。' });
+    : explicit || resolved?.text || (voiceAnswer ? '' : conversation.recent.at(-1)?.question || '');
+  if (!resolved && question) resolved = questionResolver.manualSnapshot(question, { epoch: conversation.epoch });
+  if (voiceAnswer && !question) {
+    publishQuestionTarget();
+    send('status', { message: resolved?.awaitingNewQuestion ? '新问题尚未识别完整。' : '当前没有新的回答目标；可输入问题，或点击重答。' });
     return;
   }
-
-  if (state.busy && manualAnswer) {
+  const policy = resolveInstantPolicy(settings, mode, question);
+  if (state.busy) {
+    if (activeGeneration?.snapshot?.text === question && activeGeneration.mode === mode && !retrySnapshot) return;
+    if (!voiceAnswer && mode !== 'leetcode') { send('status', { message: '当前回答仍在生成。' }); return; }
     const previous = activeGeneration;
     activeGeneration = null;
-    if (previous) previous.controller.abort();
+    previous?.controller.abort();
+    if (previous?.snapshot) questionResolver.settle(previous.snapshot, 'canceled');
     state.busy = false;
   }
 
@@ -757,7 +800,8 @@ async function runFeature(mode, userText) {
   // ASR fragment back into the prompt through raw transcript history. Candidate
   // speech is kept for genuine follow-up context; the confirmed question is
   // inserted below by withCurrentQuestion().
-  let freshTranscript = ['recap', 'followup'].includes(mode) ? transcript
+  let freshTranscript = policy.instant ? transcript.slice(-8).filter(t => t.channel === 'you')
+    : ['recap', 'followup'].includes(mode) ? transcript
     : transcript.filter(t => t.ts > conversation.lastStartedAt);
   if (liveMode) {
     freshTranscript = isLikelyFollowUp(question)
@@ -770,31 +814,50 @@ async function runFeature(mode, userText) {
   const sourceKey = fromResolved ? snapshotSourceKey(resolved) : '';
   const interviewPlan = ['say', 'answerThis', 'ask', 'assist', 'technical'].includes(mode) && question
     ? planInterviewQuestion({ text: question, partial, sourceKey, mode }) : null;
-  const timing = replyLatency.start(mode, question, { sourceKeys: fromResolved ? resolved?.keys || [] : [] });
-  const generation = { id: timing.requestId, controller: new AbortController(), epoch: conversation.epoch };
+  const timing = replyLatency.start(mode, question, { sourceKeys: resolved?.sourceKeys || resolved?.keys || [],
+    triggerAt, questionSnapshot: resolved, questionSource: explicit ? 'manual' : retrySnapshot ? 'retry' : resolved?.partial ? 'stt-interim' : 'stt-final',
+    epoch: conversation.epoch, executionProfile: policy.instant ? 'instant' : 'standard', ...getBuildIdentity() });
+  const frozen = voiceAnswer || mode === 'leetcode' ? questionResolver.claim(resolved, timing.requestId) || resolved : resolved;
+  const generation = { id: timing.requestId, controller: new AbortController(), epoch: conversation.epoch, snapshot: frozen, mode, policy, timing };
+  lastFrozenSnapshot = frozen; latestUiRequestId = generation.id;
+  if (frozen?.status === 'claimed') {
+    targetModes.set(frozen.questionId, mode);
+    while (targetModes.size > 8) targetModes.delete(targetModes.keys().next().value);
+  }
+  if (mode === 'assist') lastScreenSnapshot = frozen;
   activeGeneration = generation;
   state.busy = true;
   let streamSettled = false;
   const owned = () => activeGeneration === generation && conversation.epoch === generation.epoch;
-  const emit = (channel, data) => { if (owned()) send(channel, { ...data, requestId: generation.id }); };
+  const emit = (channel, data) => { if (owned()) send(channel, { ...data, requestId: generation.id, epoch: generation.epoch,
+    questionId: frozen?.questionId, questionRevision: frozen?.revision }); };
+  publishQuestionTarget();
+  if (policy.instant) ragSession.suspend(generation.id);
+  let slowStatus = null;
   try {
-    const settings = store.getSettings();
-    const llm = createLLM(settings);
+    const llm = createLLM(settings, { executionProfile: policy.executionProfile });
+    const effectiveSettings = policy.executionProfile === 'instant' ? { ...settings, smart: false } : settings;
+    timing.configure?.({ ...llm.diagnostics, model: llm.model });
     const userBubble = def.userBubble !== null ? def.userBubble
       : (mode === 'ask' || mode === 'answerThis' ? question : null);
     emit('llm:start', { userBubble, small: !!def.small,
-      category: mode !== 'leetcode' ? detectCategory(contextTranscript) : null });
+      category: mode !== 'leetcode' ? detectCategory(contextTranscript) : null,
+      snapshot: frozen, executionProfile: policy.instant ? 'instant' : 'standard' });
+    emit('llm:profile', { ...llm.diagnostics, executionProfile: policy.instant ? 'instant' : 'standard', referenceDraft: policy.instant });
     if (!llm.ready) throw new Error(llm.configurationError || '请先完成模型设置。');
     if (!question && ['ask', 'answerThis'].includes(mode)) throw new Error('请先输入问题或等待识别到面试官发言。');
     const request = conversation.begin({ mode, question, transcript: contextTranscript,
-      settings, catalog: getProjectCatalog(), interviewPlan, evidenceRevision: getProjectIndexRevision() });
+      settings: effectiveSettings, catalog: policy.instant ? readProjectCatalog({ preparedOnly: true }) : getProjectCatalog(),
+      executionProfile: policy.instant ? 'instant' : 'standard', questionSnapshot: frozen,
+      manualFingerprint: policy.instant ? instantCards.manualFingerprint : undefined,
+      interviewPlan, evidenceRevision: readProjectIndexRevision({ preparedOnly: true }) });
     request.plan.preparedOnly = realtimePrefetchEnabled(settings) && !settings.smart;
     if (!request.plan.retrieve) ragSession.pause();
     if (request.plan.projectSwitched) ragSession.retainScopes(request.plan.scopes);
     formalProjectPlan = request.plan;
     emit('project:active', { projectId: request.plan.projectIds?.length === 1 ? request.plan.projectIds[0] : '',
       label: request.plan.projectLabel || '', reason: request.plan.reason, retrieve: request.plan.retrieve });
-    const checklistText = interviewPlan ? formatInterviewChecklist(request.checklist, { maxChars: 2600, includeCurrent: !!settings.smart }) : '';
+    const checklistText = !policy.instant && interviewPlan ? formatInterviewChecklist(request.checklist, { maxChars: 2600, includeCurrent: !!settings.smart }) : '';
     // Only spend prompt/retrieval/output budgets on old pending items that are
     // actually shown this round. The original current question remains intact.
     if (request.checklist) {
@@ -803,8 +866,8 @@ async function runFeature(mode, userText) {
         pending: request.checklist.pending.filter(item => checklistText.includes(item.text)) };
     }
     const effectiveInterviewPlan = interviewPlan ? { ...interviewPlan,
-      scenario: interviewPlan.scenario || request.checklist?.scenario || '',
-      subQuestions: [...interviewPlan.subQuestions, ...(request.checklist?.pending || [])] } : null;
+      scenario: interviewPlan.scenario || (!policy.instant && request.checklist?.scenario) || '',
+      subQuestions: [...interviewPlan.subQuestions, ...(!policy.instant ? request.checklist?.pending || [] : [])] } : null;
     const answerPlan = getAnswerPlan(question, effectiveInterviewPlan);
 
     let imageDataUrl = null;
@@ -815,10 +878,16 @@ async function runFeature(mode, userText) {
     // rejecting promise when the request is cancelled.
     const screenPromise = needsScreen ? captureScreenshot().then(image => ({ image, ms: performance.now() - screenStarted }), error => ({ error })) : null;
     const contextStarted = performance.now();
-    const fast = !settings.smart && ['say', 'answerThis', 'ask', 'assist', 'technical', 'leetcode'].includes(mode);
-    const retrieval = { ...retrievalInput(question, request.plan, effectiveInterviewPlan, contextCharsFor(mode, answerPlan), sourceKey),
+    const fast = !effectiveSettings.smart && ['say', 'answerThis', 'ask', 'assist', 'technical', 'leetcode'].includes(mode);
+    const retrieval = { ...retrievalInput(question, request.plan, effectiveInterviewPlan, contextCharsFor(mode, answerPlan), sourceKey,
+      policy.instant || fromResolved ? frozen : null),
       requestId: timing.requestId, hashFallback: !fast };
-    const contextBundle = await buildInterviewContextBundleAsync(settings, mode, contextTranscript,
+    const ready = policy.ragPolicy === 'standard' ? null : peekReadyEvidence({ snapshot: frozen,
+      projectPlan: request.plan, epoch: conversation.epoch, projectRevision: retrieval.projectRevision,
+      modelVersion: retrieval.modelVersion, projectIndexSnapshot: readProjectIndexSnapshot({ preparedOnly: true }),
+      cache: activeProjectContextCache, ragSession, retrievalInput: retrieval, policy: policy.ragPolicy });
+    const contextBundle = ready ? { context: '', evidence: ready.evidence, missing: [], byQuestion: [], stats: ready.stats }
+      : await buildInterviewContextBundleAsync(effectiveSettings, mode, contextTranscript,
       { ...retrieval, requestId: timing.requestId, projectPlan: request.plan, smart: !!settings.smart,
         answerComplexity: answerPlan.level, interviewPlan: effectiveInterviewPlan,
         contextBudget: contextCharsFor(mode, answerPlan), projectState: request.projectInterviewState,
@@ -844,8 +913,18 @@ async function runFeature(mode, userText) {
     }
     if (!owned()) return;
     if (!owned() || generation.controller.signal.aborted) return;
-    request.evidenceRevision = contextBundle.evidence.find(item => item.sourceType === 'imported')?.revision || getProjectIndexRevision();
-    const builtSystem = def.buildSystem ? def.buildSystem(contextBundle.context, settings.aiRules || '',
+    request.evidenceRevision = contextBundle.evidence.find(item => item.sourceType === 'imported')?.revision ||
+      (policy.instant ? readProjectIndexRevision({ preparedOnly: true }) : getProjectIndexRevision());
+    const instantContext = policy.instant ? buildInstantContext({ settings, question, snapshot: frozen, request,
+      readyEvidence: ready, answerPlan, cards: instantCards }) : null;
+    if (instantContext) {
+      contextBundle.evidence = instantContext.evidence;
+      contextBundle.stats.readyEvidenceHit = instantContext.evidence.length > 0;
+      if (ready.evidence.length && !instantContext.evidence.length) {
+        ready.skippedReason = 'optional-context-budget'; contextBundle.stats.skippedReason = ready.skippedReason;
+      }
+    }
+    const builtSystem = instantContext ? instantContext.system : def.buildSystem ? def.buildSystem(contextBundle.context, settings.aiRules || '',
       { answerPlan, interviewPlan, projectPlan: request.plan, hasImage: !!imageDataUrl }) : (def.system || '');
     const initialSystem = llm.prepareSystem ? llm.prepareSystem(builtSystem) : builtSystem;
     const responseContext = { transcript: contextTranscript, userText: question, answerPlan, partial, hasImage: !!imageDataUrl };
@@ -864,9 +943,10 @@ async function runFeature(mode, userText) {
     const scenarioText = interviewPlan?.scenario || request.checklist?.scenario;
     const scenario = interviewPlan && scenarioText && !built.includes(scenarioText)
       ? '=== 当前假设场景（不代表项目实际指标） ===\n' + scenarioText : '';
-    const prepared = prepareFinalRequest({ system: initialSystem, history, maxTokens,
+    const prepared = prepareFinalRequest({ system: initialSystem, history: instantContext ? instantContext.history : history, maxTokens,
       contextWindow: settings.contextWindowTokens || 16384, imageDataUrl, evidence: contextBundle.evidence,
-      currentSections: [
+      evidenceGapNote: policy.instant ? '资料仅供参考；未附全时仍按当前条件给可采用方案，不编造实际经历或指标。' : undefined,
+      currentSections: instantContext ? instantContext.currentSections : [
         { id: 'topic', text: topic, priority: 1 }, { id: 'memory', text: memory, priority: 0 },
         { id: 'question', text: built, protected: true }, { id: 'scenario', text: scenario, protected: true },
         { id: 'evidence-needs', text: formatRetrievalRequirements(contextBundle), protected: true },
@@ -882,16 +962,22 @@ async function runFeature(mode, userText) {
       contextBundle.stats.finalBudgetDroppedSources = prepared.stats.droppedEvidence;
     }
     let sentEvidence = prepared.evidence;
+    if (policy.instant) contextBundle.stats.readyEvidenceHit = sentEvidence.length > 0;
     emit('llm:evidence', { sources: sentEvidence.map(item => ({ id: item.id, projectName: item.projectName,
       path: item.path, startLine: item.startLine, endLine: item.endLine, text: item.text,
       docType: item.docType, truthScope: item.truthScope, status: item.status, partial: item.partial })),
       missing: [...(contextBundle.missing || []), ...(prepared.missing || [])] });
-    const requestSent = performance.now();
+    let requestSent = performance.now();
     generation.timing = timing;
     generation.requestSent = requestSent;
-    uiReplyTimings.set(generation.id, { epoch: generation.epoch, started: timing.started });
+    uiReplyTimings.clear();
+    uiReplyTimings.set(generation.id, { epoch: generation.epoch, started: timing.started, timing });
     while (uiReplyTimings.size > 32) uiReplyTimings.delete(uiReplyTimings.keys().next().value);
-    console.log('[latency][prompt] ' + JSON.stringify({ requestId: timing.requestId, mode,
+    console.log('[latency][prompt] ' + JSON.stringify({ requestId: timing.requestId, mode, epoch: generation.epoch, questionId: frozen?.questionId, questionRevision: frozen?.revision,
+      executionProfile: policy.instant ? 'instant' : 'standard', modelProfile: policy.executionProfile, ...getBuildIdentity(),
+      ragPolicy: policy.ragPolicy, readyEvidenceHit: !!ready?.stats.readyEvidenceHit, skippedReason: ready?.skippedReason,
+      optionalContextTokensEstimate: instantContext?.stats.optionalContextTokensEstimate ?? null,
+      instantContext: instantContext?.stats, queueDelayMs: 0,
       screenMs: +screenMs.toFixed(2), contextMs: +contextMs.toFixed(2),
       provider: llm.provider, model: llm.model, smart: !!settings.smart,
       promptChars: system.length + turns.reduce((n, t) => n + t.text.length, 0), systemChars: system.length,
@@ -920,22 +1006,31 @@ async function runFeature(mode, userText) {
       rearm();
       deadline = setTimeout(() => stop('本轮生成超过 180 秒，已停止；请缩小问题范围后重试。'), 180000);
     });
+    slowStatus = setTimeout(() => { if (owned() && !generation.firstContent) emit('status', { message: '模型正在响应，尚未返回正文。' }); }, 1500);
     try {
       const result = await Promise.race([
         llm.stream({ system, turns, imageDataUrl, signal: generation.controller.signal, mode,
           maxTokens,
+          onDiagnostics: metadata => { if (owned()) { generation.modelDiagnostics = metadata; emit('llm:profile', { ...metadata,
+            executionProfile: policy.instant ? 'instant' : 'standard', referenceDraft: policy.instant && !sentEvidence.length }); } },
           onRequest: serialized => {
             if (!owned()) return;
+            requestSent = performance.now(); generation.requestSent = requestSent;
             sentEvidence = visibleEvidence(prepared.evidence, serialized);
+            timing.dispatched({ ...generation.modelDiagnostics, ragPolicy: policy.ragPolicy,
+              readyEvidenceHit: policy.instant ? sentEvidence.length > 0 : !!ready?.stats.readyEvidenceHit,
+              skippedReason: ready?.skippedReason, optionalContextTokensEstimate: instantContext?.stats.optionalContextTokensEstimate,
+              sourceCount: sentEvidence.length, queueDelayMs: 0 });
+            emit('llm:metrics', timing.metrics());
             console.log('[latency][model] ' + JSON.stringify({ requestId: timing.requestId,
-              provider: llm.provider, model: llm.model, smart: !!settings.smart,
+              ...timing.metrics(), provider: llm.provider, model: llm.model, smart: !!effectiveSettings.smart,
               enableThinking: serialized.enable_thinking ?? null,
               reasoningEffort: serialized.reasoning_effort ?? null,
               thinkingBudget: serialized.config?.thinkingConfig?.thinkingBudget ?? null,
-              automaticRetriesDisabled: fast && llm.provider !== 'gemini' && llm.provider !== 'ollama' }));
+              automaticRetriesDisabled: generation.modelDiagnostics?.automaticRetriesDisabled ?? llm.diagnostics?.automaticRetriesDisabled ?? false }));
           },
           onUsage: usage => {
-            if (owned()) console.log('[latency][usage] ' + JSON.stringify({ requestId: timing.requestId, ...usage }));
+            if (owned()) { timing.usage(usage); console.log('[latency][usage] ' + JSON.stringify({ ...timing.metrics(), ...usage })); }
           },
           onCompletion: metadata => {
             if (owned() && !streamSettled && !generation.controller.signal.aborted) completion = metadata;
@@ -946,10 +1041,13 @@ async function runFeature(mode, userText) {
             answer += text;
             const uiTiming = uiReplyTimings.get(generation.id);
             if (uiTiming && uiTiming.firstTokenAt == null) uiTiming.firstTokenAt = performance.now();
-            timing.firstToken(requestSent);
+            if (text.trim()) {
+              timing.content(text, requestSent); generation.firstContent = true; clearTimeout(slowStatus);
+              ragSession.resume(generation.id); emit('llm:metrics', timing.metrics());
+            }
             rearm();
             emit('llm:token', { text });
-            if (!generation.adjacentQueued) {
+            if (text.trim() && !generation.adjacentQueued) {
               generation.adjacentQueued = true;
               setImmediate(() => prepareAdjacentEvidence(retrieval, sentEvidence));
             }
@@ -959,6 +1057,8 @@ async function runFeature(mode, userText) {
       if (!owned() || generation.controller.signal.aborted) return;
       if (!answer.trim() && typeof result === 'string' && result.trim()) {
         answer = result;
+        timing.content(answer, requestSent); generation.firstContent = true; clearTimeout(slowStatus); ragSession.resume(generation.id);
+        emit('llm:metrics', timing.metrics());
         emit('llm:token', { text: answer });
       }
       if (!answer.trim()) throw new Error('模型没有返回正文，请检查模型与思考模式设置后重试。');
@@ -974,36 +1074,47 @@ async function runFeature(mode, userText) {
         request.unavailableEvidenceQuestionIds.push(...(effectiveInterviewPlan?.subQuestions || []).map(item => item.id));
       }
       const committed = conversation.commit(request, answer, { completion, evidence: sentEvidence });
-      if (committed && liveMode && resolved?.text === question) questionResolver.markSubmitted(resolved);
+      if (committed && frozen) questionResolver.settle(frozen, 'completed');
     } finally {
       streamSettled = true;
       clearTimeout(watchdog);
       clearTimeout(deadline);
       if (abortListener) generation.controller.signal.removeEventListener('abort', abortListener);
     }
-    console.log('[latency][reply] ' + JSON.stringify({ requestId: timing.requestId, mode, doneMs: +(performance.now() - timing.started).toFixed(2) }));
+    timing.finish({ aborted: false }); emit('llm:metrics', timing.metrics());
     emit('llm:done', {});
   } catch (e) {
+    if (frozen) questionResolver.settle(frozen, generation.controller.signal.aborted ? 'canceled' : 'failed');
     if (owned()) {
       recordEvent({ level: 'error', event: 'llm_failed', msg: e?.message || String(e), frame: 'runFeature', context: { mode, provider: store.getSettings().provider } });
       emit('llm:error', { message: e?.message || String(e) });
     }
   } finally {
     streamSettled = true;
-    if (activeGeneration === generation) { activeGeneration = null; state.busy = false; }
+    clearTimeout(slowStatus); ragSession.resume(generation.id);
+    timing.finish({ aborted: generation.controller.signal.aborted });
+    if (activeGeneration === generation) { activeGeneration = null; state.busy = false; publishQuestionTarget(); }
   }
 }
 
 // -------- IPC --------
+ipcMain.handle('question:get-target', () => currentTargetEnvelope());
+ipcMain.handle('question:retry', (_event, questionId) => {
+  const snapshot = questionResolver.retrySnapshot(typeof questionId === 'string' ? questionId : lastFrozenSnapshot?.questionId);
+  if (!snapshot?.text || snapshot.epoch !== conversation.epoch) return { ok: false, reason: 'no-retry-target' };
+  return runFeature(targetModes.get(snapshot.questionId) || 'say', '', { retrySnapshot: snapshot });
+});
 ipcMain.handle('settings:get', () => store.getSettings());
 ipcMain.handle('settings:set', (_e, patch) => {
   sttDisabled = false;
   const before = store.getSettings();
   const next = store.setSettings(patch);
-  const identity = settings => JSON.stringify([settings.realtimeEvidencePrefetch, settings.smart, settings.provider,
+  if (['resumeText', 'projectKnowledge', 'starStories', 'whyCompany', 'whyLeaving', 'workStyle', 'salaryTarget'].some(key => before[key] !== next[key])) instantCards.update(next);
+  const identity = settings => JSON.stringify([settings.realtimeAnswerMode, settings.instantRagPolicy, settings.realtimeEvidencePrefetch, settings.smart, settings.provider,
     settings.models, settings.currentProjectId, settings.baseUrl, settings.projectKnowledge, settings.starStories]);
   if (identity(before) !== identity(next)) {
     ragSession.reset(); semanticRetriever?.resetSession?.();
+    if (activeGeneration?.policy.instant && !activeGeneration.firstContent) ragSession.suspend(activeGeneration.id);
     if (before.realtimeEvidencePrefetch !== next.realtimeEvidencePrefetch || before.projectKnowledge !== next.projectKnowledge ||
       before.starStories !== next.starStories) activeProjectContextCache.clear();
     if (!realtimePrefetchEnabled(before) && realtimePrefetchEnabled(next)) warmProjectIndex().catch(() => {});
@@ -1152,7 +1263,11 @@ ipcMain.handle('transcript:clear', () => {
   ragSession.reset();
   activeProjectContextCache.clear();
   semanticRetriever?.resetSession?.();
-  questionResolver.reset();
+  questionResolver.reset({ epoch: conversation.epoch });
+  lastFrozenSnapshot = null; latestUiRequestId = null;
+  lastScreenSnapshot = null;
+  targetModes.clear();
+  publishQuestionTarget();
   transcriptDeduper.reset();
   if (previous) send('llm:done', { requestId: previous.id, canceled: true });
   transcript.splice(0, transcript.length);
@@ -1160,13 +1275,18 @@ ipcMain.handle('transcript:clear', () => {
   return { ok: true };
 });
 ipcMain.on('ask', (_e, payload) => runFeature(payload?.mode, payload?.text));
-ipcMain.on('llm:rendered', (_event, requestId) => {
-  const timing = uiReplyTimings.get(requestId);
-  if (!timing || timing.epoch !== conversation.epoch || performance.now() - timing.started > 60000) return;
-  uiReplyTimings.delete(requestId);
-  console.log('[latency][ui] ' + JSON.stringify({ requestId,
-    firstVisibleAckMs: +(performance.now() - timing.started).toFixed(2),
-    tokenToPaintAckMs: timing.firstTokenAt == null ? null : +(performance.now() - timing.firstTokenAt).toFixed(2) }));
+ipcMain.on('llm:rendered', (_event, payload) => {
+  const details = typeof payload === 'string' ? { requestId: payload, stage: 'dom' } : payload || {};
+  const { requestId } = details;
+  const record = uiReplyTimings.get(requestId);
+  if (!record || requestId !== latestUiRequestId || record.epoch !== conversation.epoch ||
+    details.epoch != null && details.epoch !== record.epoch || performance.now() - record.started > 60000) return;
+  const stage = details.stage === 'paint-approx' ? 'paint-approx' : 'dom';
+  if (record[stage] || record.timing.metrics().firstContentMs == null) return;
+  record[stage] = true;
+  const metrics = { ...record.timing.renderAck({ ...details, stage }), stage };
+  send('llm:metrics', metrics);
+  if (stage === 'paint-approx') uiReplyTimings.delete(requestId);
 });
 ipcMain.on('mic:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('you', arrayBuffer); });
 ipcMain.on('system:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('them', arrayBuffer); });
@@ -1391,8 +1511,11 @@ session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
   // Prepare the existing local index in the background instead of charging its
   // complete cold build to the first interview answer after app restart.
   warmProjectIndex().catch(error => console.warn('[rag] warmup unavailable:', error?.code || error?.name || 'Error'));
-  const indexWatch = setInterval(() => refreshProjectIndex().then(() => warmProjectIndex())
-    .catch(error => console.warn('[rag] index refresh unavailable:', error?.code || error?.name || 'Error')), 2000);
+  const indexWatch = setInterval(() => {
+    if (activeGeneration?.policy.instant && !activeGeneration.firstContent) return;
+    refreshProjectIndex().then(() => warmProjectIndex())
+      .catch(error => console.warn('[rag] index refresh unavailable:', error?.code || error?.name || 'Error'));
+  }, 2000);
   indexWatch.unref?.();
   app.once('will-quit', () => clearInterval(indexWatch));
   // Warm only an already prepared local model. This never initiates downloads.

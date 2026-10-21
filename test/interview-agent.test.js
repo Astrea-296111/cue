@@ -44,17 +44,18 @@ for (const indexVersion of [1, 2]) {
   });
 }
 
-test('real Ctrl+Enter responds to partial and empty input and accepts a later complete final', async t => {
+test('real Ctrl+Enter skips empty/incomplete targets and accepts a later complete final', async t => {
   const app = createInterviewRuntime(t);
   await app.shortcut(enter);
-  assert.equal(app.calls.length, 1, 'an empty Ctrl+Enter still reaches the model');
-  assert.equal(app.value('conversation.recent.length'), 0, 'the empty response is not an interview answer');
+  assert.equal(app.calls.length, 0, 'an empty Ctrl+Enter must not reanswer an old or invented target');
+  assert.equal(app.value('conversation.recent.length'), 0);
   app.interim('如果平', { utteranceKey: 'live-1' });
   await app.shortcut(enter);
-  assert.match(currentText(app.calls[1]), /如果平/);
+  assert.equal(app.calls.length, 0, 'an unfinished condition is not an answerable target');
   app.final('如果平均每张图的生存概率都一样，还需要动态规划吗？', { utteranceKey: 'live-1' });
   await app.shortcut(enter);
-  assert.match(currentText(app.calls[2]), /平均每张图[\s\S]*动态规划/);
+  assert.equal(app.calls.length, 1);
+  assert.match(currentText(app.calls[0]), /平均每张图[\s\S]*动态规划/);
 });
 
 test('Ctrl+Enter interruption cancels the old SDK stream and commits only its replacement', async t => {

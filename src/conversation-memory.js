@@ -88,20 +88,23 @@ class ConversationMemory {
     this.lastCommittedId = 0;
   }
 
-  begin({ mode, question, transcript = [], settings = {}, catalog = [], interviewPlan = null, evidenceRevision = null }) {
+  begin({ mode, question, transcript = [], settings = {}, catalog = [], interviewPlan = null, evidenceRevision = null,
+    executionProfile = 'standard', questionSnapshot = null, manualFingerprint = '' }) {
+    const instant = executionProfile === 'instant';
     const startedAt = Date.now();
     const current = clean(question);
     const newerSpeech = transcript.filter(t => t.channel === 'them' && t.ts > this.lastStartedAt);
     const routeTurns = newerSpeech.slice();
     if (current && clean(routeTurns.at(-1)?.text) !== current) routeTurns.push({ channel: 'them', text: current });
-    const plan = planProjectRetrieval(routeTurns, mode, {
+    let plan = planProjectRetrieval(routeTurns, mode, {
       previousPlan: this.lastPlan,
       activeProjectPlan: this.activeProjectPlan,
       catalog,
       manualProjectId: settings.currentProjectId || '',
       interviewPlan,
-      answerHint: this.recent.at(-1)?.answer || ''
+      answerHint: instant ? '' : this.recent.at(-1)?.answer || ''
     });
+    if (instant) plan = require('./instant-answer-policy').isolateUnknownProject(current, plan, catalog);
     const policy = contextPolicy(mode, current, this.recent.length + this.archive.length > 0, plan);
     const configured = Number(settings.conversationContextChars);
     const isolated = policy === 'independent' || policy === 'project-switch';
@@ -116,15 +119,18 @@ class ConversationMemory {
       : Number.isFinite(configured) && configured >= 4000
         ? Math.min(48000, Math.floor(configured), Math.max(legacyBudget, 4000))
         : defaultBudget;
-    const snapshot = this.buildHistory(current, plan, budget, policy);
-    const spokenContext = plan.projectSwitched ? '' : excerpt(transcript.filter(t => t.channel === 'you' && t.ts > this.lastStartedAt)
+    const snapshot = instant ? this.buildInstantHistory(current, plan) : this.buildHistory(current, plan, budget, policy);
+    const spokenContext = plan.projectSwitched ? '' : excerpt(transcript.filter(t => t.channel === 'you' && t.ts > this.lastStartedAt).slice(-2)
       .map(t => clean(t.text)).filter(Boolean).join('\n'), 1400);
     const request = { epoch: this.epoch, id: ++this.sequence, startedAt, mode, question: current,
       plan, policy, spokenContext, ...snapshot,
+      executionProfile, questionSnapshot,
       interviewPlan: interviewPlan || planInterviewQuestion({ text: current, mode }),
-      evidenceRevision, manualFingerprint: stableId(settings.projectKnowledge || '') };
+      evidenceRevision, manualFingerprint: instant ? manualFingerprint : stableId(settings.projectKnowledge || '') };
     if (INTERVIEW_MODES.has(mode) && current) {
       request.checklist = this.checklist.begin(request);
+      if (instant) request.checklist = { ...request.checklist, pending: [],
+        scenario: interviewPlan?.scenario || '', questions: request.checklist.questions.filter(item => item.current) };
       const projectState = this._projectState(plan);
       if (projectState) {
         projectState.setSourceRevision(evidenceRevision, request.manualFingerprint);
@@ -135,6 +141,18 @@ class ConversationMemory {
       request.projectInterviewState = null;
     }
     return request;
+  }
+
+  buildInstantHistory(question, plan) {
+    const { REFERENTIAL, tokenExcerpt } = require('./instant-answer-context');
+    const last = this.recent.at(-1);
+    const compatible = !plan.projectSwitched && (plan.retrieve
+      ? last?.plan?.retrieve && sameProjectScopes(plan.scopes, last.plan.scopes) : !last?.plan?.retrieve);
+    const chosen = REFERENTIAL.test(question) && compatible ? last : null;
+    const text = chosen ? tokenExcerpt(`先前用户要求：${chosen.question}\n旧 AI 建议（非项目事实）：${chosen.answer}`, 250) : '';
+    return { turns: text ? [{ role: 'user', text }] : [], memory: '', stats: { policy: chosen ? 'instant-reference' : 'instant-independent',
+      recentPairs: chosen ? 1 : 0, recalledPairs: 0, storedPairs: this.recent.length + this.archive.length,
+      historyChars: text.length, budget: 250, estimate: true } };
   }
 
   buildHistory(question, plan, budget, policy = 'independent') {

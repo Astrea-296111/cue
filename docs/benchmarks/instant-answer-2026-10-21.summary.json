@@ -1,0 +1,6287 @@
+{
+  "dateTimezone": "2026-10-21 Asia/Shanghai",
+  "baseRef": "d6dab06009ce9a79c41e9e3782438c3265cd89dd",
+  "measurements": {
+    "normal": {
+      "schemaVersion": 1,
+      "generatedAt": "2026-10-21T05:51:34.205Z",
+      "baseRef": "d6dab06009ce9a79c41e9e3782438c3265cd89dd",
+      "scope": "Offline actual package-entry replay with synthetic SDK response. No online model, real ASR, E5 inference, WAN or renderer.",
+      "live": false,
+      "syntheticTransportMs": 5,
+      "environment": {
+        "node": "v24.19.0",
+        "platform": "linux",
+        "arch": "x64",
+        "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+        "cpuCount": 5
+      },
+      "cpuContention": false,
+      "measurementNotes": [
+        "All four policies include the final shared QuestionResolver bugfix; A is not an archived old commit.",
+        "B changes foreground RAG only; C adds instant context but keeps standard model profile; D requests the configured fast tier. Actual model/options are recorded per sample.",
+        "One provider request at a time, rotating A/B/C/D order; percentile samples exclude failed/canceled requests, rates retain every attempt.",
+        "asr-replay means accepted synthetic ASR/VAD events plus the real shortcut. It does not measure real microphone/remote audio, recognition or physical speech end.",
+        "first useful sentence uses a sentence-end heuristic, not semantic quality grading. The offline response text is fixed and does not prove generated answer correctness.",
+        "No renderer runs in this harness, so renderAckMs/paintApproxMs are null.",
+        "Offline first-content values include an intentionally synthetic provider delay; they are never claims about online TTFT.",
+        "Pressure snapshots start from real imported fixtures; noise is synthetic and stays within 7000 chunks/1800 files per project.",
+        "Warm-ready seeds run outside per-request timing. Whole-group event-loop statistics include seed and setup work.",
+        "Live settings import is limited to current-provider credentials/model/transport/window configuration; private resume/stories/project material/style/history and stale experiment settings are never imported.",
+        "Live 30-sample P95 is exploratory; use more samples for confirmation, record rates and compare actual provider/model/endpoint class."
+      ],
+      "configuration": {
+        "samples": 30,
+        "coldSamples": 30,
+        "sizes": [
+          "small",
+          "4000",
+          "14000"
+        ],
+        "scenarios": [
+          "no-doc",
+          "cold",
+          "warm-ready",
+          "no-match",
+          "hung-prefetch"
+        ],
+        "triggers": [
+          "text",
+          "asr-replay"
+        ],
+        "requestedSettingsFile": null
+      },
+      "sourceHashesAtStart": {
+        "main.js": "ac37fd5d66781d83dadcce07e7d358433444a0f77f76745e7c30a1b421d78c36",
+        "src/custom-main.js": "57a0211877d08368e45e00243a51c619e9fd45b3e66cfdfe399c5ddbcde92a6a",
+        "src/build-info.js": "1da93cfa592ecc66263e2ce45a3d5d9280f5e4b5974705328c23e81502485857",
+        "src/store.js": "4ab8b9c93fe736da09455ede22f32f698d8d46147d8c9c7bf51dd99f73783b70",
+        "src/stt.js": "f1db1e805236de707e60dafbb56dedb3c8bb3b7210c819fdb6383cc495fd3478",
+        "src/stt-streaming.js": "83e87475c8112d61fef5887d62794e4cadc70e80e93cf0a69fcd752f277f65eb",
+        "src/stt-providers/qwen.js": "791c56d51a87cfc209b5c5e412252ed48c50ea8261a4fe6d8b40054ba49f258e",
+        "src/local-whisper-transcriber.js": "038a04ca85f09b57c4b24bef5f54925e06f983141a5cb77caf001f2c258c482d",
+        "src/question-resolver.js": "4e753a0b25f82e44a865ecd86fa0ebbbb05f6afd6590585f7bd43a024ea3dbb1",
+        "src/conversation-memory.js": "579e913dcd79a7d996b2f4ac0a5b3803316f9a0758f2e150b658f742c489f54e",
+        "src/instant-answer-policy.js": "989a32727b4e06b45f2c901a87b91f37d884e72f24de7b754543b79a0f8cda5c",
+        "src/instant-answer-context.js": "8447b298966532f70aba7cc8f4041f7d045b9245725bc96a317bda976baff6a1",
+        "src/instant-ready-evidence.js": "122e708f1d9d92c50f50c976bf322418d5b7e4c414fbc44467e53b84ecd18e1c",
+        "src/project-rag-session.js": "9fb7b0a43c486b8827b86878b69cad790a717ef2847897ad8f2e98a129fa8645",
+        "src/active-project-context-cache.js": "06da2f7e3f7f02a13f81072740d55ea624584f49ce12a2a002b82ea4597c5884",
+        "src/llm.js": "4a415c52b6cd779a2e437787faf006a628620b936c96fdf6a1ea2e18d2096fa7",
+        "src/model-latency-policy.js": "a9132b5db79f5be56948ea23bf8954b1c99c2b0196578b9094bd2638e877c27f",
+        "src/openai-compatible.js": "968153160fa726b5da454136af4a47ebd5fb3b953a570f687a605544b78c41f3",
+        "src/reply-latency.js": "f4006085796c275fc50433d538e5dec4d190956136289ff25b28c448628457bb",
+        "scripts/benchmark-instant-answer.cjs": "7b7d55fbd233661e6b390938240015115e28cfee00b1e26e2097a1ba0bf09ee7",
+        "test/helpers/interview-agent-runtime.js": "ca8df0f31f805e166fbc2af1219c68171158a587b00dc4aabe30c9bd9c98fc08"
+      },
+      "sourceHashesAtEnd": {
+        "main.js": "ac37fd5d66781d83dadcce07e7d358433444a0f77f76745e7c30a1b421d78c36",
+        "src/custom-main.js": "57a0211877d08368e45e00243a51c619e9fd45b3e66cfdfe399c5ddbcde92a6a",
+        "src/build-info.js": "1da93cfa592ecc66263e2ce45a3d5d9280f5e4b5974705328c23e81502485857",
+        "src/store.js": "4ab8b9c93fe736da09455ede22f32f698d8d46147d8c9c7bf51dd99f73783b70",
+        "src/stt.js": "f1db1e805236de707e60dafbb56dedb3c8bb3b7210c819fdb6383cc495fd3478",
+        "src/stt-streaming.js": "83e87475c8112d61fef5887d62794e4cadc70e80e93cf0a69fcd752f277f65eb",
+        "src/stt-providers/qwen.js": "791c56d51a87cfc209b5c5e412252ed48c50ea8261a4fe6d8b40054ba49f258e",
+        "src/local-whisper-transcriber.js": "038a04ca85f09b57c4b24bef5f54925e06f983141a5cb77caf001f2c258c482d",
+        "src/question-resolver.js": "4e753a0b25f82e44a865ecd86fa0ebbbb05f6afd6590585f7bd43a024ea3dbb1",
+        "src/conversation-memory.js": "579e913dcd79a7d996b2f4ac0a5b3803316f9a0758f2e150b658f742c489f54e",
+        "src/instant-answer-policy.js": "989a32727b4e06b45f2c901a87b91f37d884e72f24de7b754543b79a0f8cda5c",
+        "src/instant-answer-context.js": "8447b298966532f70aba7cc8f4041f7d045b9245725bc96a317bda976baff6a1",
+        "src/instant-ready-evidence.js": "122e708f1d9d92c50f50c976bf322418d5b7e4c414fbc44467e53b84ecd18e1c",
+        "src/project-rag-session.js": "9fb7b0a43c486b8827b86878b69cad790a717ef2847897ad8f2e98a129fa8645",
+        "src/active-project-context-cache.js": "06da2f7e3f7f02a13f81072740d55ea624584f49ce12a2a002b82ea4597c5884",
+        "src/llm.js": "4a415c52b6cd779a2e437787faf006a628620b936c96fdf6a1ea2e18d2096fa7",
+        "src/model-latency-policy.js": "a9132b5db79f5be56948ea23bf8954b1c99c2b0196578b9094bd2638e877c27f",
+        "src/openai-compatible.js": "968153160fa726b5da454136af4a47ebd5fb3b953a570f687a605544b78c41f3",
+        "src/reply-latency.js": "f4006085796c275fc50433d538e5dec4d190956136289ff25b28c448628457bb",
+        "scripts/benchmark-instant-answer.cjs": "7b7d55fbd233661e6b390938240015115e28cfee00b1e26e2097a1ba0bf09ee7",
+        "test/helpers/interview-agent-runtime.js": "ca8df0f31f805e166fbc2af1219c68171158a587b00dc4aabe30c9bd9c98fc08"
+      },
+      "sourceChangedDuringRun": false,
+      "liveTargets": null,
+      "aggregates": {
+        "A": {
+          "all": {
+            "n": 780,
+            "sdkTargetCorrect": 780,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 253,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 9,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 780,
+                "p50": 4.2,
+                "p95": 105.74,
+                "max": 628.07
+              },
+              "providerResponseMs": {
+                "n": 780,
+                "p50": 5.51,
+                "p95": 5.77,
+                "max": 23.92
+              },
+              "firstReasoningMs": {
+                "n": 780,
+                "p50": 5.53,
+                "p95": 5.83,
+                "max": 23.98
+              },
+              "firstContentMs": {
+                "n": 780,
+                "p50": 5.57,
+                "p95": 5.95,
+                "max": 24.1
+              },
+              "triggerToFirstContentMs": {
+                "n": 780,
+                "p50": 9.59,
+                "p95": 110.85,
+                "max": 633.2
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 780,
+                "p50": 9.63,
+                "p95": 110.89,
+                "max": 633.28
+              },
+              "readyEvidenceReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              },
+              "inputTokensEstimate": {
+                "n": 780,
+                "p50": 2111,
+                "p95": 6347,
+                "max": 7062
+              },
+              "optionalContextTokensEstimate": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            }
+          },
+          "warm": {
+            "n": 600,
+            "sdkTargetCorrect": 600,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 253,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 9,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 600,
+                "p50": 3.69,
+                "p95": 106.73,
+                "max": 628.07
+              },
+              "providerResponseMs": {
+                "n": 600,
+                "p50": 5.51,
+                "p95": 5.75,
+                "max": 10.15
+              },
+              "firstReasoningMs": {
+                "n": 600,
+                "p50": 5.53,
+                "p95": 5.78,
+                "max": 10.22
+              },
+              "firstContentMs": {
+                "n": 600,
+                "p50": 5.57,
+                "p95": 5.86,
+                "max": 10.32
+              },
+              "triggerToFirstContentMs": {
+                "n": 600,
+                "p50": 9.02,
+                "p95": 112.17,
+                "max": 633.2
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 600,
+                "p50": 9.06,
+                "p95": 112.22,
+                "max": 633.28
+              },
+              "readyEvidenceReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              },
+              "inputTokensEstimate": {
+                "n": 600,
+                "p50": 2475,
+                "p95": 6456,
+                "max": 7062
+              },
+              "optionalContextTokensEstimate": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            }
+          },
+          "cold": {
+            "n": 180,
+            "sdkTargetCorrect": 180,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 0,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 180,
+                "p50": 20.66,
+                "p95": 62.63,
+                "max": 94.7
+              },
+              "providerResponseMs": {
+                "n": 180,
+                "p50": 5.4,
+                "p95": 6.19,
+                "max": 23.92
+              },
+              "firstReasoningMs": {
+                "n": 180,
+                "p50": 5.44,
+                "p95": 6.24,
+                "max": 23.98
+              },
+              "firstContentMs": {
+                "n": 180,
+                "p50": 5.68,
+                "p95": 6.51,
+                "max": 24.1
+              },
+              "triggerToFirstContentMs": {
+                "n": 180,
+                "p50": 26.34,
+                "p95": 68.13,
+                "max": 99.69
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 180,
+                "p50": 26.39,
+                "p95": 68.18,
+                "max": 99.76
+              },
+              "readyEvidenceReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              },
+              "inputTokensEstimate": {
+                "n": 180,
+                "p50": 1677,
+                "p95": 1815,
+                "max": 1815
+              },
+              "optionalContextTokensEstimate": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            }
+          }
+        },
+        "B": {
+          "all": {
+            "n": 780,
+            "sdkTargetCorrect": 780,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 0,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 780,
+                "p50": 1.44,
+                "p95": 4.7,
+                "max": 28.33
+              },
+              "providerResponseMs": {
+                "n": 780,
+                "p50": 5.51,
+                "p95": 5.94,
+                "max": 95.05
+              },
+              "firstReasoningMs": {
+                "n": 780,
+                "p50": 5.53,
+                "p95": 6.01,
+                "max": 95.09
+              },
+              "firstContentMs": {
+                "n": 780,
+                "p50": 5.57,
+                "p95": 6.16,
+                "max": 95.18
+              },
+              "triggerToFirstContentMs": {
+                "n": 780,
+                "p50": 6.9,
+                "p95": 11.08,
+                "max": 97.88
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 780,
+                "p50": 6.94,
+                "p95": 11.13,
+                "max": 97.97
+              },
+              "readyEvidenceReadMs": {
+                "n": 780,
+                "p50": 0.0016020000039134175,
+                "p95": 0.012928999998621293,
+                "max": 0.09397800000442658
+              },
+              "inputTokensEstimate": {
+                "n": 780,
+                "p50": 2016,
+                "p95": 3158,
+                "max": 3486
+              },
+              "optionalContextTokensEstimate": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            }
+          },
+          "warm": {
+            "n": 600,
+            "sdkTargetCorrect": 600,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 0,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 600,
+                "p50": 1.26,
+                "p95": 2.7,
+                "max": 8.79
+              },
+              "providerResponseMs": {
+                "n": 600,
+                "p50": 5.49,
+                "p95": 5.83,
+                "max": 95.05
+              },
+              "firstReasoningMs": {
+                "n": 600,
+                "p50": 5.51,
+                "p95": 5.87,
+                "max": 95.09
+              },
+              "firstContentMs": {
+                "n": 600,
+                "p50": 5.56,
+                "p95": 5.97,
+                "max": 95.18
+              },
+              "triggerToFirstContentMs": {
+                "n": 600,
+                "p50": 6.71,
+                "p95": 8.5,
+                "max": 97.88
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 600,
+                "p50": 6.74,
+                "p95": 8.57,
+                "max": 97.97
+              },
+              "readyEvidenceReadMs": {
+                "n": 600,
+                "p50": 0.0014520000004267786,
+                "p95": 0.006038999999987027,
+                "max": 0.09397800000442658
+              },
+              "inputTokensEstimate": {
+                "n": 600,
+                "p50": 2328,
+                "p95": 3165,
+                "max": 3486
+              },
+              "optionalContextTokensEstimate": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            }
+          },
+          "cold": {
+            "n": 180,
+            "sdkTargetCorrect": 180,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 0,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 180,
+                "p50": 3.6,
+                "p95": 7.89,
+                "max": 28.33
+              },
+              "providerResponseMs": {
+                "n": 180,
+                "p50": 5.65,
+                "p95": 9.8,
+                "max": 15.32
+              },
+              "firstReasoningMs": {
+                "n": 180,
+                "p50": 5.69,
+                "p95": 9.86,
+                "max": 15.38
+              },
+              "firstContentMs": {
+                "n": 180,
+                "p50": 5.76,
+                "p95": 9.98,
+                "max": 15.5
+              },
+              "triggerToFirstContentMs": {
+                "n": 180,
+                "p50": 9.22,
+                "p95": 15.75,
+                "max": 33.14
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 180,
+                "p50": 9.28,
+                "p95": 15.81,
+                "max": 33.21
+              },
+              "readyEvidenceReadMs": {
+                "n": 180,
+                "p50": 0.011255999997956678,
+                "p95": 0.015972999994119164,
+                "max": 0.08783899999980349
+              },
+              "inputTokensEstimate": {
+                "n": 180,
+                "p50": 1569,
+                "p95": 1815,
+                "max": 1815
+              },
+              "optionalContextTokensEstimate": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            }
+          }
+        },
+        "C": {
+          "all": {
+            "n": 780,
+            "sdkTargetCorrect": 780,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 120,
+            "sourceCountMax": 2,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 780,
+                "p50": 1.66,
+                "p95": 4.6,
+                "max": 15.11
+              },
+              "providerResponseMs": {
+                "n": 780,
+                "p50": 5.5,
+                "p95": 5.79,
+                "max": 24
+              },
+              "firstReasoningMs": {
+                "n": 780,
+                "p50": 5.52,
+                "p95": 5.84,
+                "max": 24.03
+              },
+              "firstContentMs": {
+                "n": 780,
+                "p50": 5.55,
+                "p95": 5.93,
+                "max": 24.09
+              },
+              "triggerToFirstContentMs": {
+                "n": 780,
+                "p50": 7.06,
+                "p95": 10.55,
+                "max": 25.66
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 780,
+                "p50": 7.11,
+                "p95": 10.66,
+                "max": 25.72
+              },
+              "readyEvidenceReadMs": {
+                "n": 780,
+                "p50": 0.08379299999796785,
+                "p95": 0.6024079999988317,
+                "max": 1.5849679999992077
+              },
+              "inputTokensEstimate": {
+                "n": 780,
+                "p50": 478,
+                "p95": 1120,
+                "max": 1122
+              },
+              "optionalContextTokensEstimate": {
+                "n": 780,
+                "p50": 19,
+                "p95": 650,
+                "max": 650
+              }
+            }
+          },
+          "warm": {
+            "n": 600,
+            "sdkTargetCorrect": 600,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 120,
+            "sourceCountMax": 2,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 600,
+                "p50": 1.5,
+                "p95": 3.08,
+                "max": 15.11
+              },
+              "providerResponseMs": {
+                "n": 600,
+                "p50": 5.49,
+                "p95": 5.71,
+                "max": 24
+              },
+              "firstReasoningMs": {
+                "n": 600,
+                "p50": 5.51,
+                "p95": 5.75,
+                "max": 24.03
+              },
+              "firstContentMs": {
+                "n": 600,
+                "p50": 5.55,
+                "p95": 5.83,
+                "max": 24.09
+              },
+              "triggerToFirstContentMs": {
+                "n": 600,
+                "p50": 6.83,
+                "p95": 8.73,
+                "max": 25.66
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 600,
+                "p50": 6.87,
+                "p95": 8.77,
+                "max": 25.72
+              },
+              "readyEvidenceReadMs": {
+                "n": 600,
+                "p50": 0.10696800000005169,
+                "p95": 0.6579309999997349,
+                "max": 1.5849679999992077
+              },
+              "inputTokensEstimate": {
+                "n": 600,
+                "p50": 480,
+                "p95": 1120,
+                "max": 1122
+              },
+              "optionalContextTokensEstimate": {
+                "n": 600,
+                "p50": 19,
+                "p95": 650,
+                "max": 650
+              }
+            }
+          },
+          "cold": {
+            "n": 180,
+            "sdkTargetCorrect": 180,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 0,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 180,
+                "p50": 3.49,
+                "p95": 6.77,
+                "max": 13.53
+              },
+              "providerResponseMs": {
+                "n": 180,
+                "p50": 5.62,
+                "p95": 6.17,
+                "max": 17.1
+              },
+              "firstReasoningMs": {
+                "n": 180,
+                "p50": 5.66,
+                "p95": 6.29,
+                "max": 17.16
+              },
+              "firstContentMs": {
+                "n": 180,
+                "p50": 5.73,
+                "p95": 6.37,
+                "max": 17.27
+              },
+              "triggerToFirstContentMs": {
+                "n": 180,
+                "p50": 9.09,
+                "p95": 14.01,
+                "max": 21.47
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 180,
+                "p50": 9.14,
+                "p95": 14.06,
+                "max": 21.59
+              },
+              "readyEvidenceReadMs": {
+                "n": 180,
+                "p50": 0.0167139999975916,
+                "p95": 0.02142199999980221,
+                "max": 0.09326799999962532
+              },
+              "inputTokensEstimate": {
+                "n": 180,
+                "p50": 406,
+                "p95": 463,
+                "max": 463
+              },
+              "optionalContextTokensEstimate": {
+                "n": 180,
+                "p50": 0,
+                "p95": 0,
+                "max": 0
+              }
+            }
+          }
+        },
+        "D": {
+          "all": {
+            "n": 780,
+            "sdkTargetCorrect": 780,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 120,
+            "sourceCountMax": 2,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 780,
+                "p50": 1.67,
+                "p95": 4.78,
+                "max": 19.35
+              },
+              "providerResponseMs": {
+                "n": 780,
+                "p50": 5.5,
+                "p95": 5.81,
+                "max": 17.2
+              },
+              "firstReasoningMs": {
+                "n": 780,
+                "p50": 5.52,
+                "p95": 5.86,
+                "max": 17.26
+              },
+              "firstContentMs": {
+                "n": 780,
+                "p50": 5.57,
+                "p95": 5.98,
+                "max": 17.43
+              },
+              "triggerToFirstContentMs": {
+                "n": 780,
+                "p50": 7.1,
+                "p95": 10.53,
+                "max": 24.31
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 780,
+                "p50": 7.14,
+                "p95": 10.58,
+                "max": 24.37
+              },
+              "readyEvidenceReadMs": {
+                "n": 780,
+                "p50": 0.08360299999912968,
+                "p95": 0.6278559999991558,
+                "max": 2.074720000004163
+              },
+              "inputTokensEstimate": {
+                "n": 780,
+                "p50": 478,
+                "p95": 1120,
+                "max": 1122
+              },
+              "optionalContextTokensEstimate": {
+                "n": 780,
+                "p50": 19,
+                "p95": 650,
+                "max": 650
+              }
+            }
+          },
+          "warm": {
+            "n": 600,
+            "sdkTargetCorrect": 600,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 120,
+            "sourceCountMax": 2,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 600,
+                "p50": 1.51,
+                "p95": 3.21,
+                "max": 10.11
+              },
+              "providerResponseMs": {
+                "n": 600,
+                "p50": 5.5,
+                "p95": 5.71,
+                "max": 7.93
+              },
+              "firstReasoningMs": {
+                "n": 600,
+                "p50": 5.52,
+                "p95": 5.76,
+                "max": 7.99
+              },
+              "firstContentMs": {
+                "n": 600,
+                "p50": 5.56,
+                "p95": 5.83,
+                "max": 8.25
+              },
+              "triggerToFirstContentMs": {
+                "n": 600,
+                "p50": 6.9,
+                "p95": 8.86,
+                "max": 15.99
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 600,
+                "p50": 6.93,
+                "p95": 8.94,
+                "max": 16.05
+              },
+              "readyEvidenceReadMs": {
+                "n": 600,
+                "p50": 0.10808900000120047,
+                "p95": 0.6769279999971332,
+                "max": 2.074720000004163
+              },
+              "inputTokensEstimate": {
+                "n": 600,
+                "p50": 480,
+                "p95": 1120,
+                "max": 1122
+              },
+              "optionalContextTokensEstimate": {
+                "n": 600,
+                "p50": 19,
+                "p95": 650,
+                "max": 650
+              }
+            }
+          },
+          "cold": {
+            "n": 180,
+            "sdkTargetCorrect": 180,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 0,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 180,
+                "p50": 3.67,
+                "p95": 7.53,
+                "max": 19.35
+              },
+              "providerResponseMs": {
+                "n": 180,
+                "p50": 5.63,
+                "p95": 6.18,
+                "max": 17.2
+              },
+              "firstReasoningMs": {
+                "n": 180,
+                "p50": 5.67,
+                "p95": 6.22,
+                "max": 17.26
+              },
+              "firstContentMs": {
+                "n": 180,
+                "p50": 5.75,
+                "p95": 6.43,
+                "max": 17.43
+              },
+              "triggerToFirstContentMs": {
+                "n": 180,
+                "p50": 9.24,
+                "p95": 16.17,
+                "max": 24.31
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 180,
+                "p50": 9.29,
+                "p95": 16.24,
+                "max": 24.37
+              },
+              "readyEvidenceReadMs": {
+                "n": 180,
+                "p50": 0.01674500000081025,
+                "p95": 0.02674000000115484,
+                "max": 0.08763899999757996
+              },
+              "inputTokensEstimate": {
+                "n": 180,
+                "p50": 406,
+                "p95": 463,
+                "max": 463
+              },
+              "optionalContextTokensEstimate": {
+                "n": 180,
+                "p50": 0,
+                "p95": 0,
+                "max": 0
+              }
+            }
+          }
+        }
+      },
+      "groupMaxP95": {
+        "A": {
+          "warmDispatchMs": 213.03,
+          "coldDispatchMs": 70.27,
+          "readyReadMs": 0
+        },
+        "B": {
+          "warmDispatchMs": 4.59,
+          "coldDispatchMs": 9.03,
+          "readyReadMs": 0.020831000001635402
+        },
+        "C": {
+          "warmDispatchMs": 5.52,
+          "coldDispatchMs": 8.23,
+          "readyReadMs": 0.9874460000137333
+        },
+        "D": {
+          "warmDispatchMs": 4.47,
+          "coldDispatchMs": 16.27,
+          "readyReadMs": 1.3021409999928437
+        }
+      },
+      "groups": [
+        {
+          "scenario": "no-doc",
+          "trigger": "text",
+          "chunks": 0,
+          "projectCount": 0,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.083391,
+            "p95": 2.211839,
+            "max": 6.012927,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.77,
+                "p95": 3.11,
+                "max": 19.73
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.59,
+                "p95": 2.61,
+                "max": 4.4
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.005407999999988533,
+                "p95": 0.0081119999999828,
+                "max": 0.02477699999997185
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.41,
+                "p95": 3.32,
+                "max": 5.75
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.010626000000002023,
+                "p95": 0.01467200000001867,
+                "max": 0.06047899999998663
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.38,
+                "p95": 2.48,
+                "max": 3.62
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.010695999999938977,
+                "p95": 0.0152119999999627,
+                "max": 0.017566000000101667
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "no-doc",
+          "trigger": "asr-replay",
+          "chunks": 0,
+          "projectCount": 0,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.082367,
+            "p95": 3.362815,
+            "max": 7.139327,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.2,
+                "p95": 2.45,
+                "max": 3.47
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.13,
+                "p95": 2.35,
+                "max": 3.29
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.005127000000129556,
+                "p95": 0.006430000000136715,
+                "max": 0.011936999999988984
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.06,
+                "p95": 1.63,
+                "max": 2.57
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.011176999999861437,
+                "p95": 0.012427999999999884,
+                "max": 0.01552199999991899
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.02,
+                "p95": 1.72,
+                "max": 2.61
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.011136999999962427,
+                "p95": 0.04249200000003839,
+                "max": 0.053349000000025626
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "cold",
+          "trigger": "text",
+          "chunks": 28,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.084415,
+            "p95": 37.978111,
+            "max": 50.561023,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 5.12,
+                "p95": 8.06,
+                "max": 8.77
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.6,
+                "p95": 6.59,
+                "max": 9.11
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.010975999999573105,
+                "p95": 0.014681999999993423,
+                "max": 0.03448100000014165
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.57,
+                "p95": 4.6,
+                "max": 6.02
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.015953000000081374,
+                "p95": 0.020951000000422937,
+                "max": 0.09326799999962532
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.94,
+                "p95": 4.57,
+                "max": 5.17
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.016123000000334287,
+                "p95": 0.034561000000394415,
+                "max": 0.043593999999757216
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "cold",
+          "trigger": "asr-replay",
+          "chunks": 28,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.087487,
+            "p95": 48.267263,
+            "max": 86.114303,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.41,
+                "p95": 6.81,
+                "max": 7.45
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.25,
+                "p95": 5.13,
+                "max": 28.33
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.012138000000049942,
+                "p95": 0.015563000000838656,
+                "max": 0.05960799999957089
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3,
+                "p95": 4.52,
+                "max": 13.53
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.01654400000006717,
+                "p95": 0.02142199999980221,
+                "max": 0.022883999999976368
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 2.88,
+                "p95": 4.53,
+                "max": 15.92
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.016574000001128297,
+                "p95": 0.025046999999176478,
+                "max": 0.07131500000105007
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "warm-ready",
+          "trigger": "text",
+          "chunks": 28,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.088511,
+            "p95": 4.734975,
+            "max": 18.415615,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 6,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.49,
+                "p95": 7.82,
+                "max": 12.57
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.27,
+                "p95": 2.29,
+                "max": 2.74
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0014119999996182742,
+                "p95": 0.004837000000406988,
+                "max": 0.01185799999984738
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.91,
+                "p95": 3.12,
+                "max": 6.8
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.45285799999874143,
+                "p95": 0.8597979999995005,
+                "max": 1.5849679999992077
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.98,
+                "p95": 3.06,
+                "max": 4.43
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.5403370000003633,
+                "p95": 1.0107810000008612,
+                "max": 1.127613000000565
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "warm-ready",
+          "trigger": "asr-replay",
+          "chunks": 28,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.088511,
+            "p95": 7.532543,
+            "max": 19.398655,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 9,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.98,
+                "p95": 6.61,
+                "max": 7.97
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.42,
+                "p95": 2.47,
+                "max": 2.64
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0014020000016898848,
+                "p95": 0.003365000000485452,
+                "max": 0.009955000001355074
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.67,
+                "p95": 2.86,
+                "max": 3.81
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.4528279999976803,
+                "p95": 0.7866199999989476,
+                "max": 0.8381059999992431
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.78,
+                "p95": 2.97,
+                "max": 3.77
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.43959800000084215,
+                "p95": 0.8259780000007595,
+                "max": 0.9320349999979953
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "no-match",
+          "trigger": "text",
+          "chunks": 28,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.083391,
+            "p95": 2.865151,
+            "max": 6.356991,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.22,
+                "p95": 5.11,
+                "max": 12.27
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.37,
+                "p95": 2.84,
+                "max": 3.02
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0012019999994663522,
+                "p95": 0.0029649999996763654,
+                "max": 0.01142700000127661
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.54,
+                "p95": 3.73,
+                "max": 4.04
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.1152299999994284,
+                "p95": 0.3930099999997765,
+                "max": 0.4129290000018955
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.43,
+                "p95": 3.92,
+                "max": 5.47
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.10908099999869592,
+                "p95": 0.49614199999996345,
+                "max": 0.8422219999993104
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "no-match",
+          "trigger": "asr-replay",
+          "chunks": 28,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.082367,
+            "p95": 7.413759,
+            "max": 13.713407,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.71,
+                "p95": 7.86,
+                "max": 10.58
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.1,
+                "p95": 2.19,
+                "max": 3.2
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0013519999993150122,
+                "p95": 0.0030740000001969747,
+                "max": 0.01135699999940698
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.4,
+                "p95": 2.56,
+                "max": 3.27
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.08319299999857321,
+                "p95": 0.35326100000020233,
+                "max": 0.4009509999996226
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.31,
+                "p95": 3.31,
+                "max": 3.38
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.08290199999828474,
+                "p95": 0.30344699999841396,
+                "max": 0.4891009999992093
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "hung-prefetch",
+          "trigger": "text",
+          "chunks": 28,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.082367,
+            "p95": 2.000895,
+            "max": 9.863167,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 6,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 2.45,
+                "p95": 112.26,
+                "max": 114.51
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.22,
+                "p95": 2.14,
+                "max": 3.05
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0016720000021450687,
+                "p95": 0.0039150000011431985,
+                "max": 0.011325999999826308
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.27,
+                "p95": 1.9,
+                "max": 3.83
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.09724400000050082,
+                "p95": 0.2791419999994105,
+                "max": 0.3616839999995136
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.18,
+                "p95": 2.75,
+                "max": 3.44
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.08719900000141934,
+                "p95": 0.20266900000206078,
+                "max": 0.26505099999849335
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "hung-prefetch",
+          "trigger": "asr-replay",
+          "chunks": 28,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.077247,
+            "p95": 2.709503,
+            "max": 10.076159,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 6,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 104.17,
+                "p95": 110.15,
+                "max": 112.34
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.09,
+                "p95": 2.04,
+                "max": 2.57
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.00159200000052806,
+                "p95": 0.0036949999994249083,
+                "max": 0.011346999999659602
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.19,
+                "p95": 1.99,
+                "max": 2.45
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0712550000025658,
+                "p95": 0.20461199999772361,
+                "max": 0.3290049999995972
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.16,
+                "p95": 2.22,
+                "max": 3.04
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0718059999999241,
+                "p95": 0.20850800000334857,
+                "max": 0.4009909999986121
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "cold",
+          "trigger": "text",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.087487,
+            "p95": 60.162047,
+            "max": 102.301695,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 20.57,
+                "p95": 37.5,
+                "max": 46.21
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.04,
+                "p95": 9.03,
+                "max": 12.17
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.010525999998208135,
+                "p95": 0.012988999998924555,
+                "max": 0.015843999997741776
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.05,
+                "p95": 7.29,
+                "max": 7.81
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.01659500000096159,
+                "p95": 0.04794000000038068,
+                "max": 0.058976000000257045
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.56,
+                "p95": 16.27,
+                "max": 19.35
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.016433999997389037,
+                "p95": 0.04578799999944749,
+                "max": 0.05855600000359118
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "cold",
+          "trigger": "asr-replay",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.094655,
+            "p95": 78.643199,
+            "max": 138.674175,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 21.07,
+                "p95": 28.36,
+                "max": 57.57
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.61,
+                "p95": 9.02,
+                "max": 26.15
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.01159699999698205,
+                "p95": 0.01718599999730941,
+                "max": 0.0749809999979334
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.14,
+                "p95": 8.23,
+                "max": 8.67
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.017805999996198807,
+                "p95": 0.021040999999968335,
+                "max": 0.023605000002135057
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.78,
+                "p95": 9.33,
+                "max": 9.4
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.01705499999661697,
+                "p95": 0.025366999994730577,
+                "max": 0.08763899999757996
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "warm-ready",
+          "trigger": "text",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.084415,
+            "p95": 5.181439,
+            "max": 119.865343,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 6,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.65,
+                "p95": 5.8,
+                "max": 119.55
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.34,
+                "p95": 2.15,
+                "max": 2.41
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0014020000016898848,
+                "p95": 0.003635000000940636,
+                "max": 0.009864999999990687
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.76,
+                "p95": 2.56,
+                "max": 3.4
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.4520349999947939,
+                "p95": 0.7233149999956368,
+                "max": 0.8340700000044308
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.73,
+                "p95": 2.48,
+                "max": 3.37
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.443502999994962,
+                "p95": 0.9363309999971534,
+                "max": 1.0165469999992638
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "warm-ready",
+          "trigger": "asr-replay",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.085439,
+            "p95": 8.445951,
+            "max": 41.254911,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 9,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 5.98,
+                "p95": 9.77,
+                "max": 10.48
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.29,
+                "p95": 2.31,
+                "max": 2.48
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.001101999994716607,
+                "p95": 0.0034949999972013757,
+                "max": 0.012508999992860481
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.7,
+                "p95": 3.03,
+                "max": 3.62
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.4373450000057346,
+                "p95": 0.9209350000019185,
+                "max": 0.9293179999949643
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.72,
+                "p95": 2.53,
+                "max": 5.2
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.4300349999975879,
+                "p95": 0.7244460000001709,
+                "max": 1.2107519999990473
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "no-match",
+          "trigger": "text",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.079295,
+            "p95": 2.424831,
+            "max": 6.361087,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.44,
+                "p95": 6.11,
+                "max": 129.22
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.12,
+                "p95": 2.7,
+                "max": 2.9
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0013619999954244122,
+                "p95": 0.008322999994561542,
+                "max": 0.058487000002060086
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.41,
+                "p95": 2.58,
+                "max": 3.05
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.10590599999704864,
+                "p95": 0.2821459999977378,
+                "max": 0.30094399999507004
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.35,
+                "p95": 1.96,
+                "max": 2.88
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.10015800000110175,
+                "p95": 0.36894399999437155,
+                "max": 0.4783349999997881
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "no-match",
+          "trigger": "asr-replay",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.083391,
+            "p95": 8.421375,
+            "max": 26.738687,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.59,
+                "p95": 8.24,
+                "max": 120.54
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.09,
+                "p95": 2.06,
+                "max": 2.62
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0013919999983045273,
+                "p95": 0.0034149999992223457,
+                "max": 0.01213800000550691
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.28,
+                "p95": 2.08,
+                "max": 2.97
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.07912700000451878,
+                "p95": 0.21149200000218116,
+                "max": 0.3207230000043637
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.28,
+                "p95": 1.86,
+                "max": 3.46
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.08360299999912968,
+                "p95": 0.30048299999907613,
+                "max": 0.3765849999981583
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "hung-prefetch",
+          "trigger": "text",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.083391,
+            "p95": 2.609151,
+            "max": 31.719423,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 6,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 2.64,
+                "p95": 143.57,
+                "max": 250.3
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.32,
+                "p95": 3.65,
+                "max": 5.32
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0016230000037467107,
+                "p95": 0.004095999996934552,
+                "max": 0.012318000000959728
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.38,
+                "p95": 3.43,
+                "max": 5.91
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0879690000001574,
+                "p95": 0.40968399999837857,
+                "max": 0.5547969999970519
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.4,
+                "p95": 3.17,
+                "max": 10.11
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0830229999992298,
+                "p95": 0.6892450000013923,
+                "max": 1.8750319999962812
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "hung-prefetch",
+          "trigger": "asr-replay",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.080319,
+            "p95": 3.305471,
+            "max": 32.342015,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 6,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 106.63,
+                "p95": 132.19,
+                "max": 224.49
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.26,
+                "p95": 2.77,
+                "max": 8.79
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.001512999995611608,
+                "p95": 0.003674999999930151,
+                "max": 0.01063599999906728
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.33,
+                "p95": 5.52,
+                "max": 6.98
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.06805000000167638,
+                "p95": 0.26553099999728147,
+                "max": 1.087692999994033
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.39,
+                "p95": 4.15,
+                "max": 4.21
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.07165600000007544,
+                "p95": 0.37200899999879766,
+                "max": 0.3868000000002212
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "cold",
+          "trigger": "text",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.089535,
+            "p95": 100.859903,
+            "max": 203.948031,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 56.89,
+                "p95": 70.27,
+                "max": 94.7
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.17,
+                "p95": 8.77,
+                "max": 10.79
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.010955999998259358,
+                "p95": 0.020831000001635402,
+                "max": 0.08783899999980349
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.26,
+                "p95": 6.78,
+                "max": 7.55
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.01668499999505002,
+                "p95": 0.018788000001222827,
+                "max": 0.020170000003417954
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.26,
+                "p95": 7.89,
+                "max": 15.72
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.017116000002715737,
+                "p95": 0.036513999992166646,
+                "max": 0.04643899999791756
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "cold",
+          "trigger": "asr-replay",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.088511,
+            "p95": 95.813631,
+            "max": 219.676671,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 52.5,
+                "p95": 66.04,
+                "max": 69.64
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 2.68,
+                "p95": 3.76,
+                "max": 3.87
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.011255999997956678,
+                "p95": 0.016755000004195608,
+                "max": 0.02734000000054948
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 2.77,
+                "p95": 3.3,
+                "max": 3.38
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.016724999994039536,
+                "p95": 0.0204200000007404,
+                "max": 0.03091600000334438
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 2.62,
+                "p95": 3.26,
+                "max": 3.94
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.01690499999676831,
+                "p95": 0.02035000000614673,
+                "max": 0.04923300001246389
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "warm-ready",
+          "trigger": "text",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.085439,
+            "p95": 4.988927,
+            "max": 381.681663,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 6,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.4,
+                "p95": 5.59,
+                "max": 379.61
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.23,
+                "p95": 1.85,
+                "max": 2.58
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0012719999940600246,
+                "p95": 0.015372999987448566,
+                "max": 0.09397800000442658
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.65,
+                "p95": 2.43,
+                "max": 6.68
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.4284920000063721,
+                "p95": 0.7287749999959487,
+                "max": 1.0752059999940684
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.6,
+                "p95": 2.41,
+                "max": 5.07
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.43632399999478366,
+                "p95": 0.7853279999981169,
+                "max": 0.9465959999943152
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "warm-ready",
+          "trigger": "asr-replay",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.085439,
+            "p95": 8.478719,
+            "max": 99.287039,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 9,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 6.03,
+                "p95": 8.42,
+                "max": 8.65
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.33,
+                "p95": 2.05,
+                "max": 3.36
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0011620000004768372,
+                "p95": 0.002693999995244667,
+                "max": 0.014471000002231449
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.61,
+                "p95": 2.55,
+                "max": 3.82
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.4242950000043493,
+                "p95": 0.8882100000046194,
+                "max": 1.007385000004433
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.71,
+                "p95": 2.72,
+                "max": 4.43
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.4474000000045635,
+                "p95": 1.0647699999972247,
+                "max": 1.102526000002399
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "no-match",
+          "trigger": "text",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.080319,
+            "p95": 2.637823,
+            "max": 6.881279,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.53,
+                "p95": 6.69,
+                "max": 387.26
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.08,
+                "p95": 2.71,
+                "max": 2.91
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0012920000008307397,
+                "p95": 0.0029950000025564805,
+                "max": 0.010276000000885688
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.43,
+                "p95": 2.54,
+                "max": 3.42
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.10769900000013877,
+                "p95": 0.45406000000366475,
+                "max": 1.2525270000041928
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.44,
+                "p95": 2.36,
+                "max": 3.4
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.1022099999972852,
+                "p95": 0.49264700000640005,
+                "max": 0.7603710000112187
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "no-match",
+          "trigger": "asr-replay",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.085439,
+            "p95": 9.764863,
+            "max": 87.162879,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 5.44,
+                "p95": 8.5,
+                "max": 411.84
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.25,
+                "p95": 3.73,
+                "max": 5.37
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0012819999974453822,
+                "p95": 0.004186000005574897,
+                "max": 0.013200000001234002
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.44,
+                "p95": 3.98,
+                "max": 15.11
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.08267200000409503,
+                "p95": 0.3491349999967497,
+                "max": 0.4640849999996135
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.6,
+                "p95": 3.53,
+                "max": 3.78
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.09290700001292862,
+                "p95": 0.4235550000012154,
+                "max": 0.5301820000022417
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "hung-prefetch",
+          "trigger": "text",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.090559,
+            "p95": 3.117055,
+            "max": 97.910783,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 6,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.38,
+                "p95": 213.03,
+                "max": 603.39
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 2.02,
+                "p95": 4.59,
+                "max": 4.67
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0014919999957783148,
+                "p95": 0.013279999999213032,
+                "max": 0.06840100001136307
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.51,
+                "p95": 4.34,
+                "max": 4.38
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.09544000000460073,
+                "p95": 0.9874460000137333,
+                "max": 1.1901050000014948
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.95,
+                "p95": 4.47,
+                "max": 6.2
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.09922599999117665,
+                "p95": 0.8947299999999814,
+                "max": 0.9292399999976624
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "hung-prefetch",
+          "trigger": "asr-replay",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.090559,
+            "p95": 6.209535,
+            "max": 100.925439,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 6,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 2.82,
+                "p95": 7.19,
+                "max": 628.07
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.26,
+                "p95": 3.13,
+                "max": 3.68
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0015120000025490299,
+                "p95": 0.004616999998688698,
+                "max": 0.012638999993214384
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.44,
+                "p95": 3.52,
+                "max": 4.28
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.06493599999521393,
+                "p95": 0.7956129999947734,
+                "max": 1.4573190000082832
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.38,
+                "p95": 3.81,
+                "max": 4.05
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.06814000000304077,
+                "p95": 1.3021409999928437,
+                "max": 2.074720000004163
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "cpu": {
+      "schemaVersion": 1,
+      "generatedAt": "2026-10-21T05:53:42.631Z",
+      "baseRef": "d6dab06009ce9a79c41e9e3782438c3265cd89dd",
+      "scope": "Offline actual package-entry replay with synthetic SDK response. No online model, real ASR, E5 inference, WAN or renderer.",
+      "live": false,
+      "syntheticTransportMs": 5,
+      "environment": {
+        "node": "v24.19.0",
+        "platform": "linux",
+        "arch": "x64",
+        "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+        "cpuCount": 5
+      },
+      "cpuContention": true,
+      "measurementNotes": [
+        "All four policies include the final shared QuestionResolver bugfix; A is not an archived old commit.",
+        "B changes foreground RAG only; C adds instant context but keeps standard model profile; D requests the configured fast tier. Actual model/options are recorded per sample.",
+        "One provider request at a time, rotating A/B/C/D order; percentile samples exclude failed/canceled requests, rates retain every attempt.",
+        "asr-replay means accepted synthetic ASR/VAD events plus the real shortcut. It does not measure real microphone/remote audio, recognition or physical speech end.",
+        "first useful sentence uses a sentence-end heuristic, not semantic quality grading. The offline response text is fixed and does not prove generated answer correctness.",
+        "No renderer runs in this harness, so renderAckMs/paintApproxMs are null.",
+        "Offline first-content values include an intentionally synthetic provider delay; they are never claims about online TTFT.",
+        "Pressure snapshots start from real imported fixtures; noise is synthetic and stays within 7000 chunks/1800 files per project.",
+        "Warm-ready seeds run outside per-request timing. Whole-group event-loop statistics include seed and setup work.",
+        "Live settings import is limited to current-provider credentials/model/transport/window configuration; private resume/stories/project material/style/history and stale experiment settings are never imported.",
+        "Live 30-sample P95 is exploratory; use more samples for confirmation, record rates and compare actual provider/model/endpoint class."
+      ],
+      "configuration": {
+        "samples": 30,
+        "coldSamples": 30,
+        "sizes": [
+          "4000",
+          "14000"
+        ],
+        "scenarios": [
+          "no-doc",
+          "cold",
+          "warm-ready",
+          "no-match",
+          "hung-prefetch"
+        ],
+        "triggers": [
+          "text",
+          "asr-replay"
+        ],
+        "requestedSettingsFile": null
+      },
+      "sourceHashesAtStart": {
+        "main.js": "ac37fd5d66781d83dadcce07e7d358433444a0f77f76745e7c30a1b421d78c36",
+        "src/custom-main.js": "57a0211877d08368e45e00243a51c619e9fd45b3e66cfdfe399c5ddbcde92a6a",
+        "src/build-info.js": "1da93cfa592ecc66263e2ce45a3d5d9280f5e4b5974705328c23e81502485857",
+        "src/store.js": "4ab8b9c93fe736da09455ede22f32f698d8d46147d8c9c7bf51dd99f73783b70",
+        "src/stt.js": "f1db1e805236de707e60dafbb56dedb3c8bb3b7210c819fdb6383cc495fd3478",
+        "src/stt-streaming.js": "83e87475c8112d61fef5887d62794e4cadc70e80e93cf0a69fcd752f277f65eb",
+        "src/stt-providers/qwen.js": "791c56d51a87cfc209b5c5e412252ed48c50ea8261a4fe6d8b40054ba49f258e",
+        "src/local-whisper-transcriber.js": "038a04ca85f09b57c4b24bef5f54925e06f983141a5cb77caf001f2c258c482d",
+        "src/question-resolver.js": "4e753a0b25f82e44a865ecd86fa0ebbbb05f6afd6590585f7bd43a024ea3dbb1",
+        "src/conversation-memory.js": "579e913dcd79a7d996b2f4ac0a5b3803316f9a0758f2e150b658f742c489f54e",
+        "src/instant-answer-policy.js": "989a32727b4e06b45f2c901a87b91f37d884e72f24de7b754543b79a0f8cda5c",
+        "src/instant-answer-context.js": "8447b298966532f70aba7cc8f4041f7d045b9245725bc96a317bda976baff6a1",
+        "src/instant-ready-evidence.js": "122e708f1d9d92c50f50c976bf322418d5b7e4c414fbc44467e53b84ecd18e1c",
+        "src/project-rag-session.js": "9fb7b0a43c486b8827b86878b69cad790a717ef2847897ad8f2e98a129fa8645",
+        "src/active-project-context-cache.js": "06da2f7e3f7f02a13f81072740d55ea624584f49ce12a2a002b82ea4597c5884",
+        "src/llm.js": "4a415c52b6cd779a2e437787faf006a628620b936c96fdf6a1ea2e18d2096fa7",
+        "src/model-latency-policy.js": "a9132b5db79f5be56948ea23bf8954b1c99c2b0196578b9094bd2638e877c27f",
+        "src/openai-compatible.js": "968153160fa726b5da454136af4a47ebd5fb3b953a570f687a605544b78c41f3",
+        "src/reply-latency.js": "f4006085796c275fc50433d538e5dec4d190956136289ff25b28c448628457bb",
+        "scripts/benchmark-instant-answer.cjs": "7b7d55fbd233661e6b390938240015115e28cfee00b1e26e2097a1ba0bf09ee7",
+        "test/helpers/interview-agent-runtime.js": "ca8df0f31f805e166fbc2af1219c68171158a587b00dc4aabe30c9bd9c98fc08"
+      },
+      "sourceHashesAtEnd": {
+        "main.js": "ac37fd5d66781d83dadcce07e7d358433444a0f77f76745e7c30a1b421d78c36",
+        "src/custom-main.js": "57a0211877d08368e45e00243a51c619e9fd45b3e66cfdfe399c5ddbcde92a6a",
+        "src/build-info.js": "1da93cfa592ecc66263e2ce45a3d5d9280f5e4b5974705328c23e81502485857",
+        "src/store.js": "4ab8b9c93fe736da09455ede22f32f698d8d46147d8c9c7bf51dd99f73783b70",
+        "src/stt.js": "f1db1e805236de707e60dafbb56dedb3c8bb3b7210c819fdb6383cc495fd3478",
+        "src/stt-streaming.js": "83e87475c8112d61fef5887d62794e4cadc70e80e93cf0a69fcd752f277f65eb",
+        "src/stt-providers/qwen.js": "791c56d51a87cfc209b5c5e412252ed48c50ea8261a4fe6d8b40054ba49f258e",
+        "src/local-whisper-transcriber.js": "038a04ca85f09b57c4b24bef5f54925e06f983141a5cb77caf001f2c258c482d",
+        "src/question-resolver.js": "4e753a0b25f82e44a865ecd86fa0ebbbb05f6afd6590585f7bd43a024ea3dbb1",
+        "src/conversation-memory.js": "579e913dcd79a7d996b2f4ac0a5b3803316f9a0758f2e150b658f742c489f54e",
+        "src/instant-answer-policy.js": "989a32727b4e06b45f2c901a87b91f37d884e72f24de7b754543b79a0f8cda5c",
+        "src/instant-answer-context.js": "8447b298966532f70aba7cc8f4041f7d045b9245725bc96a317bda976baff6a1",
+        "src/instant-ready-evidence.js": "122e708f1d9d92c50f50c976bf322418d5b7e4c414fbc44467e53b84ecd18e1c",
+        "src/project-rag-session.js": "9fb7b0a43c486b8827b86878b69cad790a717ef2847897ad8f2e98a129fa8645",
+        "src/active-project-context-cache.js": "06da2f7e3f7f02a13f81072740d55ea624584f49ce12a2a002b82ea4597c5884",
+        "src/llm.js": "4a415c52b6cd779a2e437787faf006a628620b936c96fdf6a1ea2e18d2096fa7",
+        "src/model-latency-policy.js": "a9132b5db79f5be56948ea23bf8954b1c99c2b0196578b9094bd2638e877c27f",
+        "src/openai-compatible.js": "968153160fa726b5da454136af4a47ebd5fb3b953a570f687a605544b78c41f3",
+        "src/reply-latency.js": "f4006085796c275fc50433d538e5dec4d190956136289ff25b28c448628457bb",
+        "scripts/benchmark-instant-answer.cjs": "7b7d55fbd233661e6b390938240015115e28cfee00b1e26e2097a1ba0bf09ee7",
+        "test/helpers/interview-agent-runtime.js": "ca8df0f31f805e166fbc2af1219c68171158a587b00dc4aabe30c9bd9c98fc08"
+      },
+      "sourceChangedDuringRun": false,
+      "liveTargets": null,
+      "aggregates": {
+        "A": {
+          "all": {
+            "n": 540,
+            "sdkTargetCorrect": 540,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 159,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 9,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 540,
+                "p50": 4.84,
+                "p95": 106.31,
+                "max": 558.39
+              },
+              "providerResponseMs": {
+                "n": 540,
+                "p50": 5.53,
+                "p95": 5.92,
+                "max": 23.58
+              },
+              "firstReasoningMs": {
+                "n": 540,
+                "p50": 5.55,
+                "p95": 5.96,
+                "max": 23.62
+              },
+              "firstContentMs": {
+                "n": 540,
+                "p50": 5.6,
+                "p95": 6.1,
+                "max": 23.69
+              },
+              "triggerToFirstContentMs": {
+                "n": 540,
+                "p50": 10.24,
+                "p95": 111.01,
+                "max": 564.24
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 540,
+                "p50": 10.28,
+                "p95": 111.06,
+                "max": 564.31
+              },
+              "readyEvidenceReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              },
+              "inputTokensEstimate": {
+                "n": 540,
+                "p50": 2111,
+                "p95": 6171,
+                "max": 7062
+              },
+              "optionalContextTokensEstimate": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            }
+          },
+          "warm": {
+            "n": 420,
+            "sdkTargetCorrect": 420,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 159,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 9,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 420,
+                "p50": 4.19,
+                "p95": 109.29,
+                "max": 558.39
+              },
+              "providerResponseMs": {
+                "n": 420,
+                "p50": 5.53,
+                "p95": 5.79,
+                "max": 23.58
+              },
+              "firstReasoningMs": {
+                "n": 420,
+                "p50": 5.55,
+                "p95": 5.84,
+                "max": 23.62
+              },
+              "firstContentMs": {
+                "n": 420,
+                "p50": 5.6,
+                "p95": 5.9,
+                "max": 23.69
+              },
+              "triggerToFirstContentMs": {
+                "n": 420,
+                "p50": 9.5,
+                "p95": 115.35,
+                "max": 564.24
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 420,
+                "p50": 9.55,
+                "p95": 115.39,
+                "max": 564.31
+              },
+              "readyEvidenceReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              },
+              "inputTokensEstimate": {
+                "n": 420,
+                "p50": 2453,
+                "p95": 6456,
+                "max": 7062
+              },
+              "optionalContextTokensEstimate": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            }
+          },
+          "cold": {
+            "n": 120,
+            "sdkTargetCorrect": 120,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 0,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 120,
+                "p50": 37.45,
+                "p95": 74.91,
+                "max": 97.12
+              },
+              "providerResponseMs": {
+                "n": 120,
+                "p50": 5.65,
+                "p95": 11.73,
+                "max": 21.98
+              },
+              "firstReasoningMs": {
+                "n": 120,
+                "p50": 5.69,
+                "p95": 11.79,
+                "max": 22.05
+              },
+              "firstContentMs": {
+                "n": 120,
+                "p50": 5.77,
+                "p95": 11.9,
+                "max": 23.18
+              },
+              "triggerToFirstContentMs": {
+                "n": 120,
+                "p50": 54.4,
+                "p95": 79.99,
+                "max": 103.16
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 120,
+                "p50": 54.46,
+                "p95": 80.07,
+                "max": 103.24
+              },
+              "readyEvidenceReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              },
+              "inputTokensEstimate": {
+                "n": 120,
+                "p50": 1677,
+                "p95": 1815,
+                "max": 1815
+              },
+              "optionalContextTokensEstimate": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            }
+          }
+        },
+        "B": {
+          "all": {
+            "n": 540,
+            "sdkTargetCorrect": 540,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 0,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 540,
+                "p50": 1.58,
+                "p95": 4.81,
+                "max": 13.29
+              },
+              "providerResponseMs": {
+                "n": 540,
+                "p50": 5.53,
+                "p95": 5.98,
+                "max": 69.18
+              },
+              "firstReasoningMs": {
+                "n": 540,
+                "p50": 5.56,
+                "p95": 6.06,
+                "max": 69.21
+              },
+              "firstContentMs": {
+                "n": 540,
+                "p50": 5.6,
+                "p95": 6.21,
+                "max": 69.27
+              },
+              "triggerToFirstContentMs": {
+                "n": 540,
+                "p50": 7.08,
+                "p95": 11.18,
+                "max": 72.08
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 540,
+                "p50": 7.15,
+                "p95": 11.24,
+                "max": 72.15
+              },
+              "readyEvidenceReadMs": {
+                "n": 540,
+                "p50": 0.0019429999956628308,
+                "p95": 0.014901999998983229,
+                "max": 0.07263699999748496
+              },
+              "inputTokensEstimate": {
+                "n": 540,
+                "p50": 2016,
+                "p95": 3158,
+                "max": 3486
+              },
+              "optionalContextTokensEstimate": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            }
+          },
+          "warm": {
+            "n": 420,
+            "sdkTargetCorrect": 420,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 0,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 420,
+                "p50": 1.41,
+                "p95": 3.2,
+                "max": 5.7
+              },
+              "providerResponseMs": {
+                "n": 420,
+                "p50": 5.51,
+                "p95": 5.82,
+                "max": 69.18
+              },
+              "firstReasoningMs": {
+                "n": 420,
+                "p50": 5.54,
+                "p95": 5.86,
+                "max": 69.21
+              },
+              "firstContentMs": {
+                "n": 420,
+                "p50": 5.58,
+                "p95": 5.93,
+                "max": 69.27
+              },
+              "triggerToFirstContentMs": {
+                "n": 420,
+                "p50": 6.88,
+                "p95": 8.97,
+                "max": 72.08
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 420,
+                "p50": 6.92,
+                "p95": 9.03,
+                "max": 72.15
+              },
+              "readyEvidenceReadMs": {
+                "n": 420,
+                "p50": 0.0017019999941112474,
+                "p95": 0.008041999999932159,
+                "max": 0.07263699999748496
+              },
+              "inputTokensEstimate": {
+                "n": 420,
+                "p50": 2328,
+                "p95": 3165,
+                "max": 3486
+              },
+              "optionalContextTokensEstimate": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            }
+          },
+          "cold": {
+            "n": 120,
+            "sdkTargetCorrect": 120,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 0,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 120,
+                "p50": 3.83,
+                "p95": 6.75,
+                "max": 13.29
+              },
+              "providerResponseMs": {
+                "n": 120,
+                "p50": 5.66,
+                "p95": 12.91,
+                "max": 20.82
+              },
+              "firstReasoningMs": {
+                "n": 120,
+                "p50": 5.7,
+                "p95": 12.99,
+                "max": 20.89
+              },
+              "firstContentMs": {
+                "n": 120,
+                "p50": 5.8,
+                "p95": 13.15,
+                "max": 21
+              },
+              "triggerToFirstContentMs": {
+                "n": 120,
+                "p50": 9.46,
+                "p95": 17.23,
+                "max": 24.18
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 120,
+                "p50": 9.52,
+                "p95": 17.31,
+                "max": 24.25
+              },
+              "readyEvidenceReadMs": {
+                "n": 120,
+                "p50": 0.011836999998195097,
+                "p95": 0.03481099999953585,
+                "max": 0.04806099999950675
+              },
+              "inputTokensEstimate": {
+                "n": 120,
+                "p50": 1569,
+                "p95": 1815,
+                "max": 1815
+              },
+              "optionalContextTokensEstimate": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            }
+          }
+        },
+        "C": {
+          "all": {
+            "n": 540,
+            "sdkTargetCorrect": 540,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 80,
+            "sourceCountMax": 2,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 540,
+                "p50": 1.87,
+                "p95": 5.19,
+                "max": 9.22
+              },
+              "providerResponseMs": {
+                "n": 540,
+                "p50": 5.54,
+                "p95": 5.84,
+                "max": 42.49
+              },
+              "firstReasoningMs": {
+                "n": 540,
+                "p50": 5.56,
+                "p95": 5.89,
+                "max": 42.54
+              },
+              "firstContentMs": {
+                "n": 540,
+                "p50": 5.61,
+                "p95": 5.98,
+                "max": 42.63
+              },
+              "triggerToFirstContentMs": {
+                "n": 540,
+                "p50": 7.34,
+                "p95": 11.22,
+                "max": 45.56
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 540,
+                "p50": 7.38,
+                "p95": 11.26,
+                "max": 45.62
+              },
+              "readyEvidenceReadMs": {
+                "n": 540,
+                "p50": 0.08687800000188872,
+                "p95": 0.6447100000004866,
+                "max": 1.7959379999992962
+              },
+              "inputTokensEstimate": {
+                "n": 540,
+                "p50": 478,
+                "p95": 1120,
+                "max": 1122
+              },
+              "optionalContextTokensEstimate": {
+                "n": 540,
+                "p50": 19,
+                "p95": 650,
+                "max": 650
+              }
+            }
+          },
+          "warm": {
+            "n": 420,
+            "sdkTargetCorrect": 420,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 80,
+            "sourceCountMax": 2,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 420,
+                "p50": 1.66,
+                "p95": 3.59,
+                "max": 8.28
+              },
+              "providerResponseMs": {
+                "n": 420,
+                "p50": 5.53,
+                "p95": 5.75,
+                "max": 42.49
+              },
+              "firstReasoningMs": {
+                "n": 420,
+                "p50": 5.56,
+                "p95": 5.79,
+                "max": 42.54
+              },
+              "firstContentMs": {
+                "n": 420,
+                "p50": 5.6,
+                "p95": 5.89,
+                "max": 42.63
+              },
+              "triggerToFirstContentMs": {
+                "n": 420,
+                "p50": 7.1,
+                "p95": 9.13,
+                "max": 45.56
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 420,
+                "p50": 7.14,
+                "p95": 9.18,
+                "max": 45.62
+              },
+              "readyEvidenceReadMs": {
+                "n": 420,
+                "p50": 0.11262600000191014,
+                "p95": 0.688575000007404,
+                "max": 1.7959379999992962
+              },
+              "inputTokensEstimate": {
+                "n": 420,
+                "p50": 480,
+                "p95": 1120,
+                "max": 1122
+              },
+              "optionalContextTokensEstimate": {
+                "n": 420,
+                "p50": 19,
+                "p95": 650,
+                "max": 650
+              }
+            }
+          },
+          "cold": {
+            "n": 120,
+            "sdkTargetCorrect": 120,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 0,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 120,
+                "p50": 3.77,
+                "p95": 7.12,
+                "max": 9.22
+              },
+              "providerResponseMs": {
+                "n": 120,
+                "p50": 5.65,
+                "p95": 6.06,
+                "max": 16.08
+              },
+              "firstReasoningMs": {
+                "n": 120,
+                "p50": 5.69,
+                "p95": 6.11,
+                "max": 16.15
+              },
+              "firstContentMs": {
+                "n": 120,
+                "p50": 5.76,
+                "p95": 6.21,
+                "max": 16.3
+              },
+              "triggerToFirstContentMs": {
+                "n": 120,
+                "p50": 9.19,
+                "p95": 14,
+                "max": 20.64
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 120,
+                "p50": 9.25,
+                "p95": 14.07,
+                "max": 20.74
+              },
+              "readyEvidenceReadMs": {
+                "n": 120,
+                "p50": 0.017665999999735504,
+                "p95": 0.03330899999855319,
+                "max": 0.10938099999839324
+              },
+              "inputTokensEstimate": {
+                "n": 120,
+                "p50": 406,
+                "p95": 463,
+                "max": 463
+              },
+              "optionalContextTokensEstimate": {
+                "n": 120,
+                "p50": 0,
+                "p95": 0,
+                "max": 0
+              }
+            }
+          }
+        },
+        "D": {
+          "all": {
+            "n": 540,
+            "sdkTargetCorrect": 540,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 80,
+            "sourceCountMax": 2,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 540,
+                "p50": 1.83,
+                "p95": 4.89,
+                "max": 11.44
+              },
+              "providerResponseMs": {
+                "n": 540,
+                "p50": 5.53,
+                "p95": 5.86,
+                "max": 20.51
+              },
+              "firstReasoningMs": {
+                "n": 540,
+                "p50": 5.56,
+                "p95": 5.93,
+                "max": 20.58
+              },
+              "firstContentMs": {
+                "n": 540,
+                "p50": 5.61,
+                "p95": 6.04,
+                "max": 27.26
+              },
+              "triggerToFirstContentMs": {
+                "n": 540,
+                "p50": 7.29,
+                "p95": 10.89,
+                "max": 30.78
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 540,
+                "p50": 7.35,
+                "p95": 10.94,
+                "max": 30.88
+              },
+              "readyEvidenceReadMs": {
+                "n": 540,
+                "p50": 0.09095399999932852,
+                "p95": 0.6478149999893503,
+                "max": 1.9026559999983874
+              },
+              "inputTokensEstimate": {
+                "n": 540,
+                "p50": 478,
+                "p95": 1120,
+                "max": 1122
+              },
+              "optionalContextTokensEstimate": {
+                "n": 540,
+                "p50": 19,
+                "p95": 650,
+                "max": 650
+              }
+            }
+          },
+          "warm": {
+            "n": 420,
+            "sdkTargetCorrect": 420,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 80,
+            "sourceCountMax": 2,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 420,
+                "p50": 1.63,
+                "p95": 3.53,
+                "max": 5.5
+              },
+              "providerResponseMs": {
+                "n": 420,
+                "p50": 5.53,
+                "p95": 5.72,
+                "max": 9.04
+              },
+              "firstReasoningMs": {
+                "n": 420,
+                "p50": 5.55,
+                "p95": 5.77,
+                "max": 9.12
+              },
+              "firstContentMs": {
+                "n": 420,
+                "p50": 5.6,
+                "p95": 5.87,
+                "max": 27.26
+              },
+              "triggerToFirstContentMs": {
+                "n": 420,
+                "p50": 7.05,
+                "p95": 9.22,
+                "max": 30.78
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 420,
+                "p50": 7.1,
+                "p95": 9.27,
+                "max": 30.88
+              },
+              "readyEvidenceReadMs": {
+                "n": 420,
+                "p50": 0.11253600000054576,
+                "p95": 0.6746249999996508,
+                "max": 1.9026559999983874
+              },
+              "inputTokensEstimate": {
+                "n": 420,
+                "p50": 480,
+                "p95": 1120,
+                "max": 1122
+              },
+              "optionalContextTokensEstimate": {
+                "n": 420,
+                "p50": 19,
+                "p95": 650,
+                "max": 650
+              }
+            }
+          },
+          "cold": {
+            "n": 120,
+            "sdkTargetCorrect": 120,
+            "failures": 0,
+            "extraSdkRequests": 0,
+            "frontendSearchCalls": 0,
+            "readyEvidenceHits": 0,
+            "sourceCountMax": 0,
+            "metrics": {
+              "triggerToDispatchMs": {
+                "n": 120,
+                "p50": 3.7,
+                "p95": 6.03,
+                "max": 11.44
+              },
+              "providerResponseMs": {
+                "n": 120,
+                "p50": 5.64,
+                "p95": 8.7,
+                "max": 20.51
+              },
+              "firstReasoningMs": {
+                "n": 120,
+                "p50": 5.69,
+                "p95": 8.75,
+                "max": 20.58
+              },
+              "firstContentMs": {
+                "n": 120,
+                "p50": 5.78,
+                "p95": 8.85,
+                "max": 20.7
+              },
+              "triggerToFirstContentMs": {
+                "n": 120,
+                "p50": 9.35,
+                "p95": 16.27,
+                "max": 24.04
+              },
+              "triggerToFirstUsefulSentenceMs": {
+                "n": 120,
+                "p50": 9.4,
+                "p95": 16.34,
+                "max": 24.11
+              },
+              "readyEvidenceReadMs": {
+                "n": 120,
+                "p50": 0.017687000003206776,
+                "p95": 0.027991999999812833,
+                "max": 0.10039799999503884
+              },
+              "inputTokensEstimate": {
+                "n": 120,
+                "p50": 406,
+                "p95": 463,
+                "max": 463
+              },
+              "optionalContextTokensEstimate": {
+                "n": 120,
+                "p50": 0,
+                "p95": 0,
+                "max": 0
+              }
+            }
+          }
+        }
+      },
+      "groupMaxP95": {
+        "A": {
+          "warmDispatchMs": 188.17,
+          "coldDispatchMs": 95.11,
+          "readyReadMs": 0
+        },
+        "B": {
+          "warmDispatchMs": 4.22,
+          "coldDispatchMs": 8.88,
+          "readyReadMs": 0.04157100000156788
+        },
+        "C": {
+          "warmDispatchMs": 5.99,
+          "coldDispatchMs": 8.02,
+          "readyReadMs": 1.361417000000074
+        },
+        "D": {
+          "warmDispatchMs": 4.93,
+          "coldDispatchMs": 9.42,
+          "readyReadMs": 1.1315279999980703
+        }
+      },
+      "groups": [
+        {
+          "scenario": "no-doc",
+          "trigger": "text",
+          "chunks": 0,
+          "projectCount": 0,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.091583,
+            "p95": 2.701311,
+            "max": 8.650751,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 2.1,
+                "p95": 4.52,
+                "max": 25.98
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.69,
+                "p95": 3.56,
+                "max": 5.7
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.006370000000060827,
+                "p95": 0.008893000000057327,
+                "max": 0.03273799999999483
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.87,
+                "p95": 3.61,
+                "max": 8.28
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.01276899999993475,
+                "p95": 0.019829000000072483,
+                "max": 0.043043000000125176
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.79,
+                "p95": 3.91,
+                "max": 4.74
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.012968999999884545,
+                "p95": 0.1300420000000031,
+                "max": 0.19223399999998492
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "no-doc",
+          "trigger": "asr-replay",
+          "chunks": 0,
+          "projectCount": 0,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.092607,
+            "p95": 4.685823,
+            "max": 23.379967,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.63,
+                "p95": 4.17,
+                "max": 4.99
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.55,
+                "p95": 3.21,
+                "max": 4.34
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.006820000000061555,
+                "p95": 0.008933000000070024,
+                "max": 0.010575000000017099
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.36,
+                "p95": 3.16,
+                "max": 3.76
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.01268900000013673,
+                "p95": 0.0168349999999009,
+                "max": 0.5510029999998096
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.37,
+                "p95": 2.85,
+                "max": 3.2
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.012588999999934458,
+                "p95": 0.014490999999907217,
+                "max": 0.019307999999909953
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "cold",
+          "trigger": "text",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.094655,
+            "p95": 67.174399,
+            "max": 104.726527,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 20.86,
+                "p95": 36.42,
+                "max": 37.45
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.08,
+                "p95": 8.88,
+                "max": 13.29
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.01199799999994866,
+                "p95": 0.018187000000580156,
+                "max": 0.03909800000019459
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.29,
+                "p95": 7.64,
+                "max": 8.4
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.01864700000078301,
+                "p95": 0.024927000000388944,
+                "max": 0.08818000000064785
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.34,
+                "p95": 9.42,
+                "max": 11.44
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.018387000000075204,
+                "p95": 0.03799599999911152,
+                "max": 0.08322299999963434
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "cold",
+          "trigger": "asr-replay",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.090559,
+            "p95": 70.451199,
+            "max": 142.344191,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 20.04,
+                "p95": 29.82,
+                "max": 33.88
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.39,
+                "p95": 5.96,
+                "max": 6.1
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.012158000001363689,
+                "p95": 0.03481099999953585,
+                "max": 0.04806099999950675
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.15,
+                "p95": 4.73,
+                "max": 5.19
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.01796699999977136,
+                "p95": 0.10731899999882444,
+                "max": 0.10938099999839324
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.34,
+                "p95": 4.86,
+                "max": 5.23
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.01869799999985844,
+                "p95": 0.023134000000936794,
+                "max": 0.03637399999934132
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "warm-ready",
+          "trigger": "text",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.093631,
+            "p95": 6.701055,
+            "max": 143.261695,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 6,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.73,
+                "p95": 8.11,
+                "max": 142.86
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.47,
+                "p95": 3.68,
+                "max": 4.18
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0016130000003613532,
+                "p95": 0.010695000000850996,
+                "max": 0.012267999998584855
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.96,
+                "p95": 3.62,
+                "max": 4.84
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.5640519999979006,
+                "p95": 1.361417000000074,
+                "max": 1.7959379999992962
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.9,
+                "p95": 3.8,
+                "max": 4.1
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.5654639999993378,
+                "p95": 0.9064760000001115,
+                "max": 1.9026559999983874
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "warm-ready",
+          "trigger": "asr-replay",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.089535,
+            "p95": 10.018815,
+            "max": 52.887551,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 9,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 7.18,
+                "p95": 10.57,
+                "max": 12.02
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.4,
+                "p95": 4.22,
+                "max": 4.4
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0016429999996034894,
+                "p95": 0.003355000000738073,
+                "max": 0.014180999998643529
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.83,
+                "p95": 5.99,
+                "max": 6.5
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.4294530000006489,
+                "p95": 1.2217020000025514,
+                "max": 1.633869000001141
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.78,
+                "p95": 4.93,
+                "max": 5.5
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.4666179999985616,
+                "p95": 1.1315279999980703,
+                "max": 1.4044509999985166
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "no-match",
+          "trigger": "text",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.090559,
+            "p95": 2.920447,
+            "max": 6.103039,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.19,
+                "p95": 5.87,
+                "max": 176.55
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.32,
+                "p95": 1.81,
+                "max": 3.51
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0016520000026503112,
+                "p95": 0.004107000000658445,
+                "max": 0.014331999998830725
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.73,
+                "p95": 2.38,
+                "max": 3.94
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.15070299999933923,
+                "p95": 0.28484000000025844,
+                "max": 0.3548130000017409
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.54,
+                "p95": 2.14,
+                "max": 3.79
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.13020200000028126,
+                "p95": 0.33161899999686284,
+                "max": 0.5546580000009271
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "no-match",
+          "trigger": "asr-replay",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.089535,
+            "p95": 9.478143,
+            "max": 35.356671,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.99,
+                "p95": 6.73,
+                "max": 178.07
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.21,
+                "p95": 2.22,
+                "max": 3.3
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.001251999998203246,
+                "p95": 0.004265999999915948,
+                "max": 0.013108999999531079
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.46,
+                "p95": 2.58,
+                "max": 3.76
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.08554699999876902,
+                "p95": 0.22929800000201794,
+                "max": 0.2700689999983297
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.4,
+                "p95": 3.32,
+                "max": 4.09
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.09256599999935133,
+                "p95": 0.20473200000196812,
+                "max": 0.40511699999842676
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "hung-prefetch",
+          "trigger": "text",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.088511,
+            "p95": 2.478079,
+            "max": 36.438015,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 6,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.03,
+                "p95": 146.85,
+                "max": 277.1
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.42,
+                "p95": 2.6,
+                "max": 4.38
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0018829999971785583,
+                "p95": 0.012969000003067777,
+                "max": 0.07263699999748496
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.5,
+                "p95": 3.41,
+                "max": 4.9
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.09647199999744771,
+                "p95": 0.3997190000009141,
+                "max": 0.463222999998834
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.5,
+                "p95": 2.32,
+                "max": 4.2
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.10579600000346545,
+                "p95": 0.36337600000115344,
+                "max": 0.4525370000046678
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "hung-prefetch",
+          "trigger": "asr-replay",
+          "chunks": 4000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.084415,
+            "p95": 3.489791,
+            "max": 42.041343,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 6,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 106.92,
+                "p95": 147.77,
+                "max": 277.28
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.46,
+                "p95": 3.24,
+                "max": 3.88
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.001472999996622093,
+                "p95": 0.004145999999309424,
+                "max": 0.016884000004210975
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.44,
+                "p95": 3.79,
+                "max": 4.37
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.09430900000006659,
+                "p95": 0.5560000000041327,
+                "max": 0.5682079999969574
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.48,
+                "p95": 3.95,
+                "max": 4.44
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.07726399999955902,
+                "p95": 0.7025759999960428,
+                "max": 0.9516230000008363
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "cold",
+          "trigger": "text",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.088511,
+            "p95": 97.845247,
+            "max": 208.142335,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 55.24,
+                "p95": 95.11,
+                "max": 97.12
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.97,
+                "p95": 6.98,
+                "max": 7.27
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.010915999999269843,
+                "p95": 0.04157100000156788,
+                "max": 0.04746999999770196
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.73,
+                "p95": 8.02,
+                "max": 9.22
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.01660499999707099,
+                "p95": 0.03330899999855319,
+                "max": 0.10118900000088615
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.92,
+                "p95": 7.57,
+                "max": 7.67
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.01604399999632733,
+                "p95": 0.022061999996367376,
+                "max": 0.02230299999791896
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "cold",
+          "trigger": "asr-replay",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.091583,
+            "p95": 116.523007,
+            "max": 220.594175,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 57.54,
+                "p95": 80.89,
+                "max": 83.96
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.25,
+                "p95": 5.56,
+                "max": 8.57
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.012128000002121553,
+                "p95": 0.016053999999712687,
+                "max": 0.017014999997627456
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.37,
+                "p95": 6.47,
+                "max": 6.79
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.017695999995339662,
+                "p95": 0.02726000000257045,
+                "max": 0.10253100001136772
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.21,
+                "p95": 5.04,
+                "max": 5.31
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.01688500000454951,
+                "p95": 0.023875999999290798,
+                "max": 0.10039799999503884
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "warm-ready",
+          "trigger": "text",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.095679,
+            "p95": 6.414335,
+            "max": 411.828223,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 6,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 4.25,
+                "p95": 6.71,
+                "max": 410.45
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.58,
+                "p95": 2.17,
+                "max": 5.36
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.001631999999517575,
+                "p95": 0.00595900000189431,
+                "max": 0.012688000002526678
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.96,
+                "p95": 5.12,
+                "max": 7.91
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.4899230000009993,
+                "p95": 1.1268419999978505,
+                "max": 1.3657539999985602
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 2.06,
+                "p95": 3.33,
+                "max": 5.32
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.5250039999955334,
+                "p95": 0.9705810000014026,
+                "max": 1.3208020000020042
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "warm-ready",
+          "trigger": "asr-replay",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.090559,
+            "p95": 9.101311,
+            "max": 94.830591,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 9,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 6.71,
+                "p95": 9.47,
+                "max": 10.36
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.47,
+                "p95": 2.83,
+                "max": 3.27
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0013420000032056123,
+                "p95": 0.004115999996429309,
+                "max": 0.012548999991849996
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.95,
+                "p95": 3.49,
+                "max": 5.4
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.5061359999963315,
+                "p95": 0.9069170000002487,
+                "max": 1.1279340000037337
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 20,
+              "sourceCountMax": 2,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.83,
+                "p95": 2.87,
+                "max": 4.25
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.45195599998987745,
+                "p95": 0.9714720000047237,
+                "max": 1.0369599999976344
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "no-match",
+          "trigger": "text",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.084415,
+            "p95": 2.584575,
+            "max": 6.299647,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.67,
+                "p95": 5.47,
+                "max": 401.12
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.13,
+                "p95": 2.27,
+                "max": 3.39
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0019620000093709677,
+                "p95": 0.011708000005455688,
+                "max": 0.024115000007441267
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.36,
+                "p95": 3.04,
+                "max": 3.4
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.10381400000187568,
+                "p95": 0.2714400000113528,
+                "max": 0.777896999992663
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.18,
+                "p95": 2.41,
+                "max": 3.31
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.09759400000621099,
+                "p95": 0.5271570000040811,
+                "max": 0.6529630000004545
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "no-match",
+          "trigger": "asr-replay",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.086463,
+            "p95": 9.543679,
+            "max": 75.300863,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 5.3,
+                "p95": 8.06,
+                "max": 417.64
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.19,
+                "p95": 2.4,
+                "max": 3.3
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.00157200000830926,
+                "p95": 0.006189000006997958,
+                "max": 0.010985999993863516
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.44,
+                "p95": 2.9,
+                "max": 3.71
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.08298199999262579,
+                "p95": 0.26174600000376813,
+                "max": 0.40056100000219885
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.42,
+                "p95": 3.48,
+                "max": 3.84
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.09806399999069981,
+                "p95": 0.292992000002414,
+                "max": 0.5127560000109952
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "hung-prefetch",
+          "trigger": "text",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.086463,
+            "p95": 2.469887,
+            "max": 76.808191,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 6,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 3.23,
+                "p95": 188.17,
+                "max": 558.39
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.34,
+                "p95": 2.58,
+                "max": 3.96
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0019029999966733158,
+                "p95": 0.003966000003856607,
+                "max": 0.011346999992383644
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.47,
+                "p95": 2.85,
+                "max": 4.07
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.09414899999683257,
+                "p95": 0.5547579999984009,
+                "max": 0.9068069999921136
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.48,
+                "p95": 3.55,
+                "max": 3.55
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.09285699999600183,
+                "p95": 0.4191480000008596,
+                "max": 0.8581950000079814
+              }
+            }
+          ]
+        },
+        {
+          "scenario": "hung-prefetch",
+          "trigger": "asr-replay",
+          "chunks": 14000,
+          "projectCount": 2,
+          "requestedValidSamplesPerConfiguration": 30,
+          "eventLoopMs": {
+            "p50": 1.087487,
+            "p95": 5.660671,
+            "max": 77.463551,
+            "boundary": "whole interleaved group, includes benchmark setup/seed work; not isolated trigger latency"
+          },
+          "configurations": [
+            {
+              "id": "A",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 6,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 2.4,
+                "p95": 7.56,
+                "max": 556.33
+              },
+              "readyReadMs": {
+                "n": 0,
+                "p50": null,
+                "p95": null,
+                "max": null
+              }
+            },
+            {
+              "id": "B",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.17,
+                "p95": 2.81,
+                "max": 3.54
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.001452000011340715,
+                "p95": 0.003575000009732321,
+                "max": 0.013830999989295378
+              }
+            },
+            {
+              "id": "C",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.26,
+                "p95": 3.81,
+                "max": 4.23
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.0644449999963399,
+                "p95": 0.4544199999945704,
+                "max": 1.2267680000077235
+              }
+            },
+            {
+              "id": "D",
+              "samples": 30,
+              "questionCorrect": 30,
+              "failures": 0,
+              "extraSdkRequests": 0,
+              "readyEvidenceHits": 0,
+              "sourceCountMax": 0,
+              "dispatchMs": {
+                "n": 30,
+                "p50": 1.31,
+                "p95": 3.53,
+                "max": 4.27
+              },
+              "readyReadMs": {
+                "n": 30,
+                "p50": 0.062411999999312684,
+                "p95": 0.812208000003011,
+                "max": 1.2621110000036424
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "resolver": {
+    "scope": "Offline resolver construction + observe + immutable snapshot + claim. Warm module, fresh resolver per sample. No ASR inference/model/UI.",
+    "samplesPerCase": 300,
+    "generatedAt": "2026-10-21T05:57:59.093Z",
+    "node": "v24.19.0",
+    "sourceHashes": {
+      "src/question-resolver.js": "4e753a0b25f82e44a865ecd86fa0ebbbb05f6afd6590585f7bd43a024ea3dbb1",
+      "scripts/benchmark-question-snapshot.cjs": "3687d3fbb25fc4b5158372f1998eab12de5efd7688dd68b26a99bb0606102209"
+    },
+    "overall": {
+      "n": 2100,
+      "p50": 0.02693999999999619,
+      "p95": 0.10875099999999804,
+      "max": 3.544978000000004
+    }
+  },
+  "resolverCases": [
+    {
+      "id": "independent",
+      "latencyMs": {
+        "n": 300,
+        "p50": 0.030734999999999957,
+        "p95": 0.10910100000000256,
+        "max": 3.544978000000004
+      },
+      "correct": 300
+    },
+    {
+      "id": "correction-final",
+      "latencyMs": {
+        "n": 300,
+        "p50": 0.025638000000000716,
+        "p95": 0.06977299999999786,
+        "max": 0.8189379999999957
+      },
+      "correct": 300
+    },
+    {
+      "id": "correction-interim",
+      "latencyMs": {
+        "n": 300,
+        "p50": 0.02345499999999845,
+        "p95": 0.05560200000000748,
+        "max": 0.3911470000000037
+      },
+      "correct": 300
+    },
+    {
+      "id": "conditions",
+      "latencyMs": {
+        "n": 300,
+        "p50": 0.06597700000000373,
+        "p95": 0.2158680000000004,
+        "max": 2.317187000000004
+      },
+      "correct": 300
+    },
+    {
+      "id": "ordered-late-final",
+      "latencyMs": {
+        "n": 300,
+        "p50": 0.017305000000007453,
+        "p95": 0.05468999999999369,
+        "max": 0.3729099999999903
+      },
+      "correct": 300
+    },
+    {
+      "id": "new-incomplete",
+      "latencyMs": {
+        "n": 300,
+        "p50": 0.014750999999989745,
+        "p95": 0.027630000000002042,
+        "max": 0.341904999999997
+      },
+      "correct": 300
+    },
+    {
+      "id": "unfinished-example",
+      "latencyMs": {
+        "n": 300,
+        "p50": 0.028683000000000902,
+        "p95": 0.07333900000000426,
+        "max": 0.615918999999991
+      },
+      "correct": 300
+    }
+  ],
+  "verification": {
+    "fullSuite": {
+      "tests": 692,
+      "pass": 691,
+      "fail": 1,
+      "failure": "Pre-existing test/bugfix-files.test.js:75: expected Whisper default bundle; existing CUE_BUNDLE_WHISPER opt-in retained"
+    },
+    "ui": "UI_LAYOUT_OK and UI_QUIT_OK code0; Electron33.2.1 Linux Xvfb, including explicit retry and stale diagnostic ownership",
+    "nativeRuntime": "ONNX1.21.0 tiny operator fixture passed [1,4,9,16,25,36]; not real E5",
+    "packaging": "Composite beforePack invokes original native prerequisite verifier then build metadata writer; actual ASAR worker tests passed. Windows package not built/run.",
+    "onlineFirstContentMs": null,
+    "windowsAsrFirstContentMs": null,
+    "onlineAttemptCount": 0
+  }
+}

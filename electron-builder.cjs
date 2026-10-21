@@ -48,12 +48,12 @@ module.exports = {
     'node_modules/semver/**/*',
   ],
   publish: null,
-  beforePack: 'scripts/verify-semantic-packaging.cjs',
+  beforePack: 'scripts/prepare-app-build.cjs',
   artifactName: "${productName}-${version}-${os}-${arch}.${ext}",
   // An allowlist, so anything new has to be added here or it simply is not in
   // the shipped app — and the only symptom is a require() that throws at
   // launch, in a build that ran fine from source.
-  files: ["main.js", "preload.js", "src/**/*", "renderer/**/*", "vendor/**/*", "package.json", "node_modules/**/*"],
+  files: ["main.js", "preload.js", "src/**/*", "renderer/**/*", "vendor/**/*", "package.json", "build-info.json", "node_modules/**/*"],
   directories: { buildResources: "build-resources" },
   // The old effective package.json config did not run this hook. Keep default
   // builds independent of Whisper preparation; the existing opt-in remains.

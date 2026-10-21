@@ -158,7 +158,7 @@ test('real main path answers stable question and excludes trailing interim fragm
   assert.doesNotMatch(prompt, /如果平/);
 });
 
-test('Ctrl+Enter responds to a new unfinished fragment without repeating the old answer', async (t) => {
+test('Ctrl+Enter does not call the model for an unanswerable new fragment or revive the old answer', async (t) => {
   const app = appHarness(t);
   app.final('为什么用 React 框架？');
   await app.ask('say');
@@ -166,11 +166,8 @@ test('Ctrl+Enter responds to a new unfinished fragment without repeating the old
 
   app.final('如果平');
   await app.ask('say');
-  assert.equal(app.calls.length, 2, 'manual say must respond immediately');
-  assert.match(app.calls[1].turns.at(-1).text, /如果平/);
-  assert.match(app.calls[1].turns.at(-1).text, /发言可能尚未结束/);
-  assert.equal(app.calls[1].turns.filter(turn => turn.role === 'assistant').length, 0);
-  assert.doesNotMatch(app.calls[1].turns.at(-1).text, /React/);
+  assert.equal(app.calls.length, 1, 'incomplete input must not request a fabricated answer');
+  assert.ok(app.events.some(event => event.channel === 'status' && /没有新的回答目标|尚未识别完整/.test(event.message)));
 });
 
 test('ops noise never enters transcript or steals focus from consecutive questions', async (t) => {
@@ -182,7 +179,7 @@ test('ops noise never enters transcript or steals focus from consecutive questio
 
   assert.equal(app.calls.length, 1);
   const question = app.value('conversation.recent[0].question');
-  assert.match(question, /Function Call/);
+  assert.doesNotMatch(question, /Function Call/);
   assert.match(question, /React/);
   assert.doesNotMatch(question, /ops/i);
   assert.equal(app.value("transcript.some(t => /ops/i.test(t.text))"), false);
@@ -230,5 +227,6 @@ test('real Ctrl+Enter path keeps TCS as active project across implicit follow-up
     '项目是你独立完成的,还是团队合作?你具体负责了哪一部分?'
   );
   assert.doesNotMatch(app.calls[2].turns.at(-1).text, /在这个过程/);
-  assert.ok(app.calls[2].turns.some(turn => turn.role === 'assistant'), 'project follow-up should keep one recent Q/A pair');
+  assert.equal(app.calls[2].turns.filter(turn => turn.role === 'assistant').length, 0,
+    'project identity may continue without making the prior answer a task');
 });

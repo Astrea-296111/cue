@@ -25,6 +25,17 @@ test('cross-platform package rejects host-only Sharp even if target ONNX exists'
   assert.doesNotThrow(() => verify({ packager: { info: { appDir: root } }, electronPlatformName: 'win32', arch: 'x64' }));
 });
 
-test('semantic packaging hook remains in the actual Electron Builder configuration', () => {
-  assert.equal(require('../electron-builder.cjs').beforePack, 'scripts/verify-semantic-packaging.cjs');
+test('actual Electron Builder hook verifies target native dependencies before writing build identity', async () => {
+  const hookPath = require('../electron-builder.cjs').beforePack;
+  assert.equal(hookPath, 'scripts/prepare-app-build.cjs');
+  const calls = [], context = { electronPlatformName: 'win32', arch: 'x64' };
+  const hookModule = { exports: {} };
+  const load = id => {
+    assert.ok(['./verify-semantic-packaging.cjs', './write-build-info.cjs'].includes(id));
+    return async supplied => { assert.equal(supplied, context); calls.push(id); };
+  };
+  const code = fs.readFileSync(path.join(__dirname, '..', hookPath), 'utf8');
+  require('node:vm').runInNewContext(code, { require: load, module: hookModule });
+  await hookModule.exports(context);
+  assert.deepEqual(calls, ['./verify-semantic-packaging.cjs', './write-build-info.cjs']);
 });

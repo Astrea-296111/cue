@@ -33,7 +33,8 @@ function retrievalIdentity(input) {
     epoch: input.epoch, scopes: [...(plan.scopes || [])].sort(),
     revision: input.projectRevision, modelVersion: input.modelVersion || 'base',
     question: String(input.question || ''), questionVersion: input.questionVersion || '',
-    sourceKey: input.sourceKey || '', config: RETRIEVAL_CONFIG_VERSION,
+    questionId: input.questionId || '', questionRevision: input.questionRevision ?? null,
+    sourceKey: input.sourceKey || '', config: input.retrievalConfigVersion || RETRIEVAL_CONFIG_VERSION,
     needs: input.interviewPlan?.subQuestions || [], scenario: input.interviewPlan?.scenario || '',
     constraints: input.interviewPlan?.constraints || [], bindings: plan.subQuestionScopes || [],
     budget: input.contextBudget, hashFallback: input.hashFallback !== false, semanticThreshold: input.semanticThreshold ?? .70
@@ -56,6 +57,7 @@ class ProjectRagSession {
     this.policy = policy; this.onEvent = onEvent; this.onResult = onResult;
     this.running = null; this.pending = null; this.predictions = []; this.generation = 0;
     this.firstPendingAt = null; this.lastStartedAt = -Infinity; this.timer = null;
+    this.suspendedBy = null;
     this.metrics = { queued: 0, started: 0, completed: 0, canceled: 0, timedOut: 0, stale: 0 };
   }
 
@@ -113,7 +115,7 @@ class ProjectRagSession {
   }
 
   async _run() {
-    if (this.running) return;
+    if (this.running || this.suspendedBy != null) return;
     clearTimeout(this.timer); this.timer = null;
     if (this.pending?.origin === 'interim' && this.now() < this.lastStartedAt + this.policy.interim.minIntervalMs) {
       this.timer = setTimeout(() => this._run(), this.lastStartedAt + this.policy.interim.minIntervalMs - this.now());
@@ -185,6 +187,23 @@ class ProjectRagSession {
     this.running = null; this.pending = null; this.predictions = []; this.firstPendingAt = null;
     this.slots.clear();
     this.results.clear();
+    this.suspendedBy = null;
+  }
+
+  suspend(owner) {
+    this.suspendedBy = owner;
+    clearTimeout(this.timer); this.timer = null;
+    this.cancelRunning('foreground-dispatch');
+  }
+
+  resume(owner) {
+    // An old request's first token/finally must not unlock its successor.
+    if (this.suspendedBy !== owner) return false;
+    this.suspendedBy = null;
+    if (!this.running && (this.pending || this.predictions.length)) {
+      this.timer = setTimeout(() => this._run(), 0);
+    }
+    return true;
   }
 
   pause() {

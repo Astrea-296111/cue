@@ -35,6 +35,25 @@
               <select id="current-project" aria-label="当前项目"><option value="">自动</option></select>
               <span id="active-project-label"></span>
             </div>
+            <div id="answer-target-panel" aria-label="当前回答目标">
+              <div class="answer-target-line">
+                <span id="answer-target-label">本次回答：</span>
+                <span id="answer-target-text">等待新问题</span>
+                <button id="answer-target-edit" type="button" disabled>编辑</button>
+                <button id="answer-target-retry" type="button" disabled>重答</button>
+              </div>
+              <div class="answer-target-options">
+                <select id="realtime-answer-mode" aria-label="问答档位">
+                  <option value="instant">极速问答</option>
+                  <option value="standard">标准问答</option>
+                </select>
+                <span id="answer-next-target"></span>
+              </div>
+              <div class="answer-diagnostic-line" aria-live="polite">
+                <span id="answer-execution-profile">极速 · 使用已配置快速模型</span>
+                <span id="answer-timing"></span>
+              </div>
+            </div>
             <div id="messages"></div>
 
             <div id="action-row">
@@ -145,6 +164,19 @@
         <div class="s-field"><span>深度思考</span><input id="model-smart" type="text" autocomplete="off" /></div>
         <div class="s-field"><span>模型窗口</span><input id="context-window-tokens" type="number" min="1024" max="2000000" step="1024" aria-label="模型窗口 token 数" /></div>
         <div class="s-note">填写服务商公布的上下文窗口 token 数；未知时保留 16384。回答会优先保留完整问题与约束。</div>
+        <label class="s-label" for="instant-rag-policy">极速资料策略</label>
+        <select id="instant-rag-policy" class="s-select">
+          <option value="ready-only">仅使用已就绪资料</option>
+          <option value="off">关闭资料（延迟对照）</option>
+        </select>
+        <div class="s-note">极速问答固定使用快速模型；深度思考开关仍用于标准问答和屏幕、代码等其他功能。</div>
+        <label class="s-label" for="instant-thinking">极速思考设置</label>
+        <select id="instant-thinking" class="s-select" disabled>
+          <option value="inherit">沿用服务参数</option>
+          <option value="disabled">关闭思考</option>
+          <option value="enabled">开启思考</option>
+        </select>
+        <div class="s-note" id="instant-thinking-note">确认当前服务和模型支持独立思考设置后可调整；未知服务不会自动发送思考参数。</div>
 
         <label class="s-label">助手访问权限 <span class="s-hint">管理获准读取 Cue 状态的程序</span></label>
         <div class="s-callers" id="applink-callers"></div>

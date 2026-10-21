@@ -3,7 +3,7 @@
 
 const { createCompatibleClientOptions, resolveChatRequestOptions, supportsStreamingUsage, qwenFastInstruction } = require('./openai-compatible');
 const { createUsageReporter } = require('./provider-metrics');
-const { realtimeTransportOptions, geminiThinkingConfig } = require('./model-latency-policy');
+const { realtimeTransportOptions, geminiThinkingConfig, endpointClass, thinkingDiagnostics } = require('./model-latency-policy');
 
 const CUSTOM_PROVIDER = 'custom';
 const CURRENT_GEMINI_DEFAULT = 'gemini-2.5-flash';
@@ -375,7 +375,7 @@ async function streamAnthropic({ apiKey, model, system, turns, imageDataUrl, max
   return full;
 }
 
-async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity, onCompletion, onRequest, onUsage, thinkingConfig }) {
+async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTokens, onToken, signal, onActivity, onCompletion, onRequest, onUsage, thinkingConfig, transportOptions = {} }) {
   const { GoogleGenAI } = require('@google/genai');
   const ai = new GoogleGenAI({ apiKey });
 
@@ -401,6 +401,7 @@ async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTok
       systemInstruction: system,
       maxOutputTokens: maxTokens,
       ...(thinkingConfig ? { thinkingConfig } : {}),
+      ...(transportOptions.maxRetries === 0 ? { httpOptions: { retryOptions: { attempts: 1 } } } : {}),
       abortSignal: signal
     }
   };
@@ -416,7 +417,11 @@ async function streamGemini({ apiKey, model, system, turns, imageDataUrl, maxTok
     if (signal?.aborted) throw new Error('回答已取消。');
     onActivity?.({ phase: chunk.candidates?.[0]?.content?.parts?.some(part => part.thought) ? 'reasoning' : 'provider-event' });
     reportUsage(chunk.usageMetadata);
-    const text = chunk && chunk.text;
+    // SDK .text can concatenate thought parts. Only visible content is an
+    // answer; never turn a thought-only frame into a body token.
+    const parts = chunk.candidates?.[0]?.content?.parts;
+    const text = Array.isArray(parts) ? parts.filter(part => !part.thought && typeof part.text === 'string')
+      .map(part => part.text).join('') : chunk && chunk.text;
     if (text) {
       full += text;
       onToken(text);
@@ -478,6 +483,7 @@ async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTok
   if (!response.ok) {
     throw new Error(`Ollama API 错误： ${response.status} ${response.statusText}`);
   }
+  onActivity?.({ phase: 'provider-response' });
 
   const decoder = new TextDecoder();
   let full = '';
@@ -489,6 +495,7 @@ async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTok
     let data;
     try { data = JSON.parse(line); } catch (_) { return; }
     if (data.error) throw new Error(`Ollama API 错误： ${data.error}`);
+    onActivity?.({ phase: data.message?.thinking ? 'reasoning' : 'provider-event' });
     if (data.message?.content) {
       full += data.message.content;
       onToken(data.message.content);
@@ -516,7 +523,10 @@ async function streamOllama({ apiKey, model, system, turns, imageDataUrl, maxTok
   return full;
 }
 
-function createLLM(settings) {
+function createLLM(settings, { executionProfile = 'standard' } = {}) {
+  executionProfile = executionProfile === 'instant' ? 'instant' : 'standard';
+  // Request-local choice: the persistent deep-mode switch remains untouched.
+  if (executionProfile === 'instant') settings = { ...settings, smart: false };
   const provider = settings.provider;
   const keys = settings.apiKeys || {};
   let apiKey = keys[provider];
@@ -554,12 +564,37 @@ function createLLM(settings) {
   }
 
   const ready = !configurationError && !!model;
-  const providerOptions = settings.providerOptions?.[provider] || {};
+  const inheritedOptions = settings.providerOptions?.[provider] || {};
+  const instantOptions = executionProfile === 'instant' ? settings.instantProviderOptions?.[provider] || {} : {};
+  const providerOptions = { ...inheritedOptions, ...instantOptions };
+  const thinkingSource = Object.keys(instantOptions).some(key => ['enable_thinking', 'reasoning_effort', 'thinkingConfig'].includes(key))
+    ? 'instant-explicit' : Object.keys(inheritedOptions).some(key => ['enable_thinking', 'reasoning_effort', 'thinkingConfig'].includes(key))
+      ? 'user-explicit' : 'unknown';
   const prepareSystem = (system, options = providerOptions) => {
     const suffix = qwenFastInstruction({ model, smart: !!settings.smart, explicit: options });
     const text = String(system || '');
     return suffix && !text.trimEnd().endsWith(suffix) ? text + '\n' + suffix : text;
   };
+  const effectiveBaseURL = provider === 'groq' ? 'https://api.groq.com/openai/v1'
+    : provider === 'minimax' ? MINIMAX_BASE_URLS[minimaxRegion] || MINIMAX_BASE_URLS.global_en
+      : baseURL;
+  function diagnostics(params = {}) {
+    const explicit = { ...providerOptions, ...(params.requestOptions || {}),
+      ...(typeof params.enable_thinking === 'boolean' ? { enable_thinking: params.enable_thinking } : {}),
+      ...(typeof params.reasoning_effort === 'string' ? { reasoning_effort: params.reasoning_effort } : {}) };
+    const requestOptions = resolveChatRequestOptions({ baseURL: effectiveBaseURL, model, smart: !!settings.smart, explicit });
+    const thinkingConfig = geminiThinkingConfig(model, !!settings.smart, explicit.thinkingConfig);
+    const transportOptions = realtimeTransportOptions(settings, params.mode, executionProfile);
+    const automaticRetriesDisabled = provider === 'ollama' || transportOptions.maxRetries === 0;
+    return { provider, model, executionProfile, tier,
+      endpointClass: endpointClass(provider, effectiveBaseURL),
+      ...thinkingDiagnostics({ provider, model, baseURL: effectiveBaseURL, requestOptions, thinkingConfig,
+        source: Object.keys(params.requestOptions || {}).length || typeof params.enable_thinking === 'boolean' || params.reasoning_effort
+          ? 'user-explicit' : thinkingSource }),
+      automaticRetriesDisabled,
+      transportRetryPolicy: provider === 'ollama' ? 'single-fetch' : automaticRetriesDisabled ? 'one-attempt' : 'sdk-default',
+      responseBoundary: provider === 'ollama' ? 'http-headers' : 'sdk-stream-resolved' };
+  }
 
   return {
     provider,
@@ -569,6 +604,9 @@ function createLLM(settings) {
     ready,
     configurationError,
     prepareSystem,
+    executionProfile,
+    tier,
+    diagnostics: diagnostics(),
 
     async stream(params = {}) {
       if (!ready) {
@@ -587,13 +625,14 @@ function createLLM(settings) {
         ...params,
         system: prepareSystem(params.system, explicit),
         requestOptions: resolveChatRequestOptions({ baseURL, model, smart: !!settings.smart, explicit }),
-        transportOptions: realtimeTransportOptions(settings, params.mode),
-        thinkingConfig: geminiThinkingConfig(model, !!settings.smart, providerOptions.thinkingConfig),
+        transportOptions: realtimeTransportOptions(settings, params.mode, executionProfile),
+        thinkingConfig: geminiThinkingConfig(model, !!settings.smart, explicit.thinkingConfig),
         maxTokens,
         turns: sanitizeTurns(params.turns),
         onActivity: typeof params.onActivity === 'function' ? params.onActivity : () => {},
         onToken: typeof params.onToken === 'function' ? params.onToken : () => {}
       };
+      if (typeof params.onDiagnostics === 'function') params.onDiagnostics(diagnostics(params));
 
       try {
         if (provider === 'openai') return await streamOpenAI(args);

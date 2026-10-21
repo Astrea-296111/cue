@@ -27,7 +27,7 @@ fs.writeFileSync(path.join(data, 'cue-project-index-v2.json'), JSON.stringify({ 
   ], stats: { fileCount: 2, chunkCount: 2 } }));
 
 let allowedToQuit = false, releaseFirst;
-const calls = [], signals = [], payloads = [], audioLogs = [];
+const calls = [], signals = [], payloads = [], audioLogs = [], renderAcks = [];
 const registeredShortcuts = new Map();
 const originalRegister = globalShortcut.register.bind(globalShortcut);
 globalShortcut.register = (accelerator, callback) => {
@@ -35,6 +35,13 @@ globalShortcut.register = (accelerator, callback) => {
   return originalRegister(accelerator, callback);
 };
 let captures = 0;
+let mainQuestionResolver, finalOrder = 0;
+function seedCurrentQuestion(text) {
+  const order = ++finalOrder;
+  assert.ok(mainQuestionResolver, 'Real main resolver must exist');
+  mainQuestionResolver.observe({ channel: 'them', text, sourceId: 'ui-smoke', sourceSessionId: 'ui-smoke-session',
+    utteranceKey: 'ui-final-' + order, utteranceOrder: order }, true);
+}
 const firstReply = new Promise(resolve => { releaseFirst = resolve; });
 class OpenAI {
   constructor() {
@@ -89,6 +96,12 @@ Module._load = function (id, parent, isMain) {
   if (id === 'openai') return OpenAI;
   if (id.startsWith('.') && parent) {
     const resolved = Module._resolveFilename(id, parent, isMain);
+    if (resolved === path.join(root, 'src/question-resolver.js')) {
+      const exports = originalLoad.apply(this, arguments);
+      return { ...exports, QuestionResolver: class extends exports.QuestionResolver {
+        constructor(options) { super(options); mainQuestionResolver = this; }
+      } };
+    }
     if (resolved === path.join(root, 'src/screen.js')) return {
       captureScreenshot: async () => {
         captures++;
@@ -104,6 +117,7 @@ require('../src/store').setSettings({ onboarded: true, provider: 'custom',
   starStories: 'STORIES_RETAINED', salaryTarget: 'SALARY_RETAINED' });
 ipcMain.on('ask', (_event, payload) => payloads.push(payload));
 ipcMain.on('log', (_event, message) => audioLogs.push(message));
+ipcMain.on('llm:rendered', (_event, value) => renderAcks.push(value));
 dialog.showErrorBox = (title, message) => {
   console.error('UI_ERROR_DIALOG', title, message); process.exit(1);
 };
@@ -161,6 +175,7 @@ app.on('browser-window-created', (_event, win) => {
       assert.deepEqual(layout.clipped, []);
       assert.equal(await js("document.documentElement.lang"), 'zh-CN');
       assert.equal(await js("document.querySelector('#current-project option').textContent"), '自动');
+      assert.equal(await js("document.getElementById('realtime-answer-mode').value"), 'instant');
       assert.ok(await js("document.getElementById('current-project').getBoundingClientRect().height >= 20"));
       assert.deepEqual(await js("['.drag-label','.tb-hide span:last-child','#smart-toggle span:last-child','.ts-title','#clear-transcript-btn'].map(s=>document.querySelector(s).textContent)"),
         ['拖动', '收起', '深度思考', '对话记录', '清空记录']);
@@ -192,13 +207,72 @@ app.on('browser-window-created', (_event, win) => {
       await until(() => js("!document.querySelector('.interim-transcript').classList.contains('show')"), 'caption cleared');
       stable(before, await controls());
 
+      // The renderer displays main-owned snapshots; captions never become a
+      // second resolver or automatically populate the manual composer.
+      const previewEpoch = (await js('cue.questionTarget()')).epoch;
+      const previewA = { epoch: previewEpoch, questionId: 'ui-preview-a', revision: 1, text: '怎样校验缓存版本？', status: 'ready' };
+      const previewB = { epoch: previewEpoch, questionId: 'ui-preview-b', revision: 1, text: '团队如何分工？', status: 'partial' };
+      win.webContents.send('question:target', { epoch: previewEpoch, snapshot: previewA, state: 'ready' });
+      await until(() => js("document.getElementById('answer-target-text').textContent==='怎样校验缓存版本？'"), 'main target preview');
+      assert.equal(await js("document.getElementById('input').value"), '');
+      win.webContents.send('llm:start', { requestId: 'ui-preview-generation', epoch: previewEpoch, snapshot: previewA });
+      win.webContents.send('llm:profile', { requestId: 'ui-preview-generation', epoch: previewEpoch, executionProfile: 'instant',
+        provider: 'custom', model: 'ui-model', thinkingStatus: 'unknown' });
+      win.webContents.send('question:target', { epoch: previewEpoch, snapshot: previewB, frozenSnapshot: previewA, state: 'ready' });
+      await until(() => js("document.getElementById('answer-next-target').textContent.includes('团队如何分工？')"), 'next target preview');
+      assert.equal(await js("document.getElementById('answer-target-text').textContent"), previewA.text);
+      assert.ok(await js("document.getElementById('answer-execution-profile').textContent.includes('思考能力未知')"));
+      win.webContents.send('llm:profile', { requestId: 'stale-request', epoch: previewEpoch, executionProfile: 'standard', model: 'STALE_MODEL' });
+      win.webContents.send('llm:metrics', { requestId: 'stale-request', epoch: previewEpoch, triggerToDispatchMs: 99999 });
+      win.webContents.send('llm:token', { requestId: 'ui-preview-generation', epoch: previewEpoch, text: '   ' });
+      await tick();
+      assert.equal(renderAcks.some(value => value?.requestId === 'ui-preview-generation'), false);
+      win.webContents.send('llm:token', { requestId: 'ui-preview-generation', epoch: previewEpoch, text: '先校验版本，再返回缓存。' });
+      await until(() => js("document.getElementById('messages').innerText.includes('先校验版本，再返回缓存。')"), 'first body inserted');
+      await until(() => renderAcks.some(value => value?.requestId === 'ui-preview-generation' && value.stage === 'paint-approx'), 'approximate render ack');
+      const acknowledgements = renderAcks.filter(value => value?.requestId === 'ui-preview-generation');
+      assert.deepEqual(acknowledgements.map(value => value.stage), ['dom', 'paint-approx']);
+      assert.equal(acknowledgements[0].rendererElapsedMs, 0);
+      assert.ok(acknowledgements[1].rendererElapsedMs >= 0);
+      assert.equal(await js("document.getElementById('answer-execution-profile').textContent.includes('STALE_MODEL')"), false);
+      win.webContents.send('llm:metrics', { requestId: 'ui-preview-generation', epoch: previewEpoch, triggerToDispatchMs: 18,
+        firstContentMs: 2800, triggerToFirstContentMs: 2818 });
+      await until(() => js("document.getElementById('answer-timing').textContent.includes('2.80s')"), 'content timing diagnostics');
+      win.webContents.send('llm:done', { requestId: 'ui-preview-generation', epoch: previewEpoch });
+      await until(() => js("document.getElementById('answer-target-text').textContent==='团队如何分工？'"), 'latest preview after completed generation');
+      await js("document.getElementById('answer-target-edit').click()");
+      assert.equal(await js("document.getElementById('input').value"), previewB.text);
+      assert.equal(calls.length, 0, 'Editing a preview must not start a model request');
+      await js("document.getElementById('input').value='';document.getElementById('input').dispatchEvent(new Event('input'))");
+      stable(before, await controls());
+
+      await js('cue.clearTranscript()');
       await js("document.querySelector('.act[data-mode=say]').click()");
-      await until(() => calls.length === 1, 'Say button');
-      await js("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',ctrlKey:true,bubbles:true,cancelable:true}))");
-      await until(() => calls.length === 2, 'Say interruption');
+      await until(() => js("document.getElementById('cue-status')?.textContent.includes('没有新的回答目标')"), 'empty target status');
+      assert.equal(calls.length, 0, 'No target must not trigger an implicit repeat');
+      assert.equal(await js("document.getElementById('answer-target-retry').disabled"), true);
+
+      // Keep the existing screen/full-retrieval checks on the standard rollback
+      // path. Separate runtime tests exercise instant ready-only behavior.
+      await js("document.getElementById('realtime-answer-mode').value='standard';document.getElementById('realtime-answer-mode').dispatchEvent(new Event('change'))");
+      await until(async () => (await js('cue.settingsGet()')).realtimeAnswerMode === 'standard', 'standard mode switch');
+      seedCurrentQuestion('先解释 MySQL 事务如何工作？');
+      await js("document.querySelector('.act[data-mode=say]').click()");
+      await until(() => calls.length === 1, 'explicit Say request');
+      await js("document.getElementById('input').value='再解释事务失败时如何恢复？';document.getElementById('send-btn').click()");
+      await until(() => calls.length === 2, 'manual new question interrupts generation');
       assert.ok(signals[0].aborted); releaseFirst();
       await until(() => js("!document.getElementById('send-btn').classList.contains('busy')"), 'reply complete');
       assert.equal(await js("document.body.innerText.includes('旧请求迟到内容')"), false);
+      const completedCount = calls.length;
+      await js("document.querySelector('.act[data-mode=say]').click()");
+      await tick();
+      assert.equal(calls.length, completedCount, 'Consumed target must not be implicitly repeated');
+      assert.equal(await js("document.getElementById('answer-target-retry').disabled"), false);
+      await js("document.getElementById('answer-target-retry').click()");
+      await until(() => calls.length === completedCount + 1, 'explicit retry button');
+      assert.ok(JSON.stringify(calls.at(-1).messages).includes('再解释事务失败时如何恢复？'));
+      await until(() => js("!document.getElementById('send-btn').classList.contains('busy')"), 'retry complete');
       for (const mode of ['assist', 'followup', 'leetcode']) {
         const count = calls.length;
         await js(`document.querySelector('.act[data-mode=${mode}]').click()`);
@@ -228,6 +302,7 @@ app.on('browser-window-created', (_event, win) => {
       assert.ok(globalShortcut.isRegistered('CommandOrControl+L'));
       for (const route of ['global-hidden', 'local']) {
         const count = calls.length, capturedBefore = captures;
+        seedCurrentQuestion('演示源项目为什么选择 MySQL？');
         if (route === 'global-hidden') {
           await toggleWindowVisibility(false);
           registeredShortcuts.get('CommandOrControl+L')();
@@ -413,6 +488,8 @@ app.on('browser-window-created', (_event, win) => {
       await tick(); assert.equal(win.isDestroyed(), false);
       console.log('UI_LAYOUT_OK', JSON.stringify({ size:win.getSize(),zoom,scale:display.scaleFactor,layout,caption,messages,settings,
         captionUpdates:30,stableControls:true,sayInterruption:true,solveButton:true,singleClickKeepsRunning:true,
+        latestTargetPreview:true,frozenTargetAndNext:true,explicitEdit:true,explicitRetry:true,consumedTargetDoesNotRepeat:true,
+        profileAndMetricsOwnership:true,nonemptyFirstBodyAck:true,doubleRafApproximation:true,
         collapseShortcut:true,fullWindowVisibilityShortcut:true,recordingShortcut:true,technicalShortcut:true,movementStep:25,
         createdHidden:true,protectionRequested:true,protectionFailureBlocked,
         chineseSettings:true,chineseOnboarding:true,chinesePermissions:true,windowsBuildFixture:process.env.CUE_UI_WINDOWS_BUILD || null }));
