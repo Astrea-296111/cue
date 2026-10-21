@@ -35,8 +35,8 @@ function installModuleHooks() {
       const originalCreateLLM = loaded.createLLM;
       const wrapped = { ...loaded };
 
-      wrapped.createLLM = function createLatencyAwareLLM(settings) {
-        const llm = originalCreateLLM(settings);
+      wrapped.createLLM = function createLatencyAwareLLM(settings, options) {
+        const llm = originalCreateLLM(settings, options);
         if (!llm || typeof llm.stream !== 'function') return llm;
         const originalStream = llm.stream.bind(llm);
         return {
@@ -49,7 +49,7 @@ function installModuleHooks() {
             const nextParams = {
               ...params,
               onToken(token) {
-                if (!firstTokenAt) {
+                if (!firstTokenAt && String(token || '').trim()) {
                   firstTokenAt = Date.now();
                   console.log(`[latency][llm] mode=${modeName} first_token=${firstTokenAt - startedAt}ms`);
                 }

@@ -72,9 +72,22 @@ const HYBRID_QWEN3_MODEL = /^qwen3-(?:0\.6b|1\.7b|4b|8b|14b|32b|30b-a3b|235b-a22
 // DashScope's qwen-flash hybrid alias uses enable_thinking, not the generic
 // OpenAI reasoning_effort field. Keep the host and model capability scoped.
 const DASHSCOPE_FLASH_MODEL = /^qwen-flash(?:-\d{4}-\d{2}-\d{2})?$/i;
+// Official model-studio deep-thinking protocol. Deliberately exact: future
+// aliases and arbitrary gateway names have no inferred protocol capability.
+// https://help.aliyun.com/zh/model-studio/deep-thinking
+const DASHSCOPE_HYBRID_ALIASES = new Set(['qwen3.5-flash']);
+const DASHSCOPE_THINKING_ONLY = new Set(['qwq-32b', 'qwen3-235b-a22b-thinking-2507', 'qwen3-30b-a3b-thinking-2507']);
 
 function isHybridQwen3(model) {
   return HYBRID_QWEN3_MODEL.test(String(model || '').split('/').at(-1));
+}
+
+function dashScopeThinkingCapability(baseURL, model) {
+  if (!isDashScopeChatEndpoint(baseURL)) return 'unknown';
+  const name = String(model || '').toLowerCase();
+  if (DASHSCOPE_THINKING_ONLY.has(name)) return 'required';
+  if (isHybridQwen3(model) || DASHSCOPE_FLASH_MODEL.test(name) || DASHSCOPE_HYBRID_ALIASES.has(name)) return 'toggle';
+  return 'unknown';
 }
 
 function qwenFastInstruction({ model, smart, explicit = {} } = {}) {
@@ -88,7 +101,7 @@ function qwenFastInstruction({ model, smart, explicit = {} } = {}) {
 
 function resolveChatRequestOptions({ baseURL, model, smart, explicit = {} } = {}) {
   const result = {};
-  if (isDashScopeChatEndpoint(baseURL) && (isHybridQwen3(model) || DASHSCOPE_FLASH_MODEL.test(String(model || '')))) {
+  if (dashScopeThinkingCapability(baseURL, model) === 'toggle') {
     result.enable_thinking = !!smart;
   }
   // Only explicit user settings travel to arbitrary compatible servers. Never
@@ -111,6 +124,7 @@ module.exports = {
   createCompatibleClientOptions,
   normalizeBaseUrl,
   isDashScopeChatEndpoint,
+  dashScopeThinkingCapability,
   resolveChatRequestOptions,
   qwenFastInstruction,
   supportsStreamingUsage

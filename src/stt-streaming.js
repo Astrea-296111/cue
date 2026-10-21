@@ -14,6 +14,7 @@
 const { looksLikeHallucination } = require('./stt');
 const { resolveLanguageHint } = require('./transcript-normalizer');
 const { CURRENT_GEMINI_DEFAULT } = require('./llm');
+const { randomUUID } = require('node:crypto');
 const {
   QwenStreamingSTT,
   resolveQwenAsrConfig
@@ -43,23 +44,32 @@ class OpenAIRealtimeSTT {
     this._interimByItem = new Map();
     this._itemOrders = new Map();
     this._itemSequence = 0;
+    this.sourceSessionId = null;
+    this._allowReconnect = true;
+    this._reconnectTimer = null;
   }
 
   async connect() {
-    if (this.ws && this.connected) return;
+    if (this.ws && (this.ws.readyState === 0 || this.ws.readyState === 1)) return;
+    this._allowReconnect = true;
+    clearTimeout(this._reconnectTimer); this._reconnectTimer = null;
 
     try {
       const WebSocket = require('ws');
       const url =
         'wss://api.openai.com/v1/realtime?intent=transcription';
 
-      this.ws = new WebSocket(url, {
+      const sourceSessionId = this.sourceSessionId = `openai:${randomUUID()}`;
+      this._itemOrders.clear(); this._interimByItem.clear(); this._itemSequence = 0;
+      this._sessionReady = false;
+      const ws = this.ws = new WebSocket(url, {
         headers: {
           Authorization: `Bearer ${this.apiKey}`
         }
       });
 
       this.ws.on('open', () => {
+        if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
         this.connected = true;
         this._reconnectAttempts = 0;
         this.onStatusChange('connected');
@@ -85,6 +95,7 @@ class OpenAIRealtimeSTT {
       });
 
       this.ws.on('message', (data) => {
+        if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
         try {
           this._handleEvent(
             JSON.parse(data.toString())
@@ -93,19 +104,22 @@ class OpenAIRealtimeSTT {
       });
 
       this.ws.on('close', (code) => {
+        if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
+        this.ws = null;
         this.connected = false;
         this._sessionReady = false;
         this.onStatusChange('disconnected');
 
         if (
           code !== 1000 &&
-          !this.reconnecting
+          !this.reconnecting && this._allowReconnect
         ) {
           this._attemptReconnect();
         }
       });
 
       this.ws.on('error', (err) => {
+        if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
         this.onError({
           provider: 'openai-realtime',
           message: err.message,
@@ -116,6 +130,7 @@ class OpenAIRealtimeSTT {
       this.ws.on(
         'unexpected-response',
         (_request, response) => {
+          if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
           let body = '';
 
           response.on('data', (chunk) => {
@@ -123,6 +138,7 @@ class OpenAIRealtimeSTT {
           });
 
           response.on('end', () => {
+            if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
             this.onError({
               provider: 'openai-realtime',
               status: response.statusCode,
@@ -143,10 +159,10 @@ class OpenAIRealtimeSTT {
   }
 
   _handleEvent(event) {
-    let meta;
+    let meta = { sourceSessionId: this.sourceSessionId };
     if (event.item_id) {
       if (!this._itemOrders.has(event.item_id)) this._itemOrders.set(event.item_id, ++this._itemSequence);
-      meta = { utteranceKey: event.item_id, utteranceOrder: this._itemOrders.get(event.item_id) };
+      meta = { ...meta, utteranceKey: event.item_id, utteranceOrder: this._itemOrders.get(event.item_id) };
       if (this._itemOrders.size > 64) this._itemOrders.delete(this._itemOrders.keys().next().value);
     }
     switch (event.type) {
@@ -325,6 +341,7 @@ class OpenAIRealtimeSTT {
   }
 
   _attemptReconnect() {
+    if (!this._allowReconnect || this._reconnectTimer) return;
     if (
       this._reconnectAttempts >=
       this._maxReconnectAttempts
@@ -348,30 +365,35 @@ class OpenAIRealtimeSTT {
         this._reconnectAttempts - 1
       );
 
-    setTimeout(() => {
+    this._reconnectTimer = setTimeout(() => {
+      this._reconnectTimer = null;
       this.reconnecting = false;
-      this.connect();
+      if (this._allowReconnect) this.connect();
     }, Math.min(delay, 16000));
   }
 
   disconnect() {
+    this._allowReconnect = false;
+    clearTimeout(this._reconnectTimer); this._reconnectTimer = null;
+    this.reconnecting = false;
     this._sessionReady = false;
     this._pendingAudio = [];
 
-    if (this.ws) {
+    const ws = this.ws;
+    this.ws = null;
+    if (ws) {
       try {
         if (
-          this.ws.readyState === 1
+          ws.readyState === 1
         ) {
-          this.ws.close(1000);
+          ws.close(1000);
         } else if (
-          this.ws.readyState === 0
+          ws.readyState === 0
         ) {
-          this.ws.terminate();
+          ws.terminate();
         }
       } catch (_) {}
 
-      this.ws = null;
     }
 
     this.connected = false;
@@ -416,17 +438,19 @@ class DeepgramStreamingSTT {
     this._committed = '';
     this._utteranceMeta = null;
     this._allowReconnect = true;
+    this.sourceSessionId = null;
+    this._reconnectTimer = null;
   }
 
   async connect() {
     if (
-      this.ws &&
-      this.connected
+      this.ws && (this.ws.readyState === 0 || this.ws.readyState === 1)
     ) {
       return;
     }
 
     this._allowReconnect = true;
+    clearTimeout(this._reconnectTimer); this._reconnectTimer = null;
 
     try {
       const WebSocket =
@@ -450,7 +474,9 @@ class DeepgramStreamingSTT {
       const url =
         `wss://api.deepgram.com/v1/listen?${params.toString()}`;
 
-      this.ws =
+      const sourceSessionId = this.sourceSessionId = `deepgram:${randomUUID()}`;
+      this._committed = ''; this._utteranceMeta = null;
+      const ws = this.ws =
         new WebSocket(url, {
           headers: {
             Authorization:
@@ -461,6 +487,7 @@ class DeepgramStreamingSTT {
       this.ws.on(
         'open',
         () => {
+          if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
           this._committed = '';
           this._utteranceMeta = null;
           this.connected = true;
@@ -488,6 +515,7 @@ class DeepgramStreamingSTT {
       this.ws.on(
         'message',
         (data) => {
+          if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
           try {
             this._handleMessage(
               JSON.parse(
@@ -501,6 +529,8 @@ class DeepgramStreamingSTT {
       this.ws.on(
         'close',
         (code) => {
+          if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
+          this.ws = null;
           this.connected = false;
           this._clearKeepAlive();
           this.onStatusChange(
@@ -519,6 +549,7 @@ class DeepgramStreamingSTT {
       this.ws.on(
         'error',
         (err) => {
+          if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
           this.onError({
             provider: 'deepgram',
             message: err.message,
@@ -530,6 +561,7 @@ class DeepgramStreamingSTT {
       this.ws.on(
         'unexpected-response',
         (_request, response) => {
+          if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
           let body = '';
 
           response.on(
@@ -543,6 +575,7 @@ class DeepgramStreamingSTT {
           response.on(
             'end',
             () => {
+              if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
               this.onError({
                 provider: 'deepgram',
                 status:
@@ -579,9 +612,9 @@ class DeepgramStreamingSTT {
           .trim();
 
       if (!this._utteranceMeta && Number.isFinite(msg.start) && text) {
-        this._utteranceMeta = { utteranceKey: `deepgram:${msg.start}`, utteranceOrder: msg.start };
+        this._utteranceMeta = { sourceSessionId: this.sourceSessionId, utteranceKey: `deepgram:${msg.start}`, utteranceOrder: msg.start };
       }
-      const meta = this._utteranceMeta || undefined;
+      const meta = this._utteranceMeta || { sourceSessionId: this.sourceSessionId };
       if (msg.speech_final) {
         const full =
           (
@@ -656,7 +689,7 @@ class DeepgramStreamingSTT {
   }
 
   _flushCommitted() {
-    const meta = this._utteranceMeta || undefined;
+    const meta = this._utteranceMeta || { sourceSessionId: this.sourceSessionId };
     this._utteranceMeta = null;
     const full =
       (this._committed || '')
@@ -702,7 +735,7 @@ class DeepgramStreamingSTT {
 
   _attemptReconnect() {
     if (
-      !this._allowReconnect
+      !this._allowReconnect || this._reconnectTimer
     ) {
       return;
     }
@@ -730,7 +763,8 @@ class DeepgramStreamingSTT {
         this._reconnectAttempts - 1
       );
 
-    setTimeout(() => {
+    this._reconnectTimer = setTimeout(() => {
+      this._reconnectTimer = null;
       if (
         this._allowReconnect
       ) {
@@ -741,6 +775,7 @@ class DeepgramStreamingSTT {
 
   disconnect() {
     this._allowReconnect = false;
+    clearTimeout(this._reconnectTimer); this._reconnectTimer = null;
 
     this._flushCommitted();
     this._clearKeepAlive();

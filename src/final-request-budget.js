@@ -112,6 +112,7 @@ function visibleEvidence(evidence, request) {
 }
 
 function prepareFinalRequest(options = {}) {
+  const gapNoteText = options.evidenceGapNote || BUDGET_GAP_NOTE;
   const windowValue = Number(options.contextWindow);
   const contextWindow = Number.isFinite(windowValue) && windowValue >= 1024
     ? Math.floor(windowValue) : DEFAULT_CONTEXT_WINDOW;
@@ -157,7 +158,7 @@ function prepareFinalRequest(options = {}) {
     // The concise warning is part of the same request calculation. It cannot
     // be appended after fitting and push an otherwise valid SDK call over its
     // model window. Its content stays bounded regardless of source count.
-    sections.push({ id: 'evidence-budget-note', text: BUDGET_GAP_NOTE, protected: true });
+    sections.push({ id: 'evidence-budget-note', text: gapNoteText, protected: true });
     fit();
   }
   const system = joinSystem(systemParts);
@@ -173,7 +174,7 @@ function prepareFinalRequest(options = {}) {
     contextWindowTokens: contextWindow, estimatedTokens, estimatedInputTokens: estimatedTokens,
     reservedOutputTokens: maxTokens, safetyTokens, estimatedImageTokens: imageTokens,
     droppedHistoryTurns: droppedHistory, droppedSections, droppedEvidence: droppedEvidence.length,
-    budgetGapNoteTokens: gapNote ? estimateTokens(BUDGET_GAP_NOTE) : 0,
+    budgetGapNoteTokens: gapNote ? estimateTokens(gapNoteText) : 0,
     selectedSourceCount: evidence.length, overBudget: !fits
   } };
 }

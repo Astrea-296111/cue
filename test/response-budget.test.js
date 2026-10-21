@@ -108,8 +108,13 @@ test('follow-up and recap budgets also reach the SDK and recap grows with the in
   assert.equal(last(app).max_tokens, 500);
   await app.ask('recap');
   const short = last(app).max_tokens;
-  for (let i = 0; i < 30; i++) app.candidate('候选人回答记录。'.repeat(70));
+  // Distinct source keys are retained instead of text-deduped. Keep the full
+  // transcript inside the configured model window; this verifies output budget
+  // growth rather than the separate oversized-input rejection path.
+  for (let i = 0; i < 30; i++) app.candidate('候选人回答记录。'.repeat(20));
   await app.ask('recap');
+  assert.equal(app.calls.length, 3);
+  assert.equal(app.events.some(event => event.channel === 'llm:error'), false);
   assert.ok(last(app).max_tokens > short && last(app).max_tokens <= 3200);
   assert.match(system(app), /Cue 历史建议不能当作候选人实际说过/);
 });

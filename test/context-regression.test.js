@@ -53,7 +53,7 @@ function appHarness(t, options = {}) {
   const handlers = new Map(), listeners = new Map(), events = [], calls = [];
   // This legacy harness bypasses application startup/index warmup. Keep its
   // compatibility-path coverage; the package-entry harness covers the new path.
-  const settings = { provider: 'custom', smart: false, realtimeEvidencePrefetch: false,
+  const settings = { provider: 'custom', smart: false, realtimeEvidencePrefetch: false, realtimeAnswerMode: 'standard',
     models: { custom: { fast: 'qwen3.8-flash' } }, ...options.settings };
   let behavior = options.behavior || (async args => { args.onToken('测试回答'); return '测试回答'; });
   let captures = 0;

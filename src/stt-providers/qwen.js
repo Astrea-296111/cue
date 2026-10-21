@@ -283,6 +283,8 @@ class QwenStreamingSTT {
     this._closingTimer = null;
     this._lastFinalKey = '';
     this._lastInterimAt = 0;
+    this.sourceSessionId = null;
+    this._reconnectTimer = null;
   }
 
   async connect() {
@@ -301,15 +303,18 @@ class QwenStreamingSTT {
     }
 
     this._allowReconnect = true;
+    clearTimeout(this._reconnectTimer); this._reconnectTimer = null;
     this.onStatusChange('connecting');
 
     try {
       const WebSocket = require('ws');
 
       this.taskId = crypto.randomUUID();
+      const sourceSessionId = this.sourceSessionId = `qwen:${this.taskId}`;
       this.taskStarted = false;
+      this._lastFinalKey = ''; this._lastInterimAt = 0;
 
-      this.ws = new WebSocket(this.websocketUrl, {
+      const ws = this.ws = new WebSocket(this.websocketUrl, {
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
           'User-Agent': 'cue-qwen-asr/1.0'
@@ -317,6 +322,7 @@ class QwenStreamingSTT {
       });
 
       this.ws.on('open', () => {
+        if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
         this.connected = true;
         this._reconnectAttempts = 0;
 
@@ -332,6 +338,7 @@ class QwenStreamingSTT {
       });
 
       this.ws.on('message', (data, isBinary) => {
+        if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
         if (isBinary) return;
 
         try {
@@ -341,6 +348,8 @@ class QwenStreamingSTT {
       });
 
       this.ws.on('close', (code) => {
+        if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
+        this.ws = null;
         this.connected = false;
         this.taskStarted = false;
         this.onStatusChange('disconnected');
@@ -354,6 +363,7 @@ class QwenStreamingSTT {
       });
 
       this.ws.on('error', (error) => {
+        if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
         this.onError({
           provider: 'qwen-asr',
           status: null,
@@ -362,6 +372,7 @@ class QwenStreamingSTT {
       });
 
       this.ws.on('unexpected-response', (_request, response) => {
+        if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
         let body = '';
 
         response.on('data', (chunk) => {
@@ -369,6 +380,7 @@ class QwenStreamingSTT {
         });
 
         response.on('end', () => {
+          if (this.ws !== ws || this.sourceSessionId !== sourceSessionId) return;
           this.onError({
             provider: 'qwen-asr',
             status: response.statusCode,
@@ -388,6 +400,7 @@ class QwenStreamingSTT {
   }
 
   _handleMessage(message) {
+    if (message.header?.task_id && this.taskId && message.header.task_id !== this.taskId) return;
     const event = parseQwenEvent(message);
 
     if (event.type === 'started') {
@@ -401,6 +414,7 @@ class QwenStreamingSTT {
       if (event.text) {
         this._lastInterimAt = Date.now();
         this.onInterim(event.text, {
+          sourceSessionId: this.sourceSessionId,
           utteranceKey: event.sentenceId == null ? undefined : `${this.taskId}:${event.sentenceId}`,
           utteranceOrder: event.sentenceId == null ? undefined : Number(event.sentenceId)
         });
@@ -425,6 +439,7 @@ class QwenStreamingSTT {
       }
       this._lastInterimAt = 0;
       const meta = {
+        sourceSessionId: this.sourceSessionId,
         utteranceKey: event.sentenceId == null ? undefined : `${this.taskId}:${event.sentenceId}`,
         utteranceOrder: event.sentenceId == null ? undefined : Number(event.sentenceId)
       };
@@ -514,7 +529,7 @@ class QwenStreamingSTT {
   }
 
   _attemptReconnect() {
-    if (!this._allowReconnect) return;
+    if (!this._allowReconnect || this._reconnectTimer) return;
 
     if (
       this._reconnectAttempts >=
@@ -536,7 +551,8 @@ class QwenStreamingSTT {
       8000
     );
 
-    setTimeout(() => {
+    this._reconnectTimer = setTimeout(() => {
+      this._reconnectTimer = null;
       if (this._allowReconnect) {
         this.connect();
       }
@@ -567,6 +583,7 @@ class QwenStreamingSTT {
 
   disconnect() {
     this._allowReconnect = false;
+    clearTimeout(this._reconnectTimer); this._reconnectTimer = null;
     this._flushAudio(true);
 
     if (

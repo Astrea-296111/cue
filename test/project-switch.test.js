@@ -125,7 +125,7 @@ function runtime(t, extraSettings = {}) {
   const calls = [], searches = [], events = [], loaded = [], cache = new Map();
   let answer = tcsAnswer;
   const settings = { provider: 'custom', baseUrl: 'https://example.invalid/v1', apiKeys: {},
-    models: { custom: { fast: 'test-model' } }, smart: false, resumeText: '', ...extraSettings };
+    models: { custom: { fast: 'test-model' } }, smart: false, realtimeAnswerMode: 'standard', resumeText: '', ...extraSettings };
   class OpenAI {
     constructor() {
       this.chat = { completions: { create: async args => {
@@ -322,10 +322,10 @@ test('explicit generic discourse excludes project evidence and assistant history
 
 for (const scenario of [
   { name: '如果平', speech: ['达到100%的恢复率是不是牺牲了什么？', '比如图片变得肉眼可见的模糊，或者需要发特别多张图。', '如果平'], expected: /100%.*恢复率/, excluded: /如果平/ },
-  { name: 'ops after Function Call and React', speech: ['为什么用 Function Call？', '为什么用 React？', 'ops'], expected: /Function Call[\s\S]*React/, excluded: /\bops\b/i },
+  { name: 'ops after Function Call and React', speech: ['为什么用 Function Call？', '为什么用 React？', 'ops'], expected: /为什么用 React/, excluded: /Function Call|\bops\b/i },
   { name: 'complete question plus unfinished tail', speech: ['项目是你独立完成的，还是团队合作？你具体负责哪一部分？在这个过程'], expected: /独立完成[\s\S]*负责/, excluded: /在这个过程/ }
 ]) {
-  test(`unchanged QuestionResolver via package entry: ${scenario.name}`, async t => {
+  test(`current QuestionResolver via package entry: ${scenario.name}`, async t => {
     const app = runtime(t);
     for (const text of scenario.speech) app.final(text);
     await app.ask();

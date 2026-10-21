@@ -29,7 +29,7 @@ function runtime(t, options = {}) {
   const shortcuts = new Map(), pendingShortcuts = [];
   let captures = 0;
   const settings = { provider: 'custom', baseUrl: 'https://example.invalid/v1', apiKeys: {},
-    models: { custom: { fast: 'test-model' } }, smart: false, resumeText: '', ...options.settings };
+    models: { custom: { fast: 'test-model' } }, smart: false, realtimeAnswerMode: 'standard', resumeText: '', ...options.settings };
   class OpenAI {
     constructor() {
       this.chat = { completions: { create: async args => {
@@ -239,22 +239,21 @@ test('Assist capture failure cannot fall back to an old screenshot or send a mod
   assert.match(app.events.find(e => e.channel === 'llm:error').message, /截图失败/);
 });
 
-test('manual say sends a partial final to the actual SDK without inventing its missing conditions', async t => {
+test('manual say leaves an incomplete new target in preview without requesting a model', async t => {
   const app = runtime(t);
   app.final('如果平');
   await app.shortcut('CommandOrControl+Return');
-  assert.equal(app.calls.length, 1);
+  assert.equal(app.calls.length, 0);
   assert.equal(app.captures, 0);
-  assert.match(app.calls[0].messages.at(-1).content, /如果平/);
-  assert.match(app.calls[0].messages.at(-1).content, /发言可能尚未结束/);
-  assert.match(app.calls[0].messages[0].content, /不要猜测或补全没听到的条件/);
+  assert.equal(app.value('conversation.recent.length'), 0);
+  assert.ok(app.events.some(event => event.channel === 'status' && /新的回答目标|尚未识别完整/.test(event.message)));
 });
 
-test('manual say with no speech still reaches the SDK and does not save an invented question', async t => {
+test('manual say with no speech shows no target and does not request an invented question', async t => {
   const app = runtime(t);
   await app.ask('say');
-  assert.equal(app.calls.length, 1);
-  assert.match(app.calls[0].messages.at(-1).content, /没有识别到面试官问题/);
+  assert.equal(app.calls.length, 0);
+  assert.ok(app.events.some(event => event.channel === 'status' && /没有新的回答目标/.test(event.message)));
   assert.equal(app.value('conversation.recent.length'), 0);
 });
 

@@ -213,6 +213,30 @@ class ActiveProjectContextCache {
       coverageByQuestion: selected.byQuestion };
   }
 
+  // A foreground instant answer may inspect only a small existing raw pool.
+  // Unlike readCandidatesForQuestion this never builds postings or invokes the
+  // selector. Canonical validation and current-question matching belong to the
+  // caller; question-specific approvals are never returned.
+  peekRawSources(scopes, revision, identity = {}, { maxCandidates = 8 } = {}) {
+    const own = normalizeScopes(scopes).slice(0, 2);
+    const limit = Math.max(0, Math.min(8, Number(maxCandidates) || 0));
+    if (!own.length || !revision || !limit) return [];
+    const keys = [this.key(own, revision, identity)];
+    if (own.length > 1) for (const scope of own) keys.push(this.key([scope], revision, identity));
+    const result = [], seen = new Set();
+    let inspected = 0;
+    for (const key of keys) {
+      const entry = this.entries.get(key);
+      if (!entry || entry.revision !== revision || this.now() - entry.updatedAt > this.ttlMs) continue;
+      for (const source of entry.evidence) {
+        if (++inspected > limit) return result;
+        if (!sourceEvidence(source, own) || seen.has(evidenceKey(source))) continue;
+        seen.add(evidenceKey(source)); result.push(cleanSource(source));
+      }
+    }
+    return result;
+  }
+
   lookup(scopes, revision, query, interviewPlan, identity = {}) {
     const entry = this.get(scopes, revision, identity);
     if (!entry || !entry.searched) return { hit: false, evidence: [], missing: requirements(query, interviewPlan).map(n => n.text) };

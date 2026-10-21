@@ -140,15 +140,24 @@
   }
 
   let activeRequestId = null;
+  let activeRequestEpoch = null;
+  let diagnosticRequestId = null;
+  let diagnosticEpoch = null;
   let firstTokenRendered = false;
+  let answerWaitTimer = null;
+  let targetState = { snapshot: null, frozenSnapshot: null, state: 'empty' };
+  let submittedSnapshot = null;
+  let lastExecutionProfile = null;
   let busyFailsafe = null;
   function setBusy(v) {
+    const changed = busy !== v;
     busy = v;
     $('#send-btn').classList.toggle('busy', v);
     clearTimeout(busyFailsafe);
     // Main enforces 25s inactivity / 180s generation limits. Keep the UI locked
     // through reasoning-only streams; tokens refresh this final fallback.
     if (v) busyFailsafe = setTimeout(() => { busy = false; $('#send-btn').classList.toggle('busy', false); }, 190000);
+    if (changed) renderAnswerTarget();
   }
 
   // ---- transcript helpers ------------------------------------------------
@@ -192,7 +201,7 @@
   function runMode(mode, text) {
     // Manual answer shortcuts request a fresh reply, including during generation.
     // The main process aborts the previous request; other modes retain the guard.
-    if (busy && mode !== 'say' && mode !== 'technical') return;
+    if (busy && !['say', 'answerThis', 'ask', 'assist', 'technical'].includes(mode)) return;
 
     // Never promote renderer-side interim ASR text into an explicit question.
     // The main process owns the QuestionResolver and decides whether the newest
@@ -201,6 +210,65 @@
 
     cue.ask({ mode, text: requestText });
   }
+
+  function renderAnswerTarget() {
+    const latest = targetState.snapshot;
+    const frozen = busy ? (submittedSnapshot || targetState.frozenSnapshot) : null;
+    const display = frozen || latest;
+    const unavailable = !display?.text || ['empty', 'incomplete', 'consumed'].includes(targetState.state) && !frozen;
+    const value = unavailable ? (targetState.state === 'incomplete' || latest?.awaitingNewQuestion ? '新问题尚未识别完整' : '等待新问题') : display.text;
+    $('#answer-target-label').textContent = frozen ? '正在回答：' : '本次回答：';
+    $('#answer-target-text').textContent = value;
+    $('#answer-target-text').title = value;
+    $('#answer-target-edit').disabled = unavailable;
+    $('#answer-target-retry').disabled = !submittedSnapshot && !targetState.frozenSnapshot;
+    const different = frozen && latest?.text && (latest.questionId !== frozen.questionId || latest.revision !== frozen.revision);
+    $('#answer-next-target').textContent = different ? '下次：' + latest.text : latest?.status === 'partial' && !frozen ? '识别中，可立即回答当前目标' : '';
+    $('#answer-next-target').title = $('#answer-next-target').textContent;
+  }
+  function applyQuestionTarget(value = {}) {
+    const incomingEpoch = value.epoch ?? value.snapshot?.epoch ?? value.frozenSnapshot?.epoch;
+    const previousEpoch = targetState.epoch ?? targetState.snapshot?.epoch;
+    if (Number.isFinite(incomingEpoch) && Number.isFinite(previousEpoch) && incomingEpoch < previousEpoch) return;
+    if (Number.isFinite(incomingEpoch) && Number.isFinite(previousEpoch) && incomingEpoch > previousEpoch) {
+      submittedSnapshot = null;
+      activeRequestId = null;
+      activeRequestEpoch = null;
+      diagnosticRequestId = null;
+      diagnosticEpoch = null;
+      clearTimeout(answerWaitTimer);
+      setBusy(false);
+      $('#answer-timing').textContent = '';
+      syncAnswerMode();
+    }
+    targetState = { ...value, epoch: incomingEpoch };
+    renderAnswerTarget();
+  }
+  cue.on('question:target', applyQuestionTarget);
+  $('#answer-target-edit').addEventListener('click', () => {
+    const snapshot = busy ? submittedSnapshot || targetState.frozenSnapshot || targetState.snapshot : targetState.snapshot;
+    if (!snapshot?.text) return;
+    // Speech is copied only after this explicit edit action, never on ASR events.
+    input.value = snapshot.text;
+    inputFromSTT = false;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.focus();
+  });
+  $('#answer-target-retry').addEventListener('click', async () => {
+    try { await cue.questionRetry?.(); }
+    catch (error) { showStatus(error?.message || '无法重答。'); }
+  });
+  function syncAnswerMode() {
+    $('#realtime-answer-mode').value = settings?.realtimeAnswerMode === 'standard' ? 'standard' : 'instant';
+    if (!diagnosticRequestId) $('#answer-execution-profile').textContent = $('#realtime-answer-mode').value === 'instant'
+      ? '极速 · 使用已配置快速模型' : '标准 · 遵循深度思考开关';
+    updateSmartTooltip();
+  }
+  $('#realtime-answer-mode').addEventListener('change', async event => {
+    if (!settings) return;
+    try { settings = await cue.settingsSet({ realtimeAnswerMode: event.target.value }); syncAnswerMode(); }
+    catch (error) { syncAnswerMode(); showStatus(error?.message || '无法切换问答档位。'); }
+  });
 
   document.querySelectorAll('.act').forEach((btn) => {
     btn.addEventListener('click', () => runMode(btn.dataset.mode, ''));
@@ -617,9 +685,11 @@
   // Smart toggle
   const smartBtn = $('#smart-toggle');
   smartBtn.addEventListener('click', async () => {
+    if (!settings) return;
     settings.smart = !settings.smart;
     smartBtn.classList.toggle('on', settings.smart);
     await cue.settingsSet({ smart: settings.smart });
+    updateSmartTooltip();
   });
 
   // Hide / collapse
@@ -658,10 +728,15 @@
       
       await cue.clearTranscript();
       activeRequestId = null;
+      activeRequestEpoch = null;
+      diagnosticRequestId = null;
+      diagnosticEpoch = null;
+      submittedSnapshot = null;
+      clearTimeout(answerWaitTimer);
+      $('#answer-timing').textContent = '';
+      syncAnswerMode();
       responseCount = 0;
       setBusy(false);
-      clearTimeout(ragPrefetchTimer);
-      lastPrefetchKey = '';
       clearMessages();
       // Also clear the floating interim bar
       if (interimEl) { interimEl.textContent = ''; interimEl.classList.remove('show'); }
@@ -1187,10 +1262,19 @@ micStream = stream;
   cue.on('vad:state', ({ channel, speaking }) => {
     setLiveDotState(speaking ? 'speaking' : 'idle');
   });
-cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
+cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }) => {
   if (aiEl) finalizeAi();
   activeRequestId = requestId || null;
+  activeRequestEpoch = epoch ?? null;
+  diagnosticRequestId = activeRequestId;
+  diagnosticEpoch = activeRequestEpoch;
+  submittedSnapshot = snapshot || targetState.frozenSnapshot || targetState.snapshot || null;
   firstTokenRendered = false;
+  clearTimeout(answerWaitTimer);
+  $('#answer-timing').textContent = '准备请求';
+  answerWaitTimer = setTimeout(() => {
+    if (activeRequestId === requestId && !firstTokenRendered) $('#answer-timing').textContent = '等待模型正文…';
+  }, 1500);
   responseCount++;
 
   // 回答区现在是倒序排列：
@@ -1258,9 +1342,41 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
 
   setBusy(true);
 });
-  const acceptsReply = requestId => !requestId || requestId === activeRequestId;
-  cue.on('llm:evidence', ({ sources = [], missing = [], requestId }) => {
-    if (!acceptsReply(requestId) || !aiEl) return;
+  const acceptsReply = (requestId, epoch) => (!requestId || requestId === activeRequestId) &&
+    (epoch == null || activeRequestEpoch == null || epoch === activeRequestEpoch);
+  const acceptsDiagnostic = (requestId, epoch) => (!requestId || requestId === diagnosticRequestId) &&
+    (epoch == null || diagnosticEpoch == null || epoch === diagnosticEpoch);
+  cue.on('llm:profile', ({ requestId, epoch, executionProfile, tier, provider, model, thinkingStatus, thinkingMessage, referenceDraft, endpointClass, thinkingSource }) => {
+    if (!acceptsDiagnostic(requestId, epoch)) return;
+    const label = executionProfile === 'instant' ? '极速 / 快速模型' : tier === 'smart' ? '标准 / 深度模型' : '标准 / 快速模型';
+    const status = { disabled: '思考已关闭', enabled: '思考已开启', unknown: '思考能力未知', required: '思考无法关闭', 'unsupported': '思考无法关闭', 'cannot-disable': '思考无法关闭' }[thinkingStatus];
+    lastExecutionProfile = { executionProfile, provider, model, thinkingStatus, endpointClass, thinkingSource };
+    fillInstantThinking();
+    const text = [label, model, status].filter(Boolean).join(' · ');
+    $('#answer-execution-profile').textContent = text;
+    $('#answer-execution-profile').title = [text, provider, thinkingMessage].filter(Boolean).join(' · ');
+    $('#answer-execution-profile').classList.toggle('warning', !!thinkingStatus && thinkingStatus !== 'disabled');
+    if (referenceDraft && aiEl) {
+      const group = aiEl.closest('.response-group');
+      if (group && !group.querySelector('.reference-draft')) {
+        const badge = document.createElement('span'); badge.className = 'category-pill reference-draft';
+        badge.textContent = '参考草稿'; group.insertBefore(badge, aiEl);
+      }
+    }
+  });
+  const displayDuration = milliseconds => milliseconds < 1000 ? Math.round(milliseconds) + 'ms' : (milliseconds / 1000).toFixed(2) + 's';
+  cue.on('llm:metrics', metrics => {
+    if (!acceptsDiagnostic(metrics.requestId, metrics.epoch)) return;
+    const parts = [];
+    if (Number.isFinite(metrics.triggerToDispatchMs)) parts.push('准备 ' + displayDuration(metrics.triggerToDispatchMs));
+    if (Number.isFinite(metrics.firstContentMs)) parts.push('模型首字 ' + displayDuration(metrics.firstContentMs));
+    if (metrics.aborted) parts.push('已取消');
+    $('#answer-timing').textContent = parts.join(' · ');
+    $('#answer-timing').title = Number.isFinite(metrics.triggerToFirstContentMs)
+      ? '触发到正文 ' + displayDuration(metrics.triggerToFirstContentMs) + '；绘制确认是近似值' : parts.join(' · ');
+  });
+  cue.on('llm:evidence', ({ sources = [], missing = [], requestId, epoch }) => {
+    if (!acceptsReply(requestId, epoch) || !aiEl) return;
     const group = aiEl.closest('.response-group');
     if (!group) return;
     group.querySelector('.answer-evidence')?.remove();
@@ -1299,22 +1415,33 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
     try { settings = await cue.projectCurrent(event.target.value); }
     catch (error) { showStatus(error?.message || '无法切换项目。'); void refreshProjectIndexState(); }
   });
-  cue.on('llm:token', ({ text, requestId }) => {
-    if (!acceptsReply(requestId)) return;
+  cue.on('llm:token', ({ text, requestId, epoch }) => {
+    if (!acceptsReply(requestId, epoch)) return;
     appendToken(text);
-    if (!firstTokenRendered) {
+    if (!firstTokenRendered && String(text || '').trim()) {
       firstTokenRendered = true;
-      requestAnimationFrame(() => cue.replyRendered?.(requestId));
+      clearTimeout(answerWaitTimer);
+      const insertedAt = performance.now();
+      const ownership = { epoch: activeRequestEpoch };
+      cue.replyRendered?.(requestId, { ...ownership, stage: 'dom', rendererElapsedMs: 0 });
+      // Two rAF callbacks estimate a paint opportunity; they do not observe pixels.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (acceptsDiagnostic(requestId, epoch)) cue.replyRendered?.(requestId,
+          { ...ownership, stage: 'paint-approx', rendererElapsedMs: performance.now() - insertedAt });
+      }));
     }
     setBusy(true);
   });
-  cue.on('llm:done', ({ requestId } = {}) => {
-    if (!acceptsReply(requestId)) return;
-    finalizeAi(); setBusy(false); activeRequestId = null;
+  cue.on('llm:done', ({ requestId, epoch } = {}) => {
+    if (!acceptsReply(requestId, epoch)) return;
+    clearTimeout(answerWaitTimer);
+    finalizeAi(); setBusy(false); activeRequestId = null; activeRequestEpoch = null;
   });
-  cue.on('llm:error', ({ message, requestId }) => {
-    if (!acceptsReply(requestId)) return;
+  cue.on('llm:error', ({ message, requestId, epoch }) => {
+    if (!acceptsReply(requestId, epoch)) return;
+    clearTimeout(answerWaitTimer);
     activeRequestId = null;
+    activeRequestEpoch = null;
     if (!aiEl) startAi(true);
     aiEl.dataset.raw = message; finalizeAi(); setBusy(false);
   });
@@ -1381,7 +1508,8 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
     const fast = m.fast || '快速模型';
     const smart = m.smart || '深度模型';
     const btn = document.getElementById('smart-toggle');
-    if (btn) btn.title = '快速：' + fast + '（优先首字速度，支持时关闭模型思考） · 深度：' + smart + '（通常耗时更长）';
+    if (btn) btn.title = (settings.realtimeAnswerMode !== 'standard' ? '极速口述固定使用快速模型，此开关用于标准问答和其他功能。' : '') +
+      '快速：' + fast + '（优先首字速度，支持时关闭模型思考） · 深度：' + smart + '（通常耗时更长）';
   }
 
   // ---- microphone permission banner --------------------------------------
@@ -1661,8 +1789,30 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
     cue.projectSemanticState?.().then(renderSemanticState).catch(() => {});
   }
 
+  function fillInstantThinking() {
+    const select = $('#instant-thinking');
+    if (!select || !settings) return;
+    const profile = lastExecutionProfile;
+    const currentModel = $('#model-fast')?.value.trim() || settings.models?.[settings.provider]?.fast;
+    const supported = profile?.executionProfile === 'instant' && profile.provider === settings.provider &&
+      profile.model === currentModel && profile.endpointClass === 'dashscope-official' &&
+      ['enabled', 'disabled'].includes(profile.thinkingStatus);
+    select.disabled = !supported;
+    const value = settings.instantProviderOptions?.[settings.provider]?.enable_thinking;
+    select.value = typeof value === 'boolean' ? value ? 'enabled' : 'disabled' : 'inherit';
+    $('#instant-thinking-note').textContent = supported
+      ? '仅影响极速问答；开启思考可能增加正文首字等待。'
+      : '确认当前服务和模型支持独立思考设置后可调整；未知服务不会自动发送思考参数。';
+  }
+  $('#model-fast').addEventListener('input', fillInstantThinking);
+  document.querySelectorAll('#provider-seg button').forEach(button => button.addEventListener('click', () => {
+    // Existing provider handler updates settings before the next event turn.
+    queueMicrotask(fillInstantThinking);
+  }));
+
   function fillSettings() {
     $('#context-window-tokens').value = settings.contextWindowTokens || 16384;
+    $('#instant-rag-policy').value = settings.instantRagPolicy === 'off' ? 'off' : 'ready-only';
     // Keys tab
     document.querySelectorAll('#provider-seg button').forEach((b) => b.classList.toggle('on', b.dataset.provider === settings.provider));
     $('#key-openai').value = settings.apiKeys.openai || '';
@@ -1680,6 +1830,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId }) => {
     $('#azure-endpoint').value = settings.azureEndpoint || '';
     const m = settings.models[settings.provider] || { fast: '', smart: '' };
     $('#model-fast').value = m.fast; $('#model-smart').value = m.smart;
+    fillInstantThinking();
     fillAppLinkCallers();
     $('#s-status').textContent = statusText();
     // Transcription tab
@@ -2046,6 +2197,16 @@ cue.on(
     settings.models[settings.provider].fast = $('#model-fast').value.trim();
     settings.models[settings.provider].smart = $('#model-smart').value.trim();
     settings.contextWindowTokens = Math.max(1024, Math.min(2000000, Number($('#context-window-tokens').value) || 16384));
+    settings.instantRagPolicy = $('#instant-rag-policy').value === 'off' ? 'off' : 'ready-only';
+    if (!$('#instant-thinking').disabled) {
+      const value = $('#instant-thinking').value;
+      const all = { ...(settings.instantProviderOptions || {}) };
+      const options = { ...(all[settings.provider] || {}) };
+      if (value === 'inherit') delete options.enable_thinking;
+      else options.enable_thinking = value === 'enabled';
+      all[settings.provider] = options;
+      settings.instantProviderOptions = all;
+    }
     // Transcription
     settings.sttLanguage = $('#cloud-stt-language').value || 'auto';
     if (!settings.localWhisper) settings.localWhisper = {};
@@ -2071,6 +2232,7 @@ cue.on(
       settings = await cue.settingsSet(settings);
       $('#s-status').textContent = statusText();
       updateSmartTooltip();
+      syncAnswerMode();
       return true;
     } catch (error) {
       const message = error && error.message ? error.message : String(error);
@@ -2258,6 +2420,8 @@ cue.on(
   // ---- boot --------------------------------------------------------------
   (async function boot() {
     settings = await cue.settingsGet();
+    syncAnswerMode();
+    cue.questionTarget?.().then(applyQuestionTarget).catch(() => {});
     void refreshProjectIndexState();
     const platformInfo = await cue.platformInfo();
 

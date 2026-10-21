@@ -78,15 +78,14 @@ test('Ctrl+L never captures even when the interviewer explicitly mentions screen
 test('empty and partial Ctrl+L remain responsive without inventing a question', async t => {
   const app = createInterviewRuntime(t);
   await app.shortcut(shortcut);
-  assert.equal(app.calls.length, 1);
-  assert.match(currentText(last(app)), /尚未识别到面试官问题/);
+  assert.equal(app.calls.length, 0);
   assert.equal(app.value('conversation.recent.length'), 0);
   app.interim('如果平', { utteranceKey: 'partial' });
   await app.shortcut(shortcut);
-  assert.match(currentText(last(app)), /如果平/);
-  assert.match(currentText(last(app)), /发言可能尚未结束/);
+  assert.equal(app.calls.length, 0);
   app.final('如果平均每张图的生存概率都一样，还需要动态规划吗？', { utteranceKey: 'partial' });
   await app.shortcut(shortcut);
+  assert.equal(app.calls.length, 1);
   assert.match(currentText(last(app)), /动态规划/);
   assertTextOnly(app);
 });

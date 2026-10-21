@@ -60,7 +60,9 @@ function createInterviewRuntime(t, options = {}) {
   writeIndex(temp, options.indexVersion || 2, options.chunks || defaultChunks, options);
   fs.writeFileSync(path.join(temp, 'cue-data.json'), JSON.stringify({ provider: 'custom',
     baseUrl: 'https://example.invalid/v1', apiKeys: { custom: 'test-transport-only' },
-    models: { custom: { fast: 'test-model' } }, smart: false, resumeText: '', ...options.settings }));
+    // Existing retrieval suites deliberately exercise the standard RAG flow.
+    // Instant-mode suites opt in explicitly; production store defaults instant.
+    models: { custom: { fast: 'test-model' } }, smart: false, realtimeAnswerMode: 'standard', resumeText: '', ...options.settings }));
 
   let time = options.startedAt || 1_800_000_000_000;
   class ClockDate extends Date {
@@ -83,11 +85,11 @@ function createInterviewRuntime(t, options = {}) {
   let response = { text: '测试答案', finishReason: 'stop' }, transport;
 
   class OpenAI {
-    constructor() {
+    constructor(config) {
       this.chat = { completions: { create: async (body, sdkOptions) => {
         calls.push(copy(body));
         requestOptions.push(sdkOptions);
-        if (transport) return transport(body, sdkOptions, calls.length - 1);
+        if (transport) return transport(body, sdkOptions, calls.length - 1, config);
         const selected = { ...response };
         return (async function* () {
           if (selected.error) throw selected.error;
