@@ -26,33 +26,33 @@
     <!-- Main assistant panel -->
     <div id="panel-wrap">
       <span id="live-dot" class="off"></span>
-      <div id="stt-status" class="stt-status stt-disconnected">未监听</div>
       <div id="panel" class="glass no-drag">
         <div id="panel-columns">
           <div id="panel-main">
-            <div class="project-choice-row">
-              <label for="current-project-trigger">当前项目</label>
-              <select id="current-project" aria-label="当前项目" hidden tabindex="-1" aria-hidden="true"><option value="">自动</option></select>
-              <span id="active-project-label"></span>
-            </div>
             <div id="answer-target-panel" aria-label="当前回答目标">
+              <div class="panel-meta">
+                <div class="project-choice-row">
+                  <label for="current-project-trigger">当前项目</label>
+                  <select id="current-project" aria-label="当前项目" hidden tabindex="-1" aria-hidden="true"><option value="">自动</option></select>
+                  <span id="active-project-label"></span>
+                </div>
+                <select id="realtime-answer-mode" aria-label="问答档位" hidden tabindex="-1" aria-hidden="true">
+                  <option value="instant">极速问答</option>
+                  <option value="standard">标准问答</option>
+                </select>
+                <div id="stt-status" class="stt-status stt-disconnected">未监听</div>
+                <div class="answer-diagnostic-line" aria-live="polite">
+                  <span id="answer-execution-profile">极速 · 使用已配置快速模型</span>
+                  <span id="answer-timing"></span>
+                </div>
+              </div>
               <div class="answer-target-line">
                 <span id="answer-target-label">本次回答：</span>
                 <span id="answer-target-text">等待新问题</span>
                 <button id="answer-target-edit" type="button" disabled>编辑</button>
                 <button id="answer-target-retry" type="button" disabled>重答</button>
               </div>
-              <div class="answer-target-options">
-                <select id="realtime-answer-mode" aria-label="问答档位" hidden tabindex="-1" aria-hidden="true">
-                  <option value="instant">极速问答</option>
-                  <option value="standard">标准问答</option>
-                </select>
-                <span id="answer-next-target"></span>
-              </div>
-              <div class="answer-diagnostic-line" aria-live="polite">
-                <span id="answer-execution-profile">极速 · 使用已配置快速模型</span>
-                <span id="answer-timing"></span>
-              </div>
+              <span id="answer-next-target"></span>
             </div>
             <div id="messages"></div>
 

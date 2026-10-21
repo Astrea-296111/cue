@@ -16,6 +16,9 @@ module.exports = async function checkProtectedDropdowns({ win, js, until, window
     win.webContents.sendInputEvent({ type: 'mouseMove', ...point });
     win.webContents.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, ...point });
     win.webContents.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, ...point });
+    // Input dispatch is asynchronous. Settle it before sending IPC fixtures or
+    // a late click can reopen a menu that a catalog refresh just dismissed.
+    await js('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   }
   const isOpen = id => js(`!document.getElementById('${id}-options').hidden`);
   const closed = () => until(() => js("[...document.querySelectorAll('.capture-safe-options')].every(el=>el.hidden)"), 'dropdown closed');

@@ -49,7 +49,7 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 14px;
+  padding: 8px 0;
   pointer-events: none;                  /* only the actual UI blocks; gaps pass through */
 }
 #toolbar, #panel-wrap, #settings-scrim, #onboard-scrim, #consent-scrim { pointer-events: auto; }
@@ -157,7 +157,7 @@ html, body {
 .mic-perm-actions button.dismiss:hover { background: rgba(255,255,255,0.10); color: var(--tx-2); }
 
 /* ============================ Panel ============================ */
-#panel-wrap { position: relative; margin-top: 12px; width: 100%; min-height: 0; display: flex; flex-direction: column; flex: 1; }
+#panel-wrap { position: relative; margin-top: 6px; width: 100%; min-height: 0; display: flex; flex-direction: column; flex: 1; }
 button:focus { outline: none; }
 #live-dot {
   position: absolute; top: -3px; left: -5px; z-index: 4;
@@ -176,15 +176,16 @@ button:focus { outline: none; }
   border-radius: var(--r-panel);
   box-shadow: 0 16px 48px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.10);
 }
-#panel { padding: 20px 22px; min-height: 0; display: flex; flex-direction: column; flex: 1; animation: overlayIn 260ms cubic-bezier(0.22,1,0.36,1); }
+#panel { padding: 12px 14px; min-height: 0; display: flex; flex-direction: column; flex: 1; animation: overlayIn 260ms cubic-bezier(0.22,1,0.36,1); }
 #panel.collapsed { display: none; }
 #panel-wrap:has(#panel.collapsed) { flex: 0; }
 
 /* ============================ Messages ============================ */
-#messages { 
-    display: flex;
+#messages {
+  display: flex;
   flex-direction: column;
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
   min-height: 0;
 }
@@ -202,6 +203,7 @@ button:focus { outline: none; }
 
 .ai-text {
   color: var(--tx-1);
+  overflow-wrap: anywhere;
 
   /* ===== AI回答字体大小 ===== */
   font-size: 15px;
@@ -292,8 +294,8 @@ button:focus { outline: none; }
 
 /* ============================ Action row ============================ */
 #action-row {
-  display: flex; align-items: center; flex-wrap: nowrap; gap: 4px; overflow-x: auto;
-  margin-top: 6px; flex-shrink: 0;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+  margin-top: 4px; flex-shrink: 0;
 }
 .act {
   display: inline-flex; align-items: center; justify-content: center; flex: 1 0 auto; gap: 3px;
@@ -406,6 +408,7 @@ button:focus { outline: none; }
 
 /* Ready state: solid green, question looks complete */
 #composer.stt-ready {
+  margin-bottom: 20px;
   border-color: rgba(34,197,94,0.6);
   box-shadow: 0 0 0 3px rgba(34,197,94,0.18), 0 0 12px rgba(34,197,94,0.15);
 }
@@ -446,13 +449,12 @@ button:focus { outline: none; }
 }
 #composer {
   position: relative; /* for ::after indicator */
-  margin-top: 14px;
-  margin-bottom: 22px; /* space for ready indicator */
+  margin: 6px 0 0;
   background: var(--fill-1);
   border: 1px solid rgba(255,255,255,0.10);
   border-radius: var(--r-16);
-  padding: 12px 14px;
-  display: flex; flex-direction: column; gap: 10px;
+  padding: 8px 10px;
+  display: flex; flex-direction: column; gap: 6px;
   flex-shrink: 0;
   transition: border-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
 }
@@ -474,10 +476,10 @@ button:focus { outline: none; }
   color: rgba(255,255,255,0.85); font-size: 12px; font-weight: 600; line-height: 1;
 }
 #input {
-  width: 100%; border: none; outline: none; resize: none;
+  display: block; width: 100%; padding: 0; border: none; outline: none; resize: none;
   background: transparent; color: var(--tx-1);
   font-family: var(--font); font-size: 15px; line-height: 22px;
-  max-height: 140px; overflow-y: auto;
+  max-height: min(140px, 20vh); overflow-y: auto;
   -webkit-user-select: text; user-select: text;
 }
 #composer-bottom { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
@@ -806,13 +808,10 @@ button:focus { outline: none; }
   width: 100%;
 }
 
-/* Larger text still leaves room for the answer inside the same window height. */
+/* Short viewports keep the same flex layout, with less panel padding. */
 @media (max-height: 500px) {
-  #app { padding-top: 8px; }
   #toolbar { padding: 3px 6px; }
-  #panel-wrap { margin-top: 6px; }
-  #panel { padding: 10px 12px; }
-  #composer { margin-top: 8px; margin-bottom: 8px; padding: 8px 10px; gap: 6px; }
+  #panel { padding: 8px 10px; }
 }
 
 /* ============================ Transcript viewer ============================ */
@@ -839,10 +838,10 @@ button:focus { outline: none; }
 
 
 /* ============================ Response history ============================ */
-.response-group { display: flex; flex-direction: column; }
+.response-group { display: flex; flex-direction: column; flex: 0 0 auto; min-width: 0; }
 .response-sep {
   font-size: 11px; color: var(--tx-mut); text-align: center;
-  margin: 14px 0 6px; position: relative;
+  margin: 8px 0 4px; position: relative;
 }
 .response-sep::before, .response-sep::after {
   content: ''; position: absolute; top: 50%;
@@ -861,7 +860,7 @@ button:focus { outline: none; }
 
 /* ============================ STT status ============================ */
 #stt-status {
-  position: absolute; top: 6px; left: 14px; z-index: 4;
+  flex: 0 0 auto;
   font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   line-height: 1.25; white-space: nowrap; pointer-events: none;
 }
@@ -894,17 +893,21 @@ button:focus { outline: none; }
 
 .hidden { display: none !important; }
 
-.project-choice-row { display: flex; align-items: center; gap: 6px; flex: 0 0 26px; min-width: 0; padding: 2px 8px; color: var(--tx-mut); font-size: 10px; }
-.project-choice-row select { min-width: 72px; max-width: 42%; height: 22px; padding: 1px 4px; color: var(--tx-1); background: rgba(25,25,25,.85); border: 1px solid rgba(255,255,255,.15); border-radius: 5px; font: inherit; line-height: 18px; }
-#answer-target-panel { flex: 0 0 68px; min-width: 0; padding: 2px 8px 4px; color: var(--tx-2); font-size: 10px; }
-.answer-target-line, .answer-target-options, .answer-diagnostic-line { display: flex; align-items: center; min-width: 0; gap: 5px; height: 20px; }
-#answer-target-label { flex: 0 0 auto; color: var(--tx-mut); }
-#answer-target-text, #answer-next-target, #answer-execution-profile, #answer-timing { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; min-width: 0; }
-#answer-target-text { flex: 1; -webkit-user-select: text; user-select: text; }
+#answer-target-panel { display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; min-width: 0; padding-bottom: 6px; color: var(--tx-2); font-size: 11px; line-height: 1.4; }
+.panel-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.project-choice-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; max-width: 100%; color: var(--tx-mut); }
+.project-choice-row label { flex: 0 0 auto; }
+.answer-target-line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: start; gap: 4px; min-width: 0; }
+.answer-diagnostic-line { display: flex; flex: 1 1 180px; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-width: 0; }
+#answer-target-label { color: var(--tx-mut); white-space: nowrap; line-height: 22px; }
+#answer-target-text, #answer-next-target, #answer-execution-profile, #answer-timing { min-width: 0; overflow-wrap: anywhere; }
+#answer-target-text { max-height: 4.2em; overflow-y: auto; line-height: 1.4; padding-top: 3px; -webkit-user-select: text; user-select: text; }
 #answer-target-panel button { flex: 0 0 auto; padding: 1px 5px; border: 1px solid var(--bd-hair); border-radius: 4px; background: var(--fill-1); color: var(--tx-2); font: inherit; cursor: pointer; }
+#answer-target-edit, #answer-target-retry { min-height: 22px; }
 #answer-target-panel button:disabled { opacity: .35; cursor: default; }
-#realtime-answer-mode-trigger { height: 20px; flex: 0 0 auto; max-width: 108px; border: 1px solid var(--bd-hair); border-radius: 4px; background: rgba(25,25,25,.85); color: var(--tx-1); font: inherit; }
-.project-choice-row .capture-safe-trigger { min-width: 72px; max-width: 42%; height: 22px; padding: 1px 4px; color: var(--tx-1); background: rgba(25,25,25,.85); border: 1px solid rgba(255,255,255,.15); border-radius: 5px; font: inherit; line-height: 18px; }
+#realtime-answer-mode-trigger { min-height: 22px; max-width: 108px; background: rgba(25,25,25,.85); color: var(--tx-1); }
+.project-choice-row .capture-safe-trigger { min-width: 72px; max-width: min(220px, 65vw); min-height: 22px; padding: 1px 4px; color: var(--tx-1); background: rgba(25,25,25,.85); border: 1px solid rgba(255,255,255,.15); border-radius: 5px; font: inherit; line-height: 18px; }
+.project-choice-row .capture-safe-trigger > span { white-space: normal; overflow-wrap: anywhere; }
 /* Same DOM/compositor surface as the protected main window; no native popup. */
 select[data-capture-safe][hidden] { display: none !important; }
 .capture-safe-trigger { display: inline-flex; align-items: center; gap: 6px; min-width: 0; cursor: pointer; -webkit-app-region: no-drag; }
@@ -917,11 +920,12 @@ select[data-capture-safe][hidden] { display: none !important; }
 .capture-safe-options [role="option"][aria-selected="true"] { font-weight: 600; }
 .capture-safe-options [role="option"].active { background: #215caa; color: #fff; }
 .capture-safe-options [role="option"][aria-disabled="true"] { opacity: .4; cursor: default; }
-#answer-next-target { flex: 1; color: var(--tx-mut); }
-#answer-execution-profile { flex: 1 1 52%; color: #a6c9ff; }
+#answer-next-target { max-height: 2.8em; overflow-y: auto; color: var(--tx-mut); }
+#answer-next-target:empty, #answer-timing:empty, #active-project-label:empty { display: none; }
+#answer-execution-profile { flex: 1 1 150px; color: #a6c9ff; }
 #answer-execution-profile.warning { color: #f6cf8a; }
-#answer-timing { flex: 1 1 48%; color: var(--tx-mut); text-align: right; }
-#active-project-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#answer-timing { flex: 0 1 auto; color: var(--tx-mut); }
+#active-project-label { min-width: 0; overflow-wrap: anywhere; }
 .answer-evidence { margin: 7px 0; color: var(--tx-mut); font-size: 10px; }
 .answer-evidence summary { cursor: pointer; }
 .answer-evidence .evidence-body { max-height: 150px; overflow-y: auto; margin-top: 6px; }
