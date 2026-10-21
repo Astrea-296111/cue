@@ -14,6 +14,7 @@ const DEFAULTS = {
   sttLanguage: 'auto',
   localWhisper: { modelId: 'small', language: 'zh', threads: 0 },
   smart: false,
+  realtimeEvidencePrefetch: true,
   baseUrl: '',
   minimaxRegion: 'global_en',
   apiKeys: { openai: '', anthropic: '', gemini: '', deepgram: '', custom: '', ollama: '', groq: '', minimax: '' , azure: '' },

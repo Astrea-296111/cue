@@ -1,11 +1,21 @@
 'use strict';
 
-const { tokenize } = require('./project-search');
+const { tokenize, ProjectSearch } = require('./project-search');
+const { createHash } = require('node:crypto');
+const { RETRIEVAL_POLICY } = require('./project-prefetch-policy');
 const { TOPICS } = require('./project-profile');
 const { inProjectScope } = require('./project-scope');
 const { selectEvidence } = require('./evidence-selector');
 
-const CACHE_SCHEMA_VERSION = 2;
+const CACHE_SCHEMA_VERSION = 3;
+const hash = text => createHash('sha256').update(String(text)).digest('hex');
+const QUESTION_FIELDS = ['questionIds', 'score', 'confidence', 'coverage', 'relevance', 'semanticSimilarity',
+  'relevanceApproved', 'channels', 'originalMatches', 'matched', 'contentMatched', 'fieldMatch', 'validatedQuestionIds'];
+function cleanSource(item) {
+  const copy = { ...item };
+  for (const field of QUESTION_FIELDS) delete copy[field];
+  return copy;
+}
 const TECH_RE = /\b(?:redis|mysql|postgres(?:ql)?|kafka|rabbitmq|rocketmq|langgraph|langchain|mongodb|react|docker|kubernetes|jwt|oauth|grpc|websocket|faiss|bm25|rag)\b/gi;
 const CODE_REQUEST = /(?:代码|源码|哪个(?:文件|方法|类)|在哪(?:里)?实现|具体实现|定位|调用链|source|implementation|which (?:file|method|class)|where .*implement)/i;
 const RATIONALE = /为什么|为何|选型|取舍|不用|why|trade.?off|choose|chosen/i;
@@ -95,9 +105,10 @@ function assessEvidence(items, scopes, query, interviewPlan) {
 }
 
 class ActiveProjectContextCache {
-  constructor({ maxEntries = 8, maxEvidence = 24, maxChars = 18000, ttlMs = 20 * 60 * 1000, now = Date.now,
+  constructor({ maxEntries = RETRIEVAL_POLICY.poolMaxEntries, maxEvidence = RETRIEVAL_POLICY.poolMaxEvidence,
+    maxChars = RETRIEVAL_POLICY.poolMaxChars, ttlMs = 20 * 60 * 1000, now = Date.now, maxProjects = 2,
     schemaVersion = CACHE_SCHEMA_VERSION } = {}) {
-    Object.assign(this, { maxEntries, maxEvidence, maxChars, ttlMs, now, schemaVersion });
+    Object.assign(this, { maxEntries, maxEvidence, maxChars, ttlMs, now, schemaVersion, maxProjects });
     this.entries = new Map();
   }
 
@@ -120,7 +131,7 @@ class ActiveProjectContextCache {
     const key = this.key(normalized, revision, identity);
     // An updated index cannot reuse any excerpt from the previous revision.
     for (const [oldKey, entry] of this.entries) {
-      if (JSON.stringify(entry.scopes) === JSON.stringify(normalized) && oldKey !== key) this.entries.delete(oldKey);
+      if (entry.revision !== revision) this.entries.delete(oldKey);
     }
     const old = this.get(normalized, revision, identity);
     const seen = new Set(), selected = [];
@@ -132,15 +143,74 @@ class ActiveProjectContextCache {
       // Source cache never manufactures a prefix excerpt that silently loses
       // the result or verification at the end of a story/table/function.
       if (item.text.length > room) continue;
-      const excerpt = { ...item };
+      const excerpt = { ...cleanSource(item), sourceHash: hash(item.text) };
       excerpt.topics = [...(item.topics || [])];
       selected.push(excerpt); seen.add(evidenceKey(item)); chars += excerpt.text.length;
     }
     const entry = { scopes: normalized, revision, modelVersion, retrievalConfigVersion,
-      evidence: selected, updatedAt: this.now(), searched: old?.searched || !seed };
+      evidence: selected, updatedAt: this.now(), searched: old?.searched || !seed, generation: (old?.generation || 0) + 1 };
     this.entries.delete(key); this.entries.set(key, entry);
     while (this.entries.size > this.maxEntries) this.entries.delete(this.entries.keys().next().value);
+    const projects = [...new Set([...this.entries.values()].flatMap(value => value.scopes))];
+    while (projects.length > this.maxProjects) {
+      const evicted = projects.shift();
+      for (const [entryKey, value] of this.entries) if (value.scopes.includes(evicted)) this.entries.delete(entryKey);
+    }
     return entry;
+  }
+
+  readCandidatesForQuestion({ scopes, revision, modelVersion = '', retrievalConfigVersion = '', snapshot,
+    question, interviewPlan, projectPlan, sourceBudget = 3600, formatContext } = {}) {
+    const own = normalizeScopes(scopes), candidates = [];
+    // Comparisons may reuse each project's pool, but each demand keeps its own scope.
+    const entries = own.flatMap(scope => [this.get([scope], revision, { modelVersion, retrievalConfigVersion })]);
+    if (own.length > 1) entries.push(this.get(own, revision, { modelVersion, retrievalConfigVersion }));
+    const seen = new Set();
+    for (const entry of entries.filter(Boolean)) {
+      if (!entry.searched) continue;
+      if (!entry.search) {
+        const restored = [];
+        for (const cached of entry.evidence) {
+          const source = snapshot?.resolveSource?.(cached);
+          if (!source || hash(source.text) !== cached.sourceHash || !inProjectScope(source, own)) continue;
+          restored.push({ ...cleanSource(source), id: cached.id, sourceType: 'imported', revision, sourceHash: cached.sourceHash });
+        }
+        entry.search = ProjectSearch.build(restored);
+      }
+      const questions = interviewPlan?.subQuestions?.length ? interviewPlan.subQuestions : [{ text: question }];
+      for (const [index, q] of questions.entries()) {
+        const text = typeof q === 'string' ? q : q.text;
+        const guardedText = [text, interviewPlan?.scenario, ...(interviewPlan?.constraints || [])].filter(Boolean).join('\n');
+        const binding = projectPlan?.subQuestionScopes?.find(b => b.questionId === q.id);
+        const qScopes = binding?.scopes || q.scopes || own;
+        const anchor = index > 0 && !(q.topics || []).length
+          ? questions.slice(0, index).find(previous => (previous.topics || []).length &&
+            (projectPlan?.subQuestionScopes?.find(b => b.questionId === previous.id)?.scopes || own).join('|') === qScopes.join('|'))?.text : '';
+        const need = requirements(guardedText, { symbols: interviewPlan?.symbols })[0];
+        const locating = /代码.*(?:哪|位置)|源码.*(?:哪|位置)|哪个(?:文件|方法|类)|在哪(?:里)?实现|调用链|which (?:file|method|class)|where .*implement/i.test(text);
+        const rows = entry.search.getCandidates([text, anchor].filter(Boolean).join('\n'), qScopes, { hashFallback: false, candidateLimit: 25 });
+        for (const row of rows.rows || []) {
+          const source = cleanSource(row.chunk || row), body = `${source.symbol || ''}\n${source.path}\n${source.text}`.toLowerCase();
+          if (need.entities.some(entity => !body.includes(entity)) || need.symbols.some(symbol => !body.includes(symbol.toLowerCase()))) continue;
+          const negatives = [...guardedText.matchAll(/(?:不用|不使用|不采用|不加|没(?:有)?用|不是|并非)\s*([A-Za-z][\w.-]*|[\u4e00-\u9fff]{2,10})/g)];
+          if (negatives.some(match => !source.text.toLowerCase().includes(match[0].toLowerCase()))) continue;
+          if (locating && !need.symbols.length) continue;
+          const explicit = [...text.matchAll(/`([^`]+)`|\b([A-Z][A-Z0-9_]{1,}|[A-Z][\w]*(?:Service|Repository|Controller|Manager))\b/g)]
+            .map(match => match[1] || match[2]).filter(value => !/^(?:SQL|HTTP|JWT|RAG)$/.test(value) &&
+              !(source.docType === 'environment' && /^(?:P\d+|QPS|TPS)$/.test(value)));
+          if (explicit.some(value => !body.includes(value.toLowerCase()))) continue;
+          const id = `${evidenceKey(source)}:${q.id || 'question-' + index}`;
+          if (seen.has(id)) continue;
+          seen.add(id);
+          candidates.push({ ...source, score: row.score, confidence: row.confidence, relevance: row.relevance || row.coverage,
+            questionIds: [q.id || 'question-' + index], validatedQuestionIds: [q.id || 'question-' + index], channels: ['pool-lexical'] });
+        }
+      }
+    }
+    const selected = selectEvidence({ candidates, question, interviewPlan, projectPlan: projectPlan || { scopes: own },
+      contextBudget: sourceBudget, formatContext });
+    return { ...selected, candidates, sufficient: !!selected.evidence.length && !selected.missing.length,
+      coverageByQuestion: selected.byQuestion };
   }
 
   lookup(scopes, revision, query, interviewPlan, identity = {}) {
@@ -152,4 +222,4 @@ class ActiveProjectContextCache {
   clear() { this.entries.clear(); }
 }
 
-module.exports = { ActiveProjectContextCache, CACHE_SCHEMA_VERSION, normalizeScopes, requirements, assessEvidence };
+module.exports = { ActiveProjectContextCache, CACHE_SCHEMA_VERSION, normalizeScopes, requirements, assessEvidence, cleanSource };

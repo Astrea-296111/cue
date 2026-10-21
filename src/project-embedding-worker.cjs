@@ -2,9 +2,13 @@
 
 const { parentPort } = require('node:worker_threads');
 const { createHash } = require('node:crypto');
+const { performance } = require('node:perf_hooks');
+const { inProjectScope } = require('./project-scope');
 let extractor = null;
 let modelIdentity = '';
+let installed = null;
 const cancelled = new Set();
+const activeIds = new Set();
 const check = id => { if (cancelled.has(id)) throw Object.assign(new Error('任务已取消'), { name: 'AbortError' }); };
 
 function normalize(vector) {
@@ -84,13 +88,50 @@ async function checkRuntime({ modelBytes }) {
   } finally { await session.release(); }
 }
 
+function installIndex({ revision, modelVersion, records, matrix }) {
+  if (!(matrix instanceof Float32Array) || matrix.length !== records.length * 384 || !revision || !modelVersion) throw new Error('invalid-semantic-index');
+  installed = { revision, modelVersion, records, matrix };
+  return { revision, modelVersion, rows: records.length };
+}
+
+async function scan(id, { vector, scopes, limit = 30, revision, modelVersion, deadlineAt }) {
+  const started = performance.now(), current = installed;
+  if (!current || current.revision !== revision || current.modelVersion !== modelVersion) throw new Error('semantic-index-stale');
+  if (!(vector instanceof Float32Array) || vector.length !== 384 || !scopes?.length) throw new Error('invalid-semantic-query');
+  const best = new Map(); let scanned = 0;
+  for (let row = 0; row < current.records.length; row++) {
+    if (row % 64 === 0) {
+      check(id);
+      if (Date.now() >= deadlineAt) throw new Error('semantic-timeout');
+      // Cancellations and new index installs are observed between scan batches.
+      if (row) await new Promise(resolve => setImmediate(resolve));
+      if (installed !== current) throw new Error('semantic-index-stale');
+    }
+    const record = current.records[row];
+    if (!inProjectScope(record, scopes)) continue;
+    let similarity = 0;
+    for (let col = 0; col < 384; col++) similarity += vector[col] * current.matrix[row * 384 + col];
+    scanned++;
+    if (!best.has(record.id) || similarity > best.get(record.id).similarity) best.set(record.id,
+      { id: record.id, score: similarity, similarity, tokenStart: record.tokenStart, tokenEnd: record.tokenEnd });
+  }
+  return { rows: [...best.values()].sort((a, b) => b.similarity - a.similarity).slice(0, Math.max(1, Math.min(60, limit))),
+    revision, modelVersion, stats: { scanned, semanticWorkerMs: performance.now() - started } };
+}
+
 parentPort.on('message', async message => {
-  if (message.op === 'cancel') { cancelled.add(message.id); return; }
+  if (message.op === 'cancel') { if (activeIds.has(message.id)) cancelled.add(message.id); return; }
+  activeIds.add(message.id);
   try {
     check(message.id);
-    const result = message.op === 'warm' ? await warm(message.payload) : message.op === 'runtime-check' ? await checkRuntime(message.payload) : await embed(message.id, message.payload);
+    const result = message.op === 'warm' ? await warm(message.payload)
+      : message.op === 'runtime-check' ? await checkRuntime(message.payload)
+        : message.op === 'install-index' ? installIndex(message.payload)
+          : message.op === 'clear-index' ? (installed = null)
+            : message.op === 'scan' ? await scan(message.id, message.payload)
+              : message.op === 'embed' ? await embed(message.id, message.payload) : (() => { throw new Error('unknown-worker-operation'); })();
     check(message.id);
     parentPort.postMessage({ id: message.id, result }, result?.matrix ? [result.matrix.buffer] : []);
   } catch (error) { parentPort.postMessage({ id: message.id, error: { message: error.message, name: error.name } }); }
-  finally { cancelled.delete(message.id); }
+  finally { cancelled.delete(message.id); activeIds.delete(message.id); }
 });

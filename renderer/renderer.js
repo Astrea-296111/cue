@@ -189,25 +189,6 @@
   }
 
   // ---- actions -----------------------------------------------------------
-  let ragPrefetchTimer = null;
-  let lastPrefetchKey = '';
-  let lastPrefetchAt = 0;
-
-  function scheduleProjectPrefetch(text, immediate = false, sourceKey = '') {
-    const query = String(text || '').trim();
-    if (query.length < 4 || typeof cue.projectPrefetch !== 'function') return;
-    clearTimeout(ragPrefetchTimer);
-    const key = JSON.stringify([query, immediate, sourceKey]);
-    if (key === lastPrefetchKey && Date.now() - lastPrefetchAt < 2000) return;
-    const send = () => {
-      lastPrefetchKey = key;
-      lastPrefetchAt = Date.now();
-      cue.projectPrefetch({ text: query, final: immediate, sourceKey });
-    };
-    if (immediate) send();
-    else send(); // Main applies the stable-window debounce and formal routing.
-  }
-
   function runMode(mode, text) {
     // Manual answer shortcuts request a fresh reply, including during generation.
     // The main process aborts the previous request; other modes retain the guard.
@@ -1160,20 +1141,13 @@ micStream = stream;
     el.scrollTop = el.scrollHeight;
     appendTranscriptHistoryTurn(channel, text, true); // update sidebar interim
 
-    // Interim text is useful for RAG prefetch only. It is deliberately NOT sent
-    // as payload.text when Ctrl+Enter is pressed; answer targeting lives in main.
-    if (channel === 'them' && String(text || '').trim()) {
-      scheduleProjectPrefetch(String(text).trim(), false, utteranceKey ? `${sourceId}:${utteranceKey}` : '');
-    }
+    // Main observes accepted ASR events and owns both prefetch and targeting.
 
     // Interviewer interim speech stays in transcript/history only.
     // Do not mirror STT into the manual input box.
   });
   cue.on('stt:final', ({ channel, text, utteranceKey = '', sourceId = 'stream' }) => {
     setLiveDotState('idle');
-    if (channel === 'them') {
-      scheduleProjectPrefetch(text, true, utteranceKey ? `${sourceId}:${utteranceKey}` : '');
-    }
     // Clear interim when we get a final
     if (interimEl) { interimEl.textContent = ''; interimEl.classList.remove('show'); }
     clearTranscriptInterim();

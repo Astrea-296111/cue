@@ -418,6 +418,10 @@ class QuestionResolver {
     this.lastFinalAt = now;
   }
 
+  // Read-only preview shares final-fragment merging with formal submission.
+  // It never marks submitted speech or advances conversation/checklist state.
+  previewForPrefetch() { return this.resolveForSubmit({ allowPartial: true }); }
+
   resolveForSubmit({ allowPartial = false } = {}) {
     let parts = this.stableParts.map((part) => part.text);
     let provisional = false;

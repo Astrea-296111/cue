@@ -76,6 +76,7 @@ test('deep-mode formal async path aborts delayed semantic work before clear and 
     invalidate() {}, close() {} };
   r = createInterviewRuntime(t, { chunks, projects, semanticRetriever: semantic,
     settings: { smart: true, models: { custom: { smart: 'test-model' } } } });
+  await r.ready;
   const first = r.ask('say', '星舟为什么选择 MySQL？');
   await new Promise(resolve => setImmediate(resolve));
   assert.ok(sawSignal);

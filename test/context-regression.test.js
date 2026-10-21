@@ -51,7 +51,10 @@ function appHarness(t, options = {}) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cue-context-test-'));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
   const handlers = new Map(), listeners = new Map(), events = [], calls = [];
-  const settings = { provider: 'custom', smart: false, models: { custom: { fast: 'qwen3.8-flash' } }, ...options.settings };
+  // This legacy harness bypasses application startup/index warmup. Keep its
+  // compatibility-path coverage; the package-entry harness covers the new path.
+  const settings = { provider: 'custom', smart: false, realtimeEvidencePrefetch: false,
+    models: { custom: { fast: 'qwen3.8-flash' } }, ...options.settings };
   let behavior = options.behavior || (async args => { args.onToken('测试回答'); return '测试回答'; });
   let captures = 0;
   const fakeApp = { commandLine: { appendSwitch() {} }, getPath: () => temp,

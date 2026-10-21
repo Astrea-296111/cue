@@ -188,7 +188,7 @@ function selectProjectSection(text, plan) {
   if (!plan?.retrieve || plan.scopes?.length !== 1) return null;
   const label = plan.projectLabel || plan.activeProject?.label || '';
   if (!label) return null;
-  const catalog = getProjectCatalog();
+  const catalog = getProjectCatalog({ preparedOnly: !!plan.preparedOnly });
   const configured = catalog.find(project => plan.scopes.includes(project.prefix) || project.name === label || (project.aliases || []).includes(label));
   const target = configured ? { ...configured, key: configured.projectId || configured.name,
     aliases: configured.aliases || [configured.name] } : resolveResumeProject(label) || { key: label, name: label, aliases: [label] };
@@ -416,8 +416,8 @@ async function buildInterviewContextBundleAsync(settings, mode, transcript, requ
   // Old installations can have only a hand-written, unstructured project
   // paragraph. Preserve that input without issuing an unscoped index search
   // or inventing an imported project identity for it.
-  if (plan.retrieve && !plan.scopes?.length && !getProjectCatalog().length &&
-      String(settings.projectKnowledge || '').trim() && !/^#{1,6}\s/m.test(settings.projectKnowledge)) {
+  if (plan.retrieve && !plan.scopes?.length && String(settings.projectKnowledge || '').trim() &&
+      !/^#{1,6}\s/m.test(settings.projectKnowledge) && !getProjectCatalog({ preparedOnly: !!plan.preparedOnly }).length) {
     const legacy = buildInterviewContextBundle(settings, mode, transcript, { ...request, projectPlan: plan });
     return { ...legacy, byQuestion: [], missing: [{ reason: 'manual-project-unbound',
       message: '手工资料尚未绑定稳定项目；选型、职责与指标只能依据其明确原文。' }],

@@ -21,6 +21,19 @@ class FixtureWorker extends EventEmitter {
     this.emit('operation-start', message);
     setTimeout(() => {
       if (message.op === 'warm') { this.currentModelIdentity = message.payload.identity; this.emit('message', { id: message.id, result: null }); return; }
+      if (message.op === 'clear-index') { this.index = null; this.emit('message', { id: message.id, result: null }); return; }
+      if (message.op === 'install-index') { this.index = message.payload; this.emit('message', { id: message.id, result: { rows: this.index.records.length } }); return; }
+      if (message.op === 'scan') {
+        const { inProjectScope } = require('../src/project-scope');
+        const rows = this.index.records.flatMap((record, row) => {
+          if (!inProjectScope(record, message.payload.scopes)) return [];
+          let similarity = 0;
+          for (let col = 0; col < 384; col++) similarity += message.payload.vector[col] * this.index.matrix[row * 384 + col];
+          return [{ id: record.id, similarity, score: similarity }];
+        }).sort((a, b) => b.similarity - a.similarity).slice(0, message.payload.limit);
+        this.emit('message', { id: message.id, result: { rows, revision: this.index.revision, modelVersion: this.index.modelVersion,
+          stats: { scanned: rows.length, semanticWorkerMs: 0 } } }); return;
+      }
       this.embeddingIdentities.push(this.currentModelIdentity);
       const matrix = new Float32Array(message.payload.texts.length * 384);
       const records = [];
@@ -71,6 +84,16 @@ test('scoped Float32 search and cache are bound to the exact snapshot revision',
   setRevision('r2');
   assert.equal((await service.queryCandidates({ query: 'redis', scopes: ['@project:alpha'] })).reason, 'revision-mismatch');
   assert.equal(service.status().ready, false);
+});
+
+test('many distinct background queries keep the query-vector cache and worker queue bounded', async t => {
+  const { service } = await fixture(t);
+  await service.warm(); await service.indexSnapshot(snapshot());
+  for (let i = 0; i < 90; i++) {
+    await service.queryCandidates({ query: 'redis fixture ' + i, scopes: ['@project:alpha'], deadlineAt: Date.now() + 1000 });
+    assert.ok(service.queryCache.size <= 64); assert.ok(service.queue.queue.length <= 8);
+  }
+  assert.equal(service.queryCache.size, 64); assert.equal(service.queue.active, null);
 });
 
 test('incremental snapshots reuse unchanged content, remove deleted rows and rebuild corrupt matrices', async t => {

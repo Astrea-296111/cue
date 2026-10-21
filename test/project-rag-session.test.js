@@ -11,7 +11,7 @@ test('prefetch identity binds full corrected text and every session/source/model
   const base = input();
   for (const patch of [{ question: '项目甲没有重试，如何处理？' }, { epoch: 2 },
     { projectRevision: 'snapshot-b' }, { modelVersion: 'e5-b' }, { sourceKey: 'asr:2' },
-    { questionVersion: 'correction' }, { hashFallback: false }, { projectPlan: { retrieve: true, scopes: ['@project:b'] } }]) {
+    { questionVersion: 'correction' }, { hashFallback: false }, { semanticThreshold: .9 }, { projectPlan: { retrieve: true, scopes: ['@project:b'] } }]) {
     assert.notEqual(retrievalIdentity(base), retrievalIdentity({ ...base, ...patch }));
   }
 });
@@ -28,7 +28,7 @@ test('one running task and newest pending task discard old interim work and late
   assert.equal(starts.length, 1);
   assert.equal(starts[0].signal.aborted, true);
   resolves.shift()({ evidence: ['过时来源'] });
-  await tick();
+  for (let i = 0; i < 4 && starts.length < 2; i++) await tick();
   assert.equal(starts.length, 2);
   assert.equal(starts[1].question, '纠正后的完整问题');
   assert.equal(session.take(input('初稿')), null);
