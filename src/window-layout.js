@@ -8,8 +8,9 @@ function windowLayout(display, height = 600) {
   const screenWidth = display.bounds.width;
   return {
     width: Math.round(Math.min(display.workArea.width / 2, screenWidth * 0.3) * UI_SCALE),
-    // Enlarge the window and its contents together without changing DPI units.
-    height: Math.round(Math.min(display.workArea.height / 2, height) * UI_SCALE),
+    // Give answers 20% more vertical space; stay within 75% of the work area.
+    // Width and renderer zoom remain independent of this extra content space.
+    height: Math.round(Math.min(display.workArea.height * 0.6, height * 1.2) * UI_SCALE),
     // Scale the entire renderer together: text, icons, controls and dialogs.
     zoomFactor: UI_SCALE * Math.min(1.4, Math.max(0.85, screenWidth / 1920))
   };

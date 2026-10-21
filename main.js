@@ -833,7 +833,6 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     questionId: frozen?.questionId, questionRevision: frozen?.revision }); };
   publishQuestionTarget();
   if (policy.instant) ragSession.suspend(generation.id);
-  let slowStatus = null;
   try {
     const llm = createLLM(settings, { executionProfile: policy.executionProfile });
     const effectiveSettings = policy.executionProfile === 'instant' ? { ...settings, smart: false } : settings;
@@ -1006,7 +1005,6 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       rearm();
       deadline = setTimeout(() => stop('本轮生成超过 180 秒，已停止；请缩小问题范围后重试。'), 180000);
     });
-    slowStatus = setTimeout(() => { if (owned() && !generation.firstContent) emit('status', { message: '模型正在响应，尚未返回正文。' }); }, 1500);
     try {
       const result = await Promise.race([
         llm.stream({ system, turns, imageDataUrl, signal: generation.controller.signal, mode,
@@ -1042,7 +1040,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
             const uiTiming = uiReplyTimings.get(generation.id);
             if (uiTiming && uiTiming.firstTokenAt == null) uiTiming.firstTokenAt = performance.now();
             if (text.trim()) {
-              timing.content(text, requestSent); generation.firstContent = true; clearTimeout(slowStatus);
+              timing.content(text, requestSent); generation.firstContent = true;
               ragSession.resume(generation.id); emit('llm:metrics', timing.metrics());
             }
             rearm();
@@ -1057,7 +1055,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       if (!owned() || generation.controller.signal.aborted) return;
       if (!answer.trim() && typeof result === 'string' && result.trim()) {
         answer = result;
-        timing.content(answer, requestSent); generation.firstContent = true; clearTimeout(slowStatus); ragSession.resume(generation.id);
+        timing.content(answer, requestSent); generation.firstContent = true; ragSession.resume(generation.id);
         emit('llm:metrics', timing.metrics());
         emit('llm:token', { text: answer });
       }
@@ -1091,7 +1089,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     }
   } finally {
     streamSettled = true;
-    clearTimeout(slowStatus); ragSession.resume(generation.id);
+    ragSession.resume(generation.id);
     timing.finish({ aborted: generation.controller.signal.aborted });
     if (activeGeneration === generation) { activeGeneration = null; state.busy = false; publishQuestionTarget(); }
   }

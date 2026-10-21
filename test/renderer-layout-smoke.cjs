@@ -162,18 +162,22 @@ app.on('browser-window-created', (_event, win) => {
       await settled();
       const display = screen.getPrimaryDisplay(), zoom = win.webContents.getZoomFactor();
       assert.ok(Math.abs(win.getSize()[0] - Math.round(display.bounds.width * .3 * 1.25)) <= 2);
-      assert.ok(Math.abs(win.getSize()[1] - Math.round(Math.min(display.workArea.height, 1200) / 2 * 1.25)) <= 2);
+      assert.ok(Math.abs(win.getSize()[1] - Math.round(Math.min(display.workArea.height * .6, 720) * 1.25)) <= 2);
       assert.ok(Math.abs(zoom - Math.min(1.4, Math.max(.85, display.bounds.width / 1920)) * 1.25) < .001);
       const layout = await js(`(() => {
         const buttons=[...document.querySelectorAll('.act')];
         return {labels:buttons.map(b=>b.firstElementChild.textContent),icons:buttons.some(b=>b.querySelector('.ic')),prep:!!document.getElementById('prep-status'),
           rows:buttons.map(b=>b.getBoundingClientRect().y),clipped:buttons.filter(b=>{const r=b.getBoundingClientRect();return r.left<0||r.right>innerWidth+1||r.bottom>innerHeight+1}).map(b=>b.dataset.mode),
-          font:getComputedStyle(document.querySelector('.ai-text')).fontSize};
+          font:getComputedStyle(document.querySelector('.ai-text')).fontSize,
+          infoHeight:document.getElementById('answer-target-panel').getBoundingClientRect().height,viewport:innerWidth,
+          hasNextTarget:!!document.getElementById('answer-next-target').textContent};
       })()`);
       assert.deepEqual(layout.labels, ['如何回答', '屏幕与问题', '截屏', '反问']);
       assert.equal(layout.icons, false); assert.equal(layout.prep, false);
       assert.ok(Math.max(...layout.rows) - Math.min(...layout.rows) <= 1);
       assert.deepEqual(layout.clipped, []);
+      assert.ok(layout.infoHeight <= (layout.viewport >= 540 ? 60 : 90) + (layout.hasNextTarget ? 20 : 0),
+        'The header uses compact rows, with an extra notice only when needed: ' + JSON.stringify(layout));
       assert.equal(await js("document.documentElement.lang"), 'zh-CN');
       assert.equal(await js("document.querySelector('#current-project option').textContent"), '自动');
       assert.equal(await js("document.getElementById('realtime-answer-mode').value"), 'instant');
@@ -260,9 +264,16 @@ app.on('browser-window-created', (_event, win) => {
       // path. Separate runtime tests exercise instant ready-only behavior.
       await js("document.getElementById('realtime-answer-mode').value='standard';document.getElementById('realtime-answer-mode').dispatchEvent(new Event('change'))");
       await until(async () => (await js('cue.settingsGet()')).realtimeAnswerMode === 'standard', 'standard mode switch');
+      await js("document.getElementById('cue-status')?.remove()");
       seedCurrentQuestion('先解释 MySQL 事务如何工作？');
       await js("document.querySelector('.act[data-mode=say]').click()");
       await until(() => calls.length === 1, 'explicit Say request');
+      // Hold the real main request beyond the former slow-status timer. Waiting
+      // keeps the normal busy state without allocating a separate status card.
+      await new Promise(resolve => setTimeout(resolve, 1700));
+      assert.equal(await js("document.getElementById('send-btn').classList.contains('busy')"), true);
+      assert.equal(await js("document.getElementById('cue-status')"), null, 'Waiting must not create a status-card container');
+      assert.equal(await js("document.body.innerText.includes('模型正在响应，尚未返回正文。')"), false);
       await js("document.getElementById('input').value='再解释事务失败时如何恢复？';document.getElementById('send-btn').click()");
       await until(() => calls.length === 2, 'manual new question interrupts generation');
       assert.ok(signals[0].aborted); releaseFirst();
@@ -302,6 +313,12 @@ app.on('browser-window-created', (_event, win) => {
       stable(before, await controls());
       const messages = await js("({client:document.getElementById('messages').clientHeight,scroll:document.getElementById('messages').scrollHeight})");
       assert.ok(messages.client > 0 && messages.scroll > messages.client);
+      const compactPanel = await require('./helpers/compact-panel-checks.cjs')({ win, js, until,
+        screenshot: process.env.CUE_UI_LAYOUT_SCREENSHOT_PREFIX ? async name => {
+          fs.writeFileSync(process.env.CUE_UI_LAYOUT_SCREENSHOT_PREFIX + '-' + name + '.png', (await win.webContents.capturePage()).toPNG());
+        } : null
+      });
+      stable(before, await controls());
 
       assert.ok(globalShortcut.isRegistered('CommandOrControl+L'));
       for (const route of ['global-hidden', 'local']) {
@@ -495,7 +512,7 @@ app.on('browser-window-created', (_event, win) => {
         latestTargetPreview:true,frozenTargetAndNext:true,explicitEdit:true,explicitRetry:true,consumedTargetDoesNotRepeat:true,
         profileAndMetricsOwnership:true,nonemptyFirstBodyAck:true,doubleRafApproximation:true,
         collapseShortcut:true,fullWindowVisibilityShortcut:true,recordingShortcut:true,technicalShortcut:true,movementStep:25,
-        createdHidden:true,protectionRequested:true,protectionFailureBlocked,protectedDropdowns,
+        createdHidden:true,protectionRequested:true,protectionFailureBlocked,protectedDropdowns,compactPanel,waitingStatusCardRemoved:true,
         chineseSettings:true,chineseOnboarding:true,chinesePermissions:true,windowsBuildFixture:process.env.CUE_UI_WINDOWS_BUILD || null }));
       allowedToQuit = true;
       if (process.env.CUE_UI_QUIT_SHORTCUT) {
