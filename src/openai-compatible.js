@@ -60,7 +60,7 @@ function createCompatibleClientOptions(apiKey, baseUrl) {
 function isDashScopeChatEndpoint(value) {
   try {
     const parsed = new URL(String(value || ''));
-    return /^dashscope(?:-intl|-us)?\.aliyuncs\.com$/i.test(parsed.hostname) &&
+    return parsed.protocol === 'https:' && !parsed.port && !parsed.search && !parsed.hash && !parsed.username && !parsed.password && /^dashscope(?:-intl|-us)?\.aliyuncs\.com$/i.test(parsed.hostname) &&
       /^\/compatible-mode\/v1\/?$/i.test(parsed.pathname);
   } catch (_) { return false; }
 }
@@ -75,7 +75,7 @@ const DASHSCOPE_FLASH_MODEL = /^qwen-flash(?:-\d{4}-\d{2}-\d{2})?$/i;
 // Official model-studio deep-thinking protocol. Deliberately exact: future
 // aliases and arbitrary gateway names have no inferred protocol capability.
 // https://help.aliyun.com/zh/model-studio/deep-thinking
-const DASHSCOPE_HYBRID_ALIASES = new Set(['qwen3.5-flash']);
+const DASHSCOPE_HYBRID_ALIASES = new Set(['qwen3.5-flash', 'qwen3.8-flash']);
 const DASHSCOPE_THINKING_ONLY = new Set(['qwq-32b', 'qwen3-235b-a22b-thinking-2507', 'qwen3-30b-a3b-thinking-2507']);
 
 function isHybridQwen3(model) {
@@ -99,9 +99,24 @@ function qwenFastInstruction({ model, smart, explicit = {} } = {}) {
   return '/no_think';
 }
 
-function resolveChatRequestOptions({ baseURL, model, smart, explicit = {} } = {}) {
+function isDeepSeekEndpoint(value) {
+  try { const u = new URL(value); return u.protocol === 'https:' && !u.port && !u.search && !u.hash && u.hostname === 'api.deepseek.com' && !u.username && !u.password && /^\/(?:v1\/?)?$/.test(u.pathname); } catch { return false; }
+}
+function resolveProviderCapabilities({ provider, baseURL = '', model, protocolPreset } = {}) {
+  const dash = isDashScopeChatEndpoint(baseURL), deep = isDeepSeekEndpoint(baseURL);
+  const protocol = dash ? 'dashscope' : deep ? 'deepseek' : ['dashscope', 'deepseek'].includes(protocolPreset) ? protocolPreset : 'openai-compatible';
+  const thinkingCapability = protocol === 'deepseek' && model === 'deepseek-flash' ? 'toggle'
+    : dashScopeThinkingCapability(dash ? baseURL : protocolPreset === 'dashscope' ? 'https://dashscope.aliyuncs.com/compatible-mode/v1' : '', model);
+  return { protocol, endpointClass: dash ? 'dashscope-official' : deep ? 'deepseek-official' : !provider || ['custom','deepseek'].includes(provider) ? 'custom-compatible' : provider==='azure' ? 'azure-configured' : `${provider}-official`,
+    thinkingCapability, supportsStreamingUsage: dash || deep || !baseURL,
+    imageCapability: deep && model === 'deepseek-flash' ? 'supported' : 'unknown',
+    evidence: dash || deep ? 'documented' : protocolPreset ? 'preset' : 'unknown' };
+}
+function resolveChatRequestOptions({ baseURL, model, smart, explicit = {}, protocolPreset } = {}) {
+  const capability = resolveProviderCapabilities({baseURL,model,protocolPreset});
   const result = {};
-  if (dashScopeThinkingCapability(baseURL, model) === 'toggle') {
+  if (capability.protocol === 'deepseek' && model === "deepseek-flash") result.thinking = { type: smart ? "enabled" : "disabled" };
+  if (capability.protocol === 'dashscope' && capability.thinkingCapability === 'toggle') {
     result.enable_thinking = !!smart;
   }
   // Only explicit user settings travel to arbitrary compatible servers. Never
@@ -110,16 +125,22 @@ function resolveChatRequestOptions({ baseURL, model, smart, explicit = {} } = {}
   if (typeof explicit.reasoning_effort === 'string' && /^(?:none|minimal|low|medium|high|xhigh)$/i.test(explicit.reasoning_effort)) {
     result.reasoning_effort = explicit.reasoning_effort;
   }
+  if (explicit.thinking && ['enabled', 'disabled'].includes(explicit.thinking.type)) result.thinking = { type: explicit.thinking.type };
+  if (capability.protocol === 'deepseek') {
+    delete result.enable_thinking;
+    if (result.thinking?.type === 'disabled') delete result.reasoning_effort;
+  }
   return result;
 }
 
 function supportsStreamingUsage(baseURL) {
   if (!baseURL) return true; // Official OpenAI client default.
-  if (isDashScopeChatEndpoint(baseURL)) return true;
+  if (isDashScopeChatEndpoint(baseURL) || isDeepSeekEndpoint(baseURL)) return true;
   try { return new URL(baseURL).hostname === 'api.openai.com'; } catch (_) { return false; }
 }
 
 module.exports = {
+  isDeepSeekEndpoint, resolveProviderCapabilities,
   OPTIONAL_API_KEY_PLACEHOLDER,
   createCompatibleClientOptions,
   normalizeBaseUrl,

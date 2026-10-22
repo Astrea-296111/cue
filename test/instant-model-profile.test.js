@@ -104,15 +104,15 @@ test('DashScope qwen3.5-flash receives documented thinking control on the actual
   assert.equal(app.diagnostics[0].endpointClass, 'dashscope-official');
 });
 
-test('instant thinking preferences are independent; inherited explicit thinking is never called disabled', async () => {
+test('instant thinking defaults off independently of standard preferences', async () => {
   const base = { baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     models: { custom: { fast: 'qwen-flash', smart: 'qwen-flash' } },
     providerOptions: { custom: { enable_thinking: true } } };
   const inherited = runtime('custom', base);
   await inherited.stream();
-  assert.equal(inherited.requests[0].enable_thinking, true);
-  assert.equal(inherited.diagnostics[0].thinkingStatus, 'enabled');
-  assert.equal(inherited.diagnostics[0].thinkingSource, 'user-explicit');
+  assert.equal(inherited.requests[0].enable_thinking, false);
+  assert.equal(inherited.diagnostics[0].thinkingStatus, 'disabled');
+  assert.equal(inherited.settings.providerOptions.custom.enable_thinking, true);
   const independent = runtime('custom', { ...base, instantProviderOptions: { custom: { enable_thinking: false } } });
   await independent.stream();
   assert.equal(independent.requests[0].enable_thinking, false);

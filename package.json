@@ -7,7 +7,7 @@
   "main": "src/custom-main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node --test test/*.test.js",
+    "test": "node --test --test-concurrency=4 test/*.test.js",
     "test:ui": "electron test/renderer-layout-smoke.cjs",
     "test:protection": "electron test/windows-capture-protection-smoke.cjs",
     "dist": "electron-builder --mac",
@@ -22,7 +22,10 @@
     "test:semantic:runtime": "node scripts/semantic-smoke.cjs --runtime-only",
     "eval:rag": "node scripts/evaluate-rag.js",
     "benchmark:rag": "node scripts/evaluate-rag.js --benchmark",
-    "eval:rag:semantic": "node scripts/evaluate-rag.js --semantic"
+    "eval:rag:semantic": "node scripts/evaluate-rag.js --semantic",
+    "verify:whisper-runtime": "node scripts/verify-whisper-runtime.js",
+    "compile:project-packs": "node scripts/compile-project-packs.js",
+    "benchmark:providers": "node scripts/benchmark-providers.js"
   },
   "devDependencies": {
     "electron": "33.2.1",

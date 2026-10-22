@@ -27,7 +27,7 @@ function normalizeUsage(provider, usage = {}) {
     result.actualInputTokens = finite(usage.prompt_tokens);
     result.actualOutputTokens = finite(usage.completion_tokens);
     result.actualTotalTokens = finite(usage.total_tokens);
-    result.cachedInputTokens = finite(usage.prompt_tokens_details?.cached_tokens);
+    result.cachedInputTokens = finite(usage.prompt_tokens_details?.cached_tokens ?? usage.prompt_cache_hit_tokens);
     result.actualReasoningTokens = finite(usage.completion_tokens_details?.reasoning_tokens);
   }
   return Object.fromEntries(Object.entries(result).filter(([, value]) => value !== undefined));

@@ -1,0 +1,23 @@
+'use strict';
+const assert = require('node:assert/strict');
+module.exports = async function ({ js, until }) {
+  await js("document.querySelector('.s-tab[data-tab=keys]').click();document.querySelector('#provider-seg [data-provider=deepseek]').click()");
+  await until(() => js("document.getElementById('model-fast').value==='deepseek-flash'&&!document.getElementById('instant-thinking').disabled"), 'DeepSeek static capability before first answer');
+  const original = await js("cue.settingsGet()");
+  await js("document.getElementById('key-deepseek').value='ui-only-deepseek-key';document.getElementById('model-fast').value='deepseek-flash';document.getElementById('s-close').click()");
+  await until(async () => (await js('cue.settingsGet()')).apiKeys.deepseek === 'ui-only-deepseek-key', 'independent DeepSeek key saved');
+  assert.equal((await js('cue.settingsGet()')).apiKeys.custom, original.apiKeys.custom);
+  assert.equal((await js('cue.settingsGet()')).sttProvider, original.sttProvider);
+  await js("document.getElementById('quick-provider').value='custom';document.getElementById('quick-provider').dispatchEvent(new Event('change'))");
+  await until(async () => (await js('cue.settingsGet()')).provider === 'custom', 'quick provider switch persists');
+  await js("document.getElementById('diagnostics-toggle').click()");
+  assert.equal(await js("document.getElementById('diagnostics-drawer').classList.contains('hidden')"), false);
+  await js("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))");
+  assert.equal(await js("document.getElementById('diagnostics-drawer').classList.contains('hidden')"), true);
+  const status=await js('cue.getProjectFactPackStatus()');
+  assert.equal(status.projects.length,2);assert.equal(status.index.cards.length,25);
+  const rejected=await js("cue.saveProjectFactCards({index:{schemaVersion:99}}).then(()=>false,()=>true)");assert.equal(rejected,true);
+  assert.equal((await js('cue.getProjectFactPackStatus()')).revision,status.revision);
+  await js("document.getElementById('more-btn').click()");
+  return { independentDeepseekSettings:true,staticThinkingBeforeFirstRequest:true,quickSwitch:true,asrPreserved:true,diagnosticDrawer:true,invalidFactIndexRejected:true };
+};

@@ -11,9 +11,16 @@ const { UI_SCALE, initialWindowLayout, attachWindowLayout } = require('./src/win
 const replyLatency = require('./src/reply-latency');
 const os = require('os');
 const store = require('./src/store');
+const fs = require('fs');
+const { ProjectFactPacks, validateIndex } = require('./src/project-fact-packs');
+const factPacks = new ProjectFactPacks();
+const factOverlayPath = path.join(app.getPath('userData'), 'project-fact-packs.json');
+let factAnchor = null;
+try { if (fs.existsSync(factOverlayPath)) factPacks.replace(JSON.parse(fs.readFileSync(factOverlayPath, 'utf8'))); } catch (error) { console.warn('[facts] 本地事实包无效，使用内置包：', error.message); }
 const { captureScreenshot } = require('./src/screen');
 const { createSTT } = require('./src/stt');
 const { parseDocumentFile } = require('./src/resume');
+const { createFirstContentDeadline } = require('./src/first-content-deadline');
 const { createLLM } = require('./src/llm');
 const { resolveInstantPolicy } = require('./src/instant-answer-policy');
 const { InstantContextCards, buildInstantContext } = require('./src/instant-answer-context');
@@ -92,7 +99,9 @@ const uiReplyTimings = new Map();
 let semanticRetriever = null;
 let formalProjectPlan = null;
 const preparedReadOptions = () => ({ preparedOnly: realtimePrefetchEnabled(store.getSettings()) });
-const getProjectCatalog = () => readProjectCatalog(preparedReadOptions());
+const factCatalog = () => factPacks.listProjects().map(p=>({...p,projectId:p.id,label:p.name}));
+const mergeCatalog = imported => [...factCatalog(), ...imported.filter(p=>!factCatalog().some(f=>f.id===(p.id||p.projectId)))];
+const getProjectCatalog = () => mergeCatalog(readProjectCatalog(preparedReadOptions()));
 const getProjectIndexRevision = () => readProjectIndexRevision(preparedReadOptions());
 const getProjectIndexSnapshot = () => readProjectIndexSnapshot(preparedReadOptions());
 function getSemanticRetriever() {
@@ -835,6 +844,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
   if (policy.instant) ragSession.suspend(generation.id);
   try {
     const llm = createLLM(settings, { executionProfile: policy.executionProfile });
+    generation.provider = llm.provider;
     const effectiveSettings = policy.executionProfile === 'instant' ? { ...settings, smart: false } : settings;
     timing.configure?.({ ...llm.diagnostics, model: llm.model });
     const userBubble = def.userBubble !== null ? def.userBubble
@@ -846,7 +856,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     if (!llm.ready) throw new Error(llm.configurationError || '请先完成模型设置。');
     if (!question && ['ask', 'answerThis'].includes(mode)) throw new Error('请先输入问题或等待识别到面试官发言。');
     const request = conversation.begin({ mode, question, transcript: contextTranscript,
-      settings: effectiveSettings, catalog: policy.instant ? readProjectCatalog({ preparedOnly: true }) : getProjectCatalog(),
+      settings: effectiveSettings, catalog: policy.instant ? mergeCatalog(readProjectCatalog({ preparedOnly: true })) : getProjectCatalog(),
       executionProfile: policy.instant ? 'instant' : 'standard', questionSnapshot: frozen,
       manualFingerprint: policy.instant ? instantCards.manualFingerprint : undefined,
       interviewPlan, evidenceRevision: readProjectIndexRevision({ preparedOnly: true }) });
@@ -881,10 +891,13 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const retrieval = { ...retrievalInput(question, request.plan, effectiveInterviewPlan, contextCharsFor(mode, answerPlan), sourceKey,
       policy.instant || fromResolved ? frozen : null),
       requestId: timing.requestId, hashFallback: !fast };
+    const factSelection = policy.instant && policy.ragPolicy !== 'off' ? factPacks.select(question, { projectId: settings.currentProjectId || request.plan.projectIds?.[0], anchor: factAnchor, effectiveModel: { provider: llm.provider, model: llm.model, thinking: llm.diagnostics?.thinkingRequest, promptVersion: 'project-fast-qa-v1', style: settings.aiRules } }) : null;
+    if (factSelection) { factAnchor = factSelection.anchor; timing.configure({ ...factSelection.stats }); }
     const ready = policy.ragPolicy === 'standard' ? null : peekReadyEvidence({ snapshot: frozen,
       projectPlan: request.plan, epoch: conversation.epoch, projectRevision: retrieval.projectRevision,
       modelVersion: retrieval.modelVersion, projectIndexSnapshot: readProjectIndexSnapshot({ preparedOnly: true }),
       cache: activeProjectContextCache, ragSession, retrievalInput: retrieval, policy: policy.ragPolicy });
+    if (ready && factSelection?.evidence.length) { ready.evidence = [...factSelection.evidence, ...ready.evidence]; ready.sources = ready.evidence; }
     const contextBundle = ready ? { context: '', evidence: ready.evidence, missing: [], byQuestion: [], stats: ready.stats }
       : await buildInterviewContextBundleAsync(effectiveSettings, mode, contextTranscript,
       { ...retrieval, requestId: timing.requestId, projectPlan: request.plan, smart: !!settings.smart,
@@ -962,6 +975,8 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     }
     let sentEvidence = prepared.evidence;
     if (policy.instant) contextBundle.stats.readyEvidenceHit = sentEvidence.length > 0;
+    const localFacts = sentEvidence.filter(item=>item.sourceType==='project-pack'&&item.provenance==='CODE'&&item.status==='verified').slice(0,2).map(item=>({cardId:item.cardId,projectName:item.projectName,text:item.text}));
+    if (localFacts.length) { timing.configure({ timeToLocalFacts: +(performance.now()-timing.started).toFixed(2) }); emit('llm:local-facts', {facts:localFacts}); }
     emit('llm:evidence', { sources: sentEvidence.map(item => ({ id: item.id, projectName: item.projectName,
       path: item.path, startLine: item.startLine, endLine: item.endLine, text: item.text,
       docType: item.docType, truthScope: item.truthScope, status: item.status, partial: item.partial })),
@@ -985,6 +1000,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       retrieval: contextBundle.stats || {}, finalBudget: prepared.stats,
       ...request.stats, prepareMs: +(requestSent - timing.started).toFixed(2) }));
 
+    let contentDeadline = null;
     let watchdog = null;
     let deadline = null;
     let abortListener = null;
@@ -1002,6 +1018,8 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
         clearTimeout(watchdog);
         watchdog = setTimeout(() => stop('模型超过 25 秒没有返回数据，请重试。'), STREAM_INACTIVITY_MS);
       };
+      if (policy.instant) contentDeadline = createFirstContentDeadline({ ms: Math.max(100, Math.min(30000, Number(settings.firstContentDeadlineMs) || 6000)),
+        onTimeout: () => { generation.firstContentTimedOut = true; timing.configure?.({ outcome: 'first-content-timeout' }); stop('模型未在首正文期限内返回答案，已停止。' + (sentEvidence.length ? '可参考下方已核对的项目要点，或切换服务后重答。' : '当前没有可用的本地项目资料，请补充资料或切换服务后重答。')); } });
       rearm();
       deadline = setTimeout(() => stop('本轮生成超过 180 秒，已停止；请缩小问题范围后重试。'), 180000);
     });
@@ -1014,6 +1032,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
           onRequest: serialized => {
             if (!owned()) return;
             requestSent = performance.now(); generation.requestSent = requestSent;
+            contentDeadline?.dispatch();
             sentEvidence = visibleEvidence(prepared.evidence, serialized);
             timing.dispatched({ ...generation.modelDiagnostics, ragPolicy: policy.ragPolicy,
               readyEvidenceHit: policy.instant ? sentEvidence.length > 0 : !!ready?.stats.readyEvidenceHit,
@@ -1033,13 +1052,14 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
           onCompletion: metadata => {
             if (owned() && !streamSettled && !generation.controller.signal.aborted) completion = metadata;
           },
-          onActivity: event => { if (owned() && !streamSettled && !generation.controller.signal.aborted) { timing.activity(event); rearm(); } },
+          onActivity: event => { if (event?.phase === 'reasoning' && generation.modelDiagnostics?.thinkingStatus === 'disabled') { generation.modelDiagnostics = { ...generation.modelDiagnostics, thinkingStatus: 'anomaly', reasoningObserved: true }; emit('llm:profile', generation.modelDiagnostics); } if (owned() && !streamSettled && !generation.controller.signal.aborted) { timing.activity(event); rearm(); } },
           onToken: text => {
             if (!owned() || streamSettled || generation.controller.signal.aborted || !text) return;
             answer += text;
             const uiTiming = uiReplyTimings.get(generation.id);
             if (uiTiming && uiTiming.firstTokenAt == null) uiTiming.firstTokenAt = performance.now();
             if (text.trim()) {
+              contentDeadline?.content(text);
               timing.content(text, requestSent); generation.firstContent = true;
               ragSession.resume(generation.id); emit('llm:metrics', timing.metrics());
             }
@@ -1075,6 +1095,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       if (committed && frozen) questionResolver.settle(frozen, 'completed');
     } finally {
       streamSettled = true;
+      contentDeadline?.dispose();
       clearTimeout(watchdog);
       clearTimeout(deadline);
       if (abortListener) generation.controller.signal.removeEventListener('abort', abortListener);
@@ -1084,8 +1105,9 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
   } catch (e) {
     if (frozen) questionResolver.settle(frozen, generation.controller.signal.aborted ? 'canceled' : 'failed');
     if (owned()) {
-      recordEvent({ level: 'error', event: 'llm_failed', msg: e?.message || String(e), frame: 'runFeature', context: { mode, provider: store.getSettings().provider } });
-      emit('llm:error', { message: e?.message || String(e) });
+      recordEvent({ level: 'error', event: 'llm_failed', msg: e?.message || String(e), frame: 'runFeature', context: { mode, provider: generation.provider } });
+      emit('llm:metrics', timing.finish({ aborted: generation.controller.signal.aborted }));
+      emit('llm:error', { message: e?.message || String(e), timeout: !!generation.firstContentTimedOut });
     }
   } finally {
     streamSettled = true;
@@ -1102,6 +1124,36 @@ ipcMain.handle('question:retry', (_event, questionId) => {
   if (!snapshot?.text || snapshot.epoch !== conversation.epoch) return { ok: false, reason: 'no-retry-target' };
   return runFeature(targetModes.get(snapshot.questionId) || 'say', '', { retrySnapshot: snapshot });
 });
+ipcMain.handle('provider:capabilities', (_event, config = {}) => {
+  const draft = { ...store.getSettings(), ...config };
+  return require('./src/openai-compatible').resolveProviderCapabilities({provider:draft.provider,model:draft.models?.[draft.provider]?.fast,protocolPreset:draft.providerProtocolPresets?.[draft.provider],baseURL:draft.provider === 'deepseek' ? draft.deepseekBaseUrl : draft.baseUrl});
+});
+ipcMain.handle('provider:test', async (_event, config = {}) => {
+  const draft = { ...store.getSettings(), ...config };
+  const llm = createLLM(draft, {executionProfile:'instant'});
+  if (!llm.ready) throw new Error(llm.configurationError);
+  const start = performance.now(), controller=new AbortController();
+  let firstContentMs=null, body=''; const timer=setTimeout(()=>controller.abort(),15000);
+  try {
+    await llm.stream({system:'只回答“连接成功”。',turns:[{role:'user',text:'请回答连接成功'}],mode:'ask',maxTokens:32,signal:controller.signal,
+      onToken:text=>{if(text.trim()&&firstContentMs===null) firstContentMs=performance.now()-start;body+=text;}});
+    if(!body.trim()) throw new Error('模型未返回正文');
+    return {provider:llm.provider,model:llm.model,firstContentMs,totalMs:performance.now()-start,effectiveThinking:llm.diagnostics.thinkingStatus,content:body.slice(0,120)};
+  } catch(error) { throw new Error(controller.signal.aborted?'连接测试超时':error.status ? `连接失败 HTTP ${error.status}` : '连接测试失败，请检查地址、密钥、模型及网络权限。'); }
+  finally { clearTimeout(timer); }
+});
+const factStatus = () => { const index=factPacks.getIndex();return {projects:index.projects,revision:index.revision,updatedAt:index.updatedAt,coverage:index.coverage,index}; };
+function saveFactIndex(input) {
+  const next=validateIndex(input); next.updatedAt=new Date().toISOString(); const tmp=factOverlayPath+'.tmp';
+  fs.mkdirSync(path.dirname(factOverlayPath),{recursive:true});
+  fs.writeFileSync(tmp,JSON.stringify(next,null,2),{mode:0o600});fs.renameSync(tmp,factOverlayPath);
+  factPacks.replace(next);factAnchor=null;activeProjectContextCache.clear();ragSession.reset();
+  send('project:catalog', {projects:getProjectCatalog()});return factStatus();
+}
+ipcMain.handle('facts:status',()=>factStatus());
+ipcMain.handle('facts:save',(_e,payload)=>saveFactIndex(payload?.index));
+ipcMain.handle('facts:rebuild',()=>{ factPacks.replace(factPacks.getIndex());factAnchor=null;return factStatus(); });
+ipcMain.handle('facts:import',async()=>{const picked=await dialog.showOpenDialog(win,{title:'导入本地事实包 JSON',properties:['openFile'],filters:[{name:'事实包',extensions:['json']}]});if(picked.canceled)return {canceled:true};if(fs.statSync(picked.filePaths[0]).size>2*1024*1024)throw new Error('事实包超过 2MB');return saveFactIndex(JSON.parse(fs.readFileSync(picked.filePaths[0],'utf8')));});
 ipcMain.handle('settings:get', () => store.getSettings());
 ipcMain.handle('settings:set', (_e, patch) => {
   sttDisabled = false;
@@ -1140,7 +1192,7 @@ ipcMain.handle('project:current', (_event, projectId) => {
   const id = String(projectId || '');
   if (id && !getProjectCatalog().some(project => (project.id || project.projectId) === id)) throw new Error('此项目已不在当前索引中，请重新选择。');
   stopGenerationForSources();
-  formalProjectPlan = null;
+  formalProjectPlan = null; factAnchor = null;
   return store.setSettings({ currentProjectId: id });
 });
 ipcMain.handle('capture:toggle', () => {
@@ -1256,6 +1308,7 @@ ipcMain.handle('transcript:clear', () => {
   if (previous) previous.controller.abort();
   state.busy = false;
   conversation.reset();
+  factAnchor = null;
   uiReplyTimings.clear();
   formalProjectPlan = null;
   ragSession.reset();

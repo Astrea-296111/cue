@@ -128,7 +128,7 @@ async function afterPack(context) {
   }
 
   // Preserve existing behavior on non-Windows.
-  if (!process.env.CUE_BUNDLE_WHISPER) {
+  if (process.env.CUE_SKIP_WHISPER) {
     console.log(
       '[cue] Skipping bundled Whisper runtime ' +
       'on this platform.'

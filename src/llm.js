@@ -8,6 +8,7 @@ const { realtimeTransportOptions, geminiThinkingConfig, endpointClass, thinkingD
 const CUSTOM_PROVIDER = 'custom';
 const CURRENT_GEMINI_DEFAULT = 'gemini-2.5-flash';
 const DEFAULT_MODELS = {
+  deepseek: 'deepseek-flash',
   openai: 'gpt-4o-mini',
   anthropic: 'claude-3-5-haiku-latest',
   gemini: CURRENT_GEMINI_DEFAULT,
@@ -544,7 +545,11 @@ function createLLM(settings, { executionProfile = 'standard' } = {}) {
   const minimaxRegion = settings.minimaxRegion || 'global_en';
   const endpoint = settings.azureEndpoint || '';
 
-  if (provider === CUSTOM_PROVIDER) {
+  if (provider === 'deepseek') {
+    try { baseURL = createCompatibleClientOptions(apiKey, settings.deepseekBaseUrl || 'https://api.deepseek.com').baseURL; }
+    catch (error) { configurationError = error.message; }
+    if (!apiKey) configurationError = '请在设置中填写 DeepSeek API 密钥。';
+  } else if (provider === CUSTOM_PROVIDER) {
     try {
       const clientOptions = createCompatibleClientOptions(apiKey, settings.baseUrl);
       apiKey = clientOptions.apiKey;
@@ -567,9 +572,17 @@ function createLLM(settings, { executionProfile = 'standard' } = {}) {
   const inheritedOptions = settings.providerOptions?.[provider] || {};
   const instantOptions = executionProfile === 'instant' ? settings.instantProviderOptions?.[provider] || {} : {};
   const providerOptions = { ...inheritedOptions, ...instantOptions };
-  const thinkingSource = Object.keys(instantOptions).some(key => ['enable_thinking', 'reasoning_effort', 'thinkingConfig'].includes(key))
-    ? 'instant-explicit' : Object.keys(inheritedOptions).some(key => ['enable_thinking', 'reasoning_effort', 'thinkingConfig'].includes(key))
-      ? 'user-explicit' : 'unknown';
+  // Standard preferences never implicitly re-enable instant reasoning.
+  if (executionProfile === 'instant') {
+    delete providerOptions.reasoning_effort;
+    delete providerOptions.thinkingConfig;
+    delete providerOptions.enable_thinking;
+    delete providerOptions.thinking;
+    Object.assign(providerOptions, instantOptions);
+  }
+  const thinkingSource = Object.keys(instantOptions).some(key => ['enable_thinking', 'reasoning_effort', 'thinkingConfig', 'thinking'].includes(key))
+    ? 'instant-explicit' : Object.keys(inheritedOptions).some(key => ['enable_thinking', 'reasoning_effort', 'thinkingConfig', 'thinking'].includes(key))
+      ? executionProfile === 'instant' ? 'documented-default' : 'user-explicit' : 'unknown';
   const prepareSystem = (system, options = providerOptions) => {
     const suffix = qwenFastInstruction({ model, smart: !!settings.smart, explicit: options });
     const text = String(system || '');
@@ -582,13 +595,14 @@ function createLLM(settings, { executionProfile = 'standard' } = {}) {
     const explicit = { ...providerOptions, ...(params.requestOptions || {}),
       ...(typeof params.enable_thinking === 'boolean' ? { enable_thinking: params.enable_thinking } : {}),
       ...(typeof params.reasoning_effort === 'string' ? { reasoning_effort: params.reasoning_effort } : {}) };
-    const requestOptions = resolveChatRequestOptions({ baseURL: effectiveBaseURL, model, smart: !!settings.smart, explicit });
+    const requestOptions = resolveChatRequestOptions({ baseURL: effectiveBaseURL, model, smart: !!settings.smart, explicit, protocolPreset: settings.providerProtocolPresets?.[provider] });
     const thinkingConfig = geminiThinkingConfig(model, !!settings.smart, explicit.thinkingConfig);
     const transportOptions = realtimeTransportOptions(settings, params.mode, executionProfile);
     const automaticRetriesDisabled = provider === 'ollama' || transportOptions.maxRetries === 0;
     return { provider, model, executionProfile, tier,
       endpointClass: endpointClass(provider, effectiveBaseURL),
       ...thinkingDiagnostics({ provider, model, baseURL: effectiveBaseURL, requestOptions, thinkingConfig,
+        protocolPreset: settings.providerProtocolPresets?.[provider],
         source: Object.keys(params.requestOptions || {}).length || typeof params.enable_thinking === 'boolean' || params.reasoning_effort
           ? 'user-explicit' : thinkingSource }),
       automaticRetriesDisabled,
@@ -624,7 +638,7 @@ function createLLM(settings, { executionProfile = 'standard' } = {}) {
         model,
         ...params,
         system: prepareSystem(params.system, explicit),
-        requestOptions: resolveChatRequestOptions({ baseURL, model, smart: !!settings.smart, explicit }),
+        requestOptions: resolveChatRequestOptions({ baseURL, model, smart: !!settings.smart, explicit, protocolPreset: settings.providerProtocolPresets?.[provider] }),
         transportOptions: realtimeTransportOptions(settings, params.mode, executionProfile),
         thinkingConfig: geminiThinkingConfig(model, !!settings.smart, explicit.thinkingConfig),
         maxTokens,
@@ -635,6 +649,8 @@ function createLLM(settings, { executionProfile = 'standard' } = {}) {
       if (typeof params.onDiagnostics === 'function') params.onDiagnostics(diagnostics(params));
 
       try {
+        if (params.imageDataUrl && provider === 'deepseek' && model !== 'deepseek-flash') throw new Error('该 DeepSeek 型号图片能力未知，请选用已核实支持图片的模型。');
+        if (provider === 'deepseek') return await streamOpenAI(args);
         if (provider === 'openai') return await streamOpenAI(args);
         if (provider === CUSTOM_PROVIDER) return await streamOpenAI(args);
         if (provider === 'ollama') return await streamOllama(args);
@@ -652,7 +668,8 @@ function createLLM(settings, { executionProfile = 'standard' } = {}) {
         if (provider === 'azure') return await streamAzure(args);
         throw new Error('未知模型服务：' + provider);
       } catch (error) {
-        throw new Error(formatProviderErrorMessage(error, provider, model));
+        const message = formatProviderErrorMessage(error, provider, model);
+        throw new Error(apiKey && apiKey !== 'not-required' ? message.split(apiKey).join('[密钥已隐藏]') : message);
       }
     }
   };

@@ -30,7 +30,7 @@ module.exports = async function checkProtectedDropdowns({ win, js, until, window
     return [native.hidden,native.tabIndex,native.getBoundingClientRect().height,trigger.getAttribute('role'),
       trigger.getBoundingClientRect().height>=20,menu.parentElement.id];})`),
   [[true, -1, 0, 'combobox', true, 'app'], [true, -1, 0, 'combobox', true, 'app']]);
-  assert.equal(await js("document.querySelectorAll('select[data-capture-safe]').length"), 2);
+  assert.equal(await js("document.querySelectorAll('select[data-capture-safe]').length"), 3);
   assert.equal(await js("document.getElementById('instant-rag-policy').hidden"), false, 'Settings selectors stay unchanged');
 
   // Real pointer selection persists through the existing project IPC.

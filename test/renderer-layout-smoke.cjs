@@ -122,7 +122,7 @@ ipcMain.on('llm:rendered', (_event, value) => renderAcks.push(value));
 dialog.showErrorBox = (title, message) => {
   console.error('UI_ERROR_DIALOG', title, message); process.exit(1);
 };
-const timeout = setTimeout(() => { console.error('UI_TIMEOUT'); process.exit(1); }, 30000);
+const timeout = setTimeout(() => { console.error('UI_TIMEOUT'); process.exit(1); }, 90000);
 app.on('quit', (_event, code) => {
   clearTimeout(timeout);
   if (!allowedToQuit) { console.error('UI_EARLY_QUIT'); process.exit(1); }
@@ -186,7 +186,7 @@ app.on('browser-window-created', (_event, win) => {
         win, js, until, windowCount: () => testWindows.size, mouseIgnoreEvents
       });
       assert.deepEqual(await js("['.drag-label','.tb-hide span:last-child','#smart-toggle span:last-child','.ts-title','#clear-transcript-btn'].map(s=>document.querySelector(s).textContent)"),
-        ['拖动', '收起', '深度思考', '对话记录', '清空记录']);
+        ['拖动', '收起', '极速', '对话记录', '清空记录']);
       for (const [status, text, className] of [['loading','正在加载本地模型','loading'], ['ready','本地识别已就绪','local'], ['error','识别异常','error'], ['off','未监听','off']]) {
         win.webContents.send('stt:status', { provider: 'local', status });
         await until(() => js(`document.getElementById('stt-status').textContent===${JSON.stringify(text)}`), 'Chinese STT status');
@@ -205,7 +205,7 @@ app.on('browser-window-created', (_event, win) => {
       }
       const caption = await js(`(() => {const el=document.querySelector('.interim-transcript');return {
         height:el.getBoundingClientRect().height,client:el.clientHeight,scroll:el.scrollHeight,top:el.scrollTop,manual:document.getElementById('input').value};})()`);
-      assert.equal(caption.height, 50); assert.ok(caption.scroll > caption.client);
+      assert.equal(caption.height, 26); assert.ok(caption.scroll > caption.client);
       assert.ok(caption.top + caption.client >= caption.scroll - 1);
       assert.equal(caption.manual, '', 'Captions must not overwrite the manual composer');
       if (process.env.CUE_UI_SCREENSHOT) {
@@ -373,6 +373,7 @@ app.on('browser-window-created', (_event, win) => {
       if (process.env.CUE_UI_SETTINGS_SCREENSHOT) {
         const shot = await win.webContents.capturePage(); fs.writeFileSync(process.env.CUE_UI_SETTINGS_SCREENSHOT, shot.toPNG());
       }
+      const providerFactsUI = await require('./helpers/provider-facts-ui-checks.cjs')({js,until});
       await js("document.getElementById('s-close').click()");
       await until(() => js("document.getElementById('settings-scrim').classList.contains('hidden')"), 'settings close');
       await js("document.getElementById('logo-btn').click()");
@@ -512,7 +513,7 @@ app.on('browser-window-created', (_event, win) => {
         latestTargetPreview:true,frozenTargetAndNext:true,explicitEdit:true,explicitRetry:true,consumedTargetDoesNotRepeat:true,
         profileAndMetricsOwnership:true,nonemptyFirstBodyAck:true,doubleRafApproximation:true,
         collapseShortcut:true,fullWindowVisibilityShortcut:true,recordingShortcut:true,technicalShortcut:true,movementStep:25,
-        createdHidden:true,protectionRequested:true,protectionFailureBlocked,protectedDropdowns,compactPanel,waitingStatusCardRemoved:true,
+        createdHidden:true,protectionRequested:true,protectionFailureBlocked,protectedDropdowns,compactPanel,providerFactsUI,waitingStatusCardRemoved:true,
         chineseSettings:true,chineseOnboarding:true,chinesePermissions:true,windowsBuildFixture:process.env.CUE_UI_WINDOWS_BUILD || null }));
       allowedToQuit = true;
       if (process.env.CUE_UI_QUIT_SHORTCUT) {

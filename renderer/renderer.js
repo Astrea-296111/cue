@@ -690,9 +690,11 @@
   const smartBtn = $('#smart-toggle');
   smartBtn.addEventListener('click', async () => {
     if (!settings) return;
-    settings.smart = !settings.smart;
+    settings.realtimeAnswerMode = settings.realtimeAnswerMode==='standard'?'instant':'standard';
+    settings.smart = settings.realtimeAnswerMode==='standard';
     smartBtn.classList.toggle('on', settings.smart);
-    await cue.settingsSet({ smart: settings.smart });
+    await cue.settingsSet({ smart: settings.smart, realtimeAnswerMode:settings.realtimeAnswerMode });
+    $('#smart-toggle span:last-child').textContent=settings.realtimeAnswerMode==='standard'?'深度':'极速';
     updateSmartTooltip();
   });
 
@@ -1214,8 +1216,8 @@ micStream = stream;
     setLiveDotState('transcribing');
     const el = getOrCreateInterimEl();
     const label = channel === 'them' ? '面试官' : '候选人';
-    el.textContent = `${label}: ${text}`;
-    el.classList.add('show');
+    el.textContent = text?.trim() ? `${label}: ${text}` : '';
+    el.classList.toggle('show', !!text?.trim());
     // Keep the latest words visible inside a bounded caption viewport.
     el.scrollTop = el.scrollHeight;
     appendTranscriptHistoryTurn(channel, text, true); // update sidebar interim
@@ -1353,7 +1355,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
   cue.on('llm:profile', ({ requestId, epoch, executionProfile, tier, provider, model, thinkingStatus, thinkingMessage, referenceDraft, endpointClass, thinkingSource }) => {
     if (!acceptsDiagnostic(requestId, epoch)) return;
     const label = executionProfile === 'instant' ? '极速 / 快速模型' : tier === 'smart' ? '标准 / 深度模型' : '标准 / 快速模型';
-    const status = { disabled: '思考已关闭', enabled: '思考已开启', unknown: '思考能力未知', required: '思考无法关闭', 'unsupported': '思考无法关闭', 'cannot-disable': '思考无法关闭' }[thinkingStatus];
+    const status = { disabled: '已请求关闭思考', enabled: '思考开', anomaly: '关闭请求异常：收到 reasoning', unknown: '思考能力未知', required: '思考无法关闭', 'unsupported': '思考无法关闭', 'cannot-disable': '思考无法关闭' }[thinkingStatus];
     lastExecutionProfile = { executionProfile, provider, model, thinkingStatus, endpointClass, thinkingSource };
     fillInstantThinking();
     const text = [label, model, status].filter(Boolean).join(' · ');
@@ -1378,6 +1380,13 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
     $('#answer-timing').textContent = parts.join(' · ');
     $('#answer-timing').title = Number.isFinite(metrics.triggerToFirstContentMs)
       ? '触发到正文 ' + displayDuration(metrics.triggerToFirstContentMs) + '；绘制确认是近似值' : parts.join(' · ');
+  });
+  cue.on('llm:local-facts',({facts=[],requestId,epoch})=>{
+    if(!acceptsReply(requestId,epoch)||!aiEl||!facts.length)return;
+    const block=document.createElement('details');block.className='local-project-facts';block.open=true;
+    const label=document.createElement('summary');label.textContent='项目要点（本地资料，非模型正文）';block.append(label);
+    for(const fact of facts.slice(0,2)){const line=document.createElement('p');line.textContent=`${fact.projectName}：${fact.text}`;block.append(line);}
+    aiEl.closest('.response-group')?.insertBefore(block,aiEl);
   });
   cue.on('llm:evidence', ({ sources = [], missing = [], requestId, epoch }) => {
     if (!acceptsReply(requestId, epoch) || !aiEl) return;
@@ -1508,6 +1517,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
   if (aiRulesEl) aiRulesEl.addEventListener('input', updateAiRulesCounter);
   function updateSmartTooltip() {
     if (!settings) return;
+    $('#smart-toggle span:last-child').textContent=settings.realtimeAnswerMode==='standard'?'深度':'极速';
     const m = settings.models[settings.provider] || { fast: '', smart: '' };
     const fast = m.fast || '快速模型';
     const smart = m.smart || '深度模型';
@@ -1795,21 +1805,53 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
     cue.projectSemanticState?.().then(renderSemanticState).catch(() => {});
   }
 
-  function fillInstantThinking() {
-    const select = $('#instant-thinking');
-    if (!select || !settings) return;
-    const profile = lastExecutionProfile;
-    const currentModel = $('#model-fast')?.value.trim() || settings.models?.[settings.provider]?.fast;
-    const supported = profile?.executionProfile === 'instant' && profile.provider === settings.provider &&
-      profile.model === currentModel && profile.endpointClass === 'dashscope-official' &&
-      ['enabled', 'disabled'].includes(profile.thinkingStatus);
-    select.disabled = !supported;
-    const value = settings.instantProviderOptions?.[settings.provider]?.enable_thinking;
-    select.value = typeof value === 'boolean' ? value ? 'enabled' : 'disabled' : 'inherit';
-    $('#instant-thinking-note').textContent = supported
-      ? '仅影响极速问答；开启思考可能增加正文首字等待。'
-      : '确认当前服务和模型支持独立思考设置后可调整；未知服务不会自动发送思考参数。';
+  let capabilitySequence = 0;
+  async function fillInstantThinking() {
+    const select=$('#instant-thinking'); if(!select||!settings) return;
+    const sequence=++capabilitySequence;
+    const draft=providerDraft();
+    const capability=await cue.providerCapabilities?.(draft).catch(()=>null);
+    if(sequence!==capabilitySequence) return;
+    select.disabled=capability?.thinkingCapability!=='toggle';
+    document.querySelector('#provider-seg [data-provider=custom]').textContent=capability?.endpointClass==='dashscope-official'?'自定义 · Qwen':'自定义';
+    const opts=settings.instantProviderOptions?.[settings.provider]||{};
+    const val=settings.provider==='deepseek' ? opts.thinking?.type : typeof opts.enable_thinking==='boolean' ? opts.enable_thinking?'enabled':'disabled' : 'inherit';
+    select.value=val||'inherit';
+    $('#instant-thinking-note').textContent=select.disabled?'当前协议能力未知或不能切换；不会推测服务参数。':'极速默认请求关闭思考；显式开启会增加正文等待。服务端未提供关闭确认。';
   }
+  function providerDraft() {
+    const draft=JSON.parse(JSON.stringify(settings));
+    draft.providerProtocolPresets ||= {}; draft.providerProtocolPresets[draft.provider]=$('#protocol-preset').value;
+    draft.baseUrl=$('#base-url').value.trim();draft.deepseekBaseUrl=$('#deepseek-url').value.trim()||'https://api.deepseek.com';
+    for(const p of ['openai','anthropic','gemini','deepgram','custom','deepseek','ollama','groq','minimax','azure']) if($('#key-'+p)) draft.apiKeys[p]=$('#key-'+p).value.trim();
+    draft.models[draft.provider]={fast:$('#model-fast').value.trim(),smart:$('#model-smart').value.trim()};
+    const value=$('#instant-thinking').value;
+    if(!$('#instant-thinking').disabled&&value!=='inherit') {
+      draft.instantProviderOptions ||= {}; draft.instantProviderOptions[draft.provider] = draft.provider==='deepseek'?{thinking:{type:value}}:{enable_thinking:value==='enabled'};
+    }
+    return draft;
+  }
+  $('#test-provider').addEventListener('click',async()=>{
+    const button=$('#test-provider'),out=$('#provider-test-result');button.disabled=true;out.textContent='测试中…';
+    try {const result=await cue.testProviderConnection(providerDraft());out.textContent=`${result.model} · 正文首字 ${Math.round(result.firstContentMs)}ms · 总耗时 ${Math.round(result.totalMs)}ms · 思考 ${result.effectiveThinking}`;}
+    catch(error){out.textContent=error.message;} finally {button.disabled=false;}
+  });
+  const quickChooser=window.CueCaptureSafeSelect.install($('#quick-provider'));
+  function fillQuickProviders(){
+    const select=$('#quick-provider');select.replaceChildren();
+    for(const p of Object.keys(settings.apiKeys||{}).filter(p=>!['deepgram'].includes(p)&&(settings.apiKeys[p]||p===settings.provider))) {
+      if(!settings.models?.[p])continue;const option=document.createElement('option');option.value=p;option.textContent=(p==='custom'?'自定义':p)+' · '+(settings.models?.[p]?.fast||'未设置');select.append(option);
+    }
+    select.value=settings.provider;quickChooser.sync();
+  }
+  $('#quick-provider').addEventListener('change',async e=>{settings=await cue.settingsSet({provider:e.target.value});fillSettings();updateSmartTooltip();});
+  $('#diagnostics-toggle').addEventListener('click',()=>{const open=$('#diagnostics-drawer').classList.toggle('hidden')===false;$('#diagnostics-toggle').setAttribute('aria-expanded',String(open));});
+  $('#answer-target-text').addEventListener('click',()=>$('#answer-target-text').classList.toggle('expanded'));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#diagnostics-drawer').classList.add('hidden');$('#diagnostics-toggle').setAttribute('aria-expanded','false');}});
+  function showFactStatus(state){if(!state||state.canceled)return;$('#fact-pack-status').textContent=`${state.projects.map(p=>p.name).join(' / ')} · ${state.revision} · ${state.updatedAt||''}`;$('#fact-editor').value=JSON.stringify(state.index,null,2);}
+  for(const [id,fn] of [['fact-import',()=>cue.importProjectFactPacks()],['fact-rebuild',()=>cue.rebuildProjectFactPacks()],['fact-save',()=>cue.saveProjectFactCards({index:JSON.parse($('#fact-editor').value)})]]) $('#'+id).addEventListener('click',async()=>{try{showFactStatus(await fn());}catch(e){$('#fact-pack-status').textContent=e.message;}});
+  $('#protocol-preset').addEventListener('change',fillInstantThinking);
+  $('#base-url').addEventListener('input',fillInstantThinking);$('#deepseek-url').addEventListener('input',fillInstantThinking);
   $('#model-fast').addEventListener('input', fillInstantThinking);
   document.querySelectorAll('#provider-seg button').forEach(button => button.addEventListener('click', () => {
     // Existing provider handler updates settings before the next event turn.
@@ -1821,6 +1863,10 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
     $('#instant-rag-policy').value = settings.instantRagPolicy === 'off' ? 'off' : 'ready-only';
     // Keys tab
     document.querySelectorAll('#provider-seg button').forEach((b) => b.classList.toggle('on', b.dataset.provider === settings.provider));
+    $('#key-deepseek').value = settings.apiKeys.deepseek || '';
+    $('#deepseek-url').value = settings.deepseekBaseUrl || 'https://api.deepseek.com';
+    fillQuickProviders();
+    cue.getProjectFactPackStatus?.().then(showFactStatus).catch(()=>{});
     $('#key-openai').value = settings.apiKeys.openai || '';
     $('#key-anthropic').value = settings.apiKeys.anthropic || '';
     $('#key-gemini').value = settings.apiKeys.gemini || '';
@@ -1836,6 +1882,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
     $('#azure-endpoint').value = settings.azureEndpoint || '';
     const m = settings.models[settings.provider] || { fast: '', smart: '' };
     $('#model-fast').value = m.fast; $('#model-smart').value = m.smart;
+    $('#protocol-preset').value=settings.providerProtocolPresets?.[settings.provider]||'';
     fillInstantThinking();
     fillAppLinkCallers();
     $('#s-status').textContent = statusText();
@@ -1940,7 +1987,11 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
   }
 
   document.querySelectorAll('#provider-seg button').forEach((b) => b.addEventListener('click', () => {
+    if(!$('#instant-thinking').disabled) { const draft=providerDraft();settings.instantProviderOptions=draft.instantProviderOptions; }
+    settings.models[settings.provider] = {fast:$('#model-fast').value.trim(),smart:$('#model-smart').value.trim()};
+    settings.providerProtocolPresets ||= {}; settings.providerProtocolPresets[settings.provider]=$('#protocol-preset').value;
     settings.provider = b.dataset.provider;
+    $('#protocol-preset').value=settings.providerProtocolPresets?.[settings.provider]||'';
     document.querySelectorAll('#provider-seg button').forEach((x) => x.classList.toggle('on', x === b));
     updateCustomProviderFields();
     const m = settings.models[settings.provider] || { fast: '', smart: '' };
@@ -2188,6 +2239,8 @@ cue.on(
 
   async function saveSettings() {
     // Keys
+    settings.apiKeys.deepseek = $('#key-deepseek').value.trim();
+    settings.deepseekBaseUrl = $('#deepseek-url').value.trim();
     settings.apiKeys.openai = $('#key-openai').value.trim();
     settings.apiKeys.anthropic = $('#key-anthropic').value.trim();
     settings.apiKeys.gemini = $('#key-gemini').value.trim();
@@ -2202,13 +2255,15 @@ cue.on(
     if (!settings.models[settings.provider]) settings.models[settings.provider] = {};
     settings.models[settings.provider].fast = $('#model-fast').value.trim();
     settings.models[settings.provider].smart = $('#model-smart').value.trim();
+    settings.providerProtocolPresets ||= {}; settings.providerProtocolPresets[settings.provider]=$('#protocol-preset').value;
     settings.contextWindowTokens = Math.max(1024, Math.min(2000000, Number($('#context-window-tokens').value) || 16384));
     settings.instantRagPolicy = $('#instant-rag-policy').value === 'off' ? 'off' : 'ready-only';
     if (!$('#instant-thinking').disabled) {
       const value = $('#instant-thinking').value;
       const all = { ...(settings.instantProviderOptions || {}) };
       const options = { ...(all[settings.provider] || {}) };
-      if (value === 'inherit') delete options.enable_thinking;
+      if (settings.provider === 'deepseek') { if(value==='inherit') delete options.thinking; else options.thinking={type:value}; }
+      else if (value === 'inherit') delete options.enable_thinking;
       else options.enable_thinking = value === 'enabled';
       all[settings.provider] = options;
       settings.instantProviderOptions = all;
