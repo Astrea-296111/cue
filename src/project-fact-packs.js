@@ -60,7 +60,7 @@ class ProjectFactPacks {
     const at=performance.now(), q=String(question).slice(0,8000), lower=q.toLowerCase();
     let mentioned=this.index.projects.filter(p=>[p.name,...p.aliases].some(a=>lower.includes(a.toLowerCase())));
     mentioned=mentioned.filter(p=>![p.name,...p.aliases].some(a=>new RegExp('(?:不是|别谈|不要|并非)\\s*'+a.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'i').test(q)));
-    const unknownNames=[...q.matchAll(/([A-Za-z][A-Za-z0-9_.-]{1,40})\s*项目/g)].map(m=>m[1]).filter(n=>!this.index.projects.some(p=>[p.name,...p.aliases].some(a=>a.toLowerCase()===n.toLowerCase())));
+    const unknownNames=[...q.matchAll(/([\p{L}\p{N}_.-]{2,48})\s*项目/gu)].map(m=>m[1].replace(/^(?:请)?(?:介绍一下|介绍|讲讲|说说|关于|你在|我在|在|你的|我的)/,'')).filter(n=>n&&!/^(?:这个|那个|你们|我们|当前|刚才|之前|上一个)$/.test(n)&&!this.index.projects.some(p=>[p.name,...p.aliases].some(a=>a.toLowerCase()===n.toLowerCase())));
     if(unknownNames.length&&!mentioned.length)return {evidence:[],localFacts:[],anchor:null,projectIds:[],gaps:[],stats:{selectedCardCount:0,selectionMs:performance.now()-at,packRevision:this.index.revision}};
     const contextual=/这个项目|你们项目|项目中|你负责|你做|个人贡献|团队分工|刚才|这个困难|那个方案|为什么不用|怎么解决/.test(q);
     if(!mentioned.length&&contextual) { const id=projectId||anchor?.projectId; mentioned=this.index.projects.filter(p=>p.id===id); }

@@ -49,6 +49,7 @@ test('selection covers ownership/collaboration, switch and generic bypass withou
  r=p.select('CAE 这个困难怎么解决？',{anchor:r.anchor});assert.deepEqual(r.projectIds,['cae']);assert.ok(r.evidence.every(c=>c.projectId==='cae'));
  assert.equal(p.select('Redis 的过期策略是什么？',{projectId:'cae',anchor:r.anchor}).evidence.length,0);
  const compare=p.select('比较 Arclight 与 CAE 的实现');assert.deepEqual(new Set(compare.projectIds),new Set(['arclight','cae']));assert.ok(compare.evidence.some(c=>c.projectId==='cae'));assert.ok(compare.evidence.some(c=>c.projectId==='arclight'));
+ assert.equal(p.select('你在星河项目你负责什么？',{projectId:'cae',anchor:r.anchor}).evidence.length,0);
  const first=p.select('CAE 你负责什么？'),neg=p.select('CAE 你不负责什么？');assert.notEqual(first.stats.cacheKey,neg.stats.cacheKey);
  const local=p.select('CAE 性能压测数字');assert.ok(local.evidence.find(c=>c.provenance==='LOCAL-BENCH'));assert.ok(local.localFacts.every(c=>!c.text.includes('[LOCAL-BENCH')));
 });

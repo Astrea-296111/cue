@@ -1052,7 +1052,18 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
           onCompletion: metadata => {
             if (owned() && !streamSettled && !generation.controller.signal.aborted) completion = metadata;
           },
-          onActivity: event => { if (event?.phase === 'reasoning' && generation.modelDiagnostics?.thinkingStatus === 'disabled') { generation.modelDiagnostics = { ...generation.modelDiagnostics, thinkingStatus: 'anomaly', reasoningObserved: true }; emit('llm:profile', generation.modelDiagnostics); } if (owned() && !streamSettled && !generation.controller.signal.aborted) { timing.activity(event); rearm(); } },
+          onActivity: event => {
+            if (!owned() || streamSettled || generation.controller.signal.aborted) return;
+            timing.activity(event);
+            if (event?.phase === 'reasoning' && !generation.modelDiagnostics?.reasoningObserved) {
+              generation.modelDiagnostics = { ...generation.modelDiagnostics, reasoningObserved: true,
+                thinkingStatus: generation.modelDiagnostics?.thinkingStatus === 'disabled' ? 'anomaly' : generation.modelDiagnostics?.thinkingStatus || 'unknown' };
+              timing.configure(generation.modelDiagnostics);
+              emit('llm:profile', generation.modelDiagnostics);
+              emit('llm:metrics', timing.metrics());
+            }
+            rearm();
+          },
           onToken: text => {
             if (!owned() || streamSettled || generation.controller.signal.aborted || !text) return;
             answer += text;
