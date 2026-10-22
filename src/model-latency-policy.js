@@ -30,11 +30,11 @@ function endpointClass(provider, baseURL = '') {
   return 'custom-compatible';
 }
 
-function thinkingDiagnostics({ provider, model, baseURL, requestOptions = {}, thinkingConfig, source = 'unknown' }) {
-  const { dashScopeThinkingCapability } = require('./openai-compatible');
-  const capability = dashScopeThinkingCapability(baseURL, model);
+function thinkingDiagnostics({ provider, model, baseURL, requestOptions = {}, thinkingConfig, protocolPreset, source = 'unknown' }) {
+  const capability = require('./openai-compatible').resolveProviderCapabilities({provider,baseURL,model,protocolPreset}).thinkingCapability;
   let thinkingStatus = 'unknown';
-  if (capability === 'required') thinkingStatus = 'required';
+  if (capability === 'toggle' && requestOptions.thinking) thinkingStatus = requestOptions.thinking.type === 'disabled' ? 'disabled' : 'enabled';
+  else if (capability === 'required') thinkingStatus = 'required';
   else if (capability === 'toggle' && typeof requestOptions.enable_thinking === 'boolean') {
     thinkingStatus = requestOptions.enable_thinking ? 'enabled' : 'disabled';
   } else if (provider === 'gemini' && /^gemini-2\.5-flash(?:-lite)?(?:-preview-[\w-]+)?$/i.test(model)) {
@@ -47,7 +47,7 @@ function thinkingDiagnostics({ provider, model, baseURL, requestOptions = {}, th
   } else if (provider === 'anthropic' && new Set(['claude-3-5-haiku-latest', 'claude-3-5-haiku-20241022']).has(model)) {
     thinkingStatus = 'disabled';
   }
-  return { thinkingStatus, thinkingSource: thinkingStatus === 'unknown' ? source : source === 'unknown' ? 'documented-default' : source,
+  return { ...require('./openai-compatible').resolveProviderCapabilities({provider,baseURL,model,protocolPreset}), thinkingRequest: requestOptions.thinking || (typeof requestOptions.enable_thinking === 'boolean' ? {enable_thinking:requestOptions.enable_thinking} : null), providerConfirmation: null, thinkingStatus, thinkingSource: thinkingStatus === 'unknown' ? source : source === 'unknown' ? 'documented-default' : source,
     enableThinking: typeof requestOptions.enable_thinking === 'boolean' ? requestOptions.enable_thinking : null,
     reasoningEffort: requestOptions.reasoning_effort || null,
     thinkingConfig: thinkingConfig ? Object.fromEntries(Object.entries(thinkingConfig)

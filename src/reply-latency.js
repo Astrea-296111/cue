@@ -8,7 +8,7 @@ const sourceKey = data => data.utteranceKey ? `${data.sourceId || 'stream'}${dat
 const CONTEXT_FIELDS = ['epoch', 'questionId', 'questionRevision', 'executionProfile', 'model', 'buildCommit', 'sourceDirty',
   'identitySource', 'provider', 'endpointClass', 'ragPolicy', 'readyEvidenceHit', 'skippedReason', 'optionalContextTokensEstimate',
   'sourceCount', 'queueDelayMs', 'thinkingStatus', 'thinkingSource', 'enableThinking', 'reasoningEffort', 'thinkingConfig',
-  'automaticRetriesDisabled', 'transportRetryPolicy', 'responseBoundary'];
+  'automaticRetriesDisabled', 'transportRetryPolicy', 'responseBoundary', 'thinkingRequest', 'reasoningObserved', 'outcome', 'timeToLocalFacts', 'packRevision', 'selectedCardCount'];
 
 function createReplyLatency({ now = () => performance.now(), log = value => console.log(value), wallNow = Date.now } = {}) {
   let sequence = 0;
@@ -63,7 +63,7 @@ function createReplyLatency({ now = () => performance.now(), log = value => cons
     const phases = {};
     let dispatchedAt = null, firstAt = null, sentenceAt = null, domAt = null, paintAt = null;
     let rendererFrameDelayMs = null, sentenceBuffer = '', finished = false, aborted = false;
-    const usage = {};
+    const usage = { actualInputTokens: null, actualOutputTokens: null, actualTotalTokens: null, cachedInputTokens: null, actualReasoningTokens: null };
     const input = matchedFinal ? 'stt-final' : matchedInterim ? 'stt-interim' : 'manual-or-transcript';
     const sinceDispatch = at => at == null || dispatchedAt == null ? null : round(at - dispatchedAt);
     function metrics() {
@@ -98,7 +98,7 @@ function createReplyLatency({ now = () => performance.now(), log = value => cons
       log('[latency][reply] ' + JSON.stringify({ ...metrics(), event: 'first-content' }));
       return true;
     }
-    return { requestId, started,
+    return { requestId, started, configure: updateContext,
       dispatched(metadata = {}) {
         updateContext(metadata);
         if (dispatchedAt == null) dispatchedAt = now();

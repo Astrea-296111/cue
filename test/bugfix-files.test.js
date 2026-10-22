@@ -72,7 +72,7 @@ test('passthrough shortcut overrides renderer mouse state until toggled off and 
   assert.deepEqual(foreignChanges, []);
 });
 
-test('packaged builds bundle whisper by default', () => {
+test('invoked Whisper bundling hook prepares by default and supports explicit skip', () => {
   const code = fs.readFileSync(path.join(root, 'scripts', 'after-pack.js'), 'utf8');
   assert.ok(!/process\.env\.CUE_BUNDLE_WHISPER/.test(code));
   assert.match(code, /CUE_SKIP_WHISPER/);

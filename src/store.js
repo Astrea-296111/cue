@@ -18,8 +18,13 @@ const DEFAULTS = {
   realtimeAnswerMode: 'instant',
   instantRagPolicy: 'ready-only',
   baseUrl: '',
+  deepseekBaseUrl: 'https://api.deepseek.com',
+  firstContentDeadlineMs: 6000,
+  providerOptions: {},
+  providerProtocolPresets: {},
+  instantProviderOptions: { deepseek: { thinking: { type: 'disabled' } } },
   minimaxRegion: 'global_en',
-  apiKeys: { openai: '', anthropic: '', gemini: '', deepgram: '', custom: '', ollama: '', groq: '', minimax: '' , azure: '' },
+  apiKeys: { deepseek: '', openai: '', anthropic: '', gemini: '', deepgram: '', custom: '', ollama: '', groq: '', minimax: '' , azure: '' },
   azureEndpoint: '',
 
   // 候选人资料
@@ -45,6 +50,7 @@ const DEFAULTS = {
   windowX: null,
   windowY: null,
   models: {
+    deepseek: { fast: 'deepseek-flash', smart: 'deepseek-flash' },
     openai: { fast: 'gpt-4o-mini', smart: 'gpt-4o' },
     anthropic: { fast: 'claude-3-5-haiku-latest', smart: 'claude-3-5-sonnet-latest' },
     gemini: { fast: 'gemini-2.5-flash', smart: 'gemini-2.5-flash' },
@@ -89,6 +95,7 @@ module.exports = {
     load();
     const nextSettings = deepMerge(data, patch || {});
     nextSettings.baseUrl = normalizeBaseUrl(nextSettings.baseUrl);
+    nextSettings.deepseekBaseUrl = normalizeBaseUrl(nextSettings.deepseekBaseUrl || 'https://api.deepseek.com');
     data = nextSettings;
     save();
     return data;

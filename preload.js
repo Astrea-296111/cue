@@ -3,6 +3,12 @@ const platform = process.platform;
 
 contextBridge.exposeInMainWorld('cue', {
   platform,
+  providerCapabilities: config => ipcRenderer.invoke('provider:capabilities',config),
+  testProviderConnection: config => ipcRenderer.invoke('provider:test',config),
+  getProjectFactPackStatus: () => ipcRenderer.invoke('facts:status'),
+  importProjectFactPacks: () => ipcRenderer.invoke('facts:import'),
+  rebuildProjectFactPacks: () => ipcRenderer.invoke('facts:rebuild'),
+  saveProjectFactCards: payload => ipcRenderer.invoke('facts:save',payload),
   settingsGet: () => ipcRenderer.invoke('settings:get'),
   settingsSet: (patch) => ipcRenderer.invoke('settings:set', patch),
   whisperModels: () => ipcRenderer.invoke('whisper:models'),
@@ -43,7 +49,7 @@ contextBridge.exposeInMainWorld('cue', {
   permissionsContinue: () => ipcRenderer.send('permissions:continue'),
   log: (msg) => ipcRenderer.send('log', msg),
   on: (channel, cb) => {
-    const allowed = ['capture:state', 'llm:start', 'llm:token', 'llm:done', 'llm:error', 'llm:evidence', 'llm:profile', 'llm:metrics', 'question:target', 'project:active', 'project:catalog', 'project:semantic-progress', 'project:semantic-state', 'status', 'transcript', 'stt:interim', 'stt:final', 'stt:status', 'vad:state', 'applink:consent-request', 'hide:toggle', 'shortcut:mode', 'whisper:download-progress', 'whisper:models-changed'];
+    const allowed = ['capture:state', 'llm:start', 'llm:token', 'llm:done', 'llm:error', 'llm:evidence', 'llm:local-facts', 'llm:profile', 'llm:metrics', 'question:target', 'project:active', 'project:catalog', 'project:semantic-progress', 'project:semantic-state', 'status', 'transcript', 'stt:interim', 'stt:final', 'stt:status', 'vad:state', 'applink:consent-request', 'hide:toggle', 'shortcut:mode', 'whisper:download-progress', 'whisper:models-changed'];
     if (!allowed.includes(channel)) return;
     ipcRenderer.on(channel, (_e, data) => cb(data));
   }
