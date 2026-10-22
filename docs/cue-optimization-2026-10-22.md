@@ -30,7 +30,7 @@ node -e "require('./src/project-fact-packs').compileProjectPacks({sourceRoots:{a
 
 项目名只认 Arclight/MewCode 与 CAE 的明确别名，不把 RepoPilot 自动映射为 Arclight。通用题绕过项目包，明确新项目、否定纠正优先；追问用项目/卡片锚点，切项目或清会话清旧锚点。选择先保每个项目和意图的必要卡，再有界排序，最多 4 张进入上下文；项目证据预算约 1500 本地估算 token、总软目标 3000，完整当前问题不截断。最终真正进入序列化请求的卡才算命中。未实现向量答案缓存；选择身份键包含包版本、问题限制与有效模型/风格。
 
-个人覆盖层只写入 userData，不加入 Git；更新和回滚不会删除它。公共仓库提交的都是筛选后的公开材料。
+个人覆盖层可用 provenance=USER，来源 commit=null 并提供文档 contentSha256（64 位十六进制）、相对路径与段落符号，不必伪造 Git 提交。USER 表示用户提供的陈述，不是公共代码审计结果。个人覆盖层只写入 userData，不加入 Git；更新和回滚不会删除它。公共仓库提交的都是筛选后的公开材料。
 
 ## 验证与性能边界
 
@@ -67,3 +67,5 @@ CLI 默认离线；在线明确指定参数才计费。三组按题串行交错�
 结果包含请求顺序、全部请求结果分母、超时/错误率、各时延样本数/P50/P95/最大值、实际 usage/cache/reasoning；首有效句只是启发式，需人工抽查。缺项保持空值；冷暖/缓存只按实际 usage 解释，不保证厂商命中。线上网络、限流与模型延迟仍需在用户实际环境验收。
 
 构建继续使用现有 `npm run pack:win`，不覆盖本地配置。新增事实包进入 electron-builder allowlist。CI 矩阵对齐 Node ≥22.12 的 22/24，并补上已有 runtime-smoke 调用所缺的 `verify:whisper-runtime` script；保留全部检查。Whisper 打包仍由 canonical builder 的 CUE_BUNDLE_WHISPER 显式选入，已调用的 hook 可用 CUE_SKIP_WHISPER 跳过非 Windows准备。没有将 Linux UI 通过说成 Windows 安装包验证。
+
+官方能力核查入口：[Qwen 思考协议](https://www.alibabacloud.com/help/en/model-studio/deep-thinking)、[DeepSeek 当前型号与图片能力](https://api-docs.deepseek.com/quick_start/pricing)、[DeepSeek thinking 控制](https://api-docs.deepseek.com/guides/thinking_mode/)。版本别名会变化，在线部署仍需复核。

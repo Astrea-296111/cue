@@ -19,8 +19,8 @@ function validateIndex(index) {
   for (const c of index.cards) {
     if (!/^[a-z][a-z0-9.-]{2,100}$/.test(c.cardId) || ids.has(c.cardId) || !projects.has(c.projectId) || !types.has(c.docType) || !scopes.has(c.truthScope) || !['verified','source-claim','missing','draft'].includes(c.status)) throw new Error('卡片身份/事实状态无效');
     if (!validPath(c.path) || typeof c.text !== 'string' || !c.text.trim() || c.text.length>1800 || !Array.isArray(c.keywords) || !Array.isArray(c.related) || !Array.isArray(c.sources) || !c.sources.length) throw new Error('卡片内容/相对路径无效');
-    if (c.sources.some(s=>!validPath(s.path)||!s.symbol||!/^[a-f0-9]{40}$/.test(s.commit))) throw new Error('缺少有效来源路径/符号/提交');
-    if (!['PROJECT','CODE','REFERENCE','REFERENCE-STORY','LOCAL-BENCH','FUTURE','GAP'].includes(c.provenance)) throw new Error('来源范围无效');
+    if (c.sources.some(s=>!validPath(s.path)||!s.symbol||!(/^[a-f0-9]{40}$/.test(s.commit)||(c.provenance==='USER'&&s.commit==null&&/^[a-f0-9]{64}$/.test(s.contentSha256))))) throw new Error('缺少有效来源路径/符号/提交');
+    if (!['PROJECT','CODE','REFERENCE','REFERENCE-STORY','LOCAL-BENCH','FUTURE','GAP','USER'].includes(c.provenance)) throw new Error('来源范围无效');
     if (['REFERENCE','REFERENCE-STORY','LOCAL-BENCH','FUTURE'].includes(c.provenance) && ['ownership','collaboration'].includes(c.docType) && c.status==='verified') throw new Error('参考材料不能升级为本人经历');
     ids.add(c.cardId);
   }
@@ -83,7 +83,7 @@ class ProjectFactPacks {
     if(chosen.length<Math.min(4,maxCards)&&chosen.length) { const first=chosen[0];add(this.index.cards.find(c=>first.related.includes(c.cardId)&&c.projectId===first.projectId)); }
     for(const x of ranked) if(x.score>.04) add(x.c);
     const evidence=chosen.map(c=>({...c,id:c.cardId,projectName:this.index.projects.find(p=>p.id===c.projectId).name,sourceType:'project-pack',revision:this.index.revision,startLine:1,endLine:c.text.split('\n').length,
-      text:`[${c.provenance} / ${c.status}] ${c.text}\n来源：${c.sources.map(s=>`${s.path}#${s.symbol}@${s.commit}`).join('; ')}`}));
+      text:`[${c.provenance} / ${c.status}] ${c.text}\n来源：${c.sources.map(s=>`${s.path}#${s.symbol}@${s.commit||s.contentSha256}`).join('; ')}`}));
     const localFacts=evidence.filter(c=>c.status==='verified'&&c.provenance==='CODE').slice(0,2).map(c=>({cardId:c.cardId,text:c.text,projectName:c.projectName}));
     return {evidence,localFacts,anchor:{projectId:mentioned.length===1?mentioned[0].id:null,cardIds:chosen.map(c=>c.cardId),revision:this.index.revision},projectIds:mentioned.map(p=>p.id),gaps:chosen.filter(c=>c.status==='missing').map(c=>c.cardId),stats:{selectedCardCount:chosen.length,selectionMs:performance.now()-at,packRevision:this.index.revision,cacheKey:hash([mentioned.map(p=>p.id),this.index.revision,q,effectiveModel])}};
   }

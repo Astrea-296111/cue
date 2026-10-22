@@ -46,12 +46,11 @@ const BASE_TECH_TERMS = [
 ];
 
 function isAlibabaModelStudioUrl(raw) {
-  const value = String(raw || '').trim().toLowerCase();
-  return (
-    value.includes('dashscope.aliyuncs.com') ||
-    value.includes('dashscope-intl.aliyuncs.com') ||
-    value.includes('.maas.aliyuncs.com')
-  );
+  try {
+    const url = new URL(String(raw || '').trim());
+    return ['https:', 'wss:'].includes(url.protocol) && !url.username && !url.password && !url.port &&
+      (/^dashscope(?:-intl|-us)?\.aliyuncs\.com$/.test(url.hostname) || /^(?:[a-z0-9-]+\.)+maas\.aliyuncs\.com$/.test(url.hostname));
+  } catch { return false; }
 }
 
 function deriveWebSocketUrl(baseUrl) {
@@ -67,13 +66,12 @@ function deriveWebSocketUrl(baseUrl) {
     const parsed = new URL(raw);
     const host = parsed.host;
 
-    if (host.includes('dashscope-intl.aliyuncs.com')) {
+    if (host === 'dashscope-intl.aliyuncs.com') {
       return DEFAULT_INTL_WS;
     }
 
     if (
-      host.includes('dashscope.aliyuncs.com') ||
-      host.endsWith('.maas.aliyuncs.com')
+      isAlibabaModelStudioUrl(raw)
     ) {
       return `wss://${host}/api-ws/v1/inference`;
     }

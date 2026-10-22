@@ -33,6 +33,7 @@ test('provider migration round trips both keys/models through restart and leaves
  st.setSettings({provider:'deepseek',apiKeys:{deepseek:'deep-test'},models:{deepseek:{fast:'edited-model',smart:'deepseek-flash'}}});
  const next=store().getSettings();assert.equal(next.apiKeys.custom,'qwen-test');assert.equal(next.apiKeys.deepseek,'deep-test');assert.equal(next.models.custom.fast,'qwen3.8-flash');assert.equal(next.models.deepseek.fast,'edited-model');
  const asr=resolveQwenAsrConfig(next);assert.equal(asr.apiKey,'qwen-test');assert.equal(asr.websocketUrl,'wss://dashscope.aliyuncs.com/api-ws/v1/inference');
+ assert.notEqual(resolveQwenAsrConfig({...next,baseUrl:'https://dashscope.aliyuncs.com.attacker.test/v1'}).apiKey,'qwen-test');
  assert.equal(createLLM({...next,models:{...next.models,deepseek:{fast:'deepseek-flash'}}},{executionProfile:'instant'}).apiKey,'deep-test');
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
@@ -41,6 +42,7 @@ test('pack validation rejects identity, references, versions, traversal and conf
  for(const edit of [x=>x.schemaVersion=9,x=>x.cards[1].cardId=x.cards[0].cardId,x=>x.cards[0].path='../secret',x=>x.cards[0].related=['missing'],x=>x.projects[1].aliases.push('Arclight'),x=>x.cards[0].status='invented']){
   const invalid=JSON.parse(JSON.stringify(base));edit(invalid);assert.throws(()=>packs.replace(invalid));assert.equal(packs.getIndex().revision,base.revision);
  }
+ const personal=JSON.parse(JSON.stringify(base));personal.cards[0].provenance='USER';personal.cards[0].sources[0].commit=null;personal.cards[0].sources[0].contentSha256='a'.repeat(64);assert.doesNotThrow(()=>validateIndex(personal));
  const conflict=JSON.parse(JSON.stringify(base));conflict.cards.push({...conflict.cards[0],cardId:'arclight.conflict',facts:conflict.cards[0].facts.map(f=>({...f,value:'conflict'}))});assert.throws(()=>validateIndex(conflict),/冲突/);
 });
 test('selection covers ownership/collaboration, switch and generic bypass without turning code into personal ownership',()=>{
