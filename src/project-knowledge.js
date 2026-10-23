@@ -62,6 +62,7 @@ const IGNORED_FILES = new Set([
   'cargo.lock', '.ds_store', 'thumbs.db'
 ]);
 
+let materialProvider = null;
 let cache = null;
 let cacheMtimeMs = 0;
 let cacheFileStamp = '';
@@ -124,6 +125,7 @@ async function warmProjectIndex() {
 // All disk change detection runs outside the fast request. A generation check
 // prevents a slow external read from replacing an in-app import/clear.
 function refreshProjectIndex() {
+  if (materialProvider) return Promise.resolve(materialProvider.refresh?.()).then(() => { adoptMaterialIndex(materialProvider.getSourceIndex()); return cache; });
   if (refreshing) return refreshing;
   const generation = indexGeneration;
   const job = (async () => {
@@ -353,7 +355,7 @@ async function walkFolder(rootDir, index, stats) {
         }
         continue;
       }
-      if (!entry.isFile() || !shouldIndexPath(rel)) continue;
+      if (!entry.isFile() || !shouldIndexPath(rel) || index.excludedFactPaths?.includes(rel)) continue;
 
       try {
         const stat = await fs.promises.stat(path.join(current.abs, entry.name));
@@ -444,6 +446,7 @@ function extractZipEntry(zipBuffer, entry, maxOutputBytes = MAX_FILE_BYTES) {
 }
 
 async function writeIndex(index) {
+  if (materialProvider) return materialProvider.publishSource(index);
   const target = indexPath();
   const tmp = `${target}.tmp-${process.pid}-${Date.now()}`;
   await fs.promises.mkdir(path.dirname(target), { recursive: true });
@@ -581,8 +584,8 @@ function resolveDocumentReferences(chunks, project) {
   }
 }
 
-async function mergeImportedProjectNow(project) {
-  const previousWorkspace = loadIndexSync() || emptyWorkspace();
+async function mergeImportedProjectNow(project, options = {}) {
+  const previousWorkspace = options.previous || loadIndexSync() || emptyWorkspace();
   // Publish a complete new text snapshot only after the atomic write succeeds.
   // Existing readers retain the old immutable arrays during import.
   const workspace = { ...previousWorkspace, projects: [...(previousWorkspace.projects || [])], chunks: [...(previousWorkspace.chunks || [])] };
@@ -618,7 +621,7 @@ async function mergeImportedProjectNow(project) {
   workspace.metadataSchemaVersion = 3;
   workspace.profileSchemaVersion = 2;
   workspace.stats = aggregateStats(workspace.projects);
-  await writeIndex(workspace);
+  if (!options.prepareOnly) await writeIndex(workspace);
   return workspace;
 }
 function mergeImportedProject(project) {
@@ -627,25 +630,30 @@ function mergeImportedProject(project) {
   return pending;
 }
 
-async function importProjectFolder(rootDir) {
+async function importProjectFolder(rootDir, options = {}) {
+  if (materialProvider && !options.prepareOnly) return materialProvider.importFolder(rootDir);
   if (!rootDir) throw new Error('未选择项目文件夹。');
   const stat = await fs.promises.stat(rootDir);
   if (!stat.isDirectory()) throw new Error('所选路径不是文件夹。');
 
   const index = buildIndexShell('folder', path.basename(rootDir) || 'Project');
+  index.excludedFactPaths = options.excludePaths || [];
   const manifestFile = path.join(rootDir, MANIFEST_PATH);
   try {
     const manifestStat = await fs.promises.lstat(manifestFile);
     if (manifestStat.isFile() && !manifestStat.isSymbolicLink() && manifestStat.size <= MAX_FILE_BYTES) applyProjectManifest(index, parseProjectManifest(decodeText(await fs.promises.readFile(manifestFile))));
   } catch (error) { if (error.code !== 'ENOENT') index.importReport.warnings.push('无法读取项目清单，沿用旧项目身份'); }
   await walkFolder(rootDir, index, index.stats);
+  if (!index.chunks.length && options.prepareOnly) return options.previous || emptyWorkspace();
   if (!index.chunks.length) throw new Error('项目中未找到支持的文本或代码文件。');
+  if (options.prepareOnly) return mergeImportedProjectNow(index, options);
   const workspace = await mergeImportedProject(index);
   await warmProjectIndex();
   return getProjectIndexState(workspace);
 }
 
-async function importProjectZip(zipPath) {
+async function importProjectZip(zipPath, options = {}) {
+  if (materialProvider && !options.prepareOnly) return materialProvider.importZip(zipPath);
   if (!zipPath) throw new Error('未选择 ZIP 文件。');
   const stat = await fs.promises.stat(zipPath);
   if (stat.size > MAX_ZIP_BYTES) throw new Error('ZIP 文件过大，请控制在 96 MB 以内，或直接导入文件夹。');
@@ -680,7 +688,7 @@ async function importProjectZip(zipPath) {
     let rel = safeRelativePath(entry.name);
     if (!rel || rel.endsWith('/') || !shouldIndexPath(rel)) continue;
     if (commonRoot && rel.startsWith(commonRoot + '/')) rel = rel.slice(commonRoot.length + 1);
-    if (!shouldIndexPath(rel) || excludedByManifest(rel, index.manifest)) continue;
+    if (!shouldIndexPath(rel) || excludedByManifest(rel, index.manifest) || options.excludePaths?.includes(rel)) continue;
 
     const buffer = extractZipEntry(zipBuffer, entry, maxFileBytesForPath(rel));
     if (!buffer) {
@@ -693,7 +701,9 @@ async function importProjectZip(zipPath) {
     if (index.stats.indexedBytes >= MAX_TOTAL_TEXT_BYTES || index.chunks.length >= MAX_CHUNKS) break;
   }
 
+  if (!index.chunks.length && options.prepareOnly) return options.previous || emptyWorkspace();
   if (!index.chunks.length) throw new Error('ZIP 中未找到支持的文本或代码文件。');
+  if (options.prepareOnly) return mergeImportedProjectNow(index, options);
   const workspace = await mergeImportedProject(index);
   await warmProjectIndex();
   return getProjectIndexState(workspace);
@@ -709,6 +719,7 @@ function discardIndex({ notify = false } = {}) {
 }
 
 function loadIndexSync() {
+  if (materialProvider) { adoptMaterialIndex(materialProvider.getSourceIndex()); return cache; }
   let target = indexPath();
   let stat;
   try { stat = fs.statSync(target); }
@@ -769,6 +780,7 @@ function getProjectIndexState(index = loadIndexSync()) {
 }
 
 async function clearProjectIndex() {
+  if (materialProvider) return materialProvider.clearSources();
   for (const file of [INDEX_FILE, LEGACY_INDEX_FILE]) {
     try { await fs.promises.unlink(indexPath(file)); } catch (error) { if (error && error.code !== 'ENOENT') throw error; }
   }
@@ -884,6 +896,7 @@ function getProjectProfileContext(query, options = {}) {
 }
 
 function getProjectIndexRevision(options = {}) {
+  if (materialProvider) return materialProvider.getSourceRevision();
   const index = options.preparedOnly ? cache : loadIndexSync();
   return `${indexGeneration}:${indexFingerprint}:chunks${index?.chunkerVersion || 1}:metadata${index?.metadataSchemaVersion || 1}:profile${index?.profileSchemaVersion || 1}`;
 }
@@ -1101,7 +1114,16 @@ function formatRetrievedProjectContext(results, options = {}) {
   return output === header ? '' : output;
 }
 
+function adoptMaterialIndex(index) {
+  if (cache === index) return;
+  cache = index; indexGeneration++; indexFingerprint = 'materials'; resetSearchRuntime();
+}
+function setMaterialProvider(provider) { materialProvider = provider; adoptMaterialIndex(provider.getSourceIndex()); }
 module.exports = {
+  setMaterialProvider, adoptMaterialIndex, normalizeWorkspace, emptyWorkspace, readLegacyIndex: loadIndexSync,
+  scanProjectFolder: (root, options={}) => importProjectFolder(root,{...options,prepareOnly:true}),
+  scanProjectZip: (file, options={}) => importProjectZip(file,{...options,prepareOnly:true}),
+  readZipEntries, extractZipEntry, safeRelativePath, shouldIndexPath,
   importProjectFolder, importProjectZip, clearProjectIndex, getProjectIndexState,
   searchProjectKnowledge, prefetchProjectKnowledge, getProjectOverviewChunks,
   formatRetrievedProjectContext, getProjectProfileContext, shouldIndexPath, queryTerms, warmProjectIndex,

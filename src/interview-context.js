@@ -381,7 +381,7 @@ function buildInterviewContextBundle(settings, mode, transcript, request = {}) {
 }
 
 function legacySourceEvidence(rawValue, path, plan, { stories = false } = {}) {
-  if (!plan?.retrieve || plan.scopes?.length !== 1) return [];
+  if (!plan?.retrieve || plan.scopes?.length !== 1 && plan.canonicalProjectIds?.length !== 1) return [];
   const raw = String(rawValue || '');
   if (!raw.trim()) return [];
   const bound = selectProjectSection(raw, plan);
@@ -397,8 +397,9 @@ function legacySourceEvidence(rawValue, path, plan, { stories = false } = {}) {
     const at = raw.indexOf(card.text);
     if (at < 0) return null;
     const item = { sourceType: 'manual', provenance: 'user_authored', path, revision,
-      projectId: plan.activeProject?.projectId || (plan.scopes[0].startsWith('@project:') ? plan.scopes[0].slice(9) : null),
+      projectId: plan.activeProject?.projectId || (plan.scopes?.[0]?.startsWith('@project:') ? plan.scopes[0].slice(9) : plan.canonicalProjectIds?.[0]||null),
       projectName: plan.projectLabel || '', scopes: [...plan.scopes], text: card.text,
+      retrievalText:[plan.projectLabel||'',card.title,card.text].join('\n'),
       startOffset: at, endOffset: at + card.text.length,
       startLine: raw.slice(0, at).split('\n').length,
       endLine: raw.slice(0, at + card.text.length).split('\n').length,
@@ -419,7 +420,7 @@ async function buildInterviewContextBundleAsync(settings, mode, transcript, requ
   if (plan.retrieve && !plan.scopes?.length && String(settings.projectKnowledge || '').trim() &&
       !/^#{1,6}\s/m.test(settings.projectKnowledge) && !getProjectCatalog({ preparedOnly: !!plan.preparedOnly }).length) {
     const legacy = buildInterviewContextBundle(settings, mode, transcript, { ...request, projectPlan: plan });
-    return { ...legacy, byQuestion: [], missing: [{ reason: 'manual-project-unbound',
+    return { ...legacy,candidateContext:legacy.context, byQuestion: [], missing: [{ reason: 'manual-project-unbound',
       message: '手工资料尚未绑定稳定项目；选型、职责与指标只能依据其明确原文。' }],
       stats: { ...legacy.stats, fallbackReason: 'manual-project-unbound' } };
   }
@@ -431,20 +432,24 @@ async function buildInterviewContextBundleAsync(settings, mode, transcript, requ
   const candidateLimit = plan.retrieve ? Math.min(1200, Math.floor(budget / 3)) : budget;
   if (candidate.length > candidateLimit) candidate = selectRelevantText(candidate, query, candidateLimit);
   const sourceBudget = Math.max(0, budget - candidate.length - (candidate ? 2 : 0));
-  const retrieved = await retrieveProjectEvidenceAsync({ ...request, question: query, projectPlan: plan,
+  const retrieved = request.skipSourceRetrieval ? {context:'',evidence:request.readySources||[],candidates:request.readySources||[],missing:[],stats:request.readyStats||{}} : await retrieveProjectEvidenceAsync({ ...request, question: query, projectPlan: plan,
     contextBudget: sourceBudget, includeCandidates: true, projectContextCache: request.projectContextCache || activeProjectContextCache });
   let selected = retrieved;
   if (plan.retrieve) {
-    const manual = [...legacySourceEvidence(settings.projectKnowledge, 'settings.projectKnowledge', plan),
-      ...legacySourceEvidence(settings.starStories, 'settings.starStories', plan, { stories: true })];
+    // Virtual identity is used only by the pure manual-text selector. It is
+    // never passed to source retrieval, whose empty-scope guard stays strict.
+    const manualScopes=!plan.scopes?.length&&plan.canonicalProjectIds?.length===1?[`@project:${plan.canonicalProjectIds[0]}`]:null;
+    const manualPlan=manualScopes?{...plan,scopes:manualScopes,subQuestionScopes:(plan.subQuestionScopes||[]).map(sub=>({...sub,scopes:sub.reason==='generic-question'?[]:manualScopes}))}:plan;
+    const manual = [...legacySourceEvidence(settings.projectKnowledge, 'settings.projectKnowledge', manualPlan),
+      ...legacySourceEvidence(settings.starStories, 'settings.starStories', manualPlan, { stories: true })];
     if (manual.length) selected = { ...retrieved, ...selectEvidence({ candidates: [...(retrieved.candidates || retrieved.evidence), ...manual],
-      question: query, interviewPlan: request.interviewPlan, projectPlan: plan, contextBudget: sourceBudget,
+      question: query, interviewPlan: request.interviewPlan, projectPlan: manualPlan, contextBudget: sourceBudget,
       formatContext: formatRetrievedProjectContext,
       unretrieved: retrieved.missing.filter(item => item.reason === 'group-limit') }) };
   }
   const context = [selected.context, candidate].filter(Boolean).join('\n\n') || null;
   const visible = selected.evidence.filter(item => context?.includes(`[来源 ${item.id}]`) && context.includes(item.text));
-  return { context, evidence: visible, plan, byQuestion: selected.byQuestion || [], missing: selected.missing || [],
+  return { context, candidateContext:candidate, evidence: visible, plan, byQuestion: selected.byQuestion || [], missing: selected.missing || [],
     revision: retrieved.revision, identity: retrieved.identity,
     ...(request.includeCandidates ? { candidates: retrieved.candidates } : {}),
     stats: { ...retrieved.stats, ...selected.stats, contextBudget: budget, contextChars: context?.length || 0 } };

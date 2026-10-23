@@ -30,7 +30,7 @@ function formatRetrievalRequirements(bundle, maxChars = 1400) {
 function retrievalIdentity(input) {
   const plan = input.projectPlan || {};
   return createHash('sha256').update(JSON.stringify({
-    epoch: input.epoch, scopes: [...(plan.scopes || [])].sort(),
+    epoch: input.epoch, scopes: [...(plan.scopes || [])].sort(),materialIdentity:input.materialIdentity,
     revision: input.projectRevision, modelVersion: input.modelVersion || 'base',
     question: String(input.question || ''), questionVersion: input.questionVersion || '',
     questionId: input.questionId || '', questionRevision: input.questionRevision ?? null,

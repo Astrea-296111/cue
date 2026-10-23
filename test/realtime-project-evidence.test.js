@@ -136,22 +136,24 @@ test('fast cold index is explicit, never synchronously built; async warm restore
   assert.match(JSON.stringify(r.calls.at(-1)), /REPO_RETRIEVAL/);
 });
 
-test('a project question arriving before even catalog loading reports preparation instead of empty success', async t => {
+test('a project question without a known material identity asks for clarification', async t => {
   const r = createInterviewRuntime(t, { coldIndex: true });
   r.answer('缓存读取由当前版本实现，失效后重新加载并校验版本。');
   await r.ask('say', '介绍松塔订单项目的缓存如何实现？');
   const event = r.events.findLast(e => e.channel === 'llm:evidence');
   assert.equal(event.sources.length, 0);
-  assert.ok(event.missing.some(gap => gap.reason === 'index-not-ready'));
-  assert.match(JSON.stringify(r.calls[0]), /项目资料正在准备/);
+  assert.equal(r.requests.at(-1).plan.kind,'unresolved');
+  assert.match(JSON.stringify(r.calls[0]), /项目不明确/);
   assert.ok(r.snapshot('conversation.checklist.view().questions').every(question => question.status !== 'covered'));
 });
 
-test('external deletion invalidates ready snapshots, cache and pending source ownership', async t => {
+test('external published clear invalidates ready snapshots, cache and pending source ownership', async t => {
   const r = await createEvidenceRuntime(t);
   await r.ask('say', '松塔订单的缓存如何实现？');
   const knowledge = r.exports('src/project-knowledge.js'), before = knowledge.getProjectIndexRevision({ preparedOnly: true });
-  fs.unlinkSync(path.join(r.temp, 'cue-project-index-v2.json'));
+  const {ProjectMaterialService}=require('../src/project-material-service');
+  const external=new ProjectMaterialService({directory:r.temp,bundled:r.snapshot('materialService.snapshot.facts')});
+  await external.clearSources();
   await knowledge.refreshProjectIndex();
   assert.notEqual(knowledge.getProjectIndexRevision({ preparedOnly: true }), before);
   assert.equal(r.value('activeProjectContextCache.entries.size'), 0);
@@ -227,11 +229,12 @@ test('reimport rejects delayed old-revision work and never restores removed sour
     queryCandidates: () => new Promise(resolve => { release = resolve; }) } });
   r.final('松塔订单的缓存如何实现？'); await tick();
   const knowledge = r.exports('src/project-knowledge.js');
-  const filename = path.join(r.temp, 'cue-project-index-v2.json');
-  const index = JSON.parse(fs.readFileSync(filename, 'utf8'));
+  const {ProjectMaterialService}=require('../src/project-material-service');
+  const external=new ProjectMaterialService({directory:r.temp,bundled:r.snapshot('materialService.snapshot.facts')});
+  const index=JSON.parse(JSON.stringify(external.snapshot.sources));
   index.chunks = index.chunks.filter(source => source.projectId !== 'synthetic-pine');
   index.projects = index.projects.filter(project => project.id !== 'synthetic-pine');
-  fs.writeFileSync(filename, JSON.stringify(index));
+  await external.publishSource(index);
   await knowledge.refreshProjectIndex(); await knowledge.warmProjectIndex();
   release({ rows: [], reason: 'old' }); await tick();
   assert.equal(r.value('ragSession.results.size'), 0); assert.equal(r.value('activeProjectContextCache.entries.size'), 0);

@@ -246,7 +246,11 @@ app.on('browser-window-created', (_event, win) => {
       win.webContents.send('llm:metrics', { requestId: 'ui-preview-generation', epoch: previewEpoch, triggerToDispatchMs: 18,
         firstContentMs: 2800, triggerToFirstContentMs: 2818 });
       await until(() => js("document.getElementById('answer-timing').textContent.includes('2.80s')"), 'content timing diagnostics');
+      for(const text of ['\n1.',' 第一点\n2.',' 第二点\n3. 第三点'])win.webContents.send('llm:token',{requestId:'ui-preview-generation',epoch:previewEpoch,text});
+      await until(()=>js("document.querySelector('.ai-text:last-child')?.textContent.includes('第三点')"),'streamed split numbering');
+      assert.equal(await js("getComputedStyle(document.querySelector('.ai-text:last-child')).whiteSpace"),'pre-wrap');
       win.webContents.send('llm:done', { requestId: 'ui-preview-generation', epoch: previewEpoch });
+      await until(()=>js("document.querySelectorAll('.ai-text:last-child ol li').length===3"),'final ordered list DOM');
       await until(() => js("document.getElementById('answer-target-text').textContent==='团队如何分工？'"), 'latest preview after completed generation');
       await js("document.getElementById('answer-target-edit').click()");
       assert.equal(await js("document.getElementById('input').value"), previewB.text);

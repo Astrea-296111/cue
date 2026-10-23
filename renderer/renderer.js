@@ -79,28 +79,7 @@
   function esc(s) { return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
   // minimal, safe markdown: fenced code, bullets, inline code, bold, paragraphs
-  function renderMarkdown(text) {
-    const lines = text.split('\n');
-    let html = '', inCode = false, inList = false, buf = [];
-    const flushP = () => { if (buf.length) { html += '<p>' + inline(buf.join(' ')) + '</p>'; buf = []; } };
-    const inline = (s) => esc(s)
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    for (const raw of lines) {
-      const line = raw;
-      if (/^```/.test(line.trim())) {
-        if (!inCode) { flushP(); if (inList) { html += '</ul>'; inList = false; } html += '<pre><code>'; inCode = true; }
-        else { html += '</code></pre>'; inCode = false; }
-        continue;
-      }
-      if (inCode) { html += esc(line) + '\n'; continue; }
-      if (/^\s*[-*]\s+/.test(line)) { flushP(); if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inline(line.replace(/^\s*[-*]\s+/, '')) + '</li>'; continue; }
-      if (line.trim() === '') { flushP(); if (inList) { html += '</ul>'; inList = false; } continue; }
-      buf.push(line.trim());
-    }
-    flushP(); if (inList) html += '</ul>'; if (inCode) html += '</code></pre>';
-    return html;
-  }
+  const renderMarkdown = window.CueMarkdown.renderMarkdown;
 
   function clearMessages() { messages.innerHTML = ''; aiEl = null; caretEl = null; }
 
@@ -1743,24 +1722,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
     }
   }
 
-  async function importProjectIndex(kind) {
-    if (!cue.projectImportFolder || !cue.projectImportZip) return;
-    setProjectIndexBusy(true);
-    showStatus('正在本地建立项目索引…大型仓库可能需要一些时间。');
-    try {
-      const result = kind === 'zip'
-        ? await cue.projectImportZip()
-        : await cue.projectImportFolder();
-      if (!result || result.canceled) return;
-      renderProjectIndexState(result.state);
-      const state = result.state || {};
-      showStatus(`项目索引已就绪：${state.fileCount || 0} 个文件，${state.chunkCount || 0} 个可检索片段。`);
-    } catch (error) {
-      showStatus('项目导入失败：' + (error?.message || String(error)));
-    } finally {
-      setProjectIndexBusy(false);
-    }
-  }
+  async function importProjectIndex(kind) { return previewMaterials({kind}); }
 
   async function clearProjectIndex() {
     if (!cue.projectIndexClear) return;
@@ -1787,7 +1749,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
     card.innerHTML =
       '<label class="s-label">项目源码索引 <span class="s-hint">项目文档和源码的本地 RAG</span></label>' +
       '<div class="whisper-actions">' +
-        '<button id="project-import-folder" class="s-action" type="button">导入文件夹…</button>' +
+        '<button id="project-import-folder" class="s-action" type="button">导入 / 重新扫描源码…</button>' +
         '<button id="project-import-zip" class="s-action" type="button">导入 ZIP…</button>' +
         '<button id="project-index-clear" class="s-action danger" type="button" disabled>清空索引</button>' +
       '</div>' +
@@ -1848,8 +1810,58 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
   $('#diagnostics-toggle').addEventListener('click',()=>{const open=$('#diagnostics-drawer').classList.toggle('hidden')===false;$('#diagnostics-toggle').setAttribute('aria-expanded',String(open));});
   $('#answer-target-text').addEventListener('click',()=>$('#answer-target-text').classList.toggle('expanded'));
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#diagnostics-drawer').classList.add('hidden');$('#diagnostics-toggle').setAttribute('aria-expanded','false');}});
-  function showFactStatus(state){if(!state||state.canceled)return;$('#fact-pack-status').textContent=`${state.projects.map(p=>p.name).join(' / ')} · ${state.revision} · ${state.updatedAt||''}`;$('#fact-editor').value=JSON.stringify(state.index,null,2);}
-  for(const [id,fn] of [['fact-import',()=>cue.importProjectFactPacks()],['fact-rebuild',()=>cue.rebuildProjectFactPacks()],['fact-save',()=>cue.saveProjectFactCards({index:JSON.parse($('#fact-editor').value)})]]) $('#'+id).addEventListener('click',async()=>{try{showFactStatus(await fn());}catch(e){$('#fact-pack-status').textContent=e.message;}});
+  let materialPreview = null;
+  function showFactStatus(state) {
+    if (!state || state.canceled) return;
+    $('#fact-pack-status').textContent = (state.projects || []).map(p => `${p.name}：${p.factCount || 0} 卡 / ${p.sourceFiles || 0} 文件 / ${p.sourceChunks || 0} 片段${p.sourceChunks ? ' · 源码可用' : ' · 无源码'}`).join('；') + ` · ${state.generation || state.revision || ''}` + (state.warnings?.length ? ' · ' + state.warnings.join('；') : '');
+    if(state.index) $('#fact-editor').value=JSON.stringify(state.index,null,2);
+    $('#materials-rollback').disabled=!state.previousGeneration;
+    renderProjectChoices(state.projects);
+  }
+  function previewSelect(parent, key, choices, target) {
+    const select=document.createElement('select');select.setAttribute('aria-label',key);
+    const prompt=document.createElement('option');prompt.value='';prompt.textContent='请选择';select.append(prompt);
+    for(const [value,label] of choices){const option=document.createElement('option');option.value=value;option.textContent=label;select.append(option);}
+    select.addEventListener('change',()=>{target[key]=select.value;});parent.append(select);
+    window.CueCaptureSafeSelect.install(select);
+  }
+  function renderMaterialPreview(preview) {
+    materialPreview={...preview,resolutions:{},mappings:{},variants:{}};
+    $('#materials-preview').hidden=false;
+    const summary=preview.summary;
+    $('#materials-preview-summary').textContent=`${preview.mode} · ${summary.facts} 张事实卡 / ${summary.sourceChunks} 源码片段；${preview.changes.filter(c=>c.kind==='delete').length} 项删除。${(preview.warnings||[]).join('；')}`;
+    const body=$('#materials-preview-changes');body.replaceChildren();
+    for(const change of preview.changes){const row=document.createElement('details'),label=document.createElement('summary');label.textContent=`${change.kind} · ${change.projectId} · ${change.id}`;row.append(label);
+      const diff=document.createElement('pre');diff.textContent=JSON.stringify({old:change.old||null,new:change.new||null},null,2);row.append(diff);
+      if(change.kind==='update')previewSelect(row,change.id,[['update','使用新卡'],['keep','保留旧卡']],materialPreview.resolutions);
+      body.append(row);}
+    for(const conflict of preview.conflicts||[]){const row=document.createElement('div');row.textContent=`源码项目 ${conflict.sourceId} 映射到：`;previewSelect(row,conflict.sourceId,conflict.candidates.map(id=>[id,id]),materialPreview.mappings);body.append(row);}
+    for(const conflict of preview.packConflicts||[]){const row=document.createElement('details'),label=document.createElement('summary');label.textContent='文件之间存在差异：'+conflict.key;row.append(label);
+      conflict.variants.forEach((v,i)=>{const text=document.createElement('pre');text.textContent=`版本 ${i+1}：`+JSON.stringify(v,null,2);row.append(text);});
+      previewSelect(row,conflict.key,conflict.variants.map((_,i)=>[String(i),'版本 '+(i+1)]),materialPreview.variants);body.append(row);}
+  }
+  async function previewMaterials(input) {
+    setProjectIndexBusy(true);
+    try{const preview=await cue.materialPrepare({...input,mode:$('#material-mode').value,factPaths:$('#material-fact-paths').value.split(/\n/).map(s=>s.trim()).filter(Boolean)});if(!preview?.canceled)renderMaterialPreview(preview);}
+    catch(e){showStatus('材料预览失败：'+e.message);$('#fact-pack-status').textContent=e.message;}
+    finally{setProjectIndexBusy(false);}
+  }
+  $('#fact-import').addEventListener('click',()=>previewMaterials({kind:'json'}));
+  $('#fact-save').addEventListener('click',()=>{try{void previewMaterials({kind:'json',index:JSON.parse($('#fact-editor').value)});}catch(e){$('#fact-pack-status').textContent='JSON 无效：'+e.message;}});
+  $('#fact-rebuild').addEventListener('click',async()=>{try{showFactStatus(await cue.getProjectFactPackStatus());}catch(e){showStatus(e.message);}});
+  $('#materials-cancel').addEventListener('click',()=>{materialPreview=null;$('#materials-preview').hidden=true;});
+  $('#materials-commit').addEventListener('click',async()=>{
+    if(!materialPreview)return;
+    for(const c of materialPreview.conflicts||[])if(!materialPreview.mappings[c.sourceId]){showStatus('请先选择源码项目映射。');return;}
+    for(const c of materialPreview.packConflicts||[])if(materialPreview.variants[c.key]===undefined||materialPreview.variants[c.key]===''){showStatus('请先选择冲突文件版本。');return;}
+    const button=$('#materials-commit');button.disabled=true;
+    try{const result=await cue.materialCommit({...materialPreview,variants:Object.fromEntries(Object.entries(materialPreview.variants).map(([k,v])=>[k,Number(v)]))});showFactStatus(result);materialPreview=null;$('#materials-preview').hidden=true;await refreshProjectIndexState();showStatus('材料已应用。');}
+    catch(e){showStatus('材料提交失败：'+e.message);}finally{button.disabled=false;}
+  });
+  $('#materials-rollback').addEventListener('click',async()=>{try{showFactStatus(await cue.materialRollback({}));await refreshProjectIndexState();showStatus('已恢复上一版完整材料。');}catch(e){showStatus('恢复失败：'+e.message);}});
+  $('#materials-dismiss').addEventListener('click',async()=>{settings=await cue.settingsSet({projectMaterialMigrationNotice:false});$('#materials-migration-note').hidden=true;});
+  cue.on('materials:changed',state=>{showFactStatus(state);void refreshProjectIndexState();});
+  cue.on('llm:materials',data=>{if(!acceptsDiagnostic(data.requestId,data.epoch))return;$('#material-diagnostics').textContent=JSON.stringify(data,null,2);});
   $('#protocol-preset').addEventListener('change',fillInstantThinking);
   $('#base-url').addEventListener('input',fillInstantThinking);$('#deepseek-url').addEventListener('input',fillInstantThinking);
   $('#model-fast').addEventListener('input', fillInstantThinking);
@@ -1860,7 +1872,11 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
 
   function fillSettings() {
     $('#context-window-tokens').value = settings.contextWindowTokens || 16384;
-    $('#instant-rag-policy').value = settings.instantRagPolicy === 'off' ? 'off' : 'ready-only';
+    $('#instant-rag-policy').value = settings.sourceRagPolicies?.instant || settings.instantRagPolicy || 'ready-only';
+    $('#standard-rag-policy').value=settings.sourceRagPolicies?.standard || 'standard';
+    $('#project-facts-enabled').checked=settings.projectFactsEnabled!==false;
+    $('#manual-project-enabled').checked=settings.manualProjectKnowledgeEnabled!==false;
+    $('#materials-migration-note').hidden=!settings.projectMaterialMigrationNotice;
     // Keys tab
     document.querySelectorAll('#provider-seg button').forEach((b) => b.classList.toggle('on', b.dataset.provider === settings.provider));
     $('#key-deepseek').value = settings.apiKeys.deepseek || '';
@@ -2258,6 +2274,9 @@ cue.on(
     settings.providerProtocolPresets ||= {}; settings.providerProtocolPresets[settings.provider]=$('#protocol-preset').value;
     settings.contextWindowTokens = Math.max(1024, Math.min(2000000, Number($('#context-window-tokens').value) || 16384));
     settings.instantRagPolicy = $('#instant-rag-policy').value === 'off' ? 'off' : 'ready-only';
+    settings.sourceRagPolicies={instant:settings.instantRagPolicy,standard:$('#standard-rag-policy').value};
+    settings.projectFactsEnabled=$('#project-facts-enabled').checked;
+    settings.manualProjectKnowledgeEnabled=$('#manual-project-enabled').checked;
     if (!$('#instant-thinking').disabled) {
       const value = $('#instant-thinking').value;
       const all = { ...(settings.instantProviderOptions || {}) };

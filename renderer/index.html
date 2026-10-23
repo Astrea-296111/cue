@@ -52,7 +52,7 @@
               </div>
 
             </div>
-<div id="diagnostics-drawer" class="hidden"><span id="answer-next-target"></span>                <div class="answer-diagnostic-line" aria-live="polite">
+<div id="diagnostics-drawer" class="hidden"><pre id="material-diagnostics"></pre><span id="answer-next-target"></span>                <div class="answer-diagnostic-line" aria-live="polite">
                   <span id="answer-execution-profile">极速 · 使用已配置快速模型</span>
                   <span id="answer-timing"></span>
                 </div></div>
@@ -169,13 +169,24 @@
         <div class="s-field"><span>深度思考</span><input id="model-smart" type="text" autocomplete="off" /></div>
         <div class="s-field"><span>模型窗口</span><input id="context-window-tokens" type="number" min="1024" max="2000000" step="1024" aria-label="模型窗口 token 数" /></div>
         <div class="s-note">填写服务商公布的上下文窗口 token 数；未知时保留 16384。回答会优先保留完整问题与约束。</div>
-        <label class="s-label" for="instant-rag-policy">极速资料策略</label>
+        <label class="s-label" for="instant-rag-policy">极速源码策略</label>
         <select id="instant-rag-policy" class="s-select">
-          <option value="ready-only">仅使用已就绪资料</option>
-          <option value="off">关闭资料（延迟对照）</option>
+          <option value="ready-only">仅使用已就绪源码</option>
+          <option value="off">关闭源码检索</option>
         </select>
         <div class="s-note">极速问答固定使用快速模型；深度思考开关仍用于标准问答和屏幕、代码等其他功能。</div>
-<label class="s-label">项目事实包（仅本机保存个人覆盖层）</label><div id="fact-pack-status"></div><button id="fact-import">导入 JSON</button><button id="fact-rebuild">重建索引</button><details><summary>编辑本地事实包</summary><textarea id="fact-editor" rows="5" aria-label="本地事实包 JSON"></textarea><button id="fact-save">校验并保存本地资料</button></details>
+<label class="s-label" for="standard-rag-policy">标准源码策略</label>
+<select id="standard-rag-policy" class="s-select"><option value="standard">有界源码检索</option><option value="ready-only">仅使用已就绪源码</option><option value="off">关闭源码检索</option></select>
+<label class="s-label"><input id="project-facts-enabled" type="checkbox" /> 启用项目事实卡（极速和标准）</label>
+<label class="s-label"><input id="manual-project-enabled" type="checkbox" /> 启用旧手动项目资料</label>
+<div class="s-note">事实卡与源码开关独立。旧手动长文本可能与新事实冲突，可在此停用；不会自动删除原文。</div>
+<div id="materials-migration-note" class="s-note" hidden>源码检索与项目事实已拆分。<button id="materials-dismiss" type="button">知道了</button></div>
+<label class="s-label">项目材料（仅本机保存）</label><div id="fact-pack-status" role="status"></div>
+<label class="s-label" for="material-mode">事实导入方式</label><select id="material-mode" class="s-select"><option value="merge">合并更新</option><option value="replace-projects">替换本次项目</option><option value="replace-all">替换全部事实</option></select>
+<label class="s-label" for="material-fact-paths">额外事实文件相对路径（文件夹 / ZIP，每行一项）</label><textarea id="material-fact-paths" rows="2" placeholder="interview/custom-facts.json"></textarea>
+<button id="fact-import" type="button">导入事实 JSON…</button><button id="fact-rebuild" type="button">重载事实资料</button><button id="materials-rollback" type="button" disabled>恢复上一版材料</button>
+<details><summary>编辑本地事实包</summary><textarea id="fact-editor" rows="5" aria-label="本地事实包 JSON"></textarea><button id="fact-save" type="button">校验并预览</button></details>
+<div id="materials-preview" hidden><h3>材料导入预览</h3><div id="materials-preview-summary"></div><div id="materials-preview-changes"></div><button id="materials-commit" type="button">确认应用此预览</button><button id="materials-cancel" type="button">取消预览</button></div>
         <label class="s-label" for="protocol-preset">兼容服务协议预设</label><select id="protocol-preset" class="s-select"><option value="">自动（未知网关不推测）</option value="dashscope">明确使用 Qwen / DashScope 协议</option><option value="deepseek">明确使用 DeepSeek 协议</option></select>
         <label class="s-label" for="instant-thinking">极速思考设置</label>
         <select id="instant-thinking" class="s-select" disabled>
@@ -377,6 +388,7 @@
 
   <script src="icons.js"></script>
   <script src="capture-safe-select.js"></script>
+  <script src="safe-markdown.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>
