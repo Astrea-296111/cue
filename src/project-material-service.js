@@ -70,6 +70,9 @@ class ProjectMaterialService extends EventEmitter {
   publish({facts,sources,mappings={}},notify=true) {
     facts=validateIndex(facts);sources=validateSources(sources);const registry=buildRegistry(facts,sources,mappings);
     if(registry.conflicts.length)throw materialError('ambiguous-project','项目身份有歧义，请在预览中指定映射。');
+    // Canonical identity outlives the presence of fact cards. Replacing the fact
+    // layer must not rename a retained source project or orphan a manual choice.
+    mappings={...mappings};for(const project of registry.projects)if(project.factProjectId)for(const sourceId of project.sourceProjectIds)mappings[sourceId]=project.id;
     const n=Number(this.snapshot?.generation.split('-')[0]||0)+1,generation=`${n}-${randomUUID()}`;
     const dir=path.join(this.directory,'snapshots',generation);fs.mkdirSync(dir,{recursive:true});
     const pointer={schemaVersion:1,generation,mappings,files:{}};

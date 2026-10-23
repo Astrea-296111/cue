@@ -13,7 +13,13 @@ function buildRegistry(facts, source, mappings={}) {
     const names=[original.name,...original.aliases||[]].map(normalized);
     let matches=rows.filter(p=>p.factProjectId&&(p.id===original.projectId||[p.name,...p.aliases||[]].some(a=>names.includes(normalized(a)))));
     if(original.hasManifest&&rows.some(p=>p.id===original.projectId))matches=rows.filter(p=>p.id===original.projectId);
-    if(Object.hasOwn(mappings,original.projectId)) {const selected=rows.find(p=>p.id===mappings[original.projectId]);if(!selected)throw new Error('项目映射目标不存在');matches=[selected];}
+    if(Object.hasOwn(mappings,original.projectId)) {
+      const id=mappings[original.projectId];
+      if(typeof id!=='string'||!id||/[/\\]|\.\./.test(id))throw new Error('项目映射目标无效');
+      let selected=rows.find(p=>p.id===id);
+      if(!selected){selected={...original,id,projectId:id,aliases:[...original.aliases||[],id],factProjectId:null,sourceProjectIds:[],sourceScopes:[]};rows.push(selected);}
+      matches=[selected];
+    }
     else if(original.hasManifest&&matches.length&&!matches.some(p=>p.id===original.projectId)){conflicts.push({sourceId:original.projectId,candidates:matches.map(p=>p.id),reason:'manifest-id-mismatch'});continue;}
     if(matches.length>1) {conflicts.push({sourceId:original.projectId,candidates:matches.map(p=>p.id)});continue;}
     let row=matches[0];

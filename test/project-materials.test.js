@@ -151,3 +151,11 @@ test('facts-only instant referential history uses canonical identity while sourc
  const next=memory.begin({mode:'say',question:'刚才第二点为什么这样处理',catalog,executionProfile:'instant'});assert.deepEqual(next.plan.sourceScopes,[]);assert.deepEqual(next.plan.canonicalProjectIds,['cae']);assert.ok(next.turns.some(t=>t.text.includes('旧 AI 建议（非项目事实）')));
  const switched=memory.begin({mode:'say',question:'那 Arclight 呢',catalog,executionProfile:'instant'});assert.equal(switched.turns.length,0);
 });
+
+test('replacing all facts preserves canonical identity and mappings of retained source projects',async t=>{
+ const {service,config}=setup(t,{legacySource:sourceFixture()});const source=service.snapshot.sourceRevision;
+ const incoming=fixture();incoming.projects=incoming.projects.filter(p=>p.id==='arclight');incoming.cards=incoming.cards.filter(c=>c.projectId==='arclight');await importIndex(service,incoming,'replace-all');
+ const retained=service.snapshot.registry.projects.find(p=>p.id==='cae');assert.equal(retained.factProjectId,null);assert.deepEqual(retained.sourceScopes,['@project:legacy-cae']);assert.equal(service.snapshot.sourceRevision,source);
+ const plan=planProjectRetrieval([{channel:'them',text:'CAE 项目介绍'}],'say',{catalog:service.snapshot.registry.projects});assert.deepEqual(plan.canonicalProjectIds,['cae']);assert.equal(plan.retrieveSources,true);
+ assert.deepEqual(new ProjectMaterialService(config).snapshot.registry.projects,service.snapshot.registry.projects);
+});
