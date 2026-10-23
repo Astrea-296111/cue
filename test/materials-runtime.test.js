@@ -41,3 +41,9 @@ test('warm facts request performs no filesystem reads on the answer key path',as
  try{await r.ask('say','你们几个人');}finally{fs.readFileSync=original;}
  assert.deepEqual(reads,[]);
 });
+
+test('manual project toggle remains independent for a facts-only canonical project in standard mode',async t=>{
+ const r=createInterviewRuntime(t,{chunks:[],settings:{realtimeAnswerMode:'standard',projectFactsEnabled:false,sourceRagPolicies:{standard:'off'},projectKnowledge:'# CAE\n\nMANUAL_CANONICAL 我负责合成恢复校验；源码未导入，不能声称已检索源码。'}});await install(r);
+ await r.ask('say','CAE 你负责什么');assert.match(r.calls.at(-1).messages[0].content,/MANUAL_CANONICAL/);assert.equal(r.searches.length,0);
+ await r.invoke('settings:set',{manualProjectKnowledgeEnabled:false});await r.ask('say','CAE 你负责什么');assert.doesNotMatch(r.calls.at(-1).messages[0].content,/MANUAL_CANONICAL/);assert.equal(r.searches.length,0);
+});

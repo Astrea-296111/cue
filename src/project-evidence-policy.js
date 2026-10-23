@@ -13,7 +13,8 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
   const allowedSources=!general&&!unresolved?sources.filter(c=>{
     if(c.sourceType!=='manual'&&sourcePolicy==='off')return false;
     const scopes=resolution.sourceScopes||resolution.scopes;
-    const valid=strictProjectScopes(scopes)&&(c.sourceType==='manual' ? c.scopes?.some(s=>scopes.includes(s)) : inProjectScope(c,scopes));
+    const valid=c.sourceType==='manual' ? (resolution.canonicalProjectIds||[]).includes(c.projectId)||strictProjectScopes(scopes)&&c.scopes?.some(s=>scopes.includes(s))
+      : strictProjectScopes(scopes)&&inProjectScope(c,scopes);
     if(!valid)dropped.push({id:c.id,reason:'scope-mismatch'});return valid;
   }):[];
   if(factsEnabled&&resolution.retrieveFacts&&!allowedFacts.length)reasons.push('no-matching-card');
