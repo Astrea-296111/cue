@@ -15,9 +15,24 @@ module.exports = async function ({ js, until }) {
   await js("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))");
   assert.equal(await js("document.getElementById('diagnostics-drawer').classList.contains('hidden')"), true);
   const status=await js('cue.getProjectFactPackStatus()');
-  assert.equal(status.projects.length,2);assert.equal(status.index.cards.length,25);
+  assert.equal(status.projects.filter(p=>p.factProjectId).length,2);assert.ok(status.projects.some(p=>p.id==='ui-synthetic'&&p.sourceChunks===2));assert.equal(status.index.cards.length,25);
   const rejected=await js("cue.saveProjectFactCards({index:{schemaVersion:99}}).then(()=>false,()=>true)");assert.equal(rejected,true);
   assert.equal((await js('cue.getProjectFactPackStatus()')).revision,status.revision);
-  await js("document.getElementById('more-btn').click()");
-  return { independentDeepseekSettings:true,staticThinkingBeforeFirstRequest:true,quickSwitch:true,asrPreserved:true,diagnosticDrawer:true,invalidFactIndexRejected:true };
+  await js("document.getElementById('more-btn').click();document.querySelector('.s-tab[data-tab=keys]').click()");
+  assert.equal(await js("document.getElementById('project-facts-enabled').checked"),true);
+  assert.equal(await js("document.getElementById('standard-rag-policy').value"),'standard');
+  const fixture=require('./material-fixture').fixture();
+  await js(`document.getElementById('material-mode').value='replace-all';document.getElementById('fact-editor').value=${JSON.stringify(JSON.stringify(fixture))};document.getElementById('fact-save').click()`);
+  await until(()=>js("!document.getElementById('materials-preview').hidden"),'material preview opens');
+  assert.equal((await js('cue.materialState()')).counts.facts,25,'preview must preserve active state');
+  assert.ok(await js("document.getElementById('materials-preview-summary').textContent.includes('删除')"));
+  await js("document.getElementById('materials-commit').click()");
+  await until(async()=>(await js('cue.materialState()')).counts.facts===8,'material commit');
+  assert.equal((await js('cue.materialState()')).counts.sourceChunks,2,'facts-only import preserves source');
+  await js("document.getElementById('materials-rollback').click()");
+  await until(async()=>(await js('cue.materialState()')).counts.facts===25,'material rollback');
+  const html=await js("CueMarkdown.renderMarkdown('1. 一\\n2. 二\\n3. 三')");
+  assert.equal((html.match(/<li>/g)||[]).length,3);
+
+  return { independentDeepseekSettings:true,staticThinkingBeforeFirstRequest:true,quickSwitch:true,asrPreserved:true,diagnosticDrawer:true,invalidFactIndexRejected:true,materialPreviewCommitRollback:true,orderedMarkdown:true };
 };

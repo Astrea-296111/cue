@@ -1,0 +1,17 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const {createRequire}=require('node:module');
+const {createHash}=require('node:crypto');
+const sha=text=>createHash('sha256').update(text).digest('hex');
+// Synthetic examples only. They do not describe the user's personal history.
+function fixture(count=8){
+ const projects=[{id:'cae',name:'CAE',aliases:['cae-job-platform']},{id:'arclight',name:'Arclight',aliases:['MewCode']}];
+ const types=['overview','collaboration','ownership','implementation'];
+ const cards=Array.from({length:count},(_,i)=>{const projectId=i%2?'arclight':'cae',type=types[Math.floor(i/2)%4];return {cardId:`${projectId}.synthetic-${i}`,projectId,docType:type,truthScope:'implemented',status:'source-claim',provenance:'USER',path:`${projectId}/interview/${i}.md`,text:`合成资料 ${projectId} ${type}：${type==='collaboration'?'测试团队九人，互相评审。':type==='ownership'?'我负责合成校验模块。':type==='implementation'?'恢复机制使用幂等状态机。':'项目介绍，测试用。'}`,keywords:[type,'几个人','哪块','介绍','恢复','时间'],related:[],sources:[{path:`${projectId}/origin/${i}.md`,symbol:'synthetic',commit:null,contentSha256:'a'.repeat(64)}]};});
+ return {schemaVersion:1,projects,cards};
+}
+function sourceFixture(){return {version:2,projects:[{id:'legacy-cae',name:'cae-job-platform',sourceRevision:'source-v1',stats:{}},{id:'legacy-arc',name:'MewCode',stats:{}}],chunks:[{id:'cae-source',projectId:'legacy-cae',projectName:'cae-job-platform',path:'src/restore.js',text:'function restore(){ return state.compareAndSet(); }',startLine:1,endLine:1},{id:'arc-source',projectId:'legacy-arc',projectName:'MewCode',path:'src/main.js',text:'function start(){ return true; }',startLine:1,endLine:1}],stats:{fileCount:2,chunkCount:2}};}
+function loadAdapter(directory){const file=path.resolve(__dirname,'../../src/project-knowledge.js'),native=createRequire(file),mod={exports:{}};vm.runInThisContext('(function(require,module,exports,__filename,__dirname){'+fs.readFileSync(file,'utf8')+'\n})',{filename:file})(id=>id==='electron'?{app:{getPath:()=>directory}}:native(id),mod,mod.exports,file,path.dirname(file));return mod.exports;}
+function writeFolder(root,name,files){const folder=path.join(root,name);fs.mkdirSync(folder,{recursive:true});for(const [rel,text] of Object.entries(files)){const file=path.join(folder,rel);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,text);}return folder;}
+function zip(files,{symlink=false}={}){const local=[],central=[];let offset=0;for(const [name,value] of Object.entries(files)){const data=Buffer.from(value),n=Buffer.from(name),l=Buffer.alloc(30),c=Buffer.alloc(46);l.writeUInt32LE(0x04034b50);l.writeUInt16LE(20,4);l.writeUInt32LE(data.length,18);l.writeUInt32LE(data.length,22);l.writeUInt16LE(n.length,26);c.writeUInt32LE(0x02014b50);c.writeUInt16LE(20,4);c.writeUInt16LE(20,6);c.writeUInt32LE(data.length,20);c.writeUInt32LE(data.length,24);c.writeUInt16LE(n.length,28);c.writeUInt32LE(offset,42);if(symlink)c.writeUInt32LE(0xa0000000,38);local.push(l,n,data);central.push(c,n);offset+=l.length+n.length+data.length;}const directory=Buffer.concat(central),end=Buffer.alloc(22);end.writeUInt32LE(0x06054b50);end.writeUInt16LE(Object.keys(files).length,8);end.writeUInt16LE(Object.keys(files).length,10);end.writeUInt32LE(directory.length,12);end.writeUInt32LE(offset,16);return Buffer.concat([...local,directory,end]);}
+module.exports={fixture,sourceFixture,loadAdapter,writeFolder,zip,sha};

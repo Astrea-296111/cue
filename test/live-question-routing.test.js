@@ -59,6 +59,7 @@ function appHarness(t, extraSettings = {}) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cue-live-routing-'));
   t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
 
+  if(String(extraSettings.resumeText||'').includes('第一个项目 TCS'))fs.writeFileSync(path.join(temp,'cue-project-index-v2.json'),JSON.stringify({version:2,projects:[{id:'fixture-tcs',name:'TCS',resumeOrder:1,hasManifest:true},{id:'fixture-repo',name:'RepoPilot',resumeOrder:2,hasManifest:true}],chunks:[],stats:{}}));
   const handlers = new Map();
   const listeners = new Map();
   const events = [];
@@ -211,17 +212,17 @@ test('real Ctrl+Enter path keeps TCS as active project across implicit follow-up
 
   app.final('介绍一下第一个项目 TCS？');
   await app.ask('say');
-  assert.deepEqual(Array.from(app.value('conversation.recent[0].plan.scopes')), ['TCS']);
+  assert.deepEqual(Array.from(app.value('conversation.recent[0].plan.scopes')), ['@project:fixture-tcs']);
 
   app.final('达到100%的恢复率是不是牺牲了什么？比如图片变得肉眼可见的模糊，或者需要发特别多张图。');
   await app.ask('say');
   assert.equal(app.value('conversation.recent[1].plan.reason'), 'active-project-followup');
-  assert.deepEqual(Array.from(app.value('conversation.recent[1].plan.scopes')), ['TCS']);
+  assert.deepEqual(Array.from(app.value('conversation.recent[1].plan.scopes')), ['@project:fixture-tcs']);
 
   app.final('项目是你独立完成的，还是团队合作？你具体负责了哪一部分？在这个过程');
   await app.ask('say');
   assert.equal(app.value('conversation.recent[2].plan.reason'), 'active-project-followup');
-  assert.deepEqual(Array.from(app.value('conversation.recent[2].plan.scopes')), ['TCS']);
+  assert.deepEqual(Array.from(app.value('conversation.recent[2].plan.scopes')), ['@project:fixture-tcs']);
   assert.equal(
     app.value('conversation.recent[2].question'),
     '项目是你独立完成的,还是团队合作?你具体负责了哪一部分?'

@@ -419,7 +419,7 @@ async function buildInterviewContextBundleAsync(settings, mode, transcript, requ
   if (plan.retrieve && !plan.scopes?.length && String(settings.projectKnowledge || '').trim() &&
       !/^#{1,6}\s/m.test(settings.projectKnowledge) && !getProjectCatalog({ preparedOnly: !!plan.preparedOnly }).length) {
     const legacy = buildInterviewContextBundle(settings, mode, transcript, { ...request, projectPlan: plan });
-    return { ...legacy, byQuestion: [], missing: [{ reason: 'manual-project-unbound',
+    return { ...legacy,candidateContext:legacy.context, byQuestion: [], missing: [{ reason: 'manual-project-unbound',
       message: '手工资料尚未绑定稳定项目；选型、职责与指标只能依据其明确原文。' }],
       stats: { ...legacy.stats, fallbackReason: 'manual-project-unbound' } };
   }
@@ -431,7 +431,7 @@ async function buildInterviewContextBundleAsync(settings, mode, transcript, requ
   const candidateLimit = plan.retrieve ? Math.min(1200, Math.floor(budget / 3)) : budget;
   if (candidate.length > candidateLimit) candidate = selectRelevantText(candidate, query, candidateLimit);
   const sourceBudget = Math.max(0, budget - candidate.length - (candidate ? 2 : 0));
-  const retrieved = await retrieveProjectEvidenceAsync({ ...request, question: query, projectPlan: plan,
+  const retrieved = request.skipSourceRetrieval ? {context:'',evidence:request.readySources||[],candidates:request.readySources||[],missing:[],stats:request.readyStats||{}} : await retrieveProjectEvidenceAsync({ ...request, question: query, projectPlan: plan,
     contextBudget: sourceBudget, includeCandidates: true, projectContextCache: request.projectContextCache || activeProjectContextCache });
   let selected = retrieved;
   if (plan.retrieve) {
@@ -444,7 +444,7 @@ async function buildInterviewContextBundleAsync(settings, mode, transcript, requ
   }
   const context = [selected.context, candidate].filter(Boolean).join('\n\n') || null;
   const visible = selected.evidence.filter(item => context?.includes(`[来源 ${item.id}]`) && context.includes(item.text));
-  return { context, evidence: visible, plan, byQuestion: selected.byQuestion || [], missing: selected.missing || [],
+  return { context, candidateContext:candidate, evidence: visible, plan, byQuestion: selected.byQuestion || [], missing: selected.missing || [],
     revision: retrieved.revision, identity: retrieved.identity,
     ...(request.includeCandidates ? { candidates: retrieved.candidates } : {}),
     stats: { ...retrieved.stats, ...selected.stats, contextBudget: budget, contextChars: context?.length || 0 } };

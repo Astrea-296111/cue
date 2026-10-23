@@ -17,6 +17,11 @@ const DEFAULTS = {
   realtimeEvidencePrefetch: true,
   realtimeAnswerMode: 'instant',
   instantRagPolicy: 'ready-only',
+  projectFactsEnabled: true,
+  sourceRagPolicies: { instant: 'ready-only', standard: 'standard' },
+  projectMaterialSettingsVersion: 1,
+  projectMaterialMigrationNotice: true,
+  manualProjectKnowledgeEnabled: true,
   baseUrl: '',
   deepseekBaseUrl: 'https://api.deepseek.com',
   firstContentDeadlineMs: 6000,
@@ -77,9 +82,19 @@ function deepMerge(base, over) {
   return out;
 }
 
+function migrateMaterialSettings(raw = {}) {
+  const next = { ...raw };
+  if (!Object.hasOwn(raw, 'projectFactsEnabled')) next.projectFactsEnabled = true;
+  next.sourceRagPolicies = { ...(raw.sourceRagPolicies || {}) };
+  if (!Object.hasOwn(next.sourceRagPolicies, 'instant')) next.sourceRagPolicies.instant = raw.instantRagPolicy === 'off' ? 'off' : 'ready-only';
+  if (!Object.hasOwn(next.sourceRagPolicies, 'standard')) next.sourceRagPolicies.standard = 'standard';
+  if (!raw.projectMaterialSettingsVersion) next.projectMaterialMigrationNotice = true;
+  next.projectMaterialSettingsVersion = 1;
+  return next;
+}
 function load() {
   if (data) return data;
-  try { data = deepMerge(DEFAULTS, JSON.parse(fs.readFileSync(FILE, 'utf8'))); }
+  try { data = deepMerge(DEFAULTS, migrateMaterialSettings(JSON.parse(fs.readFileSync(FILE, 'utf8')))); }
   catch { data = deepMerge(DEFAULTS, {}); }
   return data;
 }
@@ -89,11 +104,13 @@ function save() {
 }
 
 module.exports = {
-  MAX_AI_RULES_CHARS,
+  MAX_AI_RULES_CHARS, migrateMaterialSettings,
   getSettings() { return load(); },
   setSettings(patch) {
     load();
-    const nextSettings = deepMerge(data, patch || {});
+    const update = { ...(patch || {}) };
+    if (Object.hasOwn(update, 'instantRagPolicy') && !update.sourceRagPolicies) update.sourceRagPolicies = { instant: update.instantRagPolicy === 'off' ? 'off' : 'ready-only' };
+    const nextSettings = deepMerge(data, update);
     nextSettings.baseUrl = normalizeBaseUrl(nextSettings.baseUrl);
     nextSettings.deepseekBaseUrl = normalizeBaseUrl(nextSettings.deepseekBaseUrl || 'https://api.deepseek.com');
     data = nextSettings;

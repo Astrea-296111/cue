@@ -75,6 +75,7 @@ function appHarness(t, options = {}) {
   vm.runInContext('win = __testWindow', context);
   return { calls, events, handlers, settings, modules, temp,
     ask: (text, mode = 'ask') => listeners.get('ask')(null, { mode, text }),
+    setSources: async index => { context.__newIndex=index;await vm.runInContext('materialService.publishSource(sourceAdapter.normalizeWorkspace(__newIndex))',context);await vm.runInContext('warmProjectIndex()',context); },
     clear: () => handlers.get('transcript:clear')(),
     behavior: fn => { behavior = fn; },
     value: expression => vm.runInContext(expression, context),
@@ -267,7 +268,7 @@ test('specific project follow-up retrieves the code for the retained project', a
     { path: 'FlashFlow/README.md', startLine: 1, endLine: 2, text: 'FlashFlow 项目 architecture retry 幂等 重试' },
     { path: 'FlashFlow/RetryWorker.java', startLine: 1, endLine: 3, text: 'retry 重试 幂等 idempotency 实现：使用 otherProjectKey。' }
   ];
-  fs.writeFileSync(path.join(app.temp, 'cue-project-index-v1.json'), JSON.stringify({ version: 1, sourceName: 'projects', chunks }));
+  await app.setSources({version:1,sourceName:'projects',chunks});
   await app.ask('介绍 RepoPilot 项目');
   await app.ask('那重试幂等怎么实现？');
   assert.match(app.calls[1].system, /uniqueRequestId/);
@@ -346,7 +347,7 @@ test('real imported index: overview fallback and retrieval remain inside selecte
     { path: 'RepoPilot/README.md', startLine: 1, endLine: 2, text: 'RepoPilot uses local BM25 retrieval and retry jobs.' },
     { path: 'FlashFlow/README.md', startLine: 1, endLine: 2, text: 'FlashFlow uses workflow retries and an idempotency key.' }
   ];
-  fs.writeFileSync(path.join(app.temp, 'cue-project-index-v1.json'), JSON.stringify({ version: 1, sourceName: 'projects', chunks }));
+  await app.setSources({version:1,sourceName:'projects',chunks});
   const knowledge = app.modules.load(path.join(root, 'src/project-knowledge.js'));
   assert.equal(knowledge.getProjectCatalog().length, 2);
   const rows = knowledge.getProjectOverviewChunks({ scopes: ['RepoPilot/'] });
@@ -474,7 +475,7 @@ test('real retrieval stays inside TCS for the recovery-rate and responsibility f
     { path: 'TCS/README.md', startLine: 1, endLine: 3, text: 'TCS_ONLY：恢复率、图片失真、多载体；职责是 TCS 算法设计与平台验证。' },
     { path: 'RepoPilot/README.md', startLine: 1, endLine: 3, text: 'REPOPILOT_ONLY：团队协作，负责 RAG、BM25、FAISS 和 Agent Loop。' }
   ];
-  fs.writeFileSync(path.join(app.temp, 'cue-project-index-v1.json'), JSON.stringify({ version: 1, sourceName: 'projects', chunks }));
+  await app.setSources({version:1,sourceName:'projects',chunks});
 
   await app.ask('介绍一下第一个项目 TCS');
   await app.ask('达到100%的恢复率是不是牺牲了什么？比如图片变模糊或者需要发特别多张图。');

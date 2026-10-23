@@ -13,10 +13,9 @@ const os = require('os');
 const store = require('./src/store');
 const fs = require('fs');
 const { ProjectFactPacks, validateIndex } = require('./src/project-fact-packs');
-const factPacks = new ProjectFactPacks();
-const factOverlayPath = path.join(app.getPath('userData'), 'project-fact-packs.json');
-let factAnchor = null;
-try { if (fs.existsSync(factOverlayPath)) factPacks.replace(JSON.parse(fs.readFileSync(factOverlayPath, 'utf8'))); } catch (error) { console.warn('[facts] 本地事实包无效，使用内置包：', error.message); }
+let factPacks = new ProjectFactPacks();
+const {ProjectMaterialService} = require('./src/project-material-service');
+const {planProjectEvidence,sentEvidenceDiagnostics,applyFactCoverage} = require('./src/project-evidence-policy');
 const { captureScreenshot } = require('./src/screen');
 const { createSTT } = require('./src/stt');
 const { parseDocumentFile } = require('./src/resume');
@@ -28,8 +27,15 @@ const { peekReadyEvidence } = require('./src/instant-ready-evidence');
 const { getBuildIdentity } = require('./src/build-info');
 const { MODES, shouldCaptureScreen, getAnswerPlan, contextCharsFor } = require('./src/prompts');
 const { ConversationMemory } = require('./src/conversation-memory');
-const { getProjectCatalog: readProjectCatalog, getProjectIndexRevision: readProjectIndexRevision,
+const { getProjectIndexRevision: readProjectIndexRevision,
   getProjectIndexSnapshot: readProjectIndexSnapshot, warmProjectIndex, refreshProjectIndex } = require('./src/project-knowledge');
+const sourceAdapter = require('./src/project-knowledge');
+const materialService = new ProjectMaterialService({directory:app.getPath('userData'),bundled:factPacks.getIndex(),legacySource:()=>sourceAdapter.readLegacyIndex(),sourceAdapter});
+factPacks = materialService.snapshot.factPacks;
+sourceAdapter.setMaterialProvider({getSourceIndex:()=>materialService.snapshot.sources,
+  getSourceRevision:()=>materialService.snapshot.generation+':'+materialService.snapshot.sourceRevision,
+  refresh:()=>materialService.refresh(),publishSource:index=>materialService.publishSource(index),
+  importFolder:root=>materialService.importLegacy('folder',root),importZip:file=>materialService.importLegacy('zip',file),clearSources:()=>materialService.clearSources()});
 const { activeProjectContextCache } = require('./src/project-context');
 const { enabled: realtimePrefetchEnabled, adjacentNeeds } = require('./src/project-prefetch-policy');
 const { getProjectEmbeddings } = require('./src/project-embeddings');
@@ -99,9 +105,7 @@ const uiReplyTimings = new Map();
 let semanticRetriever = null;
 let formalProjectPlan = null;
 const preparedReadOptions = () => ({ preparedOnly: realtimePrefetchEnabled(store.getSettings()) });
-const factCatalog = () => factPacks.listProjects().map(p=>({...p,projectId:p.id,label:p.name}));
-const mergeCatalog = imported => [...factCatalog(), ...imported.filter(p=>!factCatalog().some(f=>f.id===(p.id||p.projectId)))];
-const getProjectCatalog = () => mergeCatalog(readProjectCatalog(preparedReadOptions()));
+const getProjectCatalog = () => materialService.snapshot.registry.projects;
 const getProjectIndexRevision = () => readProjectIndexRevision(preparedReadOptions());
 const getProjectIndexSnapshot = () => readProjectIndexSnapshot(preparedReadOptions());
 function getSemanticRetriever() {
@@ -121,8 +125,10 @@ const ragSession = new ProjectRagSession({
   isCurrent: input => input.epoch === conversation.epoch && input.projectRevision === readProjectIndexRevision({ preparedOnly: true }) &&
     input.modelVersion === (getSemanticRetriever().status().modelVersion || 'base')
 });
-function retrievalInput(question, projectPlan, interviewPlan, contextBudget, sourceKey = '', snapshot = null) {
+function retrievalInput(question, projectPlan, interviewPlan, contextBudget, sourceKey = '', snapshot = null, mode='say') {
+  const policy=resolveInstantPolicy(store.getSettings(),mode,question);
   return { question, questionId: snapshot?.questionId || undefined, questionRevision: snapshot?.questionId ? snapshot.revision : undefined,
+    materialIdentity:[materialService.snapshot.generation,projectPlan.canonicalProjectIds||[],policy.instant?'instant':'standard',policy.ragPolicy,require('./src/project-evidence-policy').VERSION],
     projectPlan, interviewPlan, contextBudget, sourceKey, hashFallback: !!store.getSettings().smart,
     realtimeEvidencePrefetch: realtimePrefetchEnabled(store.getSettings()),
     questionVersion: interviewPlan?.questionVersion || stableId(question),
@@ -131,6 +137,7 @@ function retrievalInput(question, projectPlan, interviewPlan, contextBudget, sou
 }
 function scheduleProjectPrefetch(payload) {
   if (activeGeneration?.policy.instant && !activeGeneration.firstContent) return;
+  if (resolveInstantPolicy(store.getSettings(), 'say').ragPolicy === 'off') return;
   if (typeof payload !== 'string' && (!payload || typeof payload.text !== 'string')) return;
   const text = String(typeof payload === 'string' ? payload : payload.text).trim();
   if (text.length > 24000) return;
@@ -141,11 +148,12 @@ function scheduleProjectPrefetch(payload) {
   if (settings.realtimeAnswerMode !== 'standard' && (!preview.text || preview.text !== text)) return;
   const interviewPlan = planInterviewQuestion({ text, mode: 'say', sourceKey });
   const projectPlan = planProjectRetrieval([{ channel: 'them', text }], 'say', {
-    catalog: readProjectCatalog({ preparedOnly: true }), previousPlan: conversation.lastPlan,
+    catalog: getProjectCatalog(), previousPlan: conversation.lastPlan,
     activeProjectPlan: formalProjectPlan?.activeProject || conversation.activeProjectPlan,
     manualProjectId: settings.currentProjectId, interviewPlan,
     answerHint: conversation.recent.at(-1)?.answer || ''
   });
+  if (!projectPlan.retrieveSources) { ragSession.pause(); return; }
   const budget = contextCharsFor('say', getAnswerPlan(text, interviewPlan));
   getSemanticRetriever();
   ragSession.schedule({ ...retrievalInput(text, projectPlan, interviewPlan, budget, sourceKey, preview),
@@ -188,6 +196,7 @@ function stopGenerationForSources() {
   const previous = activeGeneration;
   activeGeneration = null;
   previous?.controller.abort();
+  if(previous)send('llm:materials',{requestId:previous.id,epoch:previous.epoch,generation:previous.materials?.generation,canceled:true,reasons:['revision-changed']});
   state.busy = false;
   ragSession.reset();
   activeProjectContextCache.clear();
@@ -201,6 +210,14 @@ function stopGenerationForSources() {
   publishQuestionTarget();
   if (previous) send('llm:done', { requestId: previous.id, canceled: true });
 }
+materialService.on('warning',()=>send('materials:changed',materialService.state()));
+materialService.on('changed', state => {
+  factPacks = materialService.snapshot.factPacks;
+  sourceAdapter.adoptMaterialIndex(materialService.snapshot.sources);
+  sourceEvents.emit('changed', {generation:state.generation});
+  warmProjectIndex().catch(()=>{});
+  send('materials:changed',state);
+});
 sourceEvents.on('changed', () => {
   stopGenerationForSources();
   const semantic = getSemanticRetriever();
@@ -827,7 +844,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     triggerAt, questionSnapshot: resolved, questionSource: explicit ? 'manual' : retrySnapshot ? 'retry' : resolved?.partial ? 'stt-interim' : 'stt-final',
     epoch: conversation.epoch, executionProfile: policy.instant ? 'instant' : 'standard', ...getBuildIdentity() });
   const frozen = voiceAnswer || mode === 'leetcode' ? questionResolver.claim(resolved, timing.requestId) || resolved : resolved;
-  const generation = { id: timing.requestId, controller: new AbortController(), epoch: conversation.epoch, snapshot: frozen, mode, policy, timing };
+  const generation = { id: timing.requestId, controller: new AbortController(), epoch: conversation.epoch, snapshot: frozen, mode, policy, timing, materials:materialService.snapshot };
   lastFrozenSnapshot = frozen; latestUiRequestId = generation.id;
   if (frozen?.status === 'claimed') {
     targetModes.set(frozen.questionId, mode);
@@ -845,7 +862,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
   try {
     const llm = createLLM(settings, { executionProfile: policy.executionProfile });
     generation.provider = llm.provider;
-    const effectiveSettings = policy.executionProfile === 'instant' ? { ...settings, smart: false } : settings;
+    const effectiveSettings = {...settings,...(policy.executionProfile === 'instant'?{smart:false}:{}),...(settings.manualProjectKnowledgeEnabled===false?{projectKnowledge:''}:{})};
     timing.configure?.({ ...llm.diagnostics, model: llm.model });
     const userBubble = def.userBubble !== null ? def.userBubble
       : (mode === 'ask' || mode === 'answerThis' ? question : null);
@@ -856,7 +873,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     if (!llm.ready) throw new Error(llm.configurationError || '请先完成模型设置。');
     if (!question && ['ask', 'answerThis'].includes(mode)) throw new Error('请先输入问题或等待识别到面试官发言。');
     const request = conversation.begin({ mode, question, transcript: contextTranscript,
-      settings: effectiveSettings, catalog: policy.instant ? mergeCatalog(readProjectCatalog({ preparedOnly: true })) : getProjectCatalog(),
+      settings: effectiveSettings, catalog: generation.materials.registry.projects,
       executionProfile: policy.instant ? 'instant' : 'standard', questionSnapshot: frozen,
       manualFingerprint: policy.instant ? instantCards.manualFingerprint : undefined,
       interviewPlan, evidenceRevision: readProjectIndexRevision({ preparedOnly: true }) });
@@ -889,24 +906,32 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const contextStarted = performance.now();
     const fast = !effectiveSettings.smart && ['say', 'answerThis', 'ask', 'assist', 'technical', 'leetcode'].includes(mode);
     const retrieval = { ...retrievalInput(question, request.plan, effectiveInterviewPlan, contextCharsFor(mode, answerPlan), sourceKey,
-      policy.instant || fromResolved ? frozen : null),
+      policy.instant || fromResolved ? frozen : null,mode),
       requestId: timing.requestId, hashFallback: !fast };
-    const factSelection = policy.instant && policy.ragPolicy !== 'off' ? factPacks.select(question, { projectId: settings.currentProjectId || request.plan.projectIds?.[0], anchor: factAnchor, effectiveModel: { provider: llm.provider, model: llm.model, thinking: llm.diagnostics?.thinkingRequest, promptVersion: 'project-fast-qa-v1', style: settings.aiRules } }) : null;
-    if (factSelection) { factAnchor = factSelection.anchor; timing.configure({ ...factSelection.stats }); }
-    const ready = policy.ragPolicy === 'standard' ? null : peekReadyEvidence({ snapshot: frozen,
+    const materialIdentity = {generation:generation.materials.generation,factRevision:generation.materials.factRevision,sourceRevision:generation.materials.sourceRevision,registryRevision:generation.materials.registryRevision};
+    request.materials=materialIdentity;
+    const factSelection = policy.factsEnabled ? generation.materials.factPacks.select(question, {resolution:request.plan,maxCards:12}) : null;
+    const canRetrieveSources = policy.ragPolicy !== 'off' && request.plan.retrieveSources;
+    const ready = policy.ragPolicy !== 'standard' || !canRetrieveSources ? peekReadyEvidence({ snapshot: frozen,
       projectPlan: request.plan, epoch: conversation.epoch, projectRevision: retrieval.projectRevision,
       modelVersion: retrieval.modelVersion, projectIndexSnapshot: readProjectIndexSnapshot({ preparedOnly: true }),
-      cache: activeProjectContextCache, ragSession, retrievalInput: retrieval, policy: policy.ragPolicy });
-    if (ready && factSelection?.evidence.length) { ready.evidence = [...factSelection.evidence, ...ready.evidence]; ready.sources = ready.evidence; }
-    const contextBundle = ready ? { context: '', evidence: ready.evidence, missing: [], byQuestion: [], stats: ready.stats }
+      cache: activeProjectContextCache, ragSession, retrievalInput: retrieval, policy: canRetrieveSources ? 'ready-only' : 'off' }) : null;
+    const contextBundle = policy.instant ? {context:'',evidence:ready?.evidence||[],missing:[],byQuestion:[],stats:ready?.stats||{}}
       : await buildInterviewContextBundleAsync(effectiveSettings, mode, contextTranscript,
-      { ...retrieval, requestId: timing.requestId, projectPlan: request.plan, smart: !!settings.smart,
+      { ...retrieval, skipSourceRetrieval:!!ready,readySources:ready?.evidence||[],readyStats:ready?.stats||{}, requestId: timing.requestId, projectPlan: request.plan, smart: !!settings.smart,
         answerComplexity: answerPlan.level, interviewPlan: effectiveInterviewPlan,
         contextBudget: contextCharsFor(mode, answerPlan), projectState: request.projectInterviewState,
         signal: generation.controller.signal, deadlineAt: Date.now() + (fast ? 0 : 100), semanticWaitMs: fast ? 0 : 100,
         execution: fast ? 'fast' : 'deep', realtimeEvidencePrefetch: realtimePrefetchEnabled(settings),
-        hashFallback: !fast,
-        semanticRetriever: getSemanticRetriever(), prefetchedRetrieval: ragSession.take(retrieval, { metadata: true }) });
+        hashFallback: !fast, semanticRetriever: getSemanticRetriever(),prefetchedRetrieval:ragSession.take(retrieval,{metadata:true}) });
+    const evidencePlan=planProjectEvidence({question,resolution:request.plan,facts:factSelection?.evidence||[],sources:contextBundle.evidence,
+      factsEnabled:policy.factsEnabled,sourcePolicy:policy.ragPolicy,evidenceTokens:policy.instant?1500:2800,maxSources:policy.instant?4:7});
+    contextBundle.evidence=evidencePlan.evidence;
+    applyFactCoverage(contextBundle,request.plan);
+    if(request.plan.kind==='unresolved')contextBundle.missing.push({reason:'unresolved-project',message:'项目不明确，请确认项目身份。'});
+    // Standard prompts and instant prompts share the same typed facts; full embedded documents stay out.
+    if(!policy.instant) contextBundle.context=[...contextBundle.evidence.map(require('./src/evidence-selector').formatEvidenceBlock),contextBundle.candidateContext||''].filter(Boolean).join('\n\n');
+    timing.configure({...materialIdentity,selectedCardCount:factSelection?.evidence.length||0,packRevision:materialIdentity.factRevision});
     const contextMs = performance.now() - contextStarted;
     let screenMs = 0;
     if (needsScreen) {
@@ -928,17 +953,19 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     request.evidenceRevision = contextBundle.evidence.find(item => item.sourceType === 'imported')?.revision ||
       (policy.instant ? readProjectIndexRevision({ preparedOnly: true }) : getProjectIndexRevision());
     const instantContext = policy.instant ? buildInstantContext({ settings, question, snapshot: frozen, request,
-      readyEvidence: ready, answerPlan, cards: instantCards }) : null;
+      readyEvidence: {evidence:contextBundle.evidence}, answerPlan, cards: instantCards }) : null;
     if (instantContext) {
       contextBundle.evidence = instantContext.evidence;
       contextBundle.stats.readyEvidenceHit = instantContext.evidence.length > 0;
-      if (ready.evidence.length && !instantContext.evidence.length) {
+      if (ready?.evidence.length && !instantContext.evidence.length) {
         ready.skippedReason = 'optional-context-budget'; contextBundle.stats.skippedReason = ready.skippedReason;
       }
     }
     const builtSystem = instantContext ? instantContext.system : def.buildSystem ? def.buildSystem(contextBundle.context, settings.aiRules || '',
       { answerPlan, interviewPlan, projectPlan: request.plan, hasImage: !!imageDataUrl }) : (def.system || '');
-    const initialSystem = llm.prepareSystem ? llm.prepareSystem(builtSystem) : builtSystem;
+    const narrativeRule='\nUSER/source-claim 是用户指定的口述资料，可按范围直接回答既有职责，不复述资料编辑历史；没有材料才简短说明缺口。默认中文第一人称，以1.、2.、3.分点，每点一至两句；代码题保留完整代码。';
+    const resolvedSystem = builtSystem + (instantContext?'':narrativeRule) + (request.plan.kind==='unresolved'?'\n项目不明确：仅简短询问用户指哪个项目，不猜团队或职责。':'');
+    const initialSystem = llm.prepareSystem ? llm.prepareSystem(resolvedSystem) : resolvedSystem;
     const responseContext = { transcript: contextTranscript, userText: question, answerPlan, partial, hasImage: !!imageDataUrl };
     const built = def.build(responseContext);
     const maxTokens = def.resolveMaxTokens?.(responseContext) || def.maxTokens;
@@ -977,6 +1004,8 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     if (policy.instant) contextBundle.stats.readyEvidenceHit = sentEvidence.length > 0;
     const localFacts = sentEvidence.filter(item=>item.sourceType==='project-pack'&&item.provenance==='CODE'&&item.status==='verified').slice(0,2).map(item=>({cardId:item.cardId,projectName:item.projectName,text:item.text}));
     if (localFacts.length) { timing.configure({ timeToLocalFacts: +(performance.now()-timing.started).toFixed(2) }); emit('llm:local-facts', {facts:localFacts}); }
+    let materialDiagnostics={...materialIdentity,projectIds:request.plan.canonicalProjectIds||[],resolutionReason:request.plan.resolutionReason, ...sentEvidenceDiagnostics(evidencePlan,sentEvidence),factSelectionMs:factSelection?.stats.selectionMs||0,contextBuildMs:performance.now()-contextStarted};
+    emit('llm:materials',materialDiagnostics);
     emit('llm:evidence', { sources: sentEvidence.map(item => ({ id: item.id, projectName: item.projectName,
       path: item.path, startLine: item.startLine, endLine: item.endLine, text: item.text,
       docType: item.docType, truthScope: item.truthScope, status: item.status, partial: item.partial })),
@@ -1034,6 +1063,8 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
             requestSent = performance.now(); generation.requestSent = requestSent;
             contentDeadline?.dispatch();
             sentEvidence = visibleEvidence(prepared.evidence, serialized);
+            materialDiagnostics={...materialDiagnostics,...sentEvidenceDiagnostics(evidencePlan,sentEvidence)};
+            emit('llm:materials',materialDiagnostics);
             timing.dispatched({ ...generation.modelDiagnostics, ragPolicy: policy.ragPolicy,
               readyEvidenceHit: policy.instant ? sentEvidence.length > 0 : !!ready?.stats.readyEvidenceHit,
               skippedReason: ready?.skippedReason, optionalContextTokensEstimate: instantContext?.stats.optionalContextTokensEstimate,
@@ -1076,7 +1107,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
             }
             rearm();
             emit('llm:token', { text });
-            if (text.trim() && !generation.adjacentQueued) {
+            if (canRetrieveSources && text.trim() && !generation.adjacentQueued) {
               generation.adjacentQueued = true;
               setImmediate(() => prepareAdjacentEvidence(retrieval, sentEvidence));
             }
@@ -1153,18 +1184,26 @@ ipcMain.handle('provider:test', async (_event, config = {}) => {
   } catch(error) { throw new Error(controller.signal.aborted?'连接测试超时':error.status ? `连接失败 HTTP ${error.status}` : '连接测试失败，请检查地址、密钥、模型及网络权限。'); }
   finally { clearTimeout(timer); }
 });
-const factStatus = () => { const index=factPacks.getIndex();return {projects:index.projects,revision:index.revision,updatedAt:index.updatedAt,coverage:index.coverage,index}; };
-function saveFactIndex(input) {
-  const next=validateIndex(input); next.updatedAt=new Date().toISOString(); const tmp=factOverlayPath+'.tmp';
-  fs.mkdirSync(path.dirname(factOverlayPath),{recursive:true});
-  fs.writeFileSync(tmp,JSON.stringify(next,null,2),{mode:0o600});fs.renameSync(tmp,factOverlayPath);
-  factPacks.replace(next);factAnchor=null;activeProjectContextCache.clear();ragSession.reset();
-  send('project:catalog', {projects:getProjectCatalog()});return factStatus();
-}
+const factStatus = () => {const snap=materialService.snapshot;return {...materialService.state(),revision:snap.factRevision,updatedAt:snap.facts.updatedAt,coverage:snap.factPacks.index.coverage,index:snap.factPacks.getIndex()};};
+ipcMain.handle('materials:state',()=>materialService.state());
+ipcMain.handle('materials:prepare',async(_event,input={})=>{
+  if(input.index)return materialService.prepareImport({kind:'json',index:input.index,mode:input.mode||'merge'});
+  const kind=['json','folder','zip'].includes(input.kind)?input.kind:'json';
+  const selected=await dialog.showOpenDialog(win,{title:'选择项目材料',properties:[kind==='folder'?'openDirectory':'openFile'],...(kind==='folder'?{}:{filters:[{name:'项目材料',extensions:[kind==='zip'?'zip':'json']}]})});
+  if(selected.canceled)return {canceled:true};
+  return materialService.prepareImport({kind,path:selected.filePaths[0],mode:input.mode||'merge',factPaths:input.factPaths||[]});
+});
+ipcMain.handle('materials:commit',async(_event,preview)=>{
+  const result=await materialService.commitImport(preview);
+  const sourced=result.projects.filter(p=>p.sourceProjectIds.length);
+  if(!store.getSettings().currentProjectId&&sourced.length===1)store.setSettings({currentProjectId:sourced[0].id});
+  return result;
+});
+ipcMain.handle('materials:rollback',(_e,input)=>materialService.rollbackMaterials(input));
 ipcMain.handle('facts:status',()=>factStatus());
-ipcMain.handle('facts:save',(_e,payload)=>saveFactIndex(payload?.index));
-ipcMain.handle('facts:rebuild',()=>{ factPacks.replace(factPacks.getIndex());factAnchor=null;return factStatus(); });
-ipcMain.handle('facts:import',async()=>{const picked=await dialog.showOpenDialog(win,{title:'导入本地事实包 JSON',properties:['openFile'],filters:[{name:'事实包',extensions:['json']}]});if(picked.canceled)return {canceled:true};if(fs.statSync(picked.filePaths[0]).size>2*1024*1024)throw new Error('事实包超过 2MB');return saveFactIndex(JSON.parse(fs.readFileSync(picked.filePaths[0],'utf8')));});
+ipcMain.handle('facts:save',async(_e,payload)=>{const p=await materialService.prepareImport({kind:'json',index:payload?.index});await materialService.commitImport(p);return factStatus();});
+ipcMain.handle('facts:rebuild',()=>{materialService.refresh();return factStatus();});
+ipcMain.handle('facts:import',async()=>{const selected=await dialog.showOpenDialog(win,{title:'导入本地事实包',properties:['openFile'],filters:[{name:'JSON',extensions:['json']}]});if(selected.canceled)return {canceled:true};return materialService.prepareImport({kind:'json',path:selected.filePaths[0]});});
 ipcMain.handle('settings:get', () => store.getSettings());
 ipcMain.handle('settings:set', (_e, patch) => {
   sttDisabled = false;
@@ -1172,7 +1211,7 @@ ipcMain.handle('settings:set', (_e, patch) => {
   const next = store.setSettings(patch);
   if (['resumeText', 'projectKnowledge', 'starStories', 'whyCompany', 'whyLeaving', 'workStyle', 'salaryTarget'].some(key => before[key] !== next[key])) instantCards.update(next);
   const identity = settings => JSON.stringify([settings.realtimeAnswerMode, settings.instantRagPolicy, settings.realtimeEvidencePrefetch, settings.smart, settings.provider,
-    settings.models, settings.currentProjectId, settings.baseUrl, settings.projectKnowledge, settings.starStories]);
+    settings.models, settings.projectFactsEnabled,settings.sourceRagPolicies,settings.manualProjectKnowledgeEnabled, settings.currentProjectId, settings.baseUrl, settings.projectKnowledge, settings.starStories]);
   if (identity(before) !== identity(next)) {
     ragSession.reset(); semanticRetriever?.resetSession?.();
     if (activeGeneration?.policy.instant && !activeGeneration.firstContent) ragSession.suspend(activeGeneration.id);
@@ -1203,7 +1242,7 @@ ipcMain.handle('project:current', (_event, projectId) => {
   const id = String(projectId || '');
   if (id && !getProjectCatalog().some(project => (project.id || project.projectId) === id)) throw new Error('此项目已不在当前索引中，请重新选择。');
   stopGenerationForSources();
-  formalProjectPlan = null; factAnchor = null;
+  formalProjectPlan = null;
   return store.setSettings({ currentProjectId: id });
 });
 ipcMain.handle('capture:toggle', () => {
@@ -1319,7 +1358,7 @@ ipcMain.handle('transcript:clear', () => {
   if (previous) previous.controller.abort();
   state.busy = false;
   conversation.reset();
-  factAnchor = null;
+
   uiReplyTimings.clear();
   formalProjectPlan = null;
   ragSession.reset();

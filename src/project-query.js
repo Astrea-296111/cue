@@ -2,7 +2,7 @@
 
 // Shared by final retrieval and STT prefetch. Generic technology names alone do
 // not imply a question about the candidate's implementation.
-const PROJECT_REFERENCE = /你们|你在|你的.{0,12}(项目|系统|服务|平台|工作)|贵团队|本项目|该项目|这个项目|那个项目|项目里|项目中|项目的|项目.{0,22}(架构|实现|选型|难点|优化|负责|职责|团队|合作|独立)|(?:介绍|讲讲|说说|展开).{0,10}项目|(?:这个|那个|该)(?:系统|服务|平台|接口|模块)|\b(?:your|our|this|that)\s+(?:project|system|service|implementation|team)\b|\bin your\b/i;
+const PROJECT_REFERENCE = /项目介绍|你们(?:当时)?(?:几个人|多少人)|你负责哪块|是你一个人做|用了多久|当时怎么|你们|你在|你的.{0,12}(项目|系统|服务|平台|工作)|贵团队|本项目|该项目|这个项目|那个项目|项目里|项目中|项目的|项目.{0,22}(架构|实现|选型|难点|优化|负责|职责|团队|合作|独立)|(?:介绍|讲讲|说说|展开).{0,10}项目|(?:这个|那个|该)(?:系统|服务|平台|接口|模块)|\b(?:your|our|this|that)\s+(?:project|system|service|implementation|team)\b|\bin your\b/i;
 const PROJECT_CONTINUATION = /(?:项目|课题|论文).{0,24}(?:独立|团队|合作|负责|职责|贡献|难点|挑战|过程|怎么做|如何做|实现|结果|指标|效果)|(?:独立完成|团队合作|你具体负责|你的职责|你的贡献|这个过程中|在这个过程|最大的困难|最大的挑战)/i;
 const REFERENTIAL = /你刚才|你提到|你说的|刚才提到|前面说的|上一个项目|刚才那个项目|回到.{0,8}项目|\byou (?:mentioned|said)\b/i;
 const SHORT_FOLLOWUP = /^(?:那|那么|所以|再|然后)?(?:具体)?(?:为什么|怎么做|怎么实现|如何实现|怎么保证|如何保证|有什么难点|有什么取舍|展开一下|详细说说|继续说|然后呢)[呢吗啊呀？?。!！\s]*$|^(?:why|how|can you elaborate|could you expand)[?!.\s]*$/i;
@@ -83,10 +83,11 @@ function directProjectQuestion(text) {
   return CODE_SYMBOL.test(text) && /实现|方法|类|接口|代码|\b(?:method|class|implement\w*)\b/i.test(text);
 }
 
+function projectIdentityScopes(project) { return Array.isArray(project.sourceScopes) ? project.sourceScopes.length ? project.sourceScopes : [`@facts:${project.projectId||project.id}`] : [project.prefix].filter(Boolean); }
 function activeSnapshot(plan) {
   if (!plan) return null;
-  if (plan.activeProject && Array.isArray(plan.activeProject.scopes) && plan.activeProject.scopes.length) {
-    return { ...plan.activeProject, scopes: plan.activeProject.scopes.slice() };
+  if (plan.activeProject && Array.isArray(plan.activeProject.identityScopes||plan.activeProject.scopes) && (plan.activeProject.identityScopes||plan.activeProject.scopes).length) {
+    return { ...plan.activeProject, scopes: (plan.activeProject.identityScopes||plan.activeProject.scopes).slice() };
   }
   if (plan.retrieve && Array.isArray(plan.scopes) && plan.scopes.length) {
     return {
@@ -125,10 +126,10 @@ function planProjectRetrieval(transcript, mode = 'say', options = {}) {
   const previousProject = activeProject;
   let explicitlyResolved = false;
   const manualProjectId = options.manualProjectId || options.currentProjectId || null;
-  const manualProject = catalog.find(project => project.projectId === manualProjectId || project.prefix === manualProjectId);
+  const manualProject = catalog.find(project => project.projectId === manualProjectId || project.id === manualProjectId || project.prefix === manualProjectId);
   const manualSelectionChanged = !!manualProject && (!!options.manualProjectChanged || previous?.manualProjectId !== manualProjectId);
   if (manualProject && (!activeProject || manualSelectionChanged)) {
-    activeProject = { scopes: [manualProject.prefix], anchor: manualProject.name, question: '', label: manualProject.name,
+    activeProject = { scopes: projectIdentityScopes(manualProject), anchor: manualProject.name, question: '', label: manualProject.name,
       projectIds: [manualProject.projectId].filter(Boolean), source: 'manual-default' };
   }
 
@@ -150,7 +151,7 @@ function planProjectRetrieval(transcript, mode = 'say', options = {}) {
     if (named.length) {
       explicitlyResolved = true;
       activeProject = {
-        scopes: named.map(project => project.prefix),
+        scopes: named.flatMap(projectIdentityScopes),
         anchor: current.slice(0, 500),
         question: current,
         label: named.map(project => project.name || project.prefix).filter(Boolean).join(' / '),
@@ -173,7 +174,7 @@ function planProjectRetrieval(transcript, mode = 'say', options = {}) {
       (followup || (direct && !named.length));
     const retrieve = named.length > 0 || !clearExit && (direct || useActiveProject || inheritPrevious);
     const scopes = named.length
-      ? named.map(project => project.prefix)
+      ? named.flatMap(projectIdentityScopes)
       : (useActiveProject ? activeProject.scopes.slice() : (inheritPrevious ? previous.scopes || [] : []));
 
     const inheritsProject = scopes.length > 0 && !named.length && (useActiveProject || inheritPrevious);
@@ -209,7 +210,7 @@ function planProjectRetrieval(transcript, mode = 'say', options = {}) {
       scopes,
       activeProject: activeProject ? { ...activeProject, scopes: activeProject.scopes.slice() } : null,
       projectLabel: activeProject?.label || '',
-      projectIds: catalog.filter(project => scopes.includes(project.prefix)).map(project => project.projectId).filter(Boolean),
+      projectIds: catalog.filter(project => projectIdentityScopes(project).some(s=>scopes.includes(s))).map(project => project.projectId).filter(Boolean),
       manualProjectId,
       projectActive,
       reason,
@@ -240,7 +241,25 @@ function planProjectRetrieval(transcript, mode = 'say', options = {}) {
       /第.{0,3}点|后.{0,3}种|前.{0,3}种|那个|这个|继续|展开|你提到|你说/.test(text)) {
     plan.query = plan.query + '\n上轮回答中的检索线索：\n' + String(options.answerHint).slice(0, 400);
   }
-  return plan;
+  const isolated = require('./instant-answer-policy').isolateUnknownProject(text, plan, catalog);
+  const selected = catalog.filter(p=>(isolated.projectIds||[]).includes(p.projectId||p.id)||(!p.projectId&&!p.id&&(isolated.scopes||[]).includes(p.prefix)));
+  const canonicalProjectIds = selected.map(p=>p.id||p.projectId||p.prefix);
+  const resolvedScopes = [...new Set(selected.flatMap(p=>Array.isArray(p.sourceScopes)?p.sourceScopes:[p.prefix].filter(Boolean)))].filter(s=>typeof s==='string'&&s&&!s.startsWith('@facts:'));
+  const ambiguous = canonicalProjectIds.length>1 && !plan.projectMentions.some(m=>!m.excluded) && /几个人|多少人|负责|你们|当时/.test(text);
+  const unresolved = isolated.reason==='unresolved-project' || ambiguous || isolated.retrieve && !canonicalProjectIds.length;
+  const facts = isolated.retrieve && canonicalProjectIds.length>0 && !ambiguous;
+  const intent=[];
+  for(const [name,re] of [['ownership',/负责|职责|贡献|哪块/],['collaboration',/几个人|多少人|几人|一个人|分工|协作|同事|团队/],['performance',/指标|压测|收益|延迟|速度|数字/],['challenge',/困难|难点|排查|故障|响应丢失/],['overview',/介绍|概览|整体|多久|时间|几个月|哪年/],['implementation',/实现|接口|恢复|竞态|代码|机制|状态机|源码/]])if(re.test(text))intent.push(name);
+  const result={...isolated,kind:unresolved?'unresolved':!facts?'general':canonicalProjectIds.length>1?'comparison':'project',canonicalProjectIds:facts?canonicalProjectIds:[],intent,
+    sourceScopes:facts?resolvedScopes:[],retrieveFacts:!!facts,retrieveSources:!!facts&&require('./project-registry').strictProjectScopes(resolvedScopes),
+    resolutionReason:ambiguous?'ambiguous-project-followup':isolated.reason};
+  if(catalog.some(p=>Array.isArray(p.sourceScopes))) {
+    result.scopes=result.sourceScopes;
+    if(result.activeProject)result.activeProject={...result.activeProject,identityScopes:result.activeProject.scopes,scopes:resolvedScopes};
+    result.subQuestionScopes=(result.subQuestionScopes||[]).map(sub=>{const chosen=catalog.filter(p=>(sub.projectIds||[]).includes(p.projectId));return {...sub,scopes:chosen.flatMap(p=>p.sourceScopes||[p.prefix]).filter(Boolean)};});
+  }
+  if(ambiguous){result.retrieve=false;result.projectActive=false;}
+  return result;
 }
 
 // Names in setup clauses remain available to later asks. A generic subquestion
@@ -258,8 +277,8 @@ function scopeInterviewQuestions(interviewPlan, projectPlan, catalog = projectPl
       : projectPlan.scopes || [];
     const projectChoices = own.length ? own.map(mention => mention.project)
       : !generic && preceding ? [preceding.project]
-        : !generic ? catalog.filter(project => fallbackScopes.includes(project.prefix)) : [];
-    const scopes = generic ? [] : [...new Set(projectChoices.length ? projectChoices.map(project => project.prefix) : fallbackScopes)];
+        : !generic ? catalog.filter(project => projectIdentityScopes(project).some(s=>fallbackScopes.includes(s))) : [];
+    const scopes = generic ? [] : [...new Set(projectChoices.length ? projectChoices.flatMap(projectIdentityScopes) : fallbackScopes)];
     return { questionId: question.id, start: question.start, end: question.end, scopes,
       projectIds: [...new Set(projectChoices.map(project => project.projectId).filter(Boolean))],
       reason: generic ? 'generic-question' : own.length ? 'explicit-question-project' : preceding ? 'preceding-project-mention'
@@ -277,5 +296,5 @@ module.exports = {
   isClearProjectExit,
   sameProjectScopes,
   resolveProjects,
-  scopeInterviewQuestions
+  scopeInterviewQuestions, projectIdentityScopes
 };

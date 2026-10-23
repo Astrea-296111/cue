@@ -88,39 +88,18 @@ function focusedWindow() {
 
 ipcMain.handle('project:index-state', () => projectKnowledge.getProjectIndexState());
 
+// Compatibility source imports delegate to the same material authority; the current UI uses preview/commit IPC.
 ipcMain.handle('project:import-folder', async () => {
-  const owner = focusedWindow();
-  const options = {
-    title: '导入项目文件夹',
-    properties: ['openDirectory']
-  };
-  const result = owner
-    ? await dialog.showOpenDialog(owner, options)
-    : await dialog.showOpenDialog(options);
-  if (result.canceled || !result.filePaths[0]) return { canceled: true };
-  const state = await projectKnowledge.importProjectFolder(result.filePaths[0]);
-  return { canceled: false, state };
+  const selected=await dialog.showOpenDialog({properties:['openDirectory']});
+  if(selected.canceled)return {canceled:true};
+  return {canceled:false,state:await projectKnowledge.importProjectFolder(selected.filePaths[0])};
 });
-
 ipcMain.handle('project:import-zip', async () => {
-  const owner = focusedWindow();
-  const options = {
-    title: '导入项目 ZIP',
-    properties: ['openFile'],
-    filters: [{ name: 'ZIP 压缩包', extensions: ['zip'] }]
-  };
-  const result = owner
-    ? await dialog.showOpenDialog(owner, options)
-    : await dialog.showOpenDialog(options);
-  if (result.canceled || !result.filePaths[0]) return { canceled: true };
-  const state = await projectKnowledge.importProjectZip(result.filePaths[0]);
-  return { canceled: false, state };
+  const selected=await dialog.showOpenDialog({properties:['openFile'],filters:[{name:'ZIP',extensions:['zip']}]});
+  if(selected.canceled)return {canceled:true};
+  return {canceled:false,state:await projectKnowledge.importProjectZip(selected.filePaths[0])};
 });
-
-ipcMain.handle('project:index-clear', async () => {
-  const state = await projectKnowledge.clearProjectIndex();
-  return { ok: true, state };
-});
+ipcMain.handle('project:index-clear',async()=>{await projectKnowledge.clearProjectIndex();return {ok:true,state:projectKnowledge.getProjectIndexState()};});
 
 // Project prefetch is owned by main.js together with its authoritative session.
 

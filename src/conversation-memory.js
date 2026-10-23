@@ -104,7 +104,7 @@ class ConversationMemory {
       interviewPlan,
       answerHint: instant ? '' : this.recent.at(-1)?.answer || ''
     });
-    if (instant) plan = require('./instant-answer-policy').isolateUnknownProject(current, plan, catalog);
+    if (instant && !plan.kind) plan = require('./instant-answer-policy').isolateUnknownProject(current, plan, catalog);
     const policy = contextPolicy(mode, current, this.recent.length + this.archive.length > 0, plan);
     const configured = Number(settings.conversationContextChars);
     const isolated = policy === 'independent' || policy === 'project-switch';
@@ -146,8 +146,10 @@ class ConversationMemory {
   buildInstantHistory(question, plan) {
     const { REFERENTIAL, tokenExcerpt } = require('./instant-answer-context');
     const last = this.recent.at(-1);
+    const sameIdentity = plan.canonicalProjectIds?.length && last?.plan?.canonicalProjectIds?.length
+      ? sameProjectScopes(plan.canonicalProjectIds,last.plan.canonicalProjectIds) : sameProjectScopes(plan.scopes,last?.plan?.scopes||[]);
     const compatible = !plan.projectSwitched && (plan.retrieve
-      ? last?.plan?.retrieve && sameProjectScopes(plan.scopes, last.plan.scopes) : !last?.plan?.retrieve);
+      ? last?.plan?.retrieve && sameIdentity : !last?.plan?.retrieve);
     const chosen = REFERENTIAL.test(question) && compatible ? last : null;
     const text = chosen ? tokenExcerpt(`先前用户要求：${chosen.question}\n旧 AI 建议（非项目事实）：${chosen.answer}`, 250) : '';
     return { turns: text ? [{ role: 'user', text }] : [], memory: '', stats: { policy: chosen ? 'instant-reference' : 'instant-independent',

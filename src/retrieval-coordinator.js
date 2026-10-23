@@ -18,7 +18,7 @@ function snapshot(preparedOnly = false) {
 }
 
 function retrievalIdentity(request, revision, modelVersion = '') {
-  return JSON.stringify([request.epoch ?? null, [...(request.projectPlan?.scopes || [])].sort(), revision,
+  return JSON.stringify([request.epoch ?? null,request.materialIdentity??null, [...(request.projectPlan?.scopes || [])].sort(), revision,
     modelVersion, createHash('sha256').update(String(request.question || request.interviewPlan?.originalText || '')).digest('hex'),
     request.questionVersion ?? null, request.sourceKey || request.interviewPlan?.sourceKey || '', RETRIEVAL_CONFIG_VERSION,
     createHash('sha256').update(JSON.stringify([request.interviewPlan?.scenario || '', request.interviewPlan?.constraints || [],

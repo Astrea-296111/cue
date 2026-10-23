@@ -153,7 +153,9 @@ function sourceLabel(item) {
 
 function formatEvidenceBlock(item) {
   const id = evidenceId(item);
-  return `${sourceLabel(item)}\n--- 来源 ${id} 开始 ---\n${item.text}\n--- 来源 ${id} 结束 ---`;
+  const relation=item.relation?.status==='resolved'&&item.relation.sourcePath&&Number.isInteger(item.relation.sourceLine)
+    ? `（已核对引用 ${item.relation.fromSymbol} → ${item.relation.toSymbol}，来源 ${item.relation.sourcePath}:${item.relation.sourceLine}）` : '';
+  return `${sourceLabel(item)}${relation}\n--- 来源 ${id} 开始 ---\n${item.text}\n--- 来源 ${id} 结束 ---`;
 }
 
 function selectEvidence({ candidates = [], question = '', interviewPlan, projectPlan, contextBudget = 4000,
