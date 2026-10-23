@@ -22,8 +22,8 @@ module.exports = async function checkProtectedDropdowns({ win, js, until, window
   }
   const isOpen = id => js(`!document.getElementById('${id}-options').hidden`);
   const closed = () => until(() => js("[...document.querySelectorAll('.capture-safe-options')].every(el=>el.hidden)"), 'dropdown closed');
-  await until(() => js("document.querySelectorAll('#current-project option').length===2"), 'project catalog');
-  const originalCatalog = (await js('cue.projectIndexState()')).projects;
+  const originalCatalog = (await js('cue.materialState()')).projects;
+  await until(() => js("document.querySelectorAll('#current-project option').length==="+(originalCatalog.length+1)), 'canonical project catalog');
   const initialWindows = windowCount();
   assert.deepEqual(await js(`['current-project','realtime-answer-mode'].map(id=>{
     const native=document.getElementById(id),trigger=document.getElementById(id+'-trigger'),menu=document.getElementById(id+'-options');
@@ -36,8 +36,10 @@ module.exports = async function checkProtectedDropdowns({ win, js, until, window
   // Real pointer selection persists through the existing project IPC.
   await click('#current-project-trigger');
   await until(() => isOpen('current-project'), 'project list opens');
-  assert.deepEqual(await js("[...document.querySelectorAll('#current-project-options [role=option]')].map(el=>el.textContent)"), ['自动', 'UI合成项目']);
-  await click('#current-project-options [data-index="1"]');
+  assert.deepEqual(await js("[...document.querySelectorAll('#current-project-options [role=option]')].map(el=>el.textContent)"), ['自动', ...originalCatalog.map(project=>project.name)]);
+  const sourceIndex=originalCatalog.findIndex(project=>project.id==='ui-synthetic')+1;
+  assert.ok(sourceIndex>0);
+  await click('#current-project-options [data-index="'+sourceIndex+'"]');
   await until(async () => (await js('cue.settingsGet()')).currentProjectId === 'ui-synthetic', 'project selection saved');
   await closed();
   assert.equal(await js("document.getElementById('current-project-trigger').textContent"), 'UI合成项目');
@@ -109,7 +111,7 @@ module.exports = async function checkProtectedDropdowns({ win, js, until, window
     'Project labels are literal text and must not create native tooltip popups');
   await js("window.dispatchEvent(new Event('blur'))"); await closed();
   win.webContents.send('project:catalog', { projects: originalCatalog });
-  await until(() => js("document.querySelectorAll('#current-project option').length===2"), 'original catalog restored');
+  await until(() => js("document.querySelectorAll('#current-project option').length==="+(originalCatalog.length+1)), 'original canonical catalog restored');
   assert.equal(windowCount(), initialWindows, 'Dropdowns remain in the existing BrowserWindow');
   return { pointerAndKeyboard: true, savedSelections: true, catalogRefresh: true, viewportBounds: true, domOnly: true, forwardedMouse };
 };

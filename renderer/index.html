@@ -113,9 +113,10 @@
       </div>
 
       <div class="s-tabs">
-        <button class="s-tab on" data-tab="keys">🔑 API</button>
-        <button class="s-tab" data-tab="transcription">语音</button>
-        <button class="s-tab" data-tab="profile">📄 资料</button>
+        <button class="s-tab on" data-tab="keys">模型与 API</button>
+        <button class="s-tab" data-tab="transcription">音频与转写</button>
+        <button class="s-tab" data-tab="profile">项目材料</button>
+        <button class="s-tab" data-tab="personal">简历与岗位</button>
         <button class="s-tab" data-tab="prep">🎯 准备</button>
         <button class="s-tab" data-tab="style">✨ 风格</button>
         <button class="s-tab" data-tab="qa">💬 问答</button>
@@ -141,7 +142,6 @@
         <div class="s-field"><span>Gemini</span><input id="key-gemini" type="password" placeholder="AIza..." autocomplete="off" /></div>
         <div class="s-field"><span>DeepSeek</span><input id="key-deepseek" type="password" autocomplete="off" /></div>
         <div class="s-field"><span>DeepSeek 地址</span><input id="deepseek-url" type="url" placeholder="https://api.deepseek.com" autocomplete="off" /></div>
-        <div class="s-field"><span>Deepgram</span><input id="key-deepgram" type="password" placeholder="dg-..." autocomplete="off" /></div>
         <div class="s-field"><span>自定义</span><input id="key-custom" type="password" placeholder="可选" autocomplete="off" /></div>
         <div class="s-field"><span>MiniMax</span><input id="key-minimax" type="password" placeholder="MiniMax API 密钥" autocomplete="off" /></div>
 
@@ -169,24 +169,6 @@
         <div class="s-field"><span>深度思考</span><input id="model-smart" type="text" autocomplete="off" /></div>
         <div class="s-field"><span>模型窗口</span><input id="context-window-tokens" type="number" min="1024" max="2000000" step="1024" aria-label="模型窗口 token 数" /></div>
         <div class="s-note">填写服务商公布的上下文窗口 token 数；未知时保留 16384。回答会优先保留完整问题与约束。</div>
-        <label class="s-label" for="instant-rag-policy">极速源码策略</label>
-        <select id="instant-rag-policy" class="s-select">
-          <option value="ready-only">仅使用已就绪源码</option>
-          <option value="off">关闭源码检索</option>
-        </select>
-        <div class="s-note">极速问答固定使用快速模型；深度思考开关仍用于标准问答和屏幕、代码等其他功能。</div>
-<label class="s-label" for="standard-rag-policy">标准源码策略</label>
-<select id="standard-rag-policy" class="s-select"><option value="standard">有界源码检索</option><option value="ready-only">仅使用已就绪源码</option><option value="off">关闭源码检索</option></select>
-<label class="s-label"><input id="project-facts-enabled" type="checkbox" /> 启用项目事实卡（极速和标准）</label>
-<label class="s-label"><input id="manual-project-enabled" type="checkbox" /> 启用旧手动项目资料</label>
-<div class="s-note">事实卡与源码开关独立。旧手动长文本可能与新事实冲突，可在此停用；不会自动删除原文。</div>
-<div id="materials-migration-note" class="s-note" hidden>源码检索与项目事实已拆分。<button id="materials-dismiss" type="button">知道了</button></div>
-<label class="s-label">项目材料（仅本机保存）</label><div id="fact-pack-status" role="status"></div>
-<label class="s-label" for="material-mode">事实导入方式</label><select id="material-mode" class="s-select"><option value="merge">合并更新</option><option value="replace-projects">替换本次项目</option><option value="replace-all">替换全部事实</option></select>
-<label class="s-label" for="material-fact-paths">额外事实文件相对路径（文件夹 / ZIP，每行一项）</label><textarea id="material-fact-paths" rows="2" placeholder="interview/custom-facts.json"></textarea>
-<button id="fact-import" type="button">导入事实 JSON…</button><button id="fact-rebuild" type="button">重载事实资料</button><button id="materials-rollback" type="button" disabled>恢复上一版材料</button>
-<details><summary>编辑本地事实包</summary><textarea id="fact-editor" rows="5" aria-label="本地事实包 JSON"></textarea><button id="fact-save" type="button">校验并预览</button></details>
-<div id="materials-preview" hidden><h3>材料导入预览</h3><div id="materials-preview-summary"></div><div id="materials-preview-changes"></div><button id="materials-commit" type="button">确认应用此预览</button><button id="materials-cancel" type="button">取消预览</button></div>
         <label class="s-label" for="protocol-preset">兼容服务协议预设</label><select id="protocol-preset" class="s-select"><option value="">自动（未知网关不推测）</option value="dashscope">明确使用 Qwen / DashScope 协议</option><option value="deepseek">明确使用 DeepSeek 协议</option></select>
         <label class="s-label" for="instant-thinking">极速思考设置</label>
         <select id="instant-thinking" class="s-select" disabled>
@@ -204,6 +186,8 @@
 
       <!-- Tab: Transcription -->
       <div class="s-body s-tab-pane hidden" data-pane="transcription">
+        <label class="s-label">音频服务凭据</label>
+        <div class="s-field"><span>Deepgram</span><input id="key-deepgram" type="password" placeholder="dg-..." autocomplete="off" /></div>
         <label class="s-label">语音识别服务</label>
         <div class="s-seg s-seg-wrap" id="stt-provider-seg">
           <button data-stt-provider="auto">自动</button>
@@ -294,13 +278,10 @@
         <div class="s-status" id="whisper-status"></div>
       </div>
 
-      <!-- Tab: Profile -->
+      <!-- Tab: Project materials -->
       <div class="s-body s-tab-pane hidden" data-pane="profile">
-        <label class="s-label">个人简历 <span class="s-hint">粘贴完整简历，或导入 PDF/DOCX</span></label>
-        <div class="s-field s-upload"><span class="s-filename" id="resume-filename"></span><button class="s-upload-btn" id="upload-resume-btn">导入 PDF/DOCX</button></div>
-        <textarea id="resume-text" rows="7" spellcheck="false" placeholder="在这里粘贴完整简历，Cue 会提取姓名、简介、工作经历、技能、项目和教育背景。"></textarea>
         <label class="s-label">
-          项目资料
+          手动项目补充
           <span class="s-hint">
             可选：补充项目详情、架构、技术、个人职责和成果
           </span>
@@ -312,6 +293,30 @@
           spellcheck="false"
           placeholder="粘贴项目资料，例如架构、技术栈、个人职责、技术选型、难点、指标和成果。"
         ></textarea>
+        <label class="s-label" for="instant-rag-policy">极速源码策略</label>
+        <select id="instant-rag-policy" class="s-select">
+          <option value="ready-only">仅使用已就绪源码</option>
+          <option value="off">关闭源码检索</option>
+        </select>
+
+<label class="s-label" for="standard-rag-policy">标准源码策略</label>
+<select id="standard-rag-policy" class="s-select"><option value="standard">有界源码检索</option><option value="ready-only">仅使用已就绪源码</option><option value="off">关闭源码检索</option></select>
+<label class="s-label"><input id="project-facts-enabled" type="checkbox" /> 启用项目事实卡（极速和标准）</label>
+<label class="s-label"><input id="manual-project-enabled" type="checkbox" /> 启用旧手动项目资料</label>
+<div class="s-note">事实卡与源码开关独立。旧手动长文本可能与新事实冲突，可在此停用；不会自动删除原文。</div>
+<div id="materials-migration-note" class="s-note" hidden>源码检索与项目事实已拆分。<button id="materials-dismiss" type="button">知道了</button></div>
+<label class="s-label">事实卡与版本（仅本机保存）</label><div id="fact-pack-status" role="status"></div>
+<label class="s-label" for="material-mode">事实导入方式</label><select id="material-mode" class="s-select"><option value="merge">合并更新</option><option value="replace-projects">替换本次项目</option><option value="replace-all">替换全部事实</option></select>
+<label class="s-label" for="material-fact-paths">额外事实文件相对路径（文件夹 / ZIP，每行一项）</label><textarea id="material-fact-paths" rows="2" placeholder="interview/custom-facts.json"></textarea>
+<button id="fact-import" type="button">导入事实 JSON…</button><button id="fact-rebuild" type="button">重载事实资料</button><button id="materials-rollback" type="button" disabled>恢复上一版材料</button>
+<details><summary>编辑本地事实包</summary><textarea id="fact-editor" rows="5" aria-label="本地事实包 JSON"></textarea><button id="fact-save" type="button">校验并预览</button></details>
+
+      </div>
+
+      <div class="s-body s-tab-pane hidden" data-pane="personal">
+        <label class="s-label">个人简历 <span class="s-hint">粘贴完整简历，或导入 PDF/DOCX</span></label>
+        <div class="s-field s-upload"><span class="s-filename" id="resume-filename"></span><button class="s-upload-btn" id="upload-resume-btn">导入 PDF/DOCX</button></div>
+        <textarea id="resume-text" rows="7" spellcheck="false" placeholder="在这里粘贴完整简历，Cue 会提取姓名、简介、工作经历、技能、项目和教育背景。"></textarea>
         <label class="s-label">目标岗位描述 <span class="s-hint">可选：在问题相关时突出岗位匹配的经历</span></label>
         <div class="s-field s-upload"><span class="s-filename" id="jd-filename"></span><button class="s-upload-btn" id="upload-jd-btn">导入 PDF/DOCX</button></div>
         <textarea id="job-description" rows="5" spellcheck="false" placeholder="粘贴目标岗位描述，Cue 会在相关问题中突出匹配的经历。"></textarea>
@@ -355,6 +360,20 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Global preview remains visible from every settings page. -->
+  <div id="materials-preview" hidden>
+    <section id="materials-dialog" class="glass" role="dialog" aria-modal="true" aria-labelledby="materials-preview-title" aria-describedby="materials-preview-summary" tabindex="-1">
+      <h2 id="materials-preview-title">材料导入预览</h2>
+      <p id="materials-preview-summary" role="status" aria-live="polite"></p>
+      <p id="materials-preview-error" role="alert" hidden></p>
+      <div id="materials-preview-changes"></div>
+      <div class="materials-actions">
+        <button id="materials-commit" type="button">确认应用此预览</button>
+        <button id="materials-cancel" type="button">取消预览</button>
+      </div>
+    </section>
   </div>
 
   <!-- First-run tutorial / walkthrough -->

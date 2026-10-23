@@ -122,6 +122,12 @@ ipcMain.on('llm:rendered', (_event, value) => renderAcks.push(value));
 dialog.showErrorBox = (title, message) => {
   console.error('UI_ERROR_DIALOG', title, message); process.exit(1);
 };
+const materialSelections=[];
+const nativeOpenDialog=dialog.showOpenDialog;
+dialog.showOpenDialog=async(...args)=>{
+  if(args.at(-1)?.title!=='选择项目材料')return nativeOpenDialog.apply(dialog,args);
+  const selection=materialSelections.shift();assert.ok(selection,'Material picker must use an explicit synthetic fixture');return selection;
+};
 const timeout = setTimeout(() => { console.error('UI_TIMEOUT'); process.exit(1); }, 90000);
 app.on('quit', (_event, code) => {
   clearTimeout(timeout);
@@ -364,7 +370,7 @@ app.on('browser-window-created', (_event, win) => {
       assert.equal(await js("document.getElementById('project-semantic-prepare').textContent"), '准备本地语义检索');
       assert.equal(await js("document.getElementById('project-semantic-import').textContent"), '选择本地模型目录…');
       assert.equal(await js("document.getElementById('context-window-tokens').value"), '16384');
-      for (const tab of ['keys', 'transcription', 'profile', 'prep', 'style', 'qa']) {
+      for (const tab of ['keys', 'transcription', 'profile', 'personal', 'prep', 'style', 'qa']) {
         await js(`document.querySelector('.s-tab[data-tab=${tab}]').click()`);
         await until(() => js(`!document.querySelector('.s-tab-pane[data-pane=${tab}]').classList.contains('hidden')`), 'settings tab ' + tab);
         assert.equal(await js(`document.querySelector('.s-tab-pane[data-pane=${tab}]').classList.contains('hidden')`), false, 'Settings tab: ' + tab);
@@ -375,9 +381,10 @@ app.on('browser-window-created', (_event, win) => {
       assert.equal(await js("document.querySelector('#provider-seg [data-provider=custom]').textContent"), '自定义');
       assert.equal(await js("document.querySelector('#cloud-stt-language [value=auto]').textContent"), '自动 / 多语言');
       if (process.env.CUE_UI_SETTINGS_SCREENSHOT) {
+        fs.mkdirSync(path.dirname(process.env.CUE_UI_SETTINGS_SCREENSHOT),{recursive:true});
         const shot = await win.webContents.capturePage(); fs.writeFileSync(process.env.CUE_UI_SETTINGS_SCREENSHOT, shot.toPNG());
       }
-      const providerFactsUI = await require('./helpers/provider-facts-ui-checks.cjs')({js,until});
+      const providerFactsUI = await require('./helpers/provider-facts-ui-checks.cjs')({js,until,data,selectMaterial:file=>materialSelections.push({canceled:false,filePaths:[file]})});
       await js("document.getElementById('s-close').click()");
       await until(() => js("document.getElementById('settings-scrim').classList.contains('hidden')"), 'settings close');
       await js("document.getElementById('logo-btn').click()");

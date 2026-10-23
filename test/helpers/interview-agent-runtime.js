@@ -58,11 +58,16 @@ function writeIndex(temp, version, chunks, options = {}) {
 function createInterviewRuntime(t, options = {}) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cue-interview-agent-'));
   writeIndex(temp, options.indexVersion || 2, options.chunks || defaultChunks, options);
-  fs.writeFileSync(path.join(temp, 'cue-data.json'), JSON.stringify({ provider: 'custom',
+  const initialSettings = { provider: 'custom',
     baseUrl: 'https://example.invalid/v1', apiKeys: { custom: 'test-transport-only' },
     // Existing retrieval suites deliberately exercise the standard RAG flow.
     // Instant-mode suites opt in explicitly; production store defaults instant.
-    models: { custom: { fast: 'test-model' } }, smart: false, realtimeAnswerMode: 'standard', resumeText: '', ...options.settings }));
+    models: { custom: { fast: 'test-model' } }, smart: false, realtimeAnswerMode: 'standard', resumeText: '', ...options.settings };
+  const memorySettings = !!(options.inMemorySettings || options.liveTransport);
+  // Live credentials are injected only after the real store module loads.
+  // Neither the temporary store nor material snapshots ever contain keys.
+  fs.writeFileSync(path.join(temp, 'cue-data.json'), JSON.stringify(memorySettings
+    ? { ...initialSettings, apiKeys: {} } : initialSettings));
 
   let time = options.startedAt || 1_800_000_000_000;
   class ClockDate extends Date {
@@ -79,16 +84,62 @@ function createInterviewRuntime(t, options = {}) {
   app.getVersion = () => '0.2.2';
   app.commandLine = { appendSwitch() {} };
 
-  const calls = [], requestOptions = [], requests = [], commits = [], searches = [], events = [], loaded = [], logs = [];
+  const calls = [], requestOptions = [], requests = [], commits = [], searches = [], events = [], loaded = [], logs = [], transportEvents = [];
   const modules = new Map(), shortcuts = new Map(), pendingShortcuts = [];
   let captures = 0, captureError = false, seq = 0, window;
   let response = { text: '测试答案', finishReason: 'stop' }, transport;
 
   class OpenAI {
     constructor(config) {
+      const live = options.liveTransport;
+      const Client = live && (live.Client || require('openai'));
+      const client = live && new Client({ ...config, maxRetries: 0, timeout: live.totalTimeoutMs || 60000 });
       this.chat = { completions: { create: async (body, sdkOptions) => {
         calls.push(copy(body));
         requestOptions.push(sdkOptions);
+        if (live) {
+          const maxTokens = Number(body.max_tokens || body.max_completion_tokens);
+          if (!Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > (live.maxOutputTokens || 1800)) {
+            transportEvents.push({ type: 'error', code: 'output-token-budget' });
+            throw new Error('Live evaluation output token budget exceeded.');
+          }
+          try { live.onAttempt?.({ model: body.model, maxTokens }); }
+          catch (error) { transportEvents.push({ type: 'error', code: 'request-budget' }); throw error; }
+          const controller = new AbortController();
+          const signal = sdkOptions?.signal ? AbortSignal.any([sdkOptions.signal, controller.signal]) : controller.signal;
+          let firstContent = false;
+          const timeout = code => {
+            transportEvents.push({ type: 'error', code });
+            controller.abort(new Error(code));
+          };
+          const first = setTimeout(() => timeout('first-content-timeout'), live.firstContentTimeoutMs || 15000);
+          const total = setTimeout(() => timeout('total-timeout'), live.totalTimeoutMs || 60000);
+          const cleanup = () => { clearTimeout(first); clearTimeout(total); };
+          try {
+            const stream = await client.chat.completions.create(body, { ...sdkOptions, maxRetries: 0,
+              timeout: live.totalTimeoutMs || 60000, signal });
+            return (async function* () {
+              try {
+                for await (const part of stream) {
+                  if (!firstContent && String(part.choices?.[0]?.delta?.content || '').trim()) {
+                    firstContent = true;
+                    clearTimeout(first);
+                  }
+                  yield part;
+                }
+              } catch (error) {
+                transportEvents.push({ type: 'error', code: signal.aborted ? 'aborted' : 'provider-error',
+                  status: Number.isInteger(error?.status) ? error.status : null });
+                throw error;
+              } finally { cleanup(); }
+            })();
+          } catch (error) {
+            cleanup();
+            transportEvents.push({ type: 'error', code: signal.aborted ? 'aborted' : 'provider-error',
+              status: Number.isInteger(error?.status) ? error.status : null });
+            throw error;
+          }
+        }
         if (transport) return transport(body, sdkOptions, calls.length - 1, config);
         const selected = { ...response };
         return (async function* () {
@@ -104,7 +155,11 @@ function createInterviewRuntime(t, options = {}) {
 
   const mocks = {
     electron: { app, ipcMain: ipc, BrowserWindow: { getAllWindows: () => window ? [window] : [] },
-      globalShortcut: { unregister: key => shortcuts.delete(key), register: (key, fn) => { shortcuts.set(key, fn); return true; } }, dialog: {} },
+      globalShortcut: { unregister: key => shortcuts.delete(key), register: (key, fn) => { shortcuts.set(key, fn); return true; } },
+      dialog: options.dialogPaths ? { showOpenDialog: async () => {
+        const selected = options.dialogPaths.shift();
+        return selected ? { canceled: false, filePaths: [selected] } : { canceled: true, filePaths: [] };
+      } } : {} },
     openai: OpenAI,
     'src/screen.js': { captureScreenshot: async () => {
       captures++;
@@ -126,10 +181,27 @@ function createInterviewRuntime(t, options = {}) {
     loaded.push(relative);
     const context = vm.createContext({ module, exports: module.exports, __filename: file, __dirname: path.dirname(file),
       require: id => shim._load(id, module), process, Buffer, URL, Headers, AbortController, AbortSignal, performance,
-      Date: ClockDate, setTimeout, clearTimeout, setInterval, clearInterval, setImmediate, queueMicrotask,
+      Date: options.liveTransport || options.realTime ? Date : ClockDate, setTimeout, clearTimeout, setInterval, clearInterval, setImmediate, queueMicrotask,
       console: Object.fromEntries(['log', 'warn', 'error'].map(level => [level, (...args) => logs.push(args)])) });
     vm.runInContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
     module.context = context;
+    if (relative === 'src/store.js' && memorySettings) {
+      const merge = (base, patch) => {
+        const result = { ...base };
+        for (const [key, value] of Object.entries(patch || {})) result[key] = value && typeof value === 'object' && !Array.isArray(value)
+          ? merge(base?.[key] || {}, value) : value;
+        return result;
+      };
+      let settings = merge(copy(module.exports.getSettings()), initialSettings);
+      module.exports.getSettings = () => settings;
+      module.exports.setSettings = patch => {
+        const update = { ...(patch || {}) };
+        if (Object.hasOwn(update, 'instantRagPolicy') && !update.sourceRagPolicies) update.sourceRagPolicies = { instant: update.instantRagPolicy === 'off' ? 'off' : 'ready-only' };
+        if (typeof update.aiRules === 'string') update.aiRules = update.aiRules.slice(0, module.exports.MAX_AI_RULES_CHARS);
+        settings = merge(settings, update);
+        return settings;
+      };
+    }
     if (relative === 'src/conversation-memory.js') {
       const originalBegin = module.exports.ConversationMemory.prototype.begin;
       const originalCommit = module.exports.ConversationMemory.prototype.commit;
@@ -186,7 +258,13 @@ function createInterviewRuntime(t, options = {}) {
   entry.installShortcutOverrides();
   const value = expression => vm.runInContext(expression, context);
   const clear = () => handlers.get('transcript:clear')(null);
-  t.after(async () => { await ready.catch(() => {}); clear(); fs.rmSync(temp, { recursive: true, force: true }); });
+  let disposed = false;
+  const dispose = async () => {
+    if (disposed) return;
+    disposed = true;
+    await ready.catch(() => {}); clear(); fs.rmSync(temp, { recursive: true, force: true });
+  };
+  t.after(dispose);
   function speech(channel, text, final, meta = {}) {
     time += 100;
     Object.assign(context, { __text: text, __channel: channel,
@@ -194,11 +272,11 @@ function createInterviewRuntime(t, options = {}) {
     return value(`${final ? 'publishTranscript' : 'publishInterim'}(__channel, __text, __meta)`);
   }
   return {
-    temp, ready, calls, requestOptions, requests, commits, searches, events, loaded, logs, value,
+    temp, ready, calls, requestOptions, requests, commits, searches, events, loaded, logs, transportEvents, value, dispose,
     snapshot: expression => copy(value(expression)),
     exports: relative => load(path.join(root, relative)),
-    answer(text, config = {}) { transport = null; response = { text, finishReason: 'stop', ...config }; },
-    behavior(factory) { transport = factory; },
+    answer(text, config = {}) { if (options.liveTransport) throw new Error('Live transport cannot be replaced.'); transport = null; response = { text, finishReason: 'stop', ...config }; },
+    behavior(factory) { if (options.liveTransport) throw new Error('Live transport cannot be replaced.'); transport = factory; },
     final: (text, meta) => speech('them', text, true, meta),
     interim: (text, meta) => speech('them', text, false, meta),
     candidate: (text, meta) => speech('you', text, true, meta),

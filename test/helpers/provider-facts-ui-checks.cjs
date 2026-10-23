@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
-module.exports = async function ({ js, until }) {
+module.exports = async function ({ js, until, data, selectMaterial }) {
   await js("document.querySelector('.s-tab[data-tab=keys]').click();document.querySelector('#provider-seg [data-provider=deepseek]').click()");
   await until(() => js("document.getElementById('model-fast').value==='deepseek-flash'&&!document.getElementById('instant-thinking').disabled"), 'DeepSeek static capability before first answer');
   const original = await js("cue.settingsGet()");
@@ -18,9 +18,10 @@ module.exports = async function ({ js, until }) {
   assert.equal(status.projects.filter(p=>p.factProjectId).length,2);assert.ok(status.projects.some(p=>p.id==='ui-synthetic'&&p.sourceChunks===2));assert.equal(status.index.cards.length,25);
   const rejected=await js("cue.saveProjectFactCards({index:{schemaVersion:99}}).then(()=>false,()=>true)");assert.equal(rejected,true);
   assert.equal((await js('cue.getProjectFactPackStatus()')).revision,status.revision);
-  await js("document.getElementById('more-btn').click();document.querySelector('.s-tab[data-tab=keys]').click()");
+  await js("document.getElementById('more-btn').click();document.querySelector('.s-tab[data-tab=profile]').click()");
   assert.equal(await js("document.getElementById('project-facts-enabled').checked"),true);
   assert.equal(await js("document.getElementById('standard-rag-policy').value"),'standard');
+  const importUI=await require('./material-import-ui-checks.cjs')({js,until,data,selectMaterial});
   const fixture=require('./material-fixture').fixture();
   await js(`document.getElementById('material-mode').value='replace-all';document.getElementById('fact-editor').value=${JSON.stringify(JSON.stringify(fixture))};document.getElementById('fact-save').click()`);
   await until(()=>js("!document.getElementById('materials-preview').hidden"),'material preview opens');
@@ -34,5 +35,5 @@ module.exports = async function ({ js, until }) {
   const html=await js("CueMarkdown.renderMarkdown('1. 一\\n2. 二\\n3. 三')");
   assert.equal((html.match(/<li>/g)||[]).length,3);
 
-  return { independentDeepseekSettings:true,staticThinkingBeforeFirstRequest:true,quickSwitch:true,asrPreserved:true,diagnosticDrawer:true,invalidFactIndexRejected:true,materialPreviewCommitRollback:true,orderedMarkdown:true };
+  return { ...importUI, independentDeepseekSettings:true,staticThinkingBeforeFirstRequest:true,quickSwitch:true,asrPreserved:true,diagnosticDrawer:true,invalidFactIndexRejected:true,materialPreviewCommitRollback:true,orderedMarkdown:true };
 };

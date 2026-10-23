@@ -333,7 +333,7 @@ async function addFileToIndex(index, relativePath, buffer, stats) {
   if (accepted.length < chunks.length) stats.truncatedCount++;
 }
 
-async function walkFolder(rootDir, index, stats) {
+async function walkFolder(rootDir, index, stats, onProgress = () => {}) {
   const queue = [{ abs: rootDir, rel: '' }];
   let visited = 0;
 
@@ -370,6 +370,7 @@ async function walkFolder(rootDir, index, stats) {
       }
 
       visited++;
+      if (visited % 25 === 0) onProgress({phase:'scan',filesScanned:visited,indexedFiles:stats.fileCount,sourceChunks:index.chunks.length,skippedCount:stats.skippedCount,truncatedCount:stats.truncatedCount});
       if (visited % 25 === 0) await new Promise((resolve) => setImmediate(resolve));
       if (stats.indexedBytes >= MAX_TOTAL_TEXT_BYTES || index.chunks.length >= MAX_CHUNKS) break;
     }
@@ -643,7 +644,9 @@ async function importProjectFolder(rootDir, options = {}) {
     const manifestStat = await fs.promises.lstat(manifestFile);
     if (manifestStat.isFile() && !manifestStat.isSymbolicLink() && manifestStat.size <= MAX_FILE_BYTES) applyProjectManifest(index, parseProjectManifest(decodeText(await fs.promises.readFile(manifestFile))));
   } catch (error) { if (error.code !== 'ENOENT') index.importReport.warnings.push('无法读取项目清单，沿用旧项目身份'); }
-  await walkFolder(rootDir, index, index.stats);
+  await walkFolder(rootDir, index, index.stats, options.onProgress);
+  options.onProgress?.({phase:'scan',indexedFiles:index.stats.fileCount,sourceChunks:index.chunks.length,skippedCount:index.stats.skippedCount,truncatedCount:index.stats.truncatedCount});
+  if (!index.chunks.length && options.allowEmpty === false) { const error = new Error('所选目录中没有可导入的源码或有效事实资料。请检查文件类型、内容及忽略规则。'); error.code = 'empty-materials'; throw error; }
   if (!index.chunks.length && options.prepareOnly) return options.previous || emptyWorkspace();
   if (!index.chunks.length) throw new Error('项目中未找到支持的文本或代码文件。');
   if (options.prepareOnly) return mergeImportedProjectNow(index, options);
@@ -697,10 +700,13 @@ async function importProjectZip(zipPath, options = {}) {
     }
     await addFileToIndex(index, rel, buffer, index.stats);
     processed++;
+    if (processed % 25 === 0) options.onProgress?.({phase:'scan',filesScanned:processed,indexedFiles:index.stats.fileCount,sourceChunks:index.chunks.length,skippedCount:index.stats.skippedCount,truncatedCount:index.stats.truncatedCount});
     if (processed % 25 === 0) await new Promise((resolve) => setImmediate(resolve));
     if (index.stats.indexedBytes >= MAX_TOTAL_TEXT_BYTES || index.chunks.length >= MAX_CHUNKS) break;
   }
 
+  options.onProgress?.({phase:'scan',filesScanned:processed,indexedFiles:index.stats.fileCount,sourceChunks:index.chunks.length,skippedCount:index.stats.skippedCount,truncatedCount:index.stats.truncatedCount});
+  if (!index.chunks.length && options.allowEmpty === false) { const error = new Error('ZIP 中没有可导入的源码或有效事实资料。请检查文件类型、内容及忽略规则。'); error.code = 'empty-materials'; throw error; }
   if (!index.chunks.length && options.prepareOnly) return options.previous || emptyWorkspace();
   if (!index.chunks.length) throw new Error('ZIP 中未找到支持的文本或代码文件。');
   if (options.prepareOnly) return mergeImportedProjectNow(index, options);

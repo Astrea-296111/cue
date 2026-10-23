@@ -1,0 +1,54 @@
+name: Offline end-to-end
+
+on:
+  pull_request:
+  push:
+    branches: [main, 'codex/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cue-offline-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  production-chain:
+    name: Mock production chain and Electron UI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        id: install
+      - name: Compile distributable materials
+        run: npm run compile:materials
+      - name: Exercise the production chain without external API calls
+        run: npm run test:llm:mock -- --mode full --provider all --output-dir artifacts/llm-mock
+      - name: Exercise actual Electron import, chat and errors
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        env:
+          CUE_UI_SETTINGS_SCREENSHOT: artifacts/electron/settings.png
+        run: |
+          mkdir -p artifacts/electron
+          set -o pipefail
+          xvfb-run -a npm run test:ui -- --no-sandbox 2>&1 | tee artifacts/electron/ui.log
+      - name: Explain offline validation scope
+        if: always()
+        run: |
+          echo 'Electron uses virtual display/devices. This run does not verify a physical Windows device or real LLM quality.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload Mock reports and Electron evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14

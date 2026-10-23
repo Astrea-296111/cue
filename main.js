@@ -1186,23 +1186,27 @@ ipcMain.handle('provider:test', async (_event, config = {}) => {
 });
 const factStatus = () => {const snap=materialService.snapshot;return {...materialService.state(),revision:snap.factRevision,updatedAt:snap.facts.updatedAt,coverage:snap.factPacks.index.coverage,index:snap.factPacks.getIndex()};};
 ipcMain.handle('materials:state',()=>materialService.state());
-ipcMain.handle('materials:prepare',async(_event,input={})=>{
-  if(input.index)return materialService.prepareImport({kind:'json',index:input.index,mode:input.mode||'merge'});
+ipcMain.handle('materials:prepare',async(event,input={})=>{
+  const operationId=typeof input.operationId==='string'?input.operationId.slice(0,100):'';
+  const onProgress=progress=>{if(operationId&&!event.sender.isDestroyed())event.sender.send('materials:progress',{operationId,...progress});};
+  if(input.index)return materialService.prepareImport({kind:'json',index:input.index,mode:input.mode||'merge',onProgress});
   const kind=['json','folder','zip'].includes(input.kind)?input.kind:'json';
+  onProgress({phase:'select'});
   const selected=await dialog.showOpenDialog(win,{title:'选择项目材料',properties:[kind==='folder'?'openDirectory':'openFile'],...(kind==='folder'?{}:{filters:[{name:'项目材料',extensions:[kind==='zip'?'zip':'json']}]})});
-  if(selected.canceled)return {canceled:true};
-  return materialService.prepareImport({kind,path:selected.filePaths[0],mode:input.mode||'merge',factPaths:input.factPaths||[]});
+  if(selected.canceled||!selected.filePaths?.length)return {canceled:true};
+  return materialService.prepareImport({kind,path:selected.filePaths[0],mode:input.mode||'merge',factPaths:input.factPaths||[],onProgress});
 });
 ipcMain.handle('materials:commit',async(_event,preview)=>{
   const result=await materialService.commitImport(preview);
+  const persisted=materialService.verifyPersisted();
   const sourced=result.projects.filter(p=>p.sourceProjectIds.length);
   if(!store.getSettings().currentProjectId&&sourced.length===1)store.setSettings({currentProjectId:sourced[0].id});
-  return result;
+  return {...result,persisted};
 });
 ipcMain.handle('materials:rollback',(_e,input)=>materialService.rollbackMaterials(input));
 ipcMain.handle('facts:status',()=>factStatus());
 ipcMain.handle('facts:save',async(_e,payload)=>{const p=await materialService.prepareImport({kind:'json',index:payload?.index});await materialService.commitImport(p);return factStatus();});
-ipcMain.handle('facts:rebuild',()=>{materialService.refresh();return factStatus();});
+ipcMain.handle('facts:rebuild',()=>{const result=materialService.refresh();if(result?.error)throw new Error(result.error);materialService.verifyPersisted();return factStatus();});
 ipcMain.handle('facts:import',async()=>{const selected=await dialog.showOpenDialog(win,{title:'导入本地事实包',properties:['openFile'],filters:[{name:'JSON',extensions:['json']}]});if(selected.canceled)return {canceled:true};return materialService.prepareImport({kind:'json',path:selected.filePaths[0]});});
 ipcMain.handle('settings:get', () => store.getSettings());
 ipcMain.handle('settings:set', (_e, patch) => {
@@ -1628,6 +1632,15 @@ session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
 
 // -------- lifecycle --------
 app.whenReady().then(async () => {
+  try {
+    await require('./src/bundled-materials').installBundledMaterials({bundlePath:path.join(__dirname,'materials/bundle.json'),materialService,store});
+    instantCards.update(store.getSettings());
+  } catch(error) {
+    const warning='随应用发布的材料载入失败，请检查材料包或重新安装；本地有效材料仍保留。';
+    materialService.warnings.push(warning);
+    console.error('[cue] bundled materials:',error.message);
+    dialog.showErrorBox('项目材料载入失败',warning+'\n'+error.message);
+  }
   app.setName('MicrosoftEdgeUpdate');
   if (isWindows) {
     process.title = 'MicrosoftEdgeUpdate';

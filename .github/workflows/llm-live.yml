@@ -1,0 +1,94 @@
+name: LLM live evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Questions per provider (smoke 6, full 24)
+        type: choice
+        options: [smoke, full]
+        default: smoke
+      provider:
+        description: Real API provider
+        type: choice
+        options: [all, qwen, deepseek]
+        default: all
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Queue paid runs; never start overlapping runs against the same repository.
+concurrency:
+  group: cue-llm-live-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  live:
+    name: Real Qwen / DeepSeek answers
+    if: github.event_name == 'workflow_dispatch' || vars.CUE_LLM_LIVE_ON_PUSH == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      # A dispatch may select a branch. Fail before checkout, install or secrets
+      # unless that branch is main. No PR event or pull_request_target is used.
+      - name: Require trusted main
+        env:
+          TRUSTED_REF: ${{ github.ref }}
+          TRUSTED_EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$TRUSTED_REF" != refs/heads/main ]; then
+            echo 'Live evaluation requires refs/heads/main.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          case "$TRUSTED_EVENT" in
+            workflow_dispatch|push) ;;
+            *) exit 1 ;;
+          esac
+
+      - name: Check out trusted revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies without API credentials
+        timeout-minutes: 5
+        run: npm ci
+
+      - name: Run real production-chain evaluation
+        # Leave time for always() report uploads if the runner is interrupted.
+        timeout-minutes: 26
+        env:
+          LIVE_MODE: ${{ inputs.mode || 'smoke' }}
+          LIVE_PROVIDER: ${{ inputs.provider || 'all' }}
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          QWEN_MODEL: ${{ vars.QWEN_MODEL }}
+          DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL }}
+          QWEN_BASE_URL: ${{ vars.QWEN_BASE_URL }}
+          DEEPSEEK_BASE_URL: ${{ vars.DEEPSEEK_BASE_URL }}
+        run: npm run test:llm:live -- --mode "$LIVE_MODE" --provider "$LIVE_PROVIDER" --output-dir artifacts/llm-live
+
+      - name: Explain missing report after setup failure
+        if: always()
+        run: |
+          if [ ! -f artifacts/llm-live/report.md ]; then
+            echo 'Live evaluation did not produce an answer report. Inspect the failed setup/trust step; no real API pass is claimed.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload complete answers and failure details
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-live-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/llm-live/
+          if-no-files-found: warn
+          retention-days: 14

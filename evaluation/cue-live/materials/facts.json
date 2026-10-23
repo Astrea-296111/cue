@@ -1,0 +1,838 @@
+{
+  "schemaVersion": 1,
+  "projects": [
+    {
+      "id": "arclight",
+      "name": "Arclight",
+      "aliases": [
+        "MewCode",
+        "mewcode"
+      ],
+      "sourceRepository": "Astrea-296111/Arclight"
+    },
+    {
+      "id": "cae",
+      "name": "CAE",
+      "aliases": [
+        "cae-job-platform",
+        "CAE仿真平台",
+        "仿真任务平台"
+      ],
+      "sourceRepository": "Astrea-296111/cae-job-platform"
+    }
+  ],
+  "cards": [
+    {
+      "cardId": "arclight.challenge",
+      "projectId": "arclight",
+      "docType": "challenge",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "困难",
+        "难点",
+        "上下文",
+        "一致性",
+        "方案",
+        "排查"
+      ],
+      "related": [
+        "arclight.context"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/context/manager.py",
+          "symbol": "CompactBoundary",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [
+        {
+          "key": "challenge",
+          "value": "可从当前实现讨论的工程难点是长输出预算、压缩后近期消息保留，以及 fork 时未完成工具调用的配对。现有方案分别采用持久结果预览、CompactBoundary 与 interrupted 占位。它们是代码可见的设计，应以“实现采用”解释；尚无本人当时排查过程的确认材料。"
+        }
+      ],
+      "path": "arclight/interview/challenge.md",
+      "text": "可从当前实现讨论的工程难点是长输出预算、压缩后近期消息保留，以及 fork 时未完成工具调用的配对。现有方案分别采用持久结果预览、CompactBoundary 与 interrupted 占位。它们是代码可见的设计，应以“实现采用”解释；尚无本人当时排查过程的确认材料。"
+    },
+    {
+      "cardId": "arclight.collaboration",
+      "projectId": "arclight",
+      "docType": "collaboration",
+      "truthScope": "test_only",
+      "status": "verified",
+      "provenance": "USER",
+      "keywords": [
+        "团队",
+        "几个人",
+        "分工",
+        "协作",
+        "个人",
+        "agent",
+        "人数"
+      ],
+      "related": [
+        "arclight.shared"
+      ],
+      "sources": [
+        {
+          "path": "evaluation/cue-live/materials/synthetic-profile.md",
+          "symbol": "arclight.collaboration",
+          "commit": null,
+          "contentSha256": "4ee3697e5d129b93144420cc4f38f370819b4e2f7997c1d0b5429a27f5493ff2"
+        }
+      ],
+      "path": "evaluation/cue-live/materials/synthetic-profile.md",
+      "text": "CI 合成履历中的 Arclight 是虚构人物林舟的个人实验项目，没有真人开发团队。多个 agent、SharedTask 与 Mailbox 只是运行时软件协作组件，不能换算成同事人数；没有确认的生产 KPI 或个人贡献比例。"
+    },
+    {
+      "cardId": "arclight.context",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "上下文",
+        "压缩",
+        "token",
+        "预算",
+        "长输出"
+      ],
+      "related": [
+        "arclight.fork"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/context/manager.py",
+          "symbol": "CompactBoundary",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [
+        {
+          "key": "context",
+          "value": "上下文管理分别约束单个和累计工具输出，将大结果落到 .mewcode/session/tool-results 并保留可定位预览。自动压缩保留近期原文窗口、摘要较早前缀，CompactBoundary 携带 summary 和 keep 交给会话层持久化。摘要是有损表示，近期消息与工具结果配对应保持一致。"
+        }
+      ],
+      "path": "arclight/interview/context.md",
+      "text": "上下文管理分别约束单个和累计工具输出，将大结果落到 .mewcode/session/tool-results 并保留可定位预览。自动压缩保留近期原文窗口、摘要较早前缀，CompactBoundary 携带 summary 和 keep 交给会话层持久化。摘要是有损表示，近期消息与工具结果配对应保持一致。"
+    },
+    {
+      "cardId": "arclight.fork",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "fork",
+        "隔离",
+        "历史",
+        "子代理",
+        "深拷贝"
+      ],
+      "related": [
+        "arclight.context"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/agents/fork.py",
+          "symbol": "build_forked_messages",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [
+        {
+          "key": "fork",
+          "value": "build_forked_messages 深拷贝会话历史，保留环境与长期记忆注入标志，为未完成工具调用补 interrupted 结果，再加入指定任务。检测 fork 标签阻止嵌套 fork。这里隔离的是会话状态，不等同于 OS 进程或文件系统隔离，文件改动仍须按各自工作目录和权限约束。"
+        }
+      ],
+      "path": "arclight/interview/fork.md",
+      "text": "build_forked_messages 深拷贝会话历史，保留环境与长期记忆注入标志，为未完成工具调用补 interrupted 结果，再加入指定任务。检测 fork 标签阻止嵌套 fork。这里隔离的是会话状态，不等同于 OS 进程或文件系统隔离，文件改动仍须按各自工作目录和权限约束。"
+    },
+    {
+      "cardId": "arclight.mailbox",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "邮箱",
+        "通信",
+        "协作",
+        "消息",
+        "通知"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "mewcode/teams/mailbox.py",
+          "symbol": "Mailbox.write",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [
+        {
+          "key": "mailbox",
+          "value": "Mailbox 为每个 agent 建立目录，消息以时间戳和 id 命名 JSON，读取时按文件名排序并跳过坏 JSON。协议包含普通文本、关闭请求和响应；该机制描述软件 agent 的通信，不是开发团队人数、真人分工或生产消息队列交付保证。"
+        }
+      ],
+      "path": "arclight/interview/mailbox.md",
+      "text": "Mailbox 为每个 agent 建立目录，消息以时间戳和 id 命名 JSON，读取时按文件名排序并跳过坏 JSON。协议包含普通文本、关闭请求和响应；该机制描述软件 agent 的通信，不是开发团队人数、真人分工或生产消息队列交付保证。"
+    },
+    {
+      "cardId": "arclight.mcp",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "MCP",
+        "工具",
+        "发现",
+        "注册",
+        "连接"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "mewcode/mcp/manager.py",
+          "symbol": "MCPManager",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [
+        {
+          "key": "mcp",
+          "value": "MCP 管理器负责连接配置中的服务并将远端工具包装后注册；服务连接、环境变量解析和工具搜索属于可插拔工具链。连接失败与工具返回失败应区分，远端服务能力不能由本地目录存在推断。这里没有验证任何用户私有 MCP 服务或其凭据可用。"
+        }
+      ],
+      "path": "arclight/interview/mcp.md",
+      "text": "MCP 管理器负责连接配置中的服务并将远端工具包装后注册；服务连接、环境变量解析和工具搜索属于可插拔工具链。连接失败与工具返回失败应区分，远端服务能力不能由本地目录存在推断。这里没有验证任何用户私有 MCP 服务或其凭据可用。"
+    },
+    {
+      "cardId": "arclight.memory",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "记忆",
+        "长期",
+        "偏好",
+        "session",
+        "恢复"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "mewcode/memory/auto_memory.py",
+          "symbol": "MEMORY_EXTRACTION_PROMPT",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [
+        {
+          "key": "memory",
+          "value": "auto_memory 把值得长期保留的信息划为用户偏好、纠正反馈、项目知识和参考资料，并维护 .mewcode/memories.md。自动摘要的旧回答属于模型生成内容，不能自动升级为用户亲历或源码事实。恢复会话仍需保留工具配对和上下文版本。"
+        }
+      ],
+      "path": "arclight/interview/memory.md",
+      "text": "auto_memory 把值得长期保留的信息划为用户偏好、纠正反馈、项目知识和参考资料，并维护 .mewcode/memories.md。自动摘要的旧回答属于模型生成内容，不能自动升级为用户亲历或源码事实。恢复会话仍需保留工具配对和上下文版本。"
+    },
+    {
+      "cardId": "arclight.overview",
+      "projectId": "arclight",
+      "docType": "overview",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "架构",
+        "整体",
+        "链路",
+        "简介"
+      ],
+      "related": [
+        "arclight.context"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/agent.py",
+          "symbol": "Agent.run",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [
+        {
+          "key": "overview",
+          "value": "Arclight 的包名是 mewcode，是 Python 终端 AI 编程助手。Agent 接收会话、流式调用模型，分发工具并收集结果继续迭代；上下文管理、权限、子任务、MCP、会话持久化由独立模块承担。工具调用与最终文本是不同事件，不能把子 agent 的完成状态当作用户任务已通过验收。"
+        }
+      ],
+      "path": "arclight/interview/overview.md",
+      "text": "Arclight 的包名是 mewcode，是 Python 终端 AI 编程助手。Agent 接收会话、流式调用模型，分发工具并收集结果继续迭代；上下文管理、权限、子任务、MCP、会话持久化由独立模块承担。工具调用与最终文本是不同事件，不能把子 agent 的完成状态当作用户任务已通过验收。"
+    },
+    {
+      "cardId": "arclight.ownership",
+      "projectId": "arclight",
+      "docType": "ownership",
+      "truthScope": "test_only",
+      "status": "verified",
+      "provenance": "USER",
+      "keywords": [
+        "负责",
+        "职责",
+        "个人",
+        "贡献",
+        "上下文",
+        "预算",
+        "恢复"
+      ],
+      "related": [
+        "arclight.context"
+      ],
+      "sources": [
+        {
+          "path": "evaluation/cue-live/materials/synthetic-profile.md",
+          "symbol": "arclight.ownership",
+          "commit": null,
+          "contentSha256": "4ee3697e5d129b93144420cc4f38f370819b4e2f7997c1d0b5429a27f5493ff2"
+        }
+      ],
+      "path": "evaluation/cue-live/materials/synthetic-profile.md",
+      "text": "在 CI 合成履历中，虚构人物林舟将 Arclight 作为个人实验项目学习，负责上下文输出预算和会话恢复验证。该职责仅用于测试，不推断真实用户或上游作者的贡献；也没有他独立完成所有模块或生产收益的证据。"
+    },
+    {
+      "cardId": "arclight.permissions",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "权限",
+        "沙箱",
+        "危险",
+        "命令",
+        "规则",
+        "安全"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "mewcode/permissions/checker.py",
+          "symbol": "PermissionChecker.check",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [
+        {
+          "key": "permissions",
+          "value": "PermissionChecker 按层判断：计划模式特例、安全只读命令、危险命令检查、文件路径沙箱、用户规则、模式兜底。命令与文件工具走不同分支，规则允许不代表 OS 层沙箱。应结合对应工具和模式回归测试判断实际权限边界，不能单凭类名宣称所有写操作已禁止。"
+        }
+      ],
+      "path": "arclight/interview/permissions.md",
+      "text": "PermissionChecker 按层判断：计划模式特例、安全只读命令、危险命令检查、文件路径沙箱、用户规则、模式兜底。命令与文件工具走不同分支，规则允许不代表 OS 层沙箱。应结合对应工具和模式回归测试判断实际权限边界，不能单凭类名宣称所有写操作已禁止。"
+    },
+    {
+      "cardId": "arclight.shared",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "共享任务",
+        "依赖",
+        "DAG",
+        "阻塞",
+        "分配"
+      ],
+      "related": [
+        "arclight.mailbox"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/teams/shared_task.py",
+          "symbol": "SharedTaskStore.update",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [
+        {
+          "key": "shared",
+          "value": "SharedTaskStore 的 JSON 文件存储任务、assignee、blocks 和 blocked_by，更新后写回；get/list 会重新加载文件。它提供持久任务描述和依赖字段，但该文件读改写本身不是跨进程事务锁，不能据此宣称已保证多进程并发写入一致性。"
+        }
+      ],
+      "path": "arclight/interview/shared.md",
+      "text": "SharedTaskStore 的 JSON 文件存储任务、assignee、blocks 和 blocked_by，更新后写回；get/list 会重新加载文件。它提供持久任务描述和依赖字段，但该文件读改写本身不是跨进程事务锁，不能据此宣称已保证多进程并发写入一致性。"
+    },
+    {
+      "cardId": "arclight.tasks",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "后台任务",
+        "异步",
+        "取消",
+        "进度"
+      ],
+      "related": [
+        "arclight.shared"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/agents/task_manager.py",
+          "symbol": "TaskManager.launch",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [
+        {
+          "key": "tasks",
+          "value": "TaskManager 用 asyncio task 管理后台 agent，记录任务标识、运行状态、结果、取消回调与进度，用通知队列向上层交付完成信息。并发派发减少独立工作的串行等待，但任务返回不能替代集成验证；失败与取消也必须保留为明确结果。"
+        }
+      ],
+      "path": "arclight/interview/tasks.md",
+      "text": "TaskManager 用 asyncio task 管理后台 agent，记录任务标识、运行状态、结果、取消回调与进度，用通知队列向上层交付完成信息。并发派发减少独立工作的串行等待，但任务返回不能替代集成验证；失败与取消也必须保留为明确结果。"
+    },
+    {
+      "cardId": "arclight.worktree",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "worktree",
+        "工作区",
+        "git",
+        "分支",
+        "隔离"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "mewcode/worktree/manager.py",
+          "symbol": "WorktreeManager",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [
+        {
+          "key": "worktree",
+          "value": "WorktreeManager 以仓库根目录初始化，默认工作目录在 .mewcode/worktrees，通过 subprocess 执行 Git，维护 active 和 current_session 并使用 asyncio.Lock。Git 命令有超时，隔离工作目录与后续集成是不同阶段；该机制不证明外部工具或共享资源都被隔离。"
+        }
+      ],
+      "path": "arclight/interview/worktree.md",
+      "text": "WorktreeManager 以仓库根目录初始化，默认工作目录在 .mewcode/worktrees，通过 subprocess 执行 Git，维护 active 和 current_session 并使用 asyncio.Lock。Git 命令有超时，隔离工作目录与后续集成是不同阶段；该机制不证明外部工具或共享资源都被隔离。"
+    },
+    {
+      "cardId": "cae.boundary",
+      "projectId": "cae",
+      "docType": "limitation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "边界",
+        "局限",
+        "商业",
+        "Solver",
+        "替换",
+        "改进"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "docs/real-system-mapping.md",
+          "symbol": "Public adapters",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [
+        {
+          "key": "boundary",
+          "value": "独立 MockSolver、Matplotlib 与 python-pptx 是公开替身。企业替换边界是 SolverAdapter、HyperViewAdapter、BatchSchedulerAdapter，必须保留执行身份、幂等、不可变产物和人工审批；商业实现、许可证和真实工程有效性不随仓库提供。"
+        }
+      ],
+      "path": "cae/interview/boundary.md",
+      "text": "独立 MockSolver、Matplotlib 与 python-pptx 是公开替身。企业替换边界是 SolverAdapter、HyperViewAdapter、BatchSchedulerAdapter，必须保留执行身份、幂等、不可变产物和人工审批；商业实现、许可证和真实工程有效性不随仓库提供。"
+    },
+    {
+      "cardId": "cae.cancel",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "取消",
+        "竞态",
+        "完成",
+        "回调",
+        "单调"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "docs/monitoring-reconciliation.md",
+          "symbol": "RemoteExecutionStateService",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [
+        {
+          "key": "cancel",
+          "value": "取消意图独立持久化，RPC 失败或身份不符仍保留意图和资源，恢复后继续取消。Solver 完成可能先胜出；回调、轮询与取消确认汇合到 RemoteExecutionStateService，通过身份与终态单调检查阻止旧 attempt 覆盖新执行。"
+        }
+      ],
+      "path": "cae/interview/cancel.md",
+      "text": "取消意图独立持久化，RPC 失败或身份不符仍保留意图和资源，恢复后继续取消。Solver 完成可能先胜出；回调、轮询与取消确认汇合到 RemoteExecutionStateService，通过身份与终态单调检查阻止旧 attempt 覆盖新执行。"
+    },
+    {
+      "cardId": "cae.collaboration",
+      "projectId": "cae",
+      "docType": "collaboration",
+      "truthScope": "test_only",
+      "status": "verified",
+      "provenance": "USER",
+      "keywords": [
+        "团队",
+        "几个人",
+        "分工",
+        "协作",
+        "合作",
+        "联调",
+        "四人"
+      ],
+      "related": [
+        "cae.ownership"
+      ],
+      "sources": [
+        {
+          "path": "evaluation/cue-live/materials/synthetic-profile.md",
+          "symbol": "cae.collaboration",
+          "commit": null,
+          "contentSha256": "4ee3697e5d129b93144420cc4f38f370819b4e2f7997c1d0b5429a27f5493ff2"
+        }
+      ],
+      "path": "evaluation/cue-live/materials/synthetic-profile.md",
+      "text": "CI 合成 CAE 团队共四人：虚构人物林舟负责 Java 控制面和接口联调；第二位负责 Python Agent 与解析器；第三位负责 Vue 工作台；第四位负责测试与报告验收。林舟与对方约定执行身份、状态回传、产物与重试契约。此人数和分工仅为合成测试，不描述用户真人团队。"
+    },
+    {
+      "cardId": "cae.frontend",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "SSE",
+        "前端",
+        "通知",
+        "权限",
+        "登录"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "docs/frontend.md",
+          "symbol": "workbench/SSE",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [
+        {
+          "key": "frontend",
+          "value": "Vue 工作台经认证显示任务、执行、日志、指标、图片与报告；SSE 发出已提交事件后前端重新 GET 权威结果。界面隐藏按钮不代替后端角色授权，报表审核和节点管理仍须验证服务端权限。"
+        }
+      ],
+      "path": "cae/interview/frontend.md",
+      "text": "Vue 工作台经认证显示任务、执行、日志、指标、图片与报告；SSE 发出已提交事件后前端重新 GET 权威结果。界面隐藏按钮不代替后端角色授权，报表审核和节点管理仍须验证服务端权限。"
+    },
+    {
+      "cardId": "cae.outbox",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "MQ",
+        "RabbitMQ",
+        "Outbox",
+        "Inbox",
+        "幂等",
+        "消息",
+        "重复"
+      ],
+      "related": [
+        "cae.recovery"
+      ],
+      "sources": [
+        {
+          "path": "docs/mq-and-outbox.md",
+          "symbol": "消息格式和两个 ID",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [
+        {
+          "key": "outbox",
+          "value": "事务先写业务状态、事件与 Outbox；Publisher 用租约和 confirm 交付，Consumer 用 logical eventId 与 consumer 唯一键去重。deliveryId 标识物理投递，重试保留逻辑事件和执行身份。延迟重投和 Inbox RETRY 共同提交后才 ACK，避免确认与落库之间丢失意图。"
+        }
+      ],
+      "path": "cae/interview/outbox.md",
+      "text": "事务先写业务状态、事件与 Outbox；Publisher 用租约和 confirm 交付，Consumer 用 logical eventId 与 consumer 唯一键去重。deliveryId 标识物理投递，重试保留逻辑事件和执行身份。延迟重投和 Inbox RETRY 共同提交后才 ACK，避免确认与落库之间丢失意图。"
+    },
+    {
+      "cardId": "cae.overview",
+      "projectId": "cae",
+      "docType": "overview",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "概览",
+        "整体",
+        "链路",
+        "架构"
+      ],
+      "related": [
+        "cae.state"
+      ],
+      "sources": [
+        {
+          "path": "README.md",
+          "symbol": "Development",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [
+        {
+          "key": "overview",
+          "value": "CAE 公开复现用 Java 后端管理 Job 与 Execution，MySQL 保存业务事实，RabbitMQ 传命令，Python Agent 启动独立 mock Solver，解析、后处理和 PPTX 报告后才完成任务。合成 Case 与模拟求解器验证控制面，不复现商业求解算法或公司生产数据。"
+        }
+      ],
+      "path": "cae/interview/overview.md",
+      "text": "CAE 公开复现用 Java 后端管理 Job 与 Execution，MySQL 保存业务事实，RabbitMQ 传命令，Python Agent 启动独立 mock Solver，解析、后处理和 PPTX 报告后才完成任务。合成 Case 与模拟求解器验证控制面，不复现商业求解算法或公司生产数据。"
+    },
+    {
+      "cardId": "cae.ownership",
+      "projectId": "cae",
+      "docType": "ownership",
+      "truthScope": "test_only",
+      "status": "verified",
+      "provenance": "USER",
+      "keywords": [
+        "负责",
+        "职责",
+        "个人",
+        "贡献",
+        "Java",
+        "边界"
+      ],
+      "related": [
+        "cae.collaboration"
+      ],
+      "sources": [
+        {
+          "path": "evaluation/cue-live/materials/synthetic-profile.md",
+          "symbol": "cae.ownership",
+          "commit": null,
+          "contentSha256": "4ee3697e5d129b93144420cc4f38f370819b4e2f7997c1d0b5429a27f5493ff2"
+        }
+      ],
+      "path": "evaluation/cue-live/materials/synthetic-profile.md",
+      "text": "林舟是 CI 虚构人物。在合成履历的 CAE 四人练习团队中，他负责 Java 控制面：Job/Execution 状态机、Outbox、幂等提交、资源预占和失联对账；约定执行身份、状态回传、产物和重试接口。Python Agent、Parser、Vue 和专业 Solver 不属于他独立完成的范围。"
+    },
+    {
+      "cardId": "cae.performance",
+      "projectId": "cae",
+      "docType": "performance",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "LOCAL-BENCH",
+      "keywords": [
+        "性能",
+        "压测",
+        "数字",
+        "指标",
+        "批次",
+        "100"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "docs/benchmark.md",
+          "symbol": "实际测量",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [
+        {
+          "key": "performance",
+          "value": "文档记录单台云环境公开复现：100 子任务批次全部成功，端到端 98.583 秒；API 接受只测一个样本。MySQL/Redis/RabbitMQ 与三个 mock Worker 共用 4 核配额和 32GiB 上限。这是 LOCAL-BENCH，不能当作公司线上 KPI 或外推集群吞吐。"
+        }
+      ],
+      "path": "cae/interview/performance.md",
+      "text": "文档记录单台云环境公开复现：100 子任务批次全部成功，端到端 98.583 秒；API 接受只测一个样本。MySQL/Redis/RabbitMQ 与三个 mock Worker 共用 4 核配额和 32GiB 上限。这是 LOCAL-BENCH，不能当作公司线上 KPI 或外推集群吞吐。"
+    },
+    {
+      "cardId": "cae.recovery",
+      "projectId": "cae",
+      "docType": "challenge",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "困难",
+        "故障",
+        "对账",
+        "恢复",
+        "重启",
+        "超时",
+        "解决"
+      ],
+      "related": [
+        "cae.resources"
+      ],
+      "sources": [
+        {
+          "path": "docs/monitoring-reconciliation.md",
+          "symbol": "ExecutionMonitor",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [
+        {
+          "key": "recovery",
+          "value": "执行接收后响应丢失会导致提交结果不确定。ExecutionMonitor 用原 submitRequestId 或 externalExecutionId 查询，HTTP 调用在事务外，应用结果核对 lease owner、generation、身份与当前执行。它不新建 Execution 或重新 submit；404、断联和心跳过期仍保留 UNKNOWN 容量。"
+        }
+      ],
+      "path": "cae/interview/recovery.md",
+      "text": "执行接收后响应丢失会导致提交结果不确定。ExecutionMonitor 用原 submitRequestId 或 externalExecutionId 查询，HTTP 调用在事务外，应用结果核对 lease owner、generation、身份与当前执行。它不新建 Execution 或重新 submit；404、断联和心跳过期仍保留 UNKNOWN 容量。"
+    },
+    {
+      "cardId": "cae.reports",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "解析",
+        "版本",
+        "报告",
+        "PPTX",
+        "PNG",
+        "工况",
+        "Subcase"
+      ],
+      "related": [
+        "cae.boundary"
+      ],
+      "sources": [
+        {
+          "path": "docs/post-and-reports.md",
+          "symbol": "reports",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [
+        {
+          "key": "reports",
+          "value": "解析器版本保留独立指标记录和不可变 JSON/CSV。后处理生成合成 PNG、PPTX 草稿并保留 parser、工况和 Subcase；报告仍需人工 Lead review/Admin approval。下载校验注册字节与 SHA，报表阶段重试复用原始 Solver 执行。"
+        }
+      ],
+      "path": "cae/interview/reports.md",
+      "text": "解析器版本保留独立指标记录和不可变 JSON/CSV。后处理生成合成 PNG、PPTX 草稿并保留 parser、工况和 Subcase；报告仍需人工 Lead review/Admin approval。下载校验注册字节与 SHA，报表阶段重试复用原始 Solver 执行。"
+    },
+    {
+      "cardId": "cae.resources",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "调度",
+        "资源",
+        "CPU",
+        "内存",
+        "License",
+        "预占",
+        "超卖"
+      ],
+      "related": [
+        "cae.recovery"
+      ],
+      "sources": [
+        {
+          "path": "docs/architecture.md",
+          "symbol": "resource admission",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [
+        {
+          "key": "resources",
+          "value": "节点心跳和快速缓存不替代 MySQL 资源账本。CPU、内存和 License 的资源预占在事务中约束，执行结束须先确认远端终态再释放；UNKNOWN 保留资源。这里权衡吞吐与保守正确性，不能把远端短暂不可达当成空闲容量。"
+        }
+      ],
+      "path": "cae/interview/resources.md",
+      "text": "节点心跳和快速缓存不替代 MySQL 资源账本。CPU、内存和 License 的资源预占在事务中约束，执行结束须先确认远端终态再释放；UNKNOWN 保留资源。这里权衡吞吐与保守正确性，不能把远端短暂不可达当成空闲容量。"
+    },
+    {
+      "cardId": "cae.state",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "keywords": [
+        "状态机",
+        "CAS",
+        "version",
+        "终态",
+        "Job",
+        "Execution"
+      ],
+      "related": [
+        "cae.recovery"
+      ],
+      "sources": [
+        {
+          "path": "docs/state-machine.md",
+          "symbol": "Job state machine",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [
+        {
+          "key": "state",
+          "value": "Job 业务状态和 Agent 执行事实分离。更新检查观察到的 status 与 version，状态、事件、Outbox 在同一事务提交；Solver 成功后仍需解析和报告，不能直接标 Job SUCCESS。重复当前状态幂等，终态拒绝延迟 RUNNING，UNKNOWN 恢复同一次执行而非重投。"
+        }
+      ],
+      "path": "cae/interview/state.md",
+      "text": "Job 业务状态和 Agent 执行事实分离。更新检查观察到的 status 与 version，状态、事件、Outbox 在同一事务提交；Solver 成功后仍需解析和报告，不能直接标 Job SUCCESS。重复当前状态幂等，终态拒绝延迟 RUNNING，UNKNOWN 恢复同一次执行而非重投。"
+    }
+  ],
+  "updatedAt": "2026-10-23",
+  "sourceDocuments": {
+    "evaluation/cue-live/materials/synthetic-profile.md": "# CI 合成人物资料\n\n此文件专供公开 CI 评测。林舟是虚构人物；下面的履历、团队人数、个人职责和协作经历均为合成测试数据，不描述仓库用户、贡献者或其雇主的真实经历。技术卡另行注明公开仓库来源，不把代码存在解释为个人贡献。\n\n## CAE：合成个人职责\n\n林舟在虚构的四人练习团队中负责 Java 控制面：Job/Execution 状态机、Outbox、幂等提交、资源预占和失联对账。Python Agent 与解析器由另一位成员负责，Vue 工作台由第三位成员负责，第四位成员负责测试与报告验收。林舟负责约定执行身份、状态回传、产物和重试接口，并组织跨模块联调；不声称独立完成专业 Solver、Parser、HyperView 或全部前端。\n\n## Arclight：合成个人职责\n\n林舟将 Arclight 作为个人实验项目学习；这段合成履历中，他负责上下文输出预算和会话恢复验证。没有真人开发团队。软件里的多个 agent、SharedTask 和 Mailbox 是运行时组件，不代表同事或团队人数。没有确认的生产业务收益、公司线上 KPI 或个人贡献比例。\n\n## 数字的证据边界\n\nCAE 的 100 个子任务、98.583 秒、4 核和 32GiB 来自公开仓库的 LOCAL-BENCH 记录，不是此合成人物取得的生产成绩。除此之外，不为林舟编造性能百分比、客户数量、生产吞吐或处理规模。\n"
+  },
+  "provenanceNotes": {
+    "publicTechnical": "本仓库既有project-packs/index.json，保留上游commit/path/symbol。",
+    "syntheticPersonal": "USER职责卡由本任务合成，仅描述虚构CI人物林舟；不是用户真实履历。"
+  }
+}
