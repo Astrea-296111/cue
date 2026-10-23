@@ -25,17 +25,23 @@ test('cross-platform package rejects host-only Sharp even if target ONNX exists'
   assert.doesNotThrow(() => verify({ packager: { info: { appDir: root } }, electronPlatformName: 'win32', arch: 'x64' }));
 });
 
-test('actual Electron Builder hook verifies target native dependencies before writing build identity', async () => {
+test('actual Electron Builder hook verifies dependencies, compiles approved materials, then writes build identity', async () => {
   const hookPath = require('../electron-builder.cjs').beforePack;
   assert.equal(hookPath, 'scripts/prepare-app-build.cjs');
-  const calls = [], context = { electronPlatformName: 'win32', arch: 'x64' };
+  const calls = [], context = { electronPlatformName: 'win32', arch: 'x64', appDir: '/approved-app' };
   const hookModule = { exports: {} };
   const load = id => {
+    if (id === 'node:path') return path;
+    if (id === './bundle-project-materials.cjs') return { buildBundleFile: async options => {
+      assert.equal(options.manifestPath, path.join(context.appDir, 'materials/manifest.json'));
+      assert.equal(options.outputPath, path.join(context.appDir, 'materials/bundle.json'));
+      calls.push(id);
+    } };
     assert.ok(['./verify-semantic-packaging.cjs', './write-build-info.cjs'].includes(id));
     return async supplied => { assert.equal(supplied, context); calls.push(id); };
   };
   const code = fs.readFileSync(path.join(__dirname, '..', hookPath), 'utf8');
   require('node:vm').runInNewContext(code, { require: load, module: hookModule });
   await hookModule.exports(context);
-  assert.deepEqual(calls, ['./verify-semantic-packaging.cjs', './write-build-info.cjs']);
+  assert.deepEqual(calls, ['./verify-semantic-packaging.cjs', './bundle-project-materials.cjs', './write-build-info.cjs']);
 });

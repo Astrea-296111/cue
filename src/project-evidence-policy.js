@@ -25,7 +25,11 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
   const rankedFacts=[...allowedFacts].sort((a,b)=>Number(primary(b))-Number(primary(a))||Number(b.provenance==='USER')-Number(a.provenance==='USER'));
   const candidates=[];const queue=c=>{if(c&&!candidates.includes(c))candidates.push(c);};
   for(const id of resolution.canonicalProjectIds||resolution.projectIds||[])queue(rankedFacts.find(c=>c.projectId===id));
-  if(implementation&&allowedSources.length)queue(allowedSources[0]);
+  // Standard retrieval must retain a matching implementation source even when
+  // many fact cards are relevant. Prefer an imported source over a manual note;
+  // both still pass the same scope, count and token checks below.
+  const source=allowedSources.find(c=>c.sourceType!=='manual')||allowedSources[0];
+  if(source&&(implementation||sourcePolicy==='standard'))queue(source);
   for(const c of rankedFacts)queue(c);for(const c of allowedSources)queue(c);
   for(const c of candidates.slice(0,32)) {
     if(seen.has(c.id))continue;seen.add(c.id);

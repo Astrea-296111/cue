@@ -94,6 +94,11 @@ class ProjectMaterialService extends EventEmitter {
         sourceFiles:new Set(s.sources.chunks.filter(c=>p.sourceProjectIds.includes(c.projectId)).map(c=>c.path)).size,sourceChunks:s.sources.chunks.filter(c=>p.sourceProjectIds.includes(c.projectId)).length})),
       counts:{facts:s.facts.cards.length,sourceChunks:s.sources.chunks.length,sourceProjects:s.sources.projects.length}};
   }
+  verifyPersisted() {
+    const saved=this.readPointer(JSON.parse(fs.readFileSync(path.join(this.directory,'current.json'),'utf8')));
+    if(saved.generation!==this.snapshot.generation||saved.sourceRevision!==this.snapshot.sourceRevision||saved.factRevision!==this.snapshot.factRevision)throw materialError('persistence-mismatch','材料持久化校验失败，请重载资料后检查。');
+    return true;
+  }
   previousGeneration(){try{return JSON.parse(fs.readFileSync(path.join(this.directory,'previous.json'),'utf8')).generation;}catch{return null;}}
   async discover({kind,path:inputPath,factPaths=[]}) {
     if(kind==='json') {const stat=await fs.promises.stat(inputPath);if(stat.size>2*1024*1024)throw new Error('事实包超过 2MiB');return {packs:[validateIndex(JSON.parse(await fs.promises.readFile(inputPath,'utf8')))],excluded:[]};}
@@ -128,14 +133,20 @@ class ProjectMaterialService extends EventEmitter {
   }
   async prepareImport(input) {
     const base=this.snapshot;
+    if(input.sourceSnapshot&&(!input.index||input.kind==='folder'||input.kind==='zip'))throw materialError('invalid-source-input','随包源码快照必须与事实索引一起导入。');
+    const onProgress=typeof input.onProgress==='function'?input.onProgress:()=>{};
+    onProgress({phase:'discover'});
     const discovered=input.index?{packs:[validateIndex(input.index)],excluded:[]}:await this.discover(input);
-    let sources=base.sources;
-    if(input.kind==='folder')sources=await this.adapter.scanProjectFolder(input.path,{previous:base.sources,excludePaths:discovered.excluded});
-    if(input.kind==='zip')sources=await this.adapter.scanProjectZip(input.path,{previous:base.sources,excludePaths:discovered.excluded});
+    let sources=input.sourceSnapshot?validateSources(copy(input.sourceSnapshot)):base.sources;
+    const scanOptions={previous:base.sources,excludePaths:discovered.excluded,allowEmpty:discovered.packs.length>0,onProgress};
+    if(input.kind==='folder'||input.kind==='zip')onProgress({phase:'scan',indexedFiles:0,sourceChunks:0});
+    if(input.kind==='folder')sources=await this.adapter.scanProjectFolder(input.path,scanOptions);
+    if(input.kind==='zip')sources=await this.adapter.scanProjectZip(input.path,scanOptions);
     const combined=combinePacks(discovered.packs);
     let facts=base.facts,changes=[];
     if(combined.index){const merged=mergeFactIndexes(facts,combined.index,{mode:input.mode||'merge'});facts=merged.index;changes=merged.changes;}
     const registry=buildRegistry(facts,sources,this.pointer.mappings||{});
+    onProgress({phase:'ready',sourceChunks:sources.chunks.length,facts:facts.cards.length});
     const token=randomUUID();this.previews.set(token,{baseGeneration:base.generation,facts,sources,packs:discovered.packs,mode:input.mode||'merge',mappings:this.pointer.mappings||{},createdAt:Date.now()});
     if(this.previews.size>8)this.previews.delete(this.previews.keys().next().value);
     return {token,baseGeneration:base.generation,summary:{projects:registry.projects.map(p=>({id:p.id,name:p.name})),facts:facts.cards.length,sourceChunks:sources.chunks.length,factFiles:discovered.excluded},changes,conflicts:registry.conflicts,packConflicts:combined.conflicts,warnings:registry.conflicts.length?['请指定歧义源码项目的 canonical ID']:[],mode:input.mode||'merge'};

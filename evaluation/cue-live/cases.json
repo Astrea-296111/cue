@@ -1,0 +1,1254 @@
+{
+  "schemaVersion": 1,
+  "approvalId": "cue-live-public-synthetic-v1",
+  "smokeCaseIds": [
+    "smoke-cae-overview",
+    "smoke-cae-ownership",
+    "smoke-cae-team-followup",
+    "smoke-switch-arclight",
+    "smoke-arclight-context",
+    "smoke-general-redis"
+  ],
+  "cases": [
+    {
+      "id": "smoke-cae-overview",
+      "sessionId": "smoke-sequence",
+      "resetSession": true,
+      "category": "overview",
+      "mode": "instant",
+      "sourcePolicy": "off",
+      "question": "介绍一下 CAE 的架构和完整任务链路。",
+      "expectedProjectIds": [
+        "cae"
+      ],
+      "expectedFactIds": [
+        "cae.overview",
+        "cae.state"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "control-plane",
+            "anyOf": [
+              "Java",
+              "后端",
+              "控制面"
+            ]
+          },
+          {
+            "id": "execution-chain",
+            "anyOf": [
+              "Solver",
+              "求解",
+              "Agent"
+            ]
+          },
+          {
+            "id": "report-stage",
+            "anyOf": [
+              "报告",
+              "PPTX",
+              "后处理"
+            ]
+          }
+        ],
+        "requiredFactIds": [],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "smoke-cae-ownership",
+      "sessionId": "smoke-sequence",
+      "resetSession": false,
+      "category": "ownership",
+      "mode": "standard",
+      "sourcePolicy": "ready-only",
+      "question": "在 CAE 里你个人负责什么，哪些模块由其他成员负责？",
+      "expectedProjectIds": [
+        "cae"
+      ],
+      "expectedFactIds": [
+        "cae.ownership",
+        "cae.collaboration"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "personal-java",
+            "anyOf": [
+              "Java",
+              "控制面"
+            ]
+          },
+          {
+            "id": "personal-scope",
+            "anyOf": [
+              "状态机",
+              "Outbox",
+              "资源预占",
+              "对账"
+            ]
+          },
+          {
+            "id": "other-scope",
+            "anyOf": [
+              "其他",
+              "另一",
+              "同事",
+              "成员",
+              "负责 Python",
+              "负责 Vue"
+            ]
+          }
+        ],
+        "requiredFactIds": [],
+        "requiredNumbers": [],
+        "forbiddenClaims": [
+          {
+            "id": "no-total-ownership",
+            "pattern": "(?:我|本人).{0,10}(?:独立|一个人).{0,10}(?:全部|所有).{0,12}(?:实现|模块|开发|完成)",
+            "allowPattern": "没有|不是|并非|不能|不代表|不包括|不属于"
+          }
+        ],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "smoke-cae-team-followup",
+      "sessionId": "smoke-sequence",
+      "resetSession": false,
+      "category": "collaboration-followup",
+      "mode": "instant",
+      "sourcePolicy": "off",
+      "question": "那你们几个人，分别怎么分工协作？",
+      "expectedProjectIds": [
+        "cae"
+      ],
+      "expectedFactIds": [
+        "cae.collaboration"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "team-size",
+            "anyOf": [
+              "四[个人名位]",
+              "4\\s*[个人名位]"
+            ]
+          },
+          {
+            "id": "interfaces",
+            "anyOf": [
+              "接口",
+              "联调",
+              "契约",
+              "协作"
+            ]
+          }
+        ],
+        "requiredFactIds": [],
+        "requiredNumbers": [
+          {
+            "id": "synthetic-team-size",
+            "pattern": "(?<!\\d)(?:4|四)\\s*(?:个?人|位|名)"
+          }
+        ],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "smoke-switch-arclight",
+      "sessionId": "smoke-sequence",
+      "resetSession": false,
+      "category": "switch",
+      "mode": "standard",
+      "sourcePolicy": "standard",
+      "question": "那 Arclight 呢？介绍一下它的整体架构。",
+      "expectedProjectIds": [
+        "arclight"
+      ],
+      "expectedFactIds": [
+        "arclight.overview",
+        "arclight.context"
+      ],
+      "expectedSourceProjects": [
+        "arclight"
+      ],
+      "requireSource": true,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "python-terminal",
+            "anyOf": [
+              "Python",
+              "终端",
+              "编程助手"
+            ]
+          },
+          {
+            "id": "agent-tools",
+            "anyOf": [
+              "Agent",
+              "工具",
+              "模型"
+            ]
+          }
+        ],
+        "requiredFactIds": [],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      },
+      "expectedSourcePaths": [
+        "interview/project.md"
+      ]
+    },
+    {
+      "id": "smoke-arclight-context",
+      "sessionId": "smoke-sequence",
+      "resetSession": false,
+      "category": "implementation",
+      "mode": "instant",
+      "sourcePolicy": "ready-only",
+      "question": "Arclight 怎么控制长工具输出和上下文压缩？",
+      "expectedProjectIds": [
+        "arclight"
+      ],
+      "expectedFactIds": [
+        "arclight.context"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "persist-preview",
+            "anyOf": [
+              "预览",
+              "持久",
+              "落盘",
+              "文件"
+            ]
+          },
+          {
+            "id": "recent-window",
+            "anyOf": [
+              "近期",
+              "最近",
+              "原文",
+              "窗口"
+            ]
+          },
+          {
+            "id": "summary",
+            "anyOf": [
+              "摘要",
+              "压缩"
+            ]
+          }
+        ],
+        "requiredFactIds": [],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "smoke-general-redis",
+      "sessionId": "smoke-sequence",
+      "resetSession": false,
+      "category": "general",
+      "mode": "standard",
+      "sourcePolicy": "off",
+      "question": "不谈项目，Redis 的过期删除策略有哪些？",
+      "expectedProjectIds": [],
+      "expectedFactIds": [],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "expiry",
+            "anyOf": [
+              "惰性",
+              "定期",
+              "主动",
+              "lazy",
+              "active"
+            ]
+          }
+        ],
+        "requiredFactIds": [],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "cae-state-machine",
+      "sessionId": "cae-state",
+      "resetSession": true,
+      "category": "implementation",
+      "mode": "standard",
+      "sourcePolicy": "ready-only",
+      "question": "CAE 如何防止旧状态回调覆盖终态？Solver 成功能否直接标记 Job 完成？",
+      "expectedProjectIds": [
+        "cae"
+      ],
+      "expectedFactIds": [
+        "cae.state"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "guard",
+            "anyOf": [
+              "version",
+              "版本",
+              "状态校验",
+              "状态检查",
+              "乐观锁"
+            ]
+          },
+          {
+            "id": "terminal",
+            "anyOf": [
+              "终态",
+              "单调",
+              "延迟"
+            ]
+          },
+          {
+            "id": "postprocess",
+            "anyOf": [
+              "解析",
+              "报告",
+              "后处理"
+            ]
+          }
+        ],
+        "requiredFactIds": [
+          "cae.state"
+        ],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "cae-outbox",
+      "sessionId": "cae-outbox",
+      "resetSession": true,
+      "category": "implementation",
+      "mode": "standard",
+      "sourcePolicy": "standard",
+      "question": "CAE 的 Outbox 和 Inbox 如何避免丢消息与重复执行？logical eventId 和 deliveryId 有什么区别？",
+      "expectedProjectIds": [
+        "cae"
+      ],
+      "expectedFactIds": [
+        "cae.outbox"
+      ],
+      "expectedSourceProjects": [
+        "cae"
+      ],
+      "requireSource": true,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "transaction",
+            "anyOf": [
+              "事务",
+              "原子"
+            ]
+          },
+          {
+            "id": "logical-physical",
+            "anyOf": [
+              "逻辑",
+              "logical",
+              "eventId"
+            ]
+          },
+          {
+            "id": "dedupe",
+            "anyOf": [
+              "去重",
+              "唯一键",
+              "幂等"
+            ]
+          }
+        ],
+        "requiredFactIds": [
+          "cae.outbox"
+        ],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      },
+      "expectedSourcePaths": [
+        "interview/reliability.md"
+      ]
+    },
+    {
+      "id": "cae-recovery",
+      "sessionId": "cae-recovery",
+      "resetSession": true,
+      "category": "challenge",
+      "mode": "standard",
+      "sourcePolicy": "standard",
+      "question": "CAE 最棘手的提交超时问题是什么？响应丢了以后如何避免重复提交？",
+      "expectedProjectIds": [
+        "cae"
+      ],
+      "expectedFactIds": [
+        "cae.recovery",
+        "cae.resources"
+      ],
+      "expectedSourceProjects": [
+        "cae"
+      ],
+      "requireSource": true,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "original-identity",
+            "anyOf": [
+              "submitRequestId",
+              "externalExecutionId",
+              "原.{0,6}(?:请求|执行|身份)",
+              "同一.{0,5}执行"
+            ]
+          },
+          {
+            "id": "reconcile",
+            "anyOf": [
+              "对账",
+              "查询",
+              "核对"
+            ]
+          },
+          {
+            "id": "reservation",
+            "anyOf": [
+              "UNKNOWN",
+              "保留资源",
+              "占用"
+            ]
+          }
+        ],
+        "requiredFactIds": [
+          "cae.recovery"
+        ],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      },
+      "expectedSourcePaths": [
+        "interview/reliability.md"
+      ]
+    },
+    {
+      "id": "cae-resource-admission",
+      "sessionId": "cae-resource",
+      "resetSession": true,
+      "category": "decision",
+      "mode": "instant",
+      "sourcePolicy": "off",
+      "question": "CAE 节点失联后为什么不立刻释放 CPU、内存和 License？",
+      "expectedProjectIds": [
+        "cae"
+      ],
+      "expectedFactIds": [
+        "cae.resources"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "unknown",
+            "anyOf": [
+              "UNKNOWN",
+              "未知",
+              "不确定"
+            ]
+          },
+          {
+            "id": "retain",
+            "anyOf": [
+              "保留",
+              "不能.{0,6}释放",
+              "不.{0,4}释放",
+              "确认.{0,6}终态"
+            ]
+          }
+        ],
+        "requiredFactIds": [
+          "cae.resources"
+        ],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "cae-reports",
+      "sessionId": "cae-reports",
+      "resetSession": true,
+      "category": "implementation",
+      "mode": "standard",
+      "sourcePolicy": "standard",
+      "question": "CAE 的解析和 PPTX 报告链路如何保留版本证据，报告失败重试会不会重跑 Solver？",
+      "expectedProjectIds": [
+        "cae"
+      ],
+      "expectedFactIds": [
+        "cae.reports",
+        "cae.boundary"
+      ],
+      "expectedSourceProjects": [
+        "cae"
+      ],
+      "requireSource": true,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "version",
+            "anyOf": [
+              "版本",
+              "parser"
+            ]
+          },
+          {
+            "id": "artifacts",
+            "anyOf": [
+              "不可变",
+              "JSON",
+              "CSV"
+            ]
+          },
+          {
+            "id": "review",
+            "anyOf": [
+              "审核",
+              "审批",
+              "review",
+              "approval"
+            ]
+          },
+          {
+            "id": "reuse",
+            "anyOf": [
+              "复用",
+              "不.{0,6}重跑",
+              "原.{0,4}执行"
+            ]
+          }
+        ],
+        "requiredFactIds": [
+          "cae.reports"
+        ],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      },
+      "expectedSourcePaths": [
+        "interview/reliability.md"
+      ]
+    },
+    {
+      "id": "cae-local-benchmark",
+      "sessionId": "cae-bench",
+      "resetSession": true,
+      "category": "metrics",
+      "mode": "standard",
+      "sourcePolicy": "off",
+      "question": "CAE 有哪些可核验的性能数据？说明任务数、耗时及测试环境，能否当生产指标？",
+      "expectedProjectIds": [
+        "cae"
+      ],
+      "expectedFactIds": [
+        "cae.performance"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "benchmark-boundary",
+            "anyOf": [
+              "本地",
+              "公开复现",
+              "LOCAL[- ]?BENCH",
+              "单.{0,4}环境"
+            ]
+          },
+          {
+            "id": "resource-limit",
+            "anyOf": [
+              "4\\s*核",
+              "四核",
+              "32\\s*Gi?B"
+            ]
+          }
+        ],
+        "requiredFactIds": [
+          "cae.performance"
+        ],
+        "requiredNumbers": [
+          {
+            "id": "subtasks",
+            "pattern": "(?<!\\d)(?:100|一百)\\s*(?:个|子任务|任务)"
+          },
+          {
+            "id": "duration-seconds",
+            "pattern": "(?<![\\d.])98[.．](?:583|58|6)\\s*(?:秒|s\\b)"
+          }
+        ],
+        "forbiddenClaims": [
+          {
+            "id": "local-bench-is-not-production",
+            "pattern": "(?:线上|生产|公司).{0,20}(?:吞吐|KPI|性能|提[升高]|98[.．]583)|98[.．]583.{0,20}(?:线上|生产).{0,8}(?:KPI|成绩|吞吐)",
+            "allowPattern": "不是|并非|不能|不可|不代表|未验证|没有.{0,8}(?:线上|生产)|仅.{0,10}(?:本地|复现)|LOCAL[- ]?BENCH"
+          }
+        ],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "cae-benchmark-followup",
+      "sessionId": "cae-bench",
+      "resetSession": false,
+      "category": "metrics-followup",
+      "mode": "instant",
+      "sourcePolicy": "off",
+      "question": "这个成绩能直接说明线上吞吐提升了多少吗？",
+      "expectedProjectIds": [
+        "cae"
+      ],
+      "expectedFactIds": [
+        "cae.performance"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "cannot-extrapolate",
+            "anyOf": [
+              "不能",
+              "不可",
+              "没有",
+              "无法",
+              "不代表"
+            ]
+          },
+          {
+            "id": "local-only",
+            "anyOf": [
+              "本地",
+              "复现",
+              "LOCAL[- ]?BENCH",
+              "生产",
+              "线上"
+            ]
+          }
+        ],
+        "requiredFactIds": [],
+        "requiredNumbers": [],
+        "forbiddenClaims": [
+          {
+            "id": "local-bench-is-not-production",
+            "pattern": "(?:线上|生产|公司).{0,20}(?:吞吐|KPI|性能|提[升高]|98[.．]583)|98[.．]583.{0,20}(?:线上|生产).{0,8}(?:KPI|成绩|吞吐)",
+            "allowPattern": "不是|并非|不能|不可|不代表|未验证|没有.{0,8}(?:线上|生产)|仅.{0,10}(?:本地|复现)|LOCAL[- ]?BENCH"
+          }
+        ],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "cae-frontend",
+      "sessionId": "cae-frontend",
+      "resetSession": true,
+      "category": "implementation",
+      "mode": "instant",
+      "sourcePolicy": "ready-only",
+      "question": "CAE 工作台收到 SSE 后怎样更新页面？隐藏按钮能否代替后端鉴权？",
+      "expectedProjectIds": [
+        "cae"
+      ],
+      "expectedFactIds": [
+        "cae.frontend"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "refresh-read",
+            "anyOf": [
+              "GET",
+              "查询",
+              "重新.{0,5}读",
+              "重新.{0,5}获取"
+            ]
+          },
+          {
+            "id": "authorization",
+            "anyOf": [
+              "后端",
+              "服务端",
+              "授权",
+              "鉴权"
+            ]
+          }
+        ],
+        "requiredFactIds": [
+          "cae.frontend"
+        ],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "cae-public-boundary",
+      "sessionId": "cae-boundary",
+      "resetSession": true,
+      "category": "limitation",
+      "mode": "standard",
+      "sourcePolicy": "ready-only",
+      "question": "CAE 公开版本能复现真实商业求解器吗？接入企业环境需要替换哪些边界？",
+      "expectedProjectIds": [
+        "cae"
+      ],
+      "expectedFactIds": [
+        "cae.boundary"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "mock-boundary",
+            "anyOf": [
+              "mock",
+              "模拟",
+              "替身"
+            ]
+          },
+          {
+            "id": "adapter",
+            "anyOf": [
+              "Adapter",
+              "适配"
+            ]
+          },
+          {
+            "id": "commercial-limit",
+            "anyOf": [
+              "商业",
+              "许可证",
+              "真实工程"
+            ]
+          }
+        ],
+        "requiredFactIds": [
+          "cae.boundary"
+        ],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "arclight-ownership",
+      "sessionId": "arclight-role",
+      "resetSession": true,
+      "category": "ownership",
+      "mode": "instant",
+      "sourcePolicy": "off",
+      "question": "你在 Arclight 个人实验项目负责哪些部分？",
+      "expectedProjectIds": [
+        "arclight"
+      ],
+      "expectedFactIds": [
+        "arclight.ownership"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "context-responsibility",
+            "anyOf": [
+              "上下文",
+              "输出预算"
+            ]
+          },
+          {
+            "id": "session-responsibility",
+            "anyOf": [
+              "会话",
+              "恢复"
+            ]
+          }
+        ],
+        "requiredFactIds": [],
+        "requiredNumbers": [],
+        "forbiddenClaims": [
+          {
+            "id": "no-total-ownership",
+            "pattern": "(?:我|本人).{0,10}(?:独立|一个人).{0,10}(?:全部|所有).{0,12}(?:实现|模块|开发|完成)",
+            "allowPattern": "没有|不是|并非|不能|不代表|不包括|不属于"
+          }
+        ],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "arclight-team-followup",
+      "sessionId": "arclight-role",
+      "resetSession": false,
+      "category": "collaboration-followup",
+      "mode": "standard",
+      "sourcePolicy": "off",
+      "question": "那这个项目有几位同事？多个 agent 算团队成员吗？",
+      "expectedProjectIds": [
+        "arclight"
+      ],
+      "expectedFactIds": [
+        "arclight.collaboration"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "solo",
+            "anyOf": [
+              "个人",
+              "没有.{0,6}(?:真人|同事|团队)",
+              "无.{0,5}真人"
+            ]
+          },
+          {
+            "id": "software-agent",
+            "anyOf": [
+              "软件",
+              "运行时",
+              "组件",
+              "agent"
+            ]
+          }
+        ],
+        "requiredFactIds": [],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "arclight-fork",
+      "sessionId": "arclight-fork",
+      "resetSession": true,
+      "category": "implementation",
+      "mode": "standard",
+      "sourcePolicy": "standard",
+      "question": "Arclight fork 会话时如何处理未完成工具调用？这种隔离等于文件系统沙箱吗？",
+      "expectedProjectIds": [
+        "arclight"
+      ],
+      "expectedFactIds": [
+        "arclight.fork"
+      ],
+      "expectedSourceProjects": [
+        "arclight"
+      ],
+      "requireSource": true,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "copy",
+            "anyOf": [
+              "深拷贝",
+              "复制",
+              "deepcopy"
+            ]
+          },
+          {
+            "id": "interrupted",
+            "anyOf": [
+              "interrupted",
+              "中断",
+              "补.{0,6}(?:结果|配对)"
+            ]
+          },
+          {
+            "id": "isolation-limit",
+            "anyOf": [
+              "不等",
+              "不保证",
+              "不是",
+              "并非",
+              "不意味"
+            ]
+          }
+        ],
+        "requiredFactIds": [
+          "arclight.fork"
+        ],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      },
+      "expectedSourcePaths": [
+        "interview/context.md",
+        "samples/context_budget.py"
+      ]
+    },
+    {
+      "id": "arclight-permission",
+      "sessionId": "arclight-permission",
+      "resetSession": true,
+      "category": "decision",
+      "mode": "standard",
+      "sourcePolicy": "ready-only",
+      "question": "Arclight 的 PermissionChecker 如何判断工具权限？规则允许是否等于操作系统隔离？",
+      "expectedProjectIds": [
+        "arclight"
+      ],
+      "expectedFactIds": [
+        "arclight.permissions"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "permission-layers",
+            "anyOf": [
+              "规则",
+              "模式",
+              "沙箱",
+              "路径"
+            ]
+          },
+          {
+            "id": "os-boundary",
+            "anyOf": [
+              "操作系统",
+              "OS",
+              "系统层"
+            ]
+          }
+        ],
+        "requiredFactIds": [
+          "arclight.permissions"
+        ],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "arclight-shared-task",
+      "sessionId": "arclight-shared",
+      "resetSession": true,
+      "category": "limitation",
+      "mode": "standard",
+      "sourcePolicy": "ready-only",
+      "question": "Arclight SharedTaskStore 的任务依赖如何持久化？它保证多进程并发写一致性吗？",
+      "expectedProjectIds": [
+        "arclight"
+      ],
+      "expectedFactIds": [
+        "arclight.shared"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "json-persistence",
+            "anyOf": [
+              "JSON",
+              "文件"
+            ]
+          },
+          {
+            "id": "dependency",
+            "anyOf": [
+              "依赖",
+              "blocks",
+              "blocked_by"
+            ]
+          },
+          {
+            "id": "no-cross-process-guarantee",
+            "anyOf": [
+              "不保证",
+              "不能",
+              "不是",
+              "不等",
+              "没有.{0,8}(?:锁|事务)"
+            ]
+          }
+        ],
+        "requiredFactIds": [
+          "arclight.shared"
+        ],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "arclight-mailbox",
+      "sessionId": "arclight-mailbox",
+      "resetSession": true,
+      "category": "implementation",
+      "mode": "instant",
+      "sourcePolicy": "off",
+      "question": "Arclight Mailbox 如何收发消息和处理坏 JSON？能把它当生产消息队列的交付保证吗？",
+      "expectedProjectIds": [
+        "arclight"
+      ],
+      "expectedFactIds": [
+        "arclight.mailbox"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "file-message",
+            "anyOf": [
+              "文件",
+              "目录",
+              "JSON"
+            ]
+          },
+          {
+            "id": "bad-json",
+            "anyOf": [
+              "跳过",
+              "忽略",
+              "坏",
+              "损坏"
+            ]
+          },
+          {
+            "id": "no-delivery-guarantee",
+            "anyOf": [
+              "不能",
+              "不等",
+              "不保证",
+              "没有"
+            ]
+          }
+        ],
+        "requiredFactIds": [
+          "arclight.mailbox"
+        ],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "arclight-memory",
+      "sessionId": "arclight-memory",
+      "resetSession": true,
+      "category": "implementation",
+      "mode": "standard",
+      "sourcePolicy": "off",
+      "question": "Arclight 自动记忆保存哪些信息？旧模型摘要可以作为用户亲历事实吗？",
+      "expectedProjectIds": [
+        "arclight"
+      ],
+      "expectedFactIds": [
+        "arclight.memory"
+      ],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "memory-categories",
+            "anyOf": [
+              "偏好",
+              "反馈",
+              "项目知识",
+              "参考"
+            ]
+          },
+          {
+            "id": "summary-boundary",
+            "anyOf": [
+              "不能",
+              "不可",
+              "不等",
+              "不应"
+            ]
+          }
+        ],
+        "requiredFactIds": [
+          "arclight.memory"
+        ],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    },
+    {
+      "id": "arclight-worktree",
+      "sessionId": "arclight-worktree",
+      "resetSession": true,
+      "category": "implementation",
+      "mode": "standard",
+      "sourcePolicy": "standard",
+      "question": "Arclight WorktreeManager 如何隔离工作目录？工作树隔离是否代表所有外部资源都隔离？",
+      "expectedProjectIds": [
+        "arclight"
+      ],
+      "expectedFactIds": [
+        "arclight.worktree"
+      ],
+      "expectedSourceProjects": [
+        "arclight"
+      ],
+      "requireSource": true,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "git-worktree",
+            "anyOf": [
+              "Git",
+              "worktree",
+              "工作树"
+            ]
+          },
+          {
+            "id": "limit",
+            "anyOf": [
+              "不代表",
+              "不保证",
+              "不能",
+              "仍.{0,6}共享",
+              "不等"
+            ]
+          }
+        ],
+        "requiredFactIds": [
+          "arclight.worktree"
+        ],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      },
+      "expectedSourcePaths": [
+        "interview/worktree.md"
+      ]
+    },
+    {
+      "id": "general-transaction-mq",
+      "sessionId": "general-mq",
+      "resetSession": true,
+      "category": "general",
+      "mode": "standard",
+      "sourcePolicy": "off",
+      "question": "这是一道通用技术题：数据库事务与消息投递为什么难以原子提交，常见解决方案是什么？",
+      "expectedProjectIds": [],
+      "expectedFactIds": [],
+      "expectedSourceProjects": [],
+      "requireSource": false,
+      "checks": {
+        "requiredConcepts": [
+          {
+            "id": "atomicity",
+            "anyOf": [
+              "原子",
+              "一致性",
+              "双写"
+            ]
+          },
+          {
+            "id": "solution",
+            "anyOf": [
+              "Outbox",
+              "事务消息",
+              "本地消息表",
+              "可靠消息",
+              "事务发件箱"
+            ]
+          }
+        ],
+        "requiredFactIds": [],
+        "requiredNumbers": [],
+        "forbiddenClaims": [],
+        "manualReview": [
+          "检查自然口述、是否直答和必要的证据边界；未列入禁止规则的无依据主张需人工复核。"
+        ]
+      }
+    }
+  ]
+}

@@ -1643,10 +1643,9 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
 
   function renderProjectIndexState(state) {
     projectIndexState = state || { ready: false };
-    renderProjectChoices(projectIndexState.projects || []);
     const status = document.getElementById('project-index-status');
     const clearBtn = document.getElementById('project-index-clear');
-    if (clearBtn) clearBtn.disabled = !projectIndexState.ready;
+    if (clearBtn) clearBtn.disabled = !!materialOperation || !projectIndexState.ready;
     if (!status) return;
 
     if (!projectIndexState.ready) {
@@ -1714,7 +1713,8 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
   async function refreshProjectIndexState() {
     if (!cue.projectIndexState) return;
     try {
-      renderProjectIndexState(await cue.projectIndexState());
+      const [index,materials]=await Promise.all([cue.projectIndexState(),cue.materialState()]);
+      renderProjectIndexState(index);renderProjectChoices(materials.projects||[]);
     } catch (error) {
       const status = document.getElementById('project-index-status');
       if (status) status.textContent = '无法读取本地项目索引。';
@@ -1725,16 +1725,17 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
   async function importProjectIndex(kind) { return previewMaterials({kind}); }
 
   async function clearProjectIndex() {
-    if (!cue.projectIndexClear) return;
-    setProjectIndexBusy(true);
+    if (!cue.projectIndexClear || materialOperation) return;
+    setMaterialOperation('clear');
     try {
       const result = await cue.projectIndexClear();
       renderProjectIndexState(result && result.state);
+      materialMessage('已清空本地项目索引。');
       showStatus('已清空本地项目索引。');
     } catch (error) {
-      showStatus('无法清空项目索引：' + (error?.message || String(error)));
+      materialMessage('无法清空项目索引：' + (error?.message || String(error)),true);
     } finally {
-      setProjectIndexBusy(false);
+      setMaterialOperation('');
     }
   }
 
@@ -1753,7 +1754,8 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
         '<button id="project-import-zip" class="s-action" type="button">导入 ZIP…</button>' +
         '<button id="project-index-clear" class="s-action danger" type="button" disabled>清空索引</button>' +
       '</div>' +
-      '<div id="project-index-status" class="s-note">正在检查本地项目索引…</div>' +
+      '<div id="project-index-status" class="s-note" role="status">正在检查本地项目索引…</div>' +
+      '<div id="materials-operation-status" class="s-note" role="status" aria-live="polite"></div><div id="materials-error" class="s-note" role="alert" hidden></div>' +
       '<div class="whisper-actions"><button id="project-semantic-prepare" class="s-action" type="button">准备本地语义检索</button><button id="project-semantic-import" class="s-action" type="button">选择本地模型目录…</button></div>' +
       '<div id="project-semantic-status" class="s-note">本地语义检索未准备，仍可使用基础检索。</div>' +
       '<div class="s-note">会跳过 .env、私钥、凭据文件、node_modules、.git 和构建产物。回答时仅向所选模型发送与当前问题相关的检索片段。</div>';
@@ -1810,27 +1812,60 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
   $('#diagnostics-toggle').addEventListener('click',()=>{const open=$('#diagnostics-drawer').classList.toggle('hidden')===false;$('#diagnostics-toggle').setAttribute('aria-expanded',String(open));});
   $('#answer-target-text').addEventListener('click',()=>$('#answer-target-text').classList.toggle('expanded'));
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#diagnostics-drawer').classList.add('hidden');$('#diagnostics-toggle').setAttribute('aria-expanded','false');}});
-  let materialPreview = null;
+  let materialPreview = null, materialOperation = '', materialOperationId = '', materialSequence = 0;
+  let materialReturnFocus = null, materialPreviousAvailable = false, materialInert = [];
+  const previewChoosers = [];
+  function setMaterialOperation(operation) {
+    materialOperation = operation;
+    const locked = !!operation;
+    setProjectIndexBusy(locked);
+    for (const id of ['fact-import','fact-save','fact-rebuild','material-mode','material-fact-paths']) $('#'+id).disabled=locked;
+    $('#materials-rollback').disabled=locked||!materialPreviousAvailable;
+    $('#materials-commit').disabled=operation==='commit';
+    $('#materials-cancel').disabled=operation==='commit';
+    $('#materials-commit').textContent=operation==='commit'?'正在提交并校验…':'确认应用此预览';
+    $('#materials-dialog').setAttribute('aria-busy',String(operation==='commit'));
+    for(const select of $('#materials-dialog').querySelectorAll('select'))select.disabled=operation==='commit';
+    for(const chooser of previewChoosers)chooser.sync();
+  }
+  function materialMessage(text, error=false) {
+    const status=$('#materials-operation-status'),alert=$('#materials-error');
+    status.textContent=error?'':text;alert.textContent=error?text:'';alert.hidden=!error;
+    if(error)showStatus(text);
+    if(materialPreview){$('#materials-preview-error').hidden=!error;$('#materials-preview-error').textContent=error?text:'';}
+  }
   function showFactStatus(state) {
     if (!state || state.canceled) return;
     $('#fact-pack-status').textContent = (state.projects || []).map(p => `${p.name}：${p.factCount || 0} 卡 / ${p.sourceFiles || 0} 文件 / ${p.sourceChunks || 0} 片段${p.sourceChunks ? ' · 源码可用' : ' · 无源码'}`).join('；') + ` · ${state.generation || state.revision || ''}` + (state.warnings?.length ? ' · ' + state.warnings.join('；') : '');
     if(state.index) $('#fact-editor').value=JSON.stringify(state.index,null,2);
-    $('#materials-rollback').disabled=!state.previousGeneration;
+    materialPreviousAvailable=!!state.previousGeneration;
+    $('#materials-rollback').disabled=!!materialOperation||!materialPreviousAvailable;
     renderProjectChoices(state.projects);
   }
   function previewSelect(parent, key, choices, target) {
-    const select=document.createElement('select');select.setAttribute('aria-label',key);
+    const select=document.createElement('select');select.id='material-choice-'+previewChoosers.length;select.setAttribute('aria-label',key);
     const prompt=document.createElement('option');prompt.value='';prompt.textContent='请选择';select.append(prompt);
     for(const [value,label] of choices){const option=document.createElement('option');option.value=value;option.textContent=label;select.append(option);}
     select.addEventListener('change',()=>{target[key]=select.value;});parent.append(select);
-    window.CueCaptureSafeSelect.install(select);
+    previewChoosers.push(window.CueCaptureSafeSelect.install(select));
+    // Keep the protected option list inside the modal's focus/inert boundary.
+    $('#materials-dialog').append(document.getElementById(select.id+'-options'));
+  }
+  function closeMaterialPreview() {
+    window.CueCaptureSafeSelect.close();
+    for(const chooser of previewChoosers)chooser.close();previewChoosers.length=0;
+    materialPreview=null;$('#materials-preview').hidden=true;
+    for(const [node,inert] of materialInert)node.inert=inert;materialInert=[];
+    setMaterialOperation('');
+    materialReturnFocus?.focus({preventScroll:true});materialReturnFocus=null;
   }
   function renderMaterialPreview(preview) {
     materialPreview={...preview,resolutions:{},mappings:{},variants:{}};
-    $('#materials-preview').hidden=false;
+    $('#materials-preview-error').hidden=true;
     const summary=preview.summary;
     $('#materials-preview-summary').textContent=`${preview.mode} · ${summary.facts} 张事实卡 / ${summary.sourceChunks} 源码片段；${preview.changes.filter(c=>c.kind==='delete').length} 项删除。${(preview.warnings||[]).join('；')}`;
     const body=$('#materials-preview-changes');body.replaceChildren();
+    for(const menu of document.querySelectorAll('#materials-dialog > .capture-safe-options'))menu.remove();
     for(const change of preview.changes){const row=document.createElement('details'),label=document.createElement('summary');label.textContent=`${change.kind} · ${change.projectId} · ${change.id}`;row.append(label);
       const diff=document.createElement('pre');diff.textContent=JSON.stringify({old:change.old||null,new:change.new||null},null,2);row.append(diff);
       if(change.kind==='update')previewSelect(row,change.id,[['update','使用新卡'],['keep','保留旧卡']],materialPreview.resolutions);
@@ -1839,26 +1874,57 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
     for(const conflict of preview.packConflicts||[]){const row=document.createElement('details'),label=document.createElement('summary');label.textContent='文件之间存在差异：'+conflict.key;row.append(label);
       conflict.variants.forEach((v,i)=>{const text=document.createElement('pre');text.textContent=`版本 ${i+1}：`+JSON.stringify(v,null,2);row.append(text);});
       previewSelect(row,conflict.key,conflict.variants.map((_,i)=>[String(i),'版本 '+(i+1)]),materialPreview.variants);body.append(row);}
+    materialInert=[...document.body.children].filter(node=>node.id!=='materials-preview'&&node.tagName!=='SCRIPT').map(node=>[node,node.inert]);
+    for(const [node] of materialInert)node.inert=true;
+    $('#materials-preview').hidden=false;setMaterialOperation('preview');$('#materials-dialog').focus({preventScroll:true});
   }
-  async function previewMaterials(input) {
-    setProjectIndexBusy(true);
-    try{const preview=await cue.materialPrepare({...input,mode:$('#material-mode').value,factPaths:$('#material-fact-paths').value.split(/\n/).map(s=>s.trim()).filter(Boolean)});if(!preview?.canceled)renderMaterialPreview(preview);}
-    catch(e){showStatus('材料预览失败：'+e.message);$('#fact-pack-status').textContent=e.message;}
-    finally{setProjectIndexBusy(false);}
-  }
-  $('#fact-import').addEventListener('click',()=>previewMaterials({kind:'json'}));
-  $('#fact-save').addEventListener('click',()=>{try{void previewMaterials({kind:'json',index:JSON.parse($('#fact-editor').value)});}catch(e){$('#fact-pack-status').textContent='JSON 无效：'+e.message;}});
-  $('#fact-rebuild').addEventListener('click',async()=>{try{showFactStatus(await cue.getProjectFactPackStatus());}catch(e){showStatus(e.message);}});
-  $('#materials-cancel').addEventListener('click',()=>{materialPreview=null;$('#materials-preview').hidden=true;});
-  $('#materials-commit').addEventListener('click',async()=>{
-    if(!materialPreview)return;
-    for(const c of materialPreview.conflicts||[])if(!materialPreview.mappings[c.sourceId]){showStatus('请先选择源码项目映射。');return;}
-    for(const c of materialPreview.packConflicts||[])if(materialPreview.variants[c.key]===undefined||materialPreview.variants[c.key]===''){showStatus('请先选择冲突文件版本。');return;}
-    const button=$('#materials-commit');button.disabled=true;
-    try{const result=await cue.materialCommit({...materialPreview,variants:Object.fromEntries(Object.entries(materialPreview.variants).map(([k,v])=>[k,Number(v)]))});showFactStatus(result);materialPreview=null;$('#materials-preview').hidden=true;await refreshProjectIndexState();showStatus('材料已应用。');}
-    catch(e){showStatus('材料提交失败：'+e.message);}finally{button.disabled=false;}
+  $('#materials-dialog').addEventListener('keydown',event=>{
+    if(event.key==='Escape'){event.preventDefault();event.stopPropagation();if(materialOperation!=='commit')closeMaterialPreview();return;}
+    if(event.key!=='Tab')return;
+    const controls=[...$('#materials-dialog').querySelectorAll('button:not(:disabled),summary,[tabindex="0"]')].filter(node=>node.getClientRects().length);
+    if(!controls.length){event.preventDefault();return;}
+    const first=controls[0],last=controls.at(-1),active=document.activeElement;
+    if(event.shiftKey&&(active===first||active===$('#materials-dialog'))){event.preventDefault();last.focus();}
+    else if(!event.shiftKey&&(active===last||active===$('#materials-dialog'))){event.preventDefault();first.focus();}
   });
-  $('#materials-rollback').addEventListener('click',async()=>{try{showFactStatus(await cue.materialRollback({}));await refreshProjectIndexState();showStatus('已恢复上一版完整材料。');}catch(e){showStatus('恢复失败：'+e.message);}});
+  cue.on('materials:progress',progress=>{
+    if(progress.operationId!==materialOperationId||materialOperation!=='prepare')return;
+    const phase={select:'请选择项目材料',discover:'正在校验事实资料',scan:'正在扫描源码',ready:'扫描完成，正在生成预览'}[progress.phase]||'正在准备材料';
+    materialMessage(phase+(progress.phase==='scan'?` · ${progress.indexedFiles||0} 个文件 / ${progress.sourceChunks||0} 个片段 · 跳过 ${progress.skippedCount||0} 项`:'…'));
+    $('#materials-operation-status').dataset.phase=progress.phase;
+  });
+  async function previewMaterials(input) {
+    if(materialOperation)return;
+    materialReturnFocus=document.activeElement;
+    materialOperationId='materials-'+(++materialSequence);setMaterialOperation('prepare');materialMessage('正在选择并扫描项目材料…');
+    try{
+      const preview=await cue.materialPrepare({...input,operationId:materialOperationId,mode:$('#material-mode').value,factPaths:$('#material-fact-paths').value.split(/\n/).map(s=>s.trim()).filter(Boolean)});
+      if(preview?.canceled){materialMessage('已取消导入。');return;}
+      renderMaterialPreview(preview);materialMessage('扫描完成，请在预览中确认后应用。');
+    }catch(e){materialMessage('材料预览失败：'+e.message,true);}
+    finally{materialOperationId='';if(materialOperation==='prepare'){setMaterialOperation('');materialReturnFocus=null;}}
+  }
+  $('#fact-import').addEventListener('click',()=>void previewMaterials({kind:'json'}));
+  $('#fact-save').addEventListener('click',()=>{try{void previewMaterials({kind:'json',index:JSON.parse($('#fact-editor').value)});}catch(e){materialMessage('JSON 无效：'+e.message,true);}});
+  $('#fact-rebuild').addEventListener('click',async()=>{if(materialOperation)return;setMaterialOperation('reload');try{showFactStatus(await cue.rebuildProjectFactPacks());await refreshProjectIndexState();materialMessage('已重载并校验本地材料。');}catch(e){materialMessage('重载失败：'+e.message,true);}finally{setMaterialOperation('');}});
+  $('#materials-cancel').addEventListener('click',()=>{if(materialOperation!=='commit'){closeMaterialPreview();materialMessage('已取消预览，现有材料保持原样。');}});
+  $('#materials-commit').addEventListener('click',async()=>{
+    if(!materialPreview||materialOperation==='commit')return;
+    for(const c of materialPreview.conflicts||[])if(!materialPreview.mappings[c.sourceId]){materialMessage('请先选择源码项目映射。',true);return;}
+    for(const c of materialPreview.packConflicts||[])if(materialPreview.variants[c.key]===undefined||materialPreview.variants[c.key]===''){materialMessage('请先选择冲突文件版本。',true);return;}
+    setMaterialOperation('commit');materialMessage('正在提交并校验索引持久化…');
+    try{
+      const result=await cue.materialCommit({...materialPreview,variants:Object.fromEntries(Object.entries(materialPreview.variants).map(([k,v])=>[k,Number(v)]))});
+      if(!result.persisted||!result.generation||!result.counts||result.counts.sourceChunks!==(result.projects||[]).reduce((n,p)=>n+p.sourceChunks,0))throw new Error('材料索引校验失败，请重载资料后检查。');
+      const persisted=await cue.materialState();
+      if(persisted.generation!==result.generation||persisted.counts.sourceChunks!==result.counts.sourceChunks||persisted.counts.facts!==result.counts.facts)throw new Error('材料版本或数量校验失败，请重载资料后检查。');
+      const indexState=await cue.projectIndexState();
+      if(indexState.chunkCount!==result.counts.sourceChunks||indexState.projectCount!==result.counts.sourceProjects)throw new Error('源码索引数量校验失败，请重载资料后检查。');
+      showFactStatus(await cue.getProjectFactPackStatus());renderProjectIndexState(indexState);closeMaterialPreview();
+      materialMessage(`材料已应用并校验：${result.counts.facts} 张事实卡 / ${result.counts.sourceChunks} 个源码片段。`);showStatus('材料已应用并校验。');
+    }catch(e){materialMessage('材料提交失败：'+e.message,true);setMaterialOperation('preview');}
+  });
+  $('#materials-rollback').addEventListener('click',async()=>{if(materialOperation)return;setMaterialOperation('rollback');try{showFactStatus(await cue.materialRollback({}));await refreshProjectIndexState();materialMessage('已恢复上一版完整材料。');}catch(e){materialMessage('恢复失败：'+e.message,true);}finally{setMaterialOperation('');}});
   $('#materials-dismiss').addEventListener('click',async()=>{settings=await cue.settingsSet({projectMaterialMigrationNotice:false});$('#materials-migration-note').hidden=true;});
   cue.on('materials:changed',state=>{showFactStatus(state);void refreshProjectIndexState();});
   cue.on('llm:materials',data=>{if(!acceptsDiagnostic(data.requestId,data.epoch))return;$('#material-diagnostics').textContent=JSON.stringify(data,null,2);});
