@@ -30,7 +30,7 @@ async function buildBundleFile({manifestPath=path.join(__dirname, '../materials/
   if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 512 * 1024) throw new Error('材料清单无效或过大');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')), root = path.dirname(path.resolve(manifestPath));
   if (manifest.schemaVersion !== 1 || manifest.approvedForDistribution !== true) throw new Error('发布材料必须在 manifest.json 明确 approvedForDistribution: true');
-  if (Object.keys(manifest).some(key => !['schemaVersion','approvedForDistribution','facts','sources','profile'].includes(key)) || !Array.isArray(manifest.facts) || manifest.facts.length > 16 || !Array.isArray(manifest.sources) || manifest.sources.length > 12) throw new Error('材料清单结构或数量无效');
+  if (Object.keys(manifest).some(key => !['schemaVersion','approvedForDistribution','facts','sources','profile','navigation'].includes(key)) || !Array.isArray(manifest.facts) || manifest.facts.length > 16 || !Array.isArray(manifest.sources) || manifest.sources.length > 12) throw new Error('材料清单结构或数量无效');
   const packs = manifest.facts.map(record => JSON.parse(controlledFile(root, record, 2 * 1024 * 1024).toString('utf8')));
   const combined = combinePacks(packs);
   if (combined.conflicts.length) throw new Error('多份打包事实存在冲突：' + combined.conflicts.map(item => item.key).join(', '));
@@ -72,6 +72,20 @@ async function buildBundleFile({manifestPath=path.join(__dirname, '../materials/
       }
       sources.stats = {fileCount:new Set(sources.chunks.map(chunk => chunk.projectId + '/' + chunk.path)).size, chunkCount:sources.chunks.length};
     } finally { fs.rmSync(stage, {recursive:true, force:true}); }
+  }
+  if(manifest.navigation){
+    const navigation=JSON.parse(controlledFile(root,manifest.navigation,512*1024).toString('utf8'));
+    if(navigation.schemaVersion!==1||!Array.isArray(navigation.entries)||navigation.entries.length>64)throw new Error('源码导航格式无效');
+    for(const entry of navigation.entries){
+      const project=sources.projects.find(project=>project.id===entry.projectId);
+      if(!project||!/^[a-f0-9]{40}$/.test(entry.sourceRevision||'')||project.sourceRevision!==entry.sourceRevision||!relative(entry.path)||entry.symbol!=null&&(typeof entry.symbol!=='string'||entry.symbol.length>160)||!Array.isArray(entry.keywords)||!entry.keywords.length||entry.keywords.length>16||entry.keywords.some(word=>typeof word!=='string'||word.length<2||word.length>64))throw new Error('源码导航身份、版本或关键词无效');
+      const matches=sources.chunks.filter(chunk=>chunk.projectId===entry.projectId&&chunk.path===entry.path&&(!entry.symbol||chunk.symbol===entry.symbol));
+      if(!matches.length)throw new Error('源码导航没有可核对的真实路径或符号：'+entry.path);
+      for(const [order,chunk] of matches.entries()){
+        chunk.navigationTerms=[...new Set([...(chunk.navigationTerms||[]),...entry.keywords])];
+        chunk.navigationPriority=Math.max(chunk.navigationPriority||0,1/(order+1));
+      }
+    }
   }
   const bundle = makeBundle({facts:combined.index || emptyFacts(), sources, profile});
   fs.mkdirSync(path.dirname(outputPath), {recursive:true});

@@ -152482,7 +152482,15 @@
         "retrievalText": "Arclight · implementation · build_forked_messages\ndef build_forked_messages(\n    conversation: ConversationManager,\n    task: str,",
         "projectId": "arclight",
         "projectName": "Arclight",
-        "projectRevision": "528704eb373f637830640b3fefcc5cbc95f23a78:a46c10438d9f02cd6834375b"
+        "projectRevision": "528704eb373f637830640b3fefcc5cbc95f23a78:a46c10438d9f02cd6834375b",
+        "navigationTerms": [
+          "fork",
+          "深拷贝",
+          "父子",
+          "对话隔离",
+          "tool_use"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "mewcode/agents/fork.py",
@@ -161730,7 +161738,15 @@
         "retrievalText": "Arclight · implementation · auto_compact\nasync def auto_compact(\n    conversation: ConversationManager,\n    client: Any,\n    context_window: int,\n    session_dir: Path,\n    protocol: str = \"anthropic\",\n    manual: bool = False,\n    breaker: CompactCircuitBreaker | None = None,\n    recovery: RecoveryState | None = None,\n    tool_schemas: list[Mapping[str, Any]] | None = None,\n    transcript_path: str = \"\",",
         "projectId": "arclight",
         "projectName": "Arclight",
-        "projectRevision": "528704eb373f637830640b3fefcc5cbc95f23a78:a46c10438d9f02cd6834375b"
+        "projectRevision": "528704eb373f637830640b3fefcc5cbc95f23a78:a46c10438d9f02cd6834375b",
+        "navigationTerms": [
+          "上下文",
+          "压缩",
+          "预算",
+          "历史裁剪",
+          "快照"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "mewcode/context/manager.py",
@@ -172286,7 +172302,18 @@
         "retrievalText": "Arclight · implementation · SessionManager#resume\n    def resume(self, session_id: str) -> ResumeResult | None:\n        jsonl_path = self._sessions_dir / f\"{session_id}.jsonl\"\n        meta_path = self._sessions_dir / f\"{session_id}.meta\"\n\n        if not jsonl_path.exists():\n            return None\n\n        meta = SessionMeta.load(meta_path)\n        if meta is None:\n            return None\n\n        records: list[SessionRecord] = []\n        with open(jsonl_path, encoding=\"utf-8\") as f:\n            for line in f:\n                line = line.strip()\n                if not line:\n                    continue\n                record = SessionRecord.from_jsonl(line)\n                if record is not None:\n                    records.append(record)\n\n        # 重建压缩后的状态：仅从最后一个 compact_boundary 开始重放。\n        # 该标记之前的 record 是已被摘要过的原始前缀——保留在磁盘上供审计，\n        # 但不再重放。标记本身内联了摘要 + 原样 keep 尾部，标记之后追加的\n        # 普通消息（续写）照常重放。没有 boundary 则全量重放（兼容旧 session）。\n        last_boundary = -1\n        for i, rec in enumerate(records):\n            if rec.type == RecordType.COMPACT_BOUNDARY:\n                last_boundary = i\n        if last_boundary >= 0:\n            records = records[last_boundary:]\n\n        valid_count = validate_message_chain(records)\n        records = records[:valid_count]\n        messages = records_to_messages(records)\n\n        file = open(jsonl_path, \"a\", encoding=\"utf-8\")  # noqa: SIM115\n        session = Session(\n            session_id=session_id,\n            file=file,\n            meta=meta,\n            sessions_dir=self._sessions_dir,\n        )\n\n        return ResumeResult(\n            session=session,\n            messages=messages,\n            last_active=meta.last_active,\n        )\n",
         "projectId": "arclight",
         "projectName": "Arclight",
-        "projectRevision": "528704eb373f637830640b3fefcc5cbc95f23a78:a46c10438d9f02cd6834375b"
+        "projectRevision": "528704eb373f637830640b3fefcc5cbc95f23a78:a46c10438d9f02cd6834375b",
+        "navigationTerms": [
+          "JSONL",
+          "会话恢复",
+          "恢复",
+          "会话",
+          "replacement_records",
+          "compact_boundary",
+          "keep",
+          "summary"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "mewcode/memory/session.py",
@@ -172824,7 +172851,15 @@
         "retrievalText": "Arclight · implementation · PermissionChecker#check\n    def check(self, tool: Tool, arguments: dict[str, Any]) -> Decision:\n        content = extract_content(tool.name, arguments)\n\n        # Layer 0: Plan 模式例外放行\n        if self.mode == PermissionMode.PLAN:\n            if tool.name in _PLAN_MODE_ALLOWED_TOOLS:\n                return Decision(effect=\"allow\", reason=\"Plan mode: allowed tool\")\n            if tool.name in (\"WriteFile\", \"EditFile\") and content:\n                if self._is_plan_file(content):\n                    return Decision(effect=\"allow\", reason=\"Plan mode: plan file write\")\n\n        # Layer 1: 安全的只读命令（自动放行）\n        if tool.category == \"command\" and is_safe_command(content or \"\"):\n            return Decision(effect=\"allow\", reason=\"Safe read-only command\")\n\n        # Layer 1b: 危险命令黑名单（仅 Bash）\n        if tool.category == \"command\":\n            hit, reason = self.detector.detect(content)\n            if hit:\n                return Decision(effect=\"deny\", reason=f\"危险命令拦截: {reason}\")\n\n        # Layer 2: 路径沙箱（仅文件类工具）\n        if tool.category in (\"read\", \"write\") and content:\n            ok, reason = self.sandbox.check(content)\n            if not ok:\n                return Decision(effect=\"deny\", reason=f\"路径沙箱拦截: {reason}\")\n\n        # Layer 3: 规则引擎匹配\n        rule_result = self.rule_engine.evaluate(tool.name, content)\n        if rule_result == \"allow\":\n            return Decision(effect=\"allow\", reason=\"权限规则放行\")\n        if rule_result == \"deny\":\n            return Decision(effect=\"deny\", reason=\"权限规则拒绝\")\n\n        # Layer 4: 权限模式兜底判定\n        effect = mode_decide(self.mode, tool.category)\n        if effect == \"allow\":\n            return Decision(effect=\"allow\", reason=f\"权限模式 {self.mode.value} 放行\")\n        if effect == \"deny\":\n            return Decision(effect=\"deny\", reason=f\"权限模式 {self.mode.value} 拒绝\")\n\n        # Layer 5: 触发人工确认（HITL）\n        return Decision(effect=\"ask\", reason=\"需要用户确认\")\n\n",
         "projectId": "arclight",
         "projectName": "Arclight",
-        "projectRevision": "528704eb373f637830640b3fefcc5cbc95f23a78:a46c10438d9f02cd6834375b"
+        "projectRevision": "528704eb373f637830640b3fefcc5cbc95f23a78:a46c10438d9f02cd6834375b",
+        "navigationTerms": [
+          "权限",
+          "危险命令",
+          "提示注入",
+          "执行授权",
+          "沙箱"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "mewcode/permissions/checker.py",
@@ -178992,7 +179027,15 @@
         "retrievalText": "Arclight · implementation · Mailbox#consume\n    def consume(self, agent_id: str) -> list[MailboxMessage]:\n        d = self._agent_dir(agent_id)\n        if not d.exists():\n            return []\n        messages: list[MailboxMessage] = []\n        for f in sorted(d.iterdir()):\n            if f.suffix != \".json\":\n                continue\n            try:\n                data = json.loads(f.read_text(encoding=\"utf-8\"))\n                messages.append(MailboxMessage.from_dict(data))\n                f.unlink()\n            except (json.JSONDecodeError, KeyError):\n                continue\n        return messages\n",
         "projectId": "arclight",
         "projectName": "Arclight",
-        "projectRevision": "528704eb373f637830640b3fefcc5cbc95f23a78:a46c10438d9f02cd6834375b"
+        "projectRevision": "528704eb373f637830640b3fefcc5cbc95f23a78:a46c10438d9f02cd6834375b",
+        "navigationTerms": [
+          "Mailbox",
+          "消息确认",
+          "读后删除",
+          "ACK",
+          "通知"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "mewcode/teams/mailbox.py",
@@ -184619,7 +184662,15 @@
         "retrievalText": "Arclight · implementation · SharedTaskStore#update\n    def update(\n        self,\n        task_id: str,\n        status: str | None = None,\n        assignee: str | None = None,\n        description: str | None = None,\n        add_blocks: list[str] | None = None,\n        add_blocked_by: list[str] | None = None,",
         "projectId": "arclight",
         "projectName": "Arclight",
-        "projectRevision": "528704eb373f637830640b3fefcc5cbc95f23a78:a46c10438d9f02cd6834375b"
+        "projectRevision": "528704eb373f637830640b3fefcc5cbc95f23a78:a46c10438d9f02cd6834375b",
+        "navigationTerms": [
+          "共享任务",
+          "状态竞争",
+          "并发写",
+          "CAS",
+          "认领"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "mewcode/teams/shared_task.py",
@@ -198452,7 +198503,15 @@
         "retrievalText": "Arclight · implementation · WorktreeManager#create\n    async def create(self, name: str, base_branch: str = \"HEAD\") -> Worktree:\n        async with self._lock:\n            err = validate_slug(name)\n            if err:\n                raise WorktreeError(err)\n\n            if name in self.active:\n                raise WorktreeError(f\"worktree already exists: {name}\")\n\n            flat_slug = flatten_slug(name)\n            wt_path = os.path.join(self.worktree_dir, flat_slug)\n            branch_name = f\"worktree-{flat_slug}\"\n\n            head_sha = self.read_worktree_head_sha(wt_path)\n            if head_sha is not None:\n                log.info(\"Fast recovery: reusing existing worktree at %s\", wt_path)\n                wt = Worktree(\n                    name=name,\n                    path=wt_path,\n                    branch=branch_name,\n                    based_on=base_branch,\n                    head_commit=head_sha,\n                )\n                self.active[name] = wt\n                return wt\n\n            os.makedirs(self.worktree_dir, exist_ok=True)\n\n            result = self._run_git([\n                \"worktree\", \"add\",\n                \"-B\", branch_name, wt_path, base_branch,\n            ])\n            if result.returncode != 0:\n                raise WorktreeError(\n                    f\"git worktree add failed: {result.stderr.strip()}\"\n                )\n\n            perform_post_creation_setup(\n                self.repo_root,\n                wt_path,\n                symlink_directories=self.symlink_directories,\n            )\n\n            head_sha = self.read_worktree_head_sha(wt_path) or \"\"\n            wt = Worktree(\n                name=name,\n                path=wt_path,\n                branch=branch_name,\n                based_on=base_branch,\n                head_commit=head_sha,\n            )\n            self.active[name] = wt\n            return wt\n\n    # ------------------------------------------------------------------\n    # 进入 worktree\n    # ------------------------------------------------------------------\n",
         "projectId": "arclight",
         "projectName": "Arclight",
-        "projectRevision": "528704eb373f637830640b3fefcc5cbc95f23a78:a46c10438d9f02cd6834375b"
+        "projectRevision": "528704eb373f637830640b3fefcc5cbc95f23a78:a46c10438d9f02cd6834375b",
+        "navigationTerms": [
+          "worktree",
+          "分支",
+          "工作区",
+          "合并",
+          "清理"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "mewcode/worktree/manager.py",
@@ -215440,7 +215499,15 @@
         "retrievalText": "CAE · implementation · ExecutionManager#submit\n    def submit(self, request: SubmitRequest) -> tuple[dict, bool]:\n        encoded = request.model_dump(by_alias=True, mode=\"json\")\n        fingerprint = hashlib.sha256(json.dumps(encoded, sort_keys=True).encode()).hexdigest()\n        # A duplicate request can recover a terminal execution even if external input disappeared.\n        existing = self.registry.by_request(request.execution_request_id)\n        if existing:\n            if existing[\"fingerprint\"] != fingerprint:\n                raise AgentError(\n                    \"IDEMPOTENCY_CONFLICT\", \"Execution request ID has different input\", 409\n                )\n            return self.query(existing[\"external_id\"]), False\n        validate_profile(request, self.settings)\n        workspace, manifest = verify_snapshot(request, self.settings.data_root)\n        output = workspace / \"executions\" / request.execution_request_id\n        ensure_contained(self.settings.data_root, output)\n        with self._launch_lock:\n            self.node_status()  # Refresh completed child facts before atomically counting capacity.\n            row, claimed = self.registry.claim(\n                encoded,\n                fingerprint,\n                f\"{self.settings.node_id}-{uuid.uuid4().hex}\",\n                output,\n                self.settings.cpu_total,\n                self.settings.memory_total_gb,\n            )\n            if not claimed:\n                return self.query(row[\"external_id\"]), False\n            # This claim is already durable. Failure here is recorded, never silently re-launched.\n            try:\n                output.mkdir(parents=True, exist_ok=True)\n                ensure_contained(self.settings.data_root, output)\n                config = {\n                    **encoded,\n                    \"workspace\": str(output),\n                    \"inputDirectory\": str(workspace / \"input\"),",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "提交身份",
+          "执行身份",
+          "求解进程",
+          "节点",
+          "重投"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "worker/agents/execution_manager.py",
@@ -215542,7 +215609,15 @@
         "retrievalText": "CAE · implementation · ExecutionManager#submit\n                    \"externalExecutionId\": row[\"external_id\"],\n                    \"nodeId\": self.settings.node_id,\n                    \"parameters\": manifest.get(\"parameters\", {}),\n                }\n                atomic_json(output / \"execution-config.json\", config)\n                if self.registry.by_request(request.execution_request_id)[\"cancel_requested\"]:\n                    atomic_json(output / \"cancel.request\", {\"requestedAt\": utc_now()})\n                with (output / \"solver.log\").open(\"ab\") as log:\n                    child = subprocess.Popen(\n                        public_solver(request.analysis_type).command(\n                            output / \"execution-config.json\"\n                        ),\n                        cwd=Path(__file__).resolve().parents[1],\n                        stdin=subprocess.DEVNULL,\n                        stdout=log,\n                        stderr=log,\n                        start_new_session=True,\n                        close_fds=True,\n                    )\n                self._children[child.pid] = child\n                payload = json.loads(row[\"payload_json\"])\n                create_time = psutil.Process(child.pid).create_time()\n                payload.update(\n                    pid=child.pid,\n                    createTime=create_time,\n                    processIdentity=f\"{child.pid}:{create_time:.6f}\",\n                )\n                self.registry.update_payload(request.execution_request_id, payload)\n                return self.query(row[\"external_id\"]), True\n            except OSError as error:\n                payload = json.loads(row[\"payload_json\"])\n                payload.update(\n                    state=\"RUNTIME_FAILED\",\n                    exitCode=-1,\n                    rawSolverCode=\"AGENT_LAUNCH_FAILURE\",\n                    rawMessage=f\"Mock process could not start: {type(error).__name__}\",\n                    finishedAt=utc_now(),\n                )\n                self.registry.update_payload(request.execution_request_id, payload)\n                raise AgentError(\n                    \"SUBMIT_REJECTED\", \"Mock solver process could not start\", 503\n                ) from error\n",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "提交身份",
+          "执行身份",
+          "求解进程",
+          "节点",
+          "重投"
+        ],
+        "navigationPriority": 0.5
       },
       {
         "path": "worker/agents/execution_manager.py",
@@ -238036,7 +238111,15 @@
         "retrievalText": "CAE · implementation · ProjectAccess#requireOwner\n  public void requireOwner(Authentication user, Map<String, Object> job) {\n    requireJob(user, job);\n    if (!admin(user) && !job.get(\"submitterId\").equals(user.getName()))\n      throw ApiException.forbidden();\n  }",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "对象级鉴权",
+          "权限",
+          "租户",
+          "项目归属",
+          "授权"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "backend/src/main/java/com/example/cae/auth/ProjectAccess.java",
@@ -249178,7 +249261,15 @@
         "retrievalText": "CAE · implementation · InboxRepository#complete\n  @Transactional\n  public void complete(CommandEnvelope message, String consumer, String owner) {\n    if (jdbc.update(\n            \"UPDATE cae_message_inbox SET status='DONE',claim_owner=NULL,claim_until=NULL,next_retry_time=NULL,last_error=NULL,completed_at=UTC_TIMESTAMP(6),updated_at=UTC_TIMESTAMP(6) WHERE logical_event_id=? AND consumer_name=? AND status='PROCESSING' AND claim_owner=?\",\n            message.eventId(),\n            consumer,\n            owner)\n        != 1) throw new LostLeaseException();\n  }",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "Inbox",
+          "owner",
+          "租约",
+          "迟到写入",
+          "逻辑事件"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "backend/src/main/java/com/example/cae/messaging/InboxRepository.java",
@@ -253314,7 +253405,15 @@
         "retrievalText": "CAE · implementation · ExecutionMonitor#reconcileExecution\n  /** Scoped synchronous reconciliation is also useful for deterministic recovery verification. */\n  public void reconcileExecution(long executionId) {\n    leases.makeDue(executionId);\n    for (ExecutionPollLeaseRepository.PollClaim claim :\n        leases.claim(owner, 1, leaseDuration, List.of(executionId))) reconcile(claim);\n  }",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "对账",
+          "远端",
+          "UNKNOWN",
+          "迟到",
+          "恢复"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "backend/src/main/java/com/example/cae/monitoring/ExecutionMonitor.java",
@@ -261392,7 +261491,15 @@
         "retrievalText": "CAE · implementation · OutboxPublisher#retry\n  private void retry(ClaimedEvent event, String reason) {\n    if (outbox.retryOrDead(event, reason, maxRetries, Duration.ofMillis(500))) retried.increment();\n    LOG.warn(\n        \"Outbox delivery deferred eventId={} deliveryId={} reason={}\",\n        event.envelope().eventId(),\n        event.envelope().deliveryId(),\n        OutboxRepository.bounded(reason));\n  }",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "Outbox",
+          "发布确认",
+          "broker",
+          "投递",
+          "认领"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "backend/src/main/java/com/example/cae/outbox/OutboxPublisher.java",
@@ -270515,7 +270622,15 @@
         "retrievalText": "CAE · implementation · PipelineService#process\n  public void process(CommandEnvelope command, String kind) {\n    Map<String, Object> job = jobs.findById(command.jobId());\n    long parseId = positive(command.payload().get(\"parseRecordId\"));\n    Map<String, Object> parse = repository.parse(parseId);\n    long executionId = positive(command.payload().get(\"executionId\"));\n    Map<String, Object> execution = executions.find(executionId);\n    validate(command, job, parse, execution);\n    if (!current(job, executionId) || \"CANCELLED\".equals(job.get(\"status\"))) return;\n    int version =\n        Math.toIntExact(\n            positive(command.payload().get(kind.equals(\"POST\") ? \"postVersion\" : \"reportVersion\")));\n    if (version > 10000) throw new IllegalArgumentException(\"Stage version out of range\");\n    var existing = repository.find(parseId, kind, version, false);\n    if (existing.isPresent() && \"COMPLETE\".equals(existing.get().get(\"status\"))) return;\n    Map<String, Object> candidate = null;\n    try {\n      if (existing.isEmpty())\n        candidate =\n            kind.equals(\"POST\")\n                ? builder.post(job, execution, parse, version, null)\n                : builder.report(\n                    repository\n                        .find(\n                            parseId,\n                            \"POST\",\n                            Math.toIntExact(positive(command.payload().get(\"postVersion\"))),\n                            false)\n                        .orElseThrow(StageBusyException::new),\n                    version);\n    } catch (DataAccessException unavailable) {\n      throw unavailable;\n    } catch (StageBusyException busy) {\n      throw busy;\n    } catch (RuntimeException failure) {\n      preparationFailed(job, parse, kind, version, failure);\n      throw failure;\n    }\n    Map<String, Object> prepared = candidate;",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "报告版本",
+          "报告",
+          "后处理",
+          "阶段重试",
+          "工况"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "backend/src/main/java/com/example/cae/report/PipelineService.java",
@@ -270810,7 +270925,15 @@
         "retrievalText": "CAE · implementation · PipelineService#process\n    Map<String, Object> claim =\n        tx.execute(\n            status -> {\n              var locked = jobs.lockById(command.jobId());\n              var confirmed = executions.locked(executionId);\n              if (!current(locked, executionId)\n                  || !\"SUCCESS\".equals(confirmed.get(\"status\"))\n                  || \"CANCELLED\".equals(locked.get(\"status\"))) return Map.of();\n              if (locked.get(\"activePipelineParseId\") == null)\n                locked = binding.completed(locked, parse);\n              var prior = repository.find(parseId, kind, version, true);\n              var stage =\n                  prior.isPresent()\n                      ? prior.get()\n                      : repository.create(\n                          locked,\n                          parse,\n                          kind,\n                          version,\n                          Math.toIntExact(positive(command.payload().get(\"postVersion\"))),\n                          prepared);\n              if (\"COMPLETE\".equals(stage.get(\"status\"))) return Map.of();\n              if (\"RUNNING\".equals(stage.get(\"status\"))\n                  && stage.get(\"claimUntil\") != null\n                  && Instant.parse(stage.get(\"claimUntil\").toString()).isAfter(Instant.now()))\n                throw new StageBusyException();\n              if (binding.active(locked, stage)) {\n                String failed = kind.equals(\"POST\") ? \"POST_PROCESS_FAILED\" : \"REPORT_FAILED\";\n                if (failed.equals(locked.get(\"status\")))\n                  jobs.transition(\n                      clear(locked),\n                      kind.equals(\"POST\") ? JobStatus.POST_PROCESSING : JobStatus.REPORTING,\n                      \"STAGE_AUTOMATIC_RETRY\",\n                      Map.of(\"stageId\", SqlRows.id(stage)));\n              }",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "报告版本",
+          "报告",
+          "后处理",
+          "阶段重试",
+          "工况"
+        ],
+        "navigationPriority": 0.5
       },
       {
         "path": "backend/src/main/java/com/example/cae/report/PipelineService.java",
@@ -271111,7 +271234,15 @@
         "retrievalText": "CAE · implementation · PipelineService#process\n              return repository.claim(stage);\n            });\n    if (claim.isEmpty()) return;\n    long started = System.nanoTime();\n    try {\n      var response =\n          client.render(\n              execution.get(\"nodeId\").toString(), kind, json.readMap(claim.get(\"request\")));\n      var checked = verifier.verify(claim, response);\n      tx.executeWithoutResult(\n          status -> {\n            var locked = jobs.lockById(command.jobId());\n            executions.locked(executionId);\n            var stage = repository.find(parseId, kind, version, true).orElseThrow();\n            if (!repository.owns(stage, claim)) throw new StageBusyException();\n            if (!current(locked, executionId)) {\n              repository.fail(stage, \"Obsolete execution; stage cannot modify the current Job\");\n              return;\n            }\n            long manifestId = 0, reportArtifact = 0;\n            for (var item : checked) {\n              var metadata = new LinkedHashMap<>(item.metadata());\n              metadata.put(\"parseRecordId\", parseId);\n              metadata.put(\"executionId\", executionId);\n              metadata.put(\"parserVersion\", parse.get(\"parserVersion\"));\n              metadata.put(\"rawChecksum\", parse.get(\"rawChecksum\"));\n              var artifact =\n                  artifacts.register(\n                      command.jobId(),\n                      executionId,\n                      parseId,\n                      parse.get(\"parserVersion\").toString(),\n                      version,\n                      item.type(),\n                      item.file(),\n                      item.contentType(),\n                      metadata);\n              if (item.type().endsWith(\"MANIFEST\")) manifestId = SqlRows.id(artifact);\n              if (item.type().equals(\"REPORT_PPTX\")) reportArtifact = SqlRows.id(artifact);",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "报告版本",
+          "报告",
+          "后处理",
+          "阶段重试",
+          "工况"
+        ],
+        "navigationPriority": 0.3333333333333333
       },
       {
         "path": "backend/src/main/java/com/example/cae/report/PipelineService.java",
@@ -271385,7 +271516,15 @@
         "retrievalText": "CAE · implementation · PipelineService#process\n            }\n            repository.complete(stage, manifestId);\n            if (kind.equals(\"POST\")) {\n              if (stage.get(\"nextRequestedAt\") == null) {\n                jobs.recordEvent(\n                    command.jobId(),\n                    \"REPORT_REQUESTED\",\n                    stageCommand(\n                        parse, execution, ((Number) stage.get(\"postVersion\")).intValue(), version));\n                repository.next(SqlRows.id(stage));\n              }\n              if (binding.active(locked, stage) && \"POST_PROCESSING\".equals(locked.get(\"status\")))\n                jobs.transition(\n                    clear(locked),\n                    JobStatus.REPORTING,\n                    \"POST_PROCESS_COMPLETED\",\n                    Map.of(\"stageId\", SqlRows.id(stage), \"parseRecordId\", parseId));\n            } else {\n              repository.report(stage, reportArtifact);\n              if (binding.active(locked, stage) && \"REPORTING\".equals(locked.get(\"status\"))) {\n                var fields = new LinkedHashMap<String, Object>();\n                fields.put(\"finishedAt\", java.sql.Timestamp.from(Instant.now()));\n                locked = jobs.patch(clear(locked), fields);\n                jobs.transition(\n                    locked,\n                    JobStatus.SUCCESS,\n                    \"DRAFT_REPORT_COMPLETED\",\n                    Map.of(\n                        \"stageId\",\n                        SqlRows.id(stage),\n                        \"artifactId\",\n                        reportArtifact,\n                        \"reportStatus\",\n                        \"DRAFT\"));\n              }\n            }\n            jobs.recordEvent(\n                command.jobId(),\n                kind.equals(\"POST\") ? \"POST_ARTIFACTS_REGISTERED\" : \"REPORT_ARTIFACTS_REGISTERED\",\n                Map.of(\"stageId\", SqlRows.id(stage), \"parseRecordId\", parseId, \"version\", version));",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "报告版本",
+          "报告",
+          "后处理",
+          "阶段重试",
+          "工况"
+        ],
+        "navigationPriority": 0.25
       },
       {
         "path": "backend/src/main/java/com/example/cae/report/PipelineService.java",
@@ -271527,7 +271666,15 @@
         "retrievalText": "CAE · implementation · PipelineService#process\n          });\n      metrics.counter(\"cae.stage.completed\", \"stage\", kind).increment();\n    } catch (StageBusyException busy) {\n      throw busy;\n    } catch (DataIntegrityViolationException constraint) {\n      failed(command, claim, kind, constraint);\n      throw new IllegalArgumentException(\"Stage violates a durable storage constraint\", constraint);\n    } catch (DataAccessException unavailable) {\n      throw unavailable;\n    } catch (RuntimeException failure) {\n      failed(command, claim, kind, failure);\n      throw failure;\n    } finally {\n      metrics\n          .timer(\"cae.stage.duration\", \"stage\", kind)\n          .record(System.nanoTime() - started, java.util.concurrent.TimeUnit.NANOSECONDS);\n    }\n  }",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "报告版本",
+          "报告",
+          "后处理",
+          "阶段重试",
+          "工况"
+        ],
+        "navigationPriority": 0.2
       },
       {
         "path": "backend/src/main/java/com/example/cae/report/PipelineService.java",
@@ -273962,7 +274109,14 @@
         "retrievalText": "CAE · implementation\npackage com.example.cae.report;\n\nimport com.example.cae.artifact.ArtifactFileStore;\nimport com.example.cae.common.JsonCodec;\nimport java.nio.charset.StandardCharsets;\nimport java.util.List;\nimport java.util.Map;\nimport java.util.TreeMap;\nimport org.springframework.stereotype.Component;\n",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "报告版本",
+          "指纹",
+          "缓存",
+          "同内容"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "backend/src/main/java/com/example/cae/report/RenderFingerprint.java",
@@ -274027,7 +274181,14 @@
         "retrievalText": "CAE · implementation · RenderFingerprint\n@Component\npublic class RenderFingerprint {\n  private final JsonCodec json;\n",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "报告版本",
+          "指纹",
+          "缓存",
+          "同内容"
+        ],
+        "navigationPriority": 0.5
       },
       {
         "path": "backend/src/main/java/com/example/cae/report/RenderFingerprint.java",
@@ -274095,7 +274256,14 @@
         "retrievalText": "CAE · implementation · RenderFingerprint#RenderFingerprint\n  public RenderFingerprint(JsonCodec json) {\n    this.json = json;\n  }",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "报告版本",
+          "指纹",
+          "缓存",
+          "同内容"
+        ],
+        "navigationPriority": 0.3333333333333333
       },
       {
         "path": "backend/src/main/java/com/example/cae/report/RenderFingerprint.java",
@@ -274174,7 +274342,14 @@
         "retrievalText": "CAE · implementation · RenderFingerprint#of\n  public String of(Map<String, Object> payload) {\n    return ArtifactFileStore.hex(json.write(sorted(payload)).getBytes(StandardCharsets.UTF_8));\n  }",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "报告版本",
+          "指纹",
+          "缓存",
+          "同内容"
+        ],
+        "navigationPriority": 0.25
       },
       {
         "path": "backend/src/main/java/com/example/cae/report/RenderFingerprint.java",
@@ -274265,7 +274440,14 @@
         "retrievalText": "CAE · implementation · RenderFingerprint#sorted\n  private Object sorted(Object value) {\n    if (value instanceof Map<?, ?> map) {\n      Map<String, Object> sorted = new TreeMap<>();\n      map.forEach((key, item) -> sorted.put(key.toString(), sorted(item)));\n      return sorted;\n    }\n    if (value instanceof List<?> list) return list.stream().map(this::sorted).toList();\n    return value;\n  }",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "报告版本",
+          "指纹",
+          "缓存",
+          "同内容"
+        ],
+        "navigationPriority": 0.2
       },
       {
         "path": "backend/src/main/java/com/example/cae/report/RenderFingerprint.java",
@@ -274330,7 +274512,14 @@
         "retrievalText": "CAE · implementation · RenderFingerprint\n}",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "报告版本",
+          "指纹",
+          "缓存",
+          "同内容"
+        ],
+        "navigationPriority": 0.16666666666666666
       },
       {
         "path": "backend/src/main/java/com/example/cae/report/ReportApplicationService.java",
@@ -283714,7 +283903,15 @@
         "retrievalText": "CAE · implementation · ResourceReservationService#release\n  @Transactional\n  public boolean release(long reservationId) {\n    Map<String, Object> row = lockLedger(reservationId);\n    String status = row.get(\"status\").toString();\n    if (status.equals(\"RELEASED\")) return false;\n    boolean reserved = status.equals(\"RESERVED\");\n    if (!reserved && !status.equals(\"IN_USE\"))\n      throw new IllegalStateException(\"Unknown reservation status\");\n    int tokens = integer(row, \"tokenCount\"),\n        cpu = integer(row, \"cpu\"),\n        memory = integer(row, \"memoryGb\");\n    String feature = row.get(\"feature\").toString(), node = row.get(\"nodeId\").toString();\n    String tokenColumn = reserved ? \"reserved_tokens\" : \"in_use_tokens\";\n    checked(\n        jdbc.update(\n            \"UPDATE cae_license_pool SET \"\n                + tokenColumn\n                + \"=\"\n                + tokenColumn\n                + \"-? WHERE feature=? AND \"\n                + tokenColumn\n                + \">=?\",\n            tokens,\n            feature,\n            tokens));\n    String cpuColumn = reserved ? \"cpu_reserved\" : \"cpu_used\",\n        memoryColumn = reserved ? \"memory_reserved_gb\" : \"memory_used_gb\";\n    checked(\n        jdbc.update(\n            \"UPDATE cae_compute_node SET \"\n                + cpuColumn\n                + \"=\"\n                + cpuColumn\n                + \"-?,\"\n                + memoryColumn\n                + \"=\"\n                + memoryColumn\n                + \"-? WHERE node_id=? AND \"\n                + cpuColumn\n                + \">=? AND \"\n                + memoryColumn\n                + \">=?\",\n            cpu,\n            memory,\n            node,\n            cpu,\n            memory));\n    checked(\n        jdbc.update(\n            \"UPDATE cae_resource_reservation SET status='RELEASED',released_at=CURRENT_TIMESTAMP(6) WHERE id=? AND status=?\",\n            reservationId,\n            status));\n    return true;\n  }",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "资源预占",
+          "资源释放",
+          "超卖",
+          "License",
+          "归还"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "backend/src/main/java/com/example/cae/resource/ResourceReservationService.java",
@@ -306530,7 +306727,15 @@
         "retrievalText": "CAE · implementation · ExecutionDispatchService#submit\n  /**\n   * Retrying transport always reuses the durable attempt request, never a fresh process identity.\n   */\n  public DispatchOutcome submit(long executionId) {\n    Map<String, Object> execution = executions.find(executionId);\n    if (!\"SUBMITTING\".equals(execution.get(\"status\"))) return DispatchOutcome.NOOP;\n    Map<String, Object> request = (Map<String, Object>) execution.get(\"request\");\n    LOG.info(\n        \"Agent submit jobNo={} executionId={} executionRequestId={} nodeId={}\",\n        request.get(\"jobNo\"),\n        executionId,\n        execution.get(\"submitRequestId\"),\n        execution.get(\"nodeId\"));\n    long submitStarted = System.nanoTime();\n    try {\n      Map<String, Object> accepted = agents.submit(execution.get(\"nodeId\").toString(), request);\n      DispatchOutcome outcome =\n          tx.execute(\n              status -> {\n                Map<String, Object> job =\n                    jobs.lockById(((Number) execution.get(\"jobId\")).longValue());\n                Map<String, Object> current = executions.locked(executionId);\n                if (!\"SUBMITTING\".equals(current.get(\"status\"))) return DispatchOutcome.NOOP;\n                Timestamp now = Timestamp.from(Instant.now());\n                boolean unknown = \"UNKNOWN\".equals(accepted.get(\"state\"));\n                current =\n                    executions.patch(\n                        current,\n                        Map.of(\n                            \"externalExecutionId\",\n                            accepted.get(\"externalExecutionId\"),\n                            \"status\",\n                            unknown ? \"UNKNOWN\" : \"SUBMITTED\",\n                            \"submittedAt\",\n                            now));\n                resources.accepted(((Number) current.get(\"reservationId\")).longValue());\n                if (\"SUBMITTING\".equals(job.get(\"status\"))) {",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "提交身份",
+          "执行身份",
+          "求解进程",
+          "Job",
+          "Execution"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "backend/src/main/java/com/example/cae/job/submission/ExecutionDispatchService.java",
@@ -306747,7 +306952,15 @@
         "retrievalText": "CAE · implementation · ExecutionDispatchService#submit\n                  Map<String, Object> fields = new LinkedHashMap<>();\n                  fields.put(\"submittedAt\", now);\n                  fields.put(\"failureCode\", null);\n                  fields.put(\"failureMessage\", null);\n                  job = jobs.patch(job, fields);\n                  jobs.transition(\n                      job,\n                      unknown ? JobStatus.UNKNOWN : JobStatus.SUBMITTED,\n                      \"AGENT_ACCEPTED\",\n                      Map.of(\n                          \"executionId\",\n                          executionId,\n                          \"externalExecutionId\",\n                          accepted.get(\"externalExecutionId\"),\n                          \"remoteState\",\n                          accepted.get(\"state\")));\n                }\n                return DispatchOutcome.ACCEPTED;\n              });\n      // A cancellation may have won while the HTTP acceptance was in flight.\n      Map<String, Object> latest = executions.find(executionId);\n      if ((Boolean.TRUE.equals(latest.get(\"cancelRequested\"))\n              || Integer.valueOf(1).equals(latest.get(\"cancelRequested\")))\n          && latest.get(\"externalExecutionId\") != null) {\n        try {\n          agents.cancel(\n              latest.get(\"nodeId\").toString(), latest.get(\"externalExecutionId\").toString());\n        } catch (AgentException cancellationFailure) {\n          // Acceptance is durable. The cancellation loop resumes this separate intent.\n          LOG.warn(\n              \"Cancellation after acceptance deferred executionId={} failureCode={}\",\n              executionId,\n              cancellationFailure.code());\n        }\n      }\n      return outcome;\n    } catch (AgentException failure) {\n      return tx.execute(\n          status -> {\n            Map<String, Object> job = jobs.lockById(((Number) execution.get(\"jobId\")).longValue());",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "提交身份",
+          "执行身份",
+          "求解进程",
+          "Job",
+          "Execution"
+        ],
+        "navigationPriority": 0.5
       },
       {
         "path": "backend/src/main/java/com/example/cae/job/submission/ExecutionDispatchService.java",
@@ -306994,7 +307207,15 @@
         "retrievalText": "CAE · implementation · ExecutionDispatchService#submit\n            Map<String, Object> current = executions.locked(executionId);\n            if (!\"SUBMITTING\".equals(current.get(\"status\"))) return DispatchOutcome.NOOP;\n            job =\n                jobs.patch(\n                    job,\n                    Map.of(\n                        \"failureCode\",\n                        failure.code().name(),\n                        \"failureMessage\",\n                        failure.getMessage()));\n            if (failure.ambiguous()) {\n              jobs.recordEvent(\n                  SqlRows.id(job),\n                  \"AGENT_SUBMIT_UNCERTAIN\",\n                  Map.of(\n                      \"executionId\",\n                      executionId,\n                      \"failureCode\",\n                      failure.code().name(),\n                      \"retryable\",\n                      true));\n              return DispatchOutcome.RETRYABLE_UNCERTAIN;\n            }\n            executions.patch(\n                current,\n                Map.of(\n                    \"status\",\n                    \"SUBMIT_FAILED\",\n                    \"finishedAt\",\n                    Timestamp.from(Instant.now()),\n                    \"rawMessage\",\n                    failure.getMessage()));\n            resources.releaseByExecution(executionId);\n            if (\"CANCEL_REQUESTED\".equals(job.get(\"status\")))\n              jobs.transition(\n                  job, JobStatus.CANCELLED, \"JOB_CANCELLED\", Map.of(\"confirmedNotAccepted\", true));\n            else if (\"SUBMITTING\".equals(job.get(\"status\")))\n              jobs.transition(\n                  job,\n                  JobStatus.SUBMIT_FAILED,\n                  \"AGENT_REJECTED\",\n                  Map.of(\n                      \"executionId\",\n                      executionId,\n                      \"httpStatus\",\n                      failure.httpStatus(),\n                      \"failureCode\",\n                      failure.code().name()));\n            return DispatchOutcome.PERMANENT_FAILURE;\n          });\n    } finally {\n      latency.record(System.nanoTime() - submitStarted, java.util.concurrent.TimeUnit.NANOSECONDS);\n    }\n  }",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "提交身份",
+          "执行身份",
+          "求解进程",
+          "Job",
+          "Execution"
+        ],
+        "navigationPriority": 0.3333333333333333
       },
       {
         "path": "backend/src/main/java/com/example/cae/job/submission/ExecutionDispatchService.java",
@@ -312190,5 +312411,5 @@
     }
   },
   "profile": {},
-  "revision": "3754d9ead715dae07e04e28b3b13b745eeb25adc5f9e4ff7735afd3084c29242"
+  "revision": "a35806d676a3ba72e608f063ef8f4fef25179c10aaa0e205fdcab80904416abd"
 }

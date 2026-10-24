@@ -967,7 +967,8 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       }
     }
     const builtSystem = instantContext ? instantContext.system : def.buildSystem ? def.buildSystem(contextBundle.context, settings.aiRules || '',
-      { answerPlan, interviewPlan, projectPlan: request.plan, hasImage: !!imageDataUrl }) : (def.system || '');
+      { answerPlan, interviewPlan, projectPlan: request.plan, hasImage: !!imageDataUrl,
+        projectContextLimit:Math.min(14000,contextBundle.context.length) }) : (def.system || '');
     const narrativeRule='\nUSER/source-claim 是用户指定的口述资料，可按范围直接回答既有职责，不复述资料编辑历史；没有材料才简短说明缺口。默认中文第一人称，以1.、2.、3.分点，每点一至两句；代码题保留完整代码。';
     const resolvedSystem = builtSystem + (instantContext?'':narrativeRule) + (request.plan.kind==='unresolved'?'\n项目不明确：仅简短询问用户指哪个项目，不猜团队或职责。':'');
     const initialSystem = llm.prepareSystem ? llm.prepareSystem(resolvedSystem) : resolvedSystem;

@@ -134,6 +134,7 @@ const HUMAN_INTERVIEW_RULES = `
 const PROJECT_GROUNDING_RULES = `
 项目知识文档与项目事实规则：
 实现依据源码/配置；项目面试卡片按其证据类型与事实范围使用，选型理由、职责、经历依据对应的明确资料；指标保留测试环境、时间、单位与口径。来源冲突时区分版本与证据类型，不凭导入顺序决定真伪。
+${require('./project-grounding').EVIDENCE_BOUNDARIES}
 只有材料证明个人职责时才说“我负责/我做了”，源码不能自动证明职责；不得虚构指标、组件、事故或经历。
 候选人历史发言和 Cue 旧回答只用于理解对话，不是项目事实来源；通用知识和假设方案不能冒充真实项目经历。
 test_only 是测试结果，planned/abandoned/unverified 不能说成已上线事实；confirmed 仅表示用户确认。一般原理可用通用知识，不能据此断言项目已采用。
@@ -184,7 +185,7 @@ const MODES = {
   say: {
     needsScreen: false, userBubble: '如何回答', small: false, resumeMode: 'say', maxTokens: 640, oral: true,
     buildSystem(contextBlock, aiRules, opts = {}) {
-      return applyRules(buildSystem('你是 cue，帮助求职者组织可直接说出口的面试答案。' + BASE_RULES + REALTIME_CONTEXT_RULES + HUMAN_INTERVIEW_RULES + PROJECT_GROUNDING_RULES + interviewShapeInstruction(opts), contextBlock, contextCharsFor('say', opts.answerPlan)), aiRules, 'say');
+      return applyRules(buildSystem('你是 cue，帮助求职者组织可直接说出口的面试答案。' + BASE_RULES + REALTIME_CONTEXT_RULES + HUMAN_INTERVIEW_RULES + PROJECT_GROUNDING_RULES + interviewShapeInstruction(opts), contextBlock, Number.isFinite(opts.projectContextLimit)?Math.max(0,Math.min(14000,opts.projectContextLimit)):contextCharsFor('say', opts.answerPlan)), aiRules, 'say');
     },
     build(ctx) {
       if (!latestInterviewerTurn(ctx.transcript)) return '用户主动触发口述回答，但当前没有识别到面试官问题。请用可直接说出口的一句提示说明需要面试官问题，不编造题目或答案。';
@@ -218,7 +219,7 @@ const MODES = {
   },
   answerThis: {
     needsScreen: false, userBubble: null, small: false, resumeMode: 'say', maxTokens: 640, oral: true,
-    buildSystem(contextBlock, aiRules, opts = {}) { return applyRules(buildSystem('你是 cue。只回答当前面试题。' + BASE_RULES + HUMAN_INTERVIEW_RULES + PROJECT_GROUNDING_RULES + REALTIME_CONTEXT_RULES + interviewShapeInstruction(opts), contextBlock, contextCharsFor('answerThis', opts.answerPlan)), aiRules, 'answerThis'); },
+    buildSystem(contextBlock, aiRules, opts = {}) { return applyRules(buildSystem('你是 cue。只回答当前面试题。' + BASE_RULES + HUMAN_INTERVIEW_RULES + PROJECT_GROUNDING_RULES + REALTIME_CONTEXT_RULES + interviewShapeInstruction(opts), contextBlock, Number.isFinite(opts.projectContextLimit)?Math.max(0,Math.min(14000,opts.projectContextLimit)):contextCharsFor('answerThis', opts.answerPlan)), aiRules, 'answerThis'); },
     build(ctx) { return `当前面试题：\n${cleanText(ctx.userText || '（未提供问题）')}\n\n${answerShapeInstruction(ctx.answerPlan)}只输出可直接口述的正文。`; },
     resolveMaxTokens(ctx = {}) { return (ctx.answerPlan || getAnswerPlan(ctx.userText)).maxTokens; }
   },

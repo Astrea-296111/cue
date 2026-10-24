@@ -22,7 +22,12 @@ const ALIASES = [
   ['权限', '鉴权', '授权', 'authorization', 'permission', 'access'], ['租户', 'tenant', 'tenancy'],
   ['取消', 'cancel', 'cancellation'], ['对账', 'reconcile', 'reconciliation'], ['执行', 'execution'],
   ['状态机', 'state machine', 'transition'], ['共享任务', '任务认领', 'shared task', 'claim'],
-  ['邮箱', 'mailbox', '消息确认', 'acknowledge']
+  ['邮箱', 'mailbox', '消息确认', 'acknowledge'],
+  ['节点', 'worker', 'agent'], ['执行身份', '执行标识', 'execution identity', 'request_id', 'executionrequestid', 'submitrequestid'],
+  ['求解进程', '进程启动', 'spawn', 'subprocess', 'process'], ['受理', 'submit', 'submission'],
+  ['状态回传', 'callback'], ['消息', 'message', 'event', 'delivery'],
+  ['会话', 'session', 'conversation'], ['恢复', 'resume', 'recovery', 'restore'],
+  ['压缩', 'compact', 'compaction', 'summary'], ['替换状态', 'replacement', 'replacement_records']
 ];
 
 // A project manifest is useful orientation, but cannot replace implementation
@@ -39,7 +44,9 @@ function implementationWeight(query, chunk) {
   const direct=identifiers.filter(word=>field.includes(word)).length;
   const names=String(chunk.symbol||'').split('#');
   const constructor=names.length>1&&names[0].split('.').at(-1)===names.at(-1);
-  const behavior=constructor||String(chunk.text||'').length<65 ? .25 : ['method','function'].includes(chunk.kind)?1.3:1;
+  const body=String(chunk.text||'');
+  const executable=/\b(?:return|throw|if|for|while|try|await|with|yield)\b/.test(body);
+  const behavior=constructor||body.length<65||chunk.kind==='context'&&!executable ? .25 : ['method','function'].includes(chunk.kind)?1.3:1;
   return (1.8+Math.min(3,direct)*.65)*behavior;
 }
 
@@ -161,12 +168,18 @@ class ProjectSearch {
     this.cache = new Map();
     this.termCache = new Map();
     this.scopeCache = new Map();
+    this.navigation = new Map();
     this.vectorProvider = options.vectorProvider || null;
     this.reranker = options.reranker || null;
   }
 
   add(id) {
     const chunk = this.chunks[id];
+    for(const word of (Array.isArray(chunk.navigationTerms)?chunk.navigationTerms:[]).slice(0,32)){
+      const term=normalize(word),key=String(chunk.projectId||'')+':'+term;
+      if(!this.navigation.has(key)&&this.navigation.size<512)this.navigation.set(key,{term,ids:[]});
+      const entry=this.navigation.get(key);if(entry&&entry.ids.length<32)entry.ids.push(id);
+    }
     const bodyTokens = tokenize(chunk.retrievalText || chunk.text);
     const body = frequency(bodyTokens);
     const fields = [body, frequency(tokenize(chunk.path)), frequency(tokenize(String(chunk.symbol || '').split('#').at(-1)))];
@@ -253,11 +266,23 @@ class ProjectSearch {
       if (visits >= maxVisits) break;
     }
     for(const row of candidates.values())row.score*=implementationWeight(query,row.chunk);
+    // Version-checked navigation supplies aliases for code symbols, never
+    // answer text. The metadata is compiled once; source bodies stay verbatim.
+    const folded=normalize(query);let navigationVisits=0;
+    for(const entry of this.navigation.values()){
+      if(navigationVisits>=64)break;
+      if(!folded.includes(entry.term))continue;
+      navigationVisits++;
+      for(const id of entry.ids){const chunk=this.chunks[id];if(!inProjectScope(chunk,scopes))continue;
+        const row=candidates.get(id)||{id,chunk,score:0,matches:0};
+        row.score+=(150+Math.min(12,entry.term.length)*15)*(chunk.navigationPriority||1);
+        row.navigationMatches=(row.navigationMatches||0)+1;candidates.set(id,row);}
+    }
     const ranked=[...candidates.values()].sort((a,b)=>b.score-a.score||a.id-b.id),rows=[],files=new Set();
     for(const row of ranked){const file=row.chunk.projectId+':'+row.chunk.path;if(files.has(file))continue;files.add(file);rows.push(row);if(rows.length>=limit)break;}
     if(rows.length<limit)for(const row of ranked){if(!rows.includes(row))rows.push(row);if(rows.length>=limit)break;}
     return {rows,
-      postingsVisited:Math.min(visits,maxVisits),budgetExhausted:visits>=maxVisits};
+      postingsVisited:Math.min(visits,maxVisits),navigationVisits,budgetExhausted:visits>=maxVisits};
   }
 
   // Provider contracts (optional, synchronous, source ids only):
@@ -303,7 +328,7 @@ class ProjectSearch {
         item.score += score * weight;
         item.matched.add(term);
         if (contentMatch) item.contentMatched.add(term);
-        if (fieldMatch && weight === 1) item.fieldMatch = true;
+        if (fieldMatch && weight >= 1) item.fieldMatch = true;
       }
     }
     const lexical = [...candidates.values()].sort((a, b) => b.score - a.score || a.id - b.id).slice(0, candidateLimit);

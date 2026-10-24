@@ -45,8 +45,12 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
   if(implementation||sourcePolicy==='standard')for(const id of projectIds){
     const ownScopes=resolution.catalog?.find(project=>(project.id||project.projectId)===id)?.sourceScopes ||
       (projectIds.length===1?resolution.sourceScopes||resolution.scopes:[`@project:${id}`]);
-    queue(allowedSources.find(item=>item.sourceType!=='manual'&&/\.(?:java|py|[cm]?[jt]sx?|go|rs|cs|sql)$/i.test(item.path||'')&&
-      (item.projectId===id||inProjectScope(item,ownScopes))));
+    const files=new Set();let reserved=0;
+    for(const item of allowedSources){
+      if(item.sourceType==='manual'||!/\.(?:java|py|[cm]?[jt]sx?|go|rs|cs|sql)$/i.test(item.path||'')||
+        !(item.projectId===id||inProjectScope(item,ownScopes))||files.has(item.path))continue;
+      queue(item);files.add(item.path);if(++reserved>=(multi?2:1))break;
+    }
   }
   if(multi)for(const part of parts){
     const eligible=item=>item.sourceType==='project-pack' ? !part.projectIds.length||part.projectIds.includes(item.projectId)
