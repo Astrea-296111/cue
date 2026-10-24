@@ -131,6 +131,7 @@ function publicSummary(report, session, discovery, error, reportEncrypted = fals
   return {schemaVersion:1, kind:'live-private-encrypted', runId:session?.runId || null, commitSha:session?.commitSha || null,
     status:error ? 'failed' : report?.status || 'failed', reportEncrypted, modelSelection:discovery || null,
     attemptedCalls:count(report?.budget?.attemptedCalls), caseCount:count(summary.caseCount),
+    allInferenceCalls:count(summary.calls?.total), judgeCalls:count(summary.calls?.judges), dynamicActorCalls:count(summary.calls?.dynamicActors),
     passedCases:count(summary.passedCases), failedCases:count(summary.failedCases),
     latency:{firstContentP50:count(summary.firstContentMs?.p50), firstContentP95:count(summary.firstContentMs?.p95),
       doneP50:count(summary.doneMs?.p50), doneP95:count(summary.doneMs?.p95)},
@@ -156,8 +157,13 @@ async function evaluateSession({directory, outputDir, env = process.env, mode = 
   let session, key, report, discovery, error, snapshotTimer, lastSnapshot, inferenceStarted = false;
   const sanitize = {secrets:[env.QWEN_API_KEY, env.DEEPSEEK_API_KEY], workspaceRoot:path.resolve(__dirname, '..'), tempRoots:[directory]};
   const saveEncrypted = (value, markdown) => {
+    const artifacts={};
+    if(fs.existsSync(plainDir))for(const name of fs.readdirSync(plainDir)) {
+      if(!/^(?:judge-checkpoint|manual-review-queue|dynamic-[a-f0-9]{24})\.json$/.test(name))continue;
+      try {artifacts[name]=sanitizeReport(readJson(path.join(plainDir,name),cipher.MAX_REPORT_BYTES),sanitize);}catch{/* A concurrent checkpoint is collected by the next snapshot. */}
+    }
     writeJson(path.join(outputDir, 'report.encrypted.json'), cipher.encryptReports({session, key,
-      reports:{report:sanitizeReport({...value, modelSelection:discovery}, sanitize), markdown:sanitizeText(markdown, sanitize)}}));
+      reports:{report:sanitizeReport({...value, modelSelection:discovery}, sanitize), markdown:sanitizeText(markdown, sanitize),artifacts}}));
   };
   const snapshot = () => {
     if (!key || !session) return;
@@ -177,7 +183,7 @@ async function evaluateSession({directory, outputDir, env = process.env, mode = 
     process.exit(143);
   };
   try {
-    if (!['smoke','deep'].includes(mode)) throw failure('configuration'); providerIds(provider);
+    if (!['smoke','regression','deep','stress'].includes(mode)) throw failure('configuration'); providerIds(provider);
     session = cipher.validateSession(readJson(path.join(directory, 'session.json'), 16 * 1024)); checkRun(session, env);
     const resolved = await resolveModelConfiguration({env, provider, discoverModels, fetchImpl}); discovery = resolved.discovery;
     if (discovery.errors.length) throw failure(discovery.errors[0].code);
@@ -254,6 +260,10 @@ async function main(args = process.argv.slice(2), env = process.env) {
       const reports = cipher.decryptReports({session, key, envelope:readJson(options.envelope)});
       writeJson(path.join(options['output-dir'], 'report.json'), reports.report);
       writeFile(path.join(options['output-dir'], 'report.md'), String(reports.markdown || ''));
+      for(const [name,value] of Object.entries(reports.artifacts||{})) {
+        if(!/^(?:judge-checkpoint|manual-review-queue|dynamic-[a-f0-9]{24})\.json$/.test(name))throw failure('invalid-private-envelope');
+        writeJson(path.join(options['output-dir'],name),value);
+      }
     } finally { key.fill(0); }
     process.stdout.write('Private reports decrypted locally.\n'); return 0;
   }

@@ -52,6 +52,7 @@ test('trusted private evaluation publishes only encrypted answers and aggregate 
       calls++; assert.deepEqual(options.payload, payload); assert.equal(options.env.GITHUB_STEP_SUMMARY, undefined);
       fs.mkdirSync(options.outputDir, {recursive:true});
       fs.writeFileSync(path.join(options.outputDir, 'report.md'), 'PRIVATE_MARKDOWN ' + env.QWEN_API_KEY);
+      fs.writeFileSync(path.join(options.outputDir,'manual-review-queue.json'),JSON.stringify({private:'PRIVATE_REVIEW_PACKET',key:env.QWEN_API_KEY}));
       return {kind:'live-private', status:'passed', budget:{attemptedCalls:2}, summary:{caseCount:2, passedCases:2, failedCases:0},
         providers:[{answer:'PRIVATE_FULL_ANSWER', accidentalKey:env.DEEPSEEK_API_KEY}]};
     }});
@@ -66,6 +67,8 @@ test('trusted private evaluation publishes only encrypted answers and aggregate 
   assert.equal(reports.report.providers[0].answer, 'PRIVATE_FULL_ANSWER');
   assert.equal(reports.report.providers[0].accidentalKey, '[REDACTED]');
   assert.ok(!reports.markdown.includes(env.QWEN_API_KEY));
+  assert.equal(reports.artifacts['manual-review-queue.json'].private,'PRIVATE_REVIEW_PACKET');
+  assert.equal(reports.artifacts['manual-review-queue.json'].key,'[REDACTED]');
 
   const rejected = fixture(t), rejectedSession = initialize(rejected, env);
   assert.ok(rejectedSession.publicKey);

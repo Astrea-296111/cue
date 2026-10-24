@@ -32,8 +32,8 @@ function parseArgs(args) {
     else throw new Error('Unknown argument or missing argument value. Use --help.');
   }
   if (!['smoke', 'full'].includes(options.mode) || !['qwen', 'deepseek', 'all'].includes(options.provider)) throw new Error('Invalid mode or provider.');
-  for (const [key, ceiling] of Object.entries({ maxCalls: 60, maxCallsPerProvider: 30, maxOutputTokens: 1800,
-    firstContentTimeoutMs: 30000, totalTimeoutMs: 60000 })) {
+  for (const [key, ceiling] of Object.entries({ maxCalls: 20000, maxCallsPerProvider: 10000, maxOutputTokens: 16384,
+    firstContentTimeoutMs: 120000, totalTimeoutMs: 120000 })) {
     options[key] = Number(options[key]);
     if (!Number.isInteger(options[key]) || options[key] < 1 || options[key] > ceiling) throw new Error(`Invalid ${key}; hard limit is ${ceiling}.`);
   }
@@ -47,11 +47,11 @@ function help() {
     `node scripts/e2e-live-llm.cjs [--mode smoke|full] [--provider all|qwen|deepseek]\n` +
     `  --output-dir DIR                 report.json + report.md (default artifacts/llm-live)\n` +
     `  --mock                           explicit offline transport; never a live quality result\n` +
-    `  --max-calls N                     default/hard ceiling 60; attempts include failures\n` +
-    `  --max-calls-per-provider N        default/hard ceiling 30\n` +
-    `  --max-output-tokens N             default/hard ceiling 1800; oversize production requests fail\n` +
-    `  --first-content-timeout-ms N      default 10000; ceiling 30000; reasoning is not content\n` +
-    `  --total-timeout-ms N              default 30000; ceiling 60000\n\n` +
+    `  --max-calls N                     default 60; ceiling 20000; includes failed attempts\n` +
+    `  --max-calls-per-provider N        default 30; ceiling 10000\n` +
+    `  --max-output-tokens N             default 1800; ceiling 16384; production request unchanged\n` +
+    `  --first-content-timeout-ms N      default 10000; ceiling 120000; reasoning is not content\n` +
+    `  --total-timeout-ms N              default 30000; ceiling 120000\n\n` +
     `Live configuration (all selected provider values required):\n` +
     `QWEN_API_KEY, QWEN_MODEL, QWEN_BASE_URL\nDEEPSEEK_API_KEY, DEEPSEEK_MODEL, DEEPSEEK_BASE_URL\n` +
     `Keys come only from environment and stay in memory. HTTPS endpoints only.\n` +
@@ -128,9 +128,13 @@ function providerConfig(id, env, mock) {
 }
 
 function createBudget(options, providerIds) {
+  for(const [key,ceiling] of Object.entries({maxCalls:20000,maxCallsPerProvider:10000,maxOutputTokens:16384,firstContentTimeoutMs:120000,totalTimeoutMs:120000})) {
+    if(!Number.isInteger(options[key])||options[key]<1||options[key]>ceiling) throw new Error('Invalid live evaluation '+key+'; split large suites into bounded shards.');
+  }
   let total = 0;
   const byProvider = Object.fromEntries(providerIds.map(id => [id, 0]));
   return { attempt(provider) {
+    if(!Object.hasOwn(byProvider,provider))throw new Error('Provider is outside the evaluation request budget.');
     if (total >= options.maxCalls || byProvider[provider] >= options.maxCallsPerProvider) throw new Error('Live evaluation request budget exceeded.');
     total++; byProvider[provider]++;
   }, snapshot: () => ({ maxCalls: options.maxCalls, maxCallsPerProvider: options.maxCallsPerProvider,
@@ -204,14 +208,14 @@ async function runCase(runtime, item, provider, options, budget, evaluateCase) {
       yield { choices: [{ delta: { content: '\n当前获批问题：' + item.question }, finish_reason: 'stop' }] };
     })();
   });
-  runtime.final(item.question, { sourceId: 'approved-ci-text', utteranceKey: item.id });
+  if (!item.eventAlreadyPublished) runtime.final(item.question, { sourceId: 'approved-ci-text', utteranceKey: item.id });
   const started = performance.now();
   let outerTimeout = false, timer;
   try {
     // Explicit text is the production manual-question IPC path. ASR fragment
     // merging depends on real speech pauses and is covered by separate tests.
     await Promise.race([runtime.ask('say', item.question), new Promise((resolve, reject) => {
-      timer = setTimeout(() => { outerTimeout = true; runtime.clear(); reject(new Error('Evaluation total timeout.')); }, options.totalTimeoutMs + 1000);
+      timer = setTimeout(() => { outerTimeout = true; if(runtime.hasHandler('llm:cancel')) void runtime.invoke('llm:cancel'); else runtime.clear(); reject(new Error('Evaluation total timeout.')); }, options.totalTimeoutMs + 1000);
     })]);
   } catch { /* runtime and sanitized transport state supply a bounded diagnostic */ }
   finally { clearTimeout(timer); }
@@ -229,6 +233,15 @@ async function runCase(runtime, item, provider, options, budget, evaluateCase) {
     .filter(Boolean).map(source => ({ id: source.id, projectId: source.projectId, path: source.path }));
   const metrics = latencyMetrics(runtime, eventStart, logStart);
   if (metrics.doneMs == null) metrics.doneMs = +(performance.now() - started).toFixed(2);
+  const observed = runtime.observedTimes || [];
+  const requestAt = observed.find(item=>item.type==='request')?.at;
+  const firstSentence = observed.find(item=>item.type==='first-sentence')?.at;
+  const rendererDelivery = observed.find(item=>item.type==='renderer-delivery')?.at;
+  metrics.firstSentenceMs = Number.isFinite(firstSentence) ? +(firstSentence-started).toFixed(2) : null;
+  metrics.rendererDeliveryMs = Number.isFinite(rendererDelivery) ? +(rendererDelivery-started).toFixed(2) : null;
+  metrics.renderConfirmedMs = null; // OS/window are virtual; IPC delivery is not painted pixels.
+  metrics.audioEndToFinalMs = null; // Text replay cannot measure ASR.
+  metrics.requestDispatchMs = Number.isFinite(requestAt) ? +(requestAt-started).toFixed(2) : null;
   const completion = completionMetadata(runtime, commitStart);
   const transportErrors = runtime.transportEvents.slice(transportStart);
   const providerError = lastEvent(events, 'llm:error');
@@ -264,6 +277,8 @@ async function runCase(runtime, item, provider, options, budget, evaluateCase) {
     evidenceDiagnostics: Object.fromEntries(['selectedFactIds', 'selectedSourceIds', 'contextFactIds', 'contextSourceIds', 'dropped', 'reasons']
       .map(key => [key, materials[key] || []]).concat([['serializedFactIds', materials.sentFactIds || []], ['serializedSourceIds', materials.sentSourceIds || []]])),
     usage: Object.fromEntries(usageKeys.map(key => [key, typeof metrics[key] === 'number' ? metrics[key] : null])),
+    actualMessages: attempted ? runtime.calls.slice(callStart).map(call=>({model:call.model,messages:call.messages,max_tokens:call.max_tokens,max_completion_tokens:call.max_completion_tokens,thinking:call.thinking,enable_thinking:call.enable_thinking})) : [],
+    frozenState: request ? { spokenContext:request.spokenContext || '', dialogueRevision:request.dialogueRevision ?? null, evidenceRevision:request.evidenceRevision ?? null, questionSnapshot:request.questionSnapshot ?? null } : null,
     completion, quality, pipelineFailures, ...(error ? { error } : {}) };
 }
 
@@ -271,7 +286,7 @@ function createProviderRuntime({ id, config, options, budget, provider, cleanups
   const actualProvider = id === 'qwen' ? 'custom' : 'deepseek';
   return createInterviewRuntime({ after: cleanup => cleanups.push(cleanup) }, {
     indexSnapshot: { version: 2, projects: [], chunks: [], stats: { fileCount: 0, chunkCount: 0 } },
-    dialogPaths, inMemorySettings: true, realTime: true,
+    dialogPaths, inMemorySettings: true, realTime: true, targetRoot: options.targetRoot,
     settings: { provider: actualProvider, apiKeys: { [actualProvider]: config.apiKey }, smart: false,
       models: { [actualProvider]: { fast: config.model, smart: config.model } },
       ...(id === 'qwen' ? { baseUrl: config.baseURL, providerProtocolPresets: { custom: 'dashscope' },
