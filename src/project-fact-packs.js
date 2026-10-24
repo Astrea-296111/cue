@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { createHash } = require('crypto');
 const { performance } = require('perf_hooks');
+const {boundedRankingText, projectQuestionParts} = require('./project-question-parts');
 const hash = x => createHash('sha256').update(JSON.stringify(x)).digest('hex').slice(0, 24);
 const validPath = x => typeof x === 'string' && x.length > 0 && !/^(?:[A-Za-z]:|[/\\])/.test(x) && !x.replace(/\\/g,'/').split('/').some(p=>p==='..'||p==='.');
 const types = new Set('overview implementation decision challenge incident performance ownership collaboration limitation'.split(' '));
@@ -67,7 +68,7 @@ class ProjectFactPacks {
   getIndex(){return JSON.parse(JSON.stringify(this.index));}
   listProjects(){return JSON.parse(JSON.stringify(this.index.projects));}
   select(question,{projectId,anchor,maxCards=4,effectiveModel={},resolution}={}) {
-    const at=performance.now(), q=String(question).slice(0,8000), lower=q.toLowerCase();
+    const at=performance.now(), q=boundedRankingText(question), lower=q.toLowerCase();
     const resolvedIds=resolution ? resolution.canonicalProjectIds||resolution.projectIds||[] : null;
     let mentioned;
     if(resolution) mentioned=this.index.projects.filter(p=>resolvedIds.includes(p.id)&&resolution.retrieveFacts!==false);
@@ -82,21 +83,35 @@ class ProjectFactPacks {
     if(!mentioned.length) return {evidence:[],localFacts:[],anchor:null,projectIds:[],gaps:[],stats:{selectedCardCount:0,selectionMs:performance.now()-at,packRevision:this.index.revision}};
     const requested=resolution?.intent?.length?resolution.intent:intents.filter(([,re])=>re.test(q)).map(([t])=>t);
     const rankText=mentioned.reduce((text,p)=>[p.name,...p.aliases].reduce((s,a)=>s.toLowerCase().split(a.toLowerCase()).join(''),text),q);
-    const terms=grams(rankText);
-    const ranked=this.features.filter(f=>mentioned.some(p=>p.id===f.card.projectId)).map(f=>{
-      const c=f.card, overlap=[...terms].filter(g=>f.terms.has(g)).length;
-      let score=overlap/Math.max(1,terms.size) + f.keywords.filter(k=>rankText.toLowerCase().includes(k)).length*.6;
-      if(c.provenance==='USER'&&c.status!=='missing'&&(overlap>0||requested.includes(c.docType))) score+=.3;
-      if(requested.includes(c.docType)) score+=3;
-      if(/多久|时间线|开发周期|几个月|何时|哪年/.test(q)&&c.docType==='overview'&&f.keywords.some(k=>/时间|周期|几个月|timeline/.test(k)))score+=4;
+    const terms=grams(rankText), scoped=this.features.filter(f=>mentioned.some(p=>p.id===f.card.projectId));
+    const parts=projectQuestionParts(question,resolution||{projectIds:mentioned.map(p=>p.id)});
+    const multi=parts.length>1;
+    const scoreFor=(f,text,queryTerms,requestedTypes)=>{
+      const c=f.card, normalized=text.toLowerCase(), overlap=[...queryTerms].filter(g=>f.terms.has(g)).length;
+      const lexical=overlap/Math.max(1,queryTerms.size) + f.keywords.filter(k=>normalized.includes(k)).length*.6;
+      let score=lexical;
+      if(c.provenance==='USER'&&c.status!=='missing'&&(overlap>0||requestedTypes.includes(c.docType))) score+=.3;
+      if(requestedTypes.includes(c.docType)) score+=multi ? .15 : 3;
+      if(/多久|时间线|开发周期|几个月|何时|哪年/.test(text)&&c.docType==='overview'&&f.keywords.some(k=>/时间|周期|几个月|timeline/.test(k)))score+=4;
       if(anchor?.cardIds?.includes(c.cardId)&&/刚才|这个困难|那个方案|另一种/.test(q)) score+=2;
-      return {c,score};
-    }).sort((a,b)=>b.score-a.score||a.c.cardId.localeCompare(b.c.cardId));
+      return {c,score,lexical};
+    };
+    const order=(a,b)=>b.score-a.score||a.c.cardId.localeCompare(b.c.cardId);
+    const ranked=scoped.map(f=>scoreFor(f,rankText,terms,requested)).sort(order);
     const chosen=[]; const add=c=>{if(c&&!chosen.includes(c)&&chosen.length<Math.min(12,maxCards)) chosen.push(c);};
-    // Coverage per intent and per project precedes lexical ranking.
+    // Each actual ask gets a relevant card before global intent preferences.
+    // A long scenario mentioning latency must not spend its first slots on
+    // unrelated benchmark cards while dropping the final recovery/cancel ask.
+    if(multi)for(const part of parts){
+      const ownTerms=grams(part.text), wanted=intents.filter(([,re])=>re.test(part.text)).map(([t])=>t);
+      const own=scoped.filter(f=>!part.projectIds.length||part.projectIds.includes(f.card.projectId)).map(f=>scoreFor(f,part.text,ownTerms,wanted)).sort(order);
+      for(const project of mentioned.filter(p=>!part.projectIds.length||part.projectIds.includes(p.id)))add(own.find(row=>row.c.projectId===project.id&&row.lexical>.04)?.c);
+    }
+    // Short personal followups still rely on their explicit intent, even when
+    // they contain no implementation vocabulary.
     const wanted=requested;
     for(const p of mentioned) add(ranked.find(x=>x.c.projectId===p.id&&(!wanted.length||wanted.includes(x.c.docType)))?.c);
-    for(const t of wanted) for(const p of mentioned) add(ranked.find(x=>x.c.projectId===p.id&&x.c.docType===t)?.c);
+    if(!multi)for(const t of wanted) for(const p of mentioned) add(ranked.find(x=>x.c.projectId===p.id&&x.c.docType===t)?.c);
     if(chosen.length<Math.min(4,maxCards)&&chosen.length) { const first=chosen[0];add(this.index.cards.find(c=>first.related.includes(c.cardId)&&c.projectId===first.projectId)); }
     for(const x of ranked) if(x.score>.04) add(x.c);
     const evidence=chosen.map(c=>this.evidenceById.get(c.cardId));

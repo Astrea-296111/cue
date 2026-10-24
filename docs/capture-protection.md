@@ -23,7 +23,7 @@ Windows 10 内部版本 19041 起支持完整窗口排除；本次 Windows 原�
 在仓库目录执行：
 
 ```sh
-node --test test/window-protection.test.js test/windows-capture-protection.test.js test/semantic-packaging.test.js
+node --test test/window-protection.test.js test/windows-capture-protection.test.js
 ```
 
 Windows 10 19041+ / Windows 11 桌面上执行：

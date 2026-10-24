@@ -18,8 +18,30 @@ const ALIASES = [
   ['记忆', 'memory'], ['超时', 'timeout'], ['回调', 'callback'],
   ['事务', 'transaction', 'transactional'], ['并发', 'concurrency', 'concurrent'],
   ['资源准入', '资源预留', '资源预占', '资源预约', 'resource reservation', 'admission', 'reservation'],
-  ['调度', 'scheduler', 'scheduling'], ['报告生成', '结果导出', 'report generation', 'result export']
+  ['调度', 'scheduler', 'scheduling'], ['报告', '报告生成', '结果导出', 'report', 'reporting', 'report generation', 'result export'],
+  ['权限', '鉴权', '授权', 'authorization', 'permission', 'access'], ['租户', 'tenant', 'tenancy'],
+  ['取消', 'cancel', 'cancellation'], ['对账', 'reconcile', 'reconciliation'], ['执行', 'execution'],
+  ['状态机', 'state machine', 'transition'], ['共享任务', '任务认领', 'shared task', 'claim'],
+  ['邮箱', 'mailbox', '消息确认', 'acknowledge']
 ];
+
+// A project manifest is useful orientation, but cannot replace implementation
+// evidence. Match identifiers to code paths/symbols without project-specific
+// file lists or expected-answer rules.
+function implementationWeight(query, chunk) {
+  if(!/实现|源码|代码|接口|执行|取消|报告|权限|幂等|事务|并发|恢复|隔离|持久化|状态|\b(?:code|implementation|Outbox|Inbox|Execution)\b/i.test(query))return 1;
+  const code=/\.(?:java|py|[cm]?[jt]sx?|go|rs|c|cpp|h|cs|sql)$/i.test(chunk.path||'');
+  if(!code)return /(?:^|\/)interview\/project\.md$|(?:^|\/)readme\./i.test(chunk.path||'') ? 0.4 : 1;
+  const field=normalize(`${chunk.path||''} ${chunk.symbol||''}`);
+  const identity=normalize(chunk.projectId||'');
+  const identifiers=[...new Set(String(query).match(/\b[A-Za-z][A-Za-z0-9_]{2,63}\b/g)||[])].map(normalize)
+    .filter(word=>word!==identity&&!STOP_WORDS.has(word));
+  const direct=identifiers.filter(word=>field.includes(word)).length;
+  const names=String(chunk.symbol||'').split('#');
+  const constructor=names.length>1&&names[0].split('.').at(-1)===names.at(-1);
+  const behavior=constructor||String(chunk.text||'').length<65 ? .25 : ['method','function'].includes(chunk.kind)?1.3:1;
+  return (1.8+Math.min(3,direct)*.65)*behavior;
+}
 
 
 const DENSE_DIM = 128;
@@ -120,7 +142,9 @@ function querySpec(query) {
   // Keep the tail of long interview questions: the concrete request often
   // follows a long scenario. This bounds posting work without making only the
   // first clause searchable. Original questions themselves remain untouched.
-  const boundedWeights = new Map(allWeights.length <= 256 ? allWeights : [...allWeights.slice(0, 96), ...allWeights.slice(-160)]);
+  const identifiers=[...new Set(normalized.match(/[a-z][a-z0-9_]{2,63}/g)||[])].filter(term=>weights.has(term)&&!STOP_WORDS.has(term)).slice(0,48);
+  const boundedWeights = new Map(allWeights.length <= 256 ? allWeights : [...identifiers.map(term=>[term,weights.get(term)]), ...allWeights.slice(0,64), ...allWeights.slice(-144)]);
+  for(const term of identifiers)boundedWeights.set(term,Math.max(2,boundedWeights.get(term)||0));
   const original = [...originalSet].filter(t => boundedWeights.has(t));
   const boundedGroups = groups.map(g => g.filter(t => boundedWeights.has(t))).filter(g => g.length);
   return { original, weights: boundedWeights, groups: boundedGroups, key: JSON.stringify([...boundedWeights]) };
@@ -204,6 +228,36 @@ class ProjectSearch {
     const ids = [];
     for (let id = 0; id < this.chunks.length; id++) if (inProjectScope(this.chunks[id], scopes)) ids.push(id);
     return this.remember(this.scopeCache, key, { ids, allowed: new Set(ids) }, 32);
+  }
+
+  // First-question path over already-built postings. Unlike rank(), this never
+  // walks every source to find exact symbols, builds vectors, or calls providers.
+  lookupPrepared(query, scopes = [], options = {}) {
+    const limit = Math.max(0, Math.min(8, Number(options.limit) || 8));
+    const maxVisits = Math.max(1, Math.min(4096, Number(options.maxPostings) || 4096));
+    if (!Array.isArray(scopes) || !scopes.length || !limit) return {rows:[],postingsVisited:0};
+    const spec = querySpec(query), n = this.chunks.length, avg = this.totalLength / Math.max(1,n);
+    const terms = [...spec.weights].filter(([term]) => this.postings.has(term))
+      .sort((a,b) => b[1]-a[1] || this.postings.get(a[0]).length-this.postings.get(b[0]).length || b[0].length-a[0].length).slice(0,64);
+    const candidates = new Map(); let visits = 0;
+    for (const [term,weight] of terms) {
+      const postings = this.postings.get(term), idf = Math.log(1+(n-postings.length+.5)/(postings.length+.5));
+      for (const [id,tf,path,symbol] of postings) {
+        if (visits++ >= maxVisits) break;
+        const chunk = this.chunks[id];
+        if (!inProjectScope(chunk,scopes)) continue;
+        const value = idf*(tf*2.2/(tf+1.2*(.25+.75*this.lengths[id]/avg))+path*2.4+symbol*3.2)*weight;
+        const row = candidates.get(id) || {id,chunk,score:0,matches:0};
+        row.score += value; row.matches++; candidates.set(id,row);
+      }
+      if (visits >= maxVisits) break;
+    }
+    for(const row of candidates.values())row.score*=implementationWeight(query,row.chunk);
+    const ranked=[...candidates.values()].sort((a,b)=>b.score-a.score||a.id-b.id),rows=[],files=new Set();
+    for(const row of ranked){const file=row.chunk.projectId+':'+row.chunk.path;if(files.has(file))continue;files.add(file);rows.push(row);if(rows.length>=limit)break;}
+    if(rows.length<limit)for(const row of ranked){if(!rows.includes(row))rows.push(row);if(rows.length>=limit)break;}
+    return {rows,
+      postingsVisited:Math.min(visits,maxVisits),budgetExhausted:visits>=maxVisits};
   }
 
   // Provider contracts (optional, synchronous, source ids only):
@@ -325,7 +379,7 @@ class ProjectSearch {
       const similarity = item.denseSimilarity || 0;
       const vectorSimilarity = item.vectorSimilarity || 0;
       const confidence = Math.min(1, 0.36 * coverage + 0.31 * termCoverage + (item.fieldMatch ? 0.14 : 0) + (exactSymbol ? 0.32 : 0) + (aliasMatch ? 0.13 : 0) + Math.min(0.48, similarity * 0.68) + vectorSimilarity * 0.45);
-      let score = item.rrfScore * 1000;
+      let score = item.rrfScore * 1000 * implementationWeight(query,chunk);
       if (exactSymbol) score *= 1.18;
       if (!/测试|test\b/i.test(query) && /(?:^|\/)(?:tests?|__tests__)(?:\/|$)|\.(?:test|spec)\./i.test(chunk.path)) score *= 0.85;
       if (/架构|概览|overview|architecture/i.test(query) && /readme|docs?\/|architecture/i.test(chunk.path)) score *= 1.2;

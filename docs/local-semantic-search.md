@@ -19,7 +19,7 @@ Cue 的基础检索不需要模型、网络或额外服务。语义检索是可�
 以下检查不下载模型：
 
 ```sh
-node --test test/project-embeddings.test.js
+npm run test:semantic
 npm run test:semantic:runtime
 npm run test:semantic -- --model-dir=/path/to/e5-<revision>-q8 --data-dir=/tmp/cue-semantic-check
 ```

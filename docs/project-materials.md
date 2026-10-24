@@ -79,7 +79,7 @@ DISPLAY=:99 npm run test:ui -- --no-sandbox
 | D：导入、快照、迁移与恢复 | `project-material-service`；I01–I12、M01/M02、逐卡 keep、并发版本与嵌入来源校验 |
 | 性能与原功能 | 三场景各 1000 次离线基准；原模型、语音、窗口测试与 UI smoke。未执行真实服务在线问答 |
 
-公共自动化入口为 `test/project-materials.test.js`、`test/materials-runtime.test.js` 和现有回归套件。进程中断恢复已测试；真实断电持久性、无密钥条件下的在线模型质量与延迟均未验证。
+当前公共自动化入口为 `npm test` 的[核心清单](../test/essential-suite.json)，包括 `material-import-lifecycle`、`bundled-materials` 和 `materials-runtime`；原大量细粒度套件已按需求删除，取舍见[关键回归说明](essential-testing.md)。进程中断恢复已测试；真实断电持久性、无密钥条件下的在线模型质量与延迟均未验证。
 
 最终兼容检查补充：只有事实项目、没有源码且源码关闭时，标准模式仍可按 canonical 身份使用已绑定的旧手动资料；关闭手动资料后不再发送。该路径只给纯文本选择器传递虚拟身份，未调用源码检索；相关 19 项运行时、简历和标准问答回归通过。
 

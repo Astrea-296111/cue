@@ -62,9 +62,9 @@ class InstantContextCards {
   }
 }
 
-function buildInstantContext({ settings = {}, question, snapshot, request, readyEvidence = {}, answerPlan, cards }) {
+function buildInstantContext({ settings = {}, question, snapshot, request, readyEvidence = {}, answerPlan, evidenceLimits, cards }) {
   const hasFactPacks = (readyEvidence.evidence || []).some(item=>item.sourceType==='project-pack');
-  const limits = hasFactPacks ? {...INSTANT_LIMITS,evidenceTokens:1500,softInputTokens:3000,maxSources:4} : INSTANT_LIMITS;
+  const limits = evidenceLimits ? {...INSTANT_LIMITS,...evidenceLimits} : hasFactPacks ? {...INSTANT_LIMITS,evidenceTokens:1500,softInputTokens:3000,maxSources:4} : INSTANT_LIMITS;
   const sources = readyEvidence.evidence || readyEvidence.sources || [];
   const evidence = [], blocks = []; let dataTokens = 0;
   for (const source of sources.slice(0, 32)) {

@@ -6,6 +6,7 @@ const path = require('node:path');
 const os = require('node:os');
 const {ProjectMaterialService} = require('../src/project-material-service');
 const {buildBundleFile} = require('../scripts/bundle-project-materials.cjs');
+const {validatePersonalWorkspace,installPersonalWorkspace} = require('../src/personal-workspace');
 const {makeBundle, hash, installBundledMaterials} = require('../src/bundled-materials');
 const {fixture, sourceFixture, loadAdapter, writeFolder, sha} = require('./helpers/material-fixture');
 
@@ -28,6 +29,22 @@ function setup(t) {
 function writeBundle(bundlePath, value) { fs.writeFileSync(bundlePath, JSON.stringify(value)); }
 function baseManifest() { return {schemaVersion:1, approvedForDistribution:true, facts:[], sources:[], profile:null}; }
 function writeManifest(root, value) { const file = path.join(root, 'manifest.json'); fs.writeFileSync(file, JSON.stringify(value)); return file; }
+
+test('explicit personal workspace imports facts, resume and JD once while preserving later local edits', async t => {
+  const {root, service, store}=setup(t);
+  const workspace=validatePersonalWorkspace({schemaVersion:1,facts:fixture(2),profile:{resumeText:'Private synthetic resume',jobDescription:'Private synthetic role'}});
+  fs.writeFileSync(path.join(root,'workspace.json'),JSON.stringify(workspace));
+  const beforeSources=JSON.stringify(service.snapshot.sources);
+  const result=await installPersonalWorkspace({directory:root,materialService:service,store});
+  assert.equal(result.applied,true);assert.equal(service.snapshot.facts.cards.length,2);
+  assert.equal(JSON.stringify(service.snapshot.sources),beforeSources);
+  assert.equal(store.getSettings().jobDescription,workspace.profile.jobDescription);
+  assert.equal(store.getSettings().resumeText,workspace.profile.resumeText);
+  store.setSettings({jobDescription:'Locally edited role'});
+  assert.equal((await installPersonalWorkspace({directory:root,materialService:service,store})).reason,'already-applied');
+  assert.equal(store.getSettings().jobDescription,'Locally edited role');
+  assert.throws(()=>validatePersonalWorkspace({...workspace,profile:{...workspace.profile,apiKeys:{custom:'forbidden'}}}));
+});
 
 test('empty packaged revision preserves local facts/sources/settings and never creates a new material generation', async t => {
   const {root, service, store, bundlePath} = setup(t), original = service.snapshot;

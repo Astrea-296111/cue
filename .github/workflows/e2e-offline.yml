@@ -31,7 +31,7 @@ jobs:
       - name: Compile distributable materials
         run: npm run compile:materials
       - name: Exercise the production chain without external API calls
-        run: npm run test:llm:mock -- --mode full --provider all --output-dir artifacts/llm-mock
+        run: npm run test:llm:mock -- --mode smoke --provider qwen --output-dir artifacts/llm-mock
       - name: Exercise actual Electron import, chat and errors
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         env:

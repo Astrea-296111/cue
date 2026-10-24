@@ -17,8 +17,8 @@ Windows 沿用 `com.cue.assistant`、`Cue` 和 ASAR 布局。目录包需整体�
 
 普通打包不新增 Whisper 准备或下载步骤。已准备的 Windows 运行时仍可从原 `.cache/whisper-runtime/win32-x64` 路径复制；已有 Whisper 功能代码不变。原有 `CUE_BUNDLE_WHISPER` 显式开关才启用 `afterPack` 中的准备运行时检查。
 
-`npm test` 执行全量测试。目前保留一项按用户要求暂不处理的旧断言：`packaged builds bundle whisper by default`。排除这一项的常规回归验证命令为：
+`npm test` 只运行明确保留的关键回归，清单与取舍见[关键回归说明](essential-testing.md)。Windows 打包和原生捕获保护由 CI 单独验证：
 
 ```sh
-node --test --test-skip-pattern='packaged builds bundle whisper by default' test/*.test.js
+npm test
 ```

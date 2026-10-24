@@ -3,7 +3,14 @@ const {estimateTokens}=require('./final-request-budget');
 const {formatEvidenceBlock}=require('./evidence-selector');
 const {inProjectScope}=require('./project-scope');
 const {strictProjectScopes}=require('./project-registry');
-const VERSION='project-evidence-v1';
+const {projectQuestionParts}=require('./project-question-parts');
+const {tokenize}=require('./project-search');
+const VERSION='project-evidence-v2';
+function resolveEvidenceLimits({question='',answerPlan={},instant=false}={}) {
+  const longScenario=answerPlan.questionCount>=3||String(question).length>450;
+  return longScenario ? {maxSources:instant?6:9,evidenceTokens:instant?2400:4200,softInputTokens:6500,longScenario:true}
+    : {maxSources:instant?4:7,evidenceTokens:instant?1500:2800,softInputTokens:3000,longScenario:false};
+}
 function planProjectEvidence({question='',resolution={},facts=[],sources=[],factsEnabled=true,sourcePolicy='ready-only',maxSources=4,evidenceTokens=1500}={}) {
   const dropped=[],reasons=[],selected=[],seen=new Set();let tokens=0;
   const general=resolution.kind==='general',unresolved=resolution.kind==='unresolved';
@@ -22,8 +29,34 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
   const personal=/几个人|多少人|团队|职责|负责|哪块|多久|时间|经历/.test(question);
   const implementation=/实现|代码|源码|接口|竞态|恢复|状态机|机制/.test(question)||resolution.intent?.includes('implementation');
   const primary = c=>(resolution.intent||[]).includes(c.docType) || personal&&['ownership','collaboration','overview','performance'].includes(c.docType) || implementation&&c.docType==='implementation';
-  const rankedFacts=[...allowedFacts].sort((a,b)=>Number(primary(b))-Number(primary(a))||Number(b.provenance==='USER')-Number(a.provenance==='USER'));
+  const parts=projectQuestionParts(question,resolution),multi=parts.length>1;
+  const rankedFacts=multi?[...allowedFacts]:[...allowedFacts].sort((a,b)=>Number(primary(b))-Number(primary(a))||Number(b.provenance==='USER')-Number(a.provenance==='USER'));
   const candidates=[];const queue=c=>{if(c&&!candidates.includes(c))candidates.push(c);};
+  const sourceTerms=new Map(),partTerms=new Map();
+  const score=(item,part)=>{
+    if(!partTerms.has(part))partTerms.set(part,[...new Set(tokenize(part.text,true))]);
+    if(!sourceTerms.has(item))sourceTerms.set(item,new Set(tokenize(`${item.path||''} ${item.symbol||''} ${(item.keywords||[]).join(' ')} ${item.text||''}`,true)));
+    const words=partTerms.get(part),body=sourceTerms.get(item);
+    return words.filter(word=>body.has(word)).length/Math.max(1,words.length);
+  };
+  // Technical questions need a real implementation excerpt before optional
+  // summaries fill the budget. Keep each project's evidence in comparisons.
+  const projectIds=resolution.canonicalProjectIds||resolution.projectIds||[];
+  if(implementation||sourcePolicy==='standard')for(const id of projectIds){
+    const ownScopes=resolution.catalog?.find(project=>(project.id||project.projectId)===id)?.sourceScopes ||
+      (projectIds.length===1?resolution.sourceScopes||resolution.scopes:[`@project:${id}`]);
+    queue(allowedSources.find(item=>item.sourceType!=='manual'&&/\.(?:java|py|[cm]?[jt]sx?|go|rs|cs|sql)$/i.test(item.path||'')&&
+      (item.projectId===id||inProjectScope(item,ownScopes))));
+  }
+  if(multi)for(const part of parts){
+    const eligible=item=>item.sourceType==='project-pack' ? !part.projectIds.length||part.projectIds.includes(item.projectId)
+      : !part.scopes.length||inProjectScope(item,part.scopes);
+    const best=items=>items.filter(eligible).map(item=>({item,score:score(item,part)})).sort((a,b)=>b.score-a.score).find(row=>row.score>.04)?.item;
+    queue(best(rankedFacts));
+    // Reserve one applicable source for each ask, not just one source for the
+    // entire scenario. Selection below still enforces the same finite budget.
+    queue(best(allowedSources.filter(item=>item.sourceType!=='manual')));
+  }
   for(const id of resolution.canonicalProjectIds||resolution.projectIds||[])queue(rankedFacts.find(c=>c.projectId===id));
   // Standard retrieval must retain a matching implementation source even when
   // many fact cards are relevant. Prefer an imported source over a manual note;
@@ -56,4 +89,4 @@ function applyFactCoverage(bundle,resolution) {
   });
   bundle.missing=(bundle.missing||[]).filter(g=>!covered.get(g.questionId)?.has(g.type));
 }
-module.exports={planProjectEvidence,sentEvidenceDiagnostics,applyFactCoverage,VERSION};
+module.exports={planProjectEvidence,sentEvidenceDiagnostics,applyFactCoverage,resolveEvidenceLimits,VERSION};
