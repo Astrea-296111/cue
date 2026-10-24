@@ -15,7 +15,7 @@ const fs = require('fs');
 const { ProjectFactPacks, validateIndex } = require('./src/project-fact-packs');
 let factPacks = new ProjectFactPacks();
 const {ProjectMaterialService} = require('./src/project-material-service');
-const {planProjectEvidence,sentEvidenceDiagnostics,applyFactCoverage} = require('./src/project-evidence-policy');
+const {planProjectEvidence,sentEvidenceDiagnostics,applyFactCoverage,resolveEvidenceLimits} = require('./src/project-evidence-policy');
 const { captureScreenshot } = require('./src/screen');
 const { createSTT } = require('./src/stt');
 const { parseDocumentFile } = require('./src/resume');
@@ -911,11 +911,14 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const materialIdentity = {generation:generation.materials.generation,factRevision:generation.materials.factRevision,sourceRevision:generation.materials.sourceRevision,registryRevision:generation.materials.registryRevision};
     request.materials=materialIdentity;
     const factSelection = policy.factsEnabled ? generation.materials.factPacks.select(question, {resolution:request.plan,maxCards:12}) : null;
+    const evidenceLimits=resolveEvidenceLimits({question,answerPlan,instant:policy.instant});
     const canRetrieveSources = policy.ragPolicy !== 'off' && request.plan.retrieveSources;
-    const ready = policy.ragPolicy !== 'standard' || !canRetrieveSources ? peekReadyEvidence({ snapshot: frozen,
+    const preparedSources = peekReadyEvidence({ snapshot: frozen,
       projectPlan: request.plan, epoch: conversation.epoch, projectRevision: retrieval.projectRevision,
       modelVersion: retrieval.modelVersion, projectIndexSnapshot: readProjectIndexSnapshot({ preparedOnly: true }),
-      cache: activeProjectContextCache, ragSession, retrievalInput: retrieval, policy: canRetrieveSources ? 'ready-only' : 'off' }) : null;
+      cache: activeProjectContextCache, ragSession, retrievalInput: retrieval, policy: canRetrieveSources ? 'ready-only' : 'off',
+      maxSources:evidenceLimits.longScenario?4:3,maxChars:evidenceLimits.longScenario?4800:2400 });
+    const ready = policy.ragPolicy !== 'standard' || !canRetrieveSources ? preparedSources : null;
     const contextBundle = policy.instant ? {context:'',evidence:ready?.evidence||[],missing:[],byQuestion:[],stats:ready?.stats||{}}
       : await buildInterviewContextBundleAsync(effectiveSettings, mode, contextTranscript,
       { ...retrieval, skipSourceRetrieval:!!ready,readySources:ready?.evidence||[],readyStats:ready?.stats||{}, requestId: timing.requestId, projectPlan: request.plan, smart: !!settings.smart,
@@ -924,8 +927,10 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
         signal: generation.controller.signal, deadlineAt: Date.now() + (fast ? 0 : 100), semanticWaitMs: fast ? 0 : 100,
         execution: fast ? 'fast' : 'deep', realtimeEvidencePrefetch: realtimePrefetchEnabled(settings),
         hashFallback: !fast, semanticRetriever: getSemanticRetriever(),prefetchedRetrieval:ragSession.take(retrieval,{metadata:true}) });
+    if(!ready&&preparedSources.evidence.length)contextBundle.evidence=[...preparedSources.evidence,...contextBundle.evidence]
+      .filter((item,index,all)=>all.findIndex(other=>other.id===item.id)===index);
     const evidencePlan=planProjectEvidence({question,resolution:request.plan,facts:factSelection?.evidence||[],sources:contextBundle.evidence,
-      factsEnabled:policy.factsEnabled,sourcePolicy:policy.ragPolicy,evidenceTokens:policy.instant?1500:2800,maxSources:policy.instant?4:7});
+      factsEnabled:policy.factsEnabled,sourcePolicy:policy.ragPolicy,...evidenceLimits});
     contextBundle.evidence=evidencePlan.evidence;
     applyFactCoverage(contextBundle,request.plan);
     if(request.plan.kind==='unresolved')contextBundle.missing.push({reason:'unresolved-project',message:'项目不明确，请确认项目身份。'});
@@ -953,7 +958,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     request.evidenceRevision = contextBundle.evidence.find(item => item.sourceType === 'imported')?.revision ||
       (policy.instant ? readProjectIndexRevision({ preparedOnly: true }) : getProjectIndexRevision());
     const instantContext = policy.instant ? buildInstantContext({ settings, question, snapshot: frozen, request,
-      readyEvidence: {evidence:contextBundle.evidence}, answerPlan, cards: instantCards }) : null;
+      readyEvidence: {evidence:contextBundle.evidence}, answerPlan, evidenceLimits, cards: instantCards }) : null;
     if (instantContext) {
       contextBundle.evidence = instantContext.evidence;
       contextBundle.stats.readyEvidenceHit = instantContext.evidence.length > 0;
@@ -1634,6 +1639,7 @@ session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
 app.whenReady().then(async () => {
   try {
     await require('./src/bundled-materials').installBundledMaterials({bundlePath:path.join(__dirname,'materials/bundle.json'),materialService,store});
+    await require('./src/personal-workspace').installPersonalWorkspace({directory:process.env.CUE_PERSONAL_WORKSPACE,materialService,store});
     instantCards.update(store.getSettings());
   } catch(error) {
     const warning='随应用发布的材料载入失败，请检查材料包或重新安装；本地有效材料仍保留。';

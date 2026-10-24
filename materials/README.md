@@ -1,6 +1,6 @@
 # 随 CUE 发布的真实资料
 
-此目录供维护者把后续项目事实、精选源码快照和简历编译进应用。安装或升级 CUE 后会自动安装新材料版本，无需桌面用户手动导入 JSON。当前清单为空；现有 `project-packs/` 的公开技术卡仍照常加载。CI 的合成人物资料留在 `evaluation/`，不会打包给用户。
+此目录供维护者把项目事实、精选源码快照和简历编译进应用。安装或升级 CUE 后会自动安装新材料版本，无需桌面用户手动导入 JSON。当前清单已包含 CAE 与 Arclight 的真实公开源码，来源见 `source-lock.json`；现有 `project-packs/` 的公开技术卡仍照常加载。CI 的合成人物资料留在 `evaluation/`，不会打包给用户。用户此次提供的简历、JD、109 卡事实只在 Git 忽略的 `.cue-private/` 中，个人启动和加密评测见[操作说明](../docs/project-depth-optimization.md)。
 
 建议目录：
 

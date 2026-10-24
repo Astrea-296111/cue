@@ -1,0 +1,75 @@
+package com.example.cae.job.submission;
+
+import com.example.cae.job.repository.JobRepository;
+import jakarta.annotation.PreDestroy;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+/** Re-scan durable waiting work; RabbitMQ commands own remote submission delivery. */
+@Component
+public class SubmissionLoop {
+  private static final Logger LOG = LoggerFactory.getLogger(SubmissionLoop.class);
+  private final FairAdmissionRepository admission;
+  private final JobRepository jobs;
+  private final JobCommandService commands;
+  private final JobAllocationService allocation;
+  private final JobCancellationService cancellation;
+  private final boolean enabled;
+  private final Set<Long> inFlight = ConcurrentHashMap.newKeySet();
+  private final ExecutorService executor = Executors.newFixedThreadPool(4);
+
+  public SubmissionLoop(
+      JobRepository jobs,
+      FairAdmissionRepository admission,
+      JobCommandService commands,
+      JobAllocationService allocation,
+      JobCancellationService cancellation,
+      @Value("${cae.background.enabled:true}") boolean enabled) {
+    this.jobs = jobs;
+    this.admission = admission;
+    this.commands = commands;
+    this.allocation = allocation;
+    this.cancellation = cancellation;
+    this.enabled = enabled;
+  }
+
+  @Scheduled(fixedDelayString = "${cae.scheduler.scan-ms:1000}")
+  public void scan() {
+    if (!enabled) return;
+    commands.pendingValidation().stream().limit(8).forEach(this::dispatch);
+    admission.cancellations().forEach(this::dispatch);
+    admission.waiting(12).forEach(this::dispatch);
+  }
+
+  private void dispatch(long id) {
+    if (inFlight.size() >= 20 || !inFlight.add(id)) return;
+    executor.execute(
+        () -> {
+          try {
+            if ("CANCEL_REQUESTED".equals(jobs.findById(id).get("status")))
+              cancellation.continueCancel(id);
+            else {
+              if (commands.pendingValidation().contains(id)) commands.finishValidation(id);
+              allocation.allocate(id);
+            }
+          } catch (RuntimeException e) {
+            LOG.warn(
+                "Deferred Job orchestration jobId={} cause={}", id, e.getClass().getSimpleName());
+          } finally {
+            inFlight.remove(id);
+          }
+        });
+  }
+
+  @PreDestroy
+  public void close() {
+    executor.shutdownNow();
+  }
+}

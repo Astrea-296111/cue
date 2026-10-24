@@ -33,7 +33,7 @@
 
 ```sh
 node scripts/benchmark-reply-latency.cjs --large-index
-node --test test/realtime-latency.test.js test/provider-capabilities.test.js
+npm test
 node scripts/evaluate-rag.js --out /tmp/cue-rag.json
 ```
 

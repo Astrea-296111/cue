@@ -2,6 +2,8 @@
 
 常规 PR 和 `main`/`codex/**` 推送继续运行原有 `CI`，另有 `Offline end-to-end` 检查实际应用编排及 Electron 界面。这些检查不读取模型密钥。Mock 只验证材料导入、证据传递、会话状态和报告链路，不能证明真实模型回答质量。
 
+当前默认已改为[核心测试清单](essential-testing.md)和单 provider 六题离线 smoke。真实项目源码、个人简历/JD/事实导入及加密双模型深挖流程见[项目深挖说明](project-depth-optimization.md)；下文公开合成样本的 full 模式仍可手动运行。
+
 ## 启用真实 API
 
 在仓库 Settings → Secrets and variables → Actions 配置：

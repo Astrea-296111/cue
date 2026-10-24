@@ -1,0 +1,98 @@
+name: Private project deep evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Private questions per provider (smoke 6, deep 12)
+        type: choice
+        options: [smoke, deep]
+        default: smoke
+      provider:
+        description: Real API provider
+        type: choice
+        options: [all, qwen, deepseek]
+        default: all
+      discover_models:
+        description: Explicitly query the configured endpoints for an available fast text model when MODEL is absent
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cue-llm-live-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  private-live:
+    name: Encrypted real project evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Require trusted main dispatch
+        env:
+          TRUSTED_REF: ${{ github.ref }}
+          TRUSTED_EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$TRUSTED_REF" != refs/heads/main ] || [ "$TRUSTED_EVENT" != workflow_dispatch ]; then
+            echo 'Private evaluation requires a workflow_dispatch on trusted main.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Check out trusted code only
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies without credentials
+        timeout-minutes: 2
+        run: npm ci
+
+      - name: Initialize ephemeral encryption session
+        run: node scripts/private-live-session.cjs init --directory "$RUNNER_TEMP/cue-private-session"
+      - name: Publish public session key for encrypted input
+        uses: actions/upload-artifact@v4
+        with:
+          name: private-session-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cue-private-session/session.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Wait for encrypted data and call real providers
+        timeout-minutes: 16
+        env:
+          PRIVATE_MODE: ${{ inputs.mode }}
+          PRIVATE_PROVIDER: ${{ inputs.provider }}
+          DISCOVER_MODELS: ${{ inputs.discover_models }}
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          QWEN_MODEL: ${{ vars.QWEN_MODEL || vars.QWEN_MODEL_ID }}
+          DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL || vars.DEEPSEEK_MODEL_ID }}
+          QWEN_BASE_URL: ${{ vars.QWEN_BASE_URL }}
+          DEEPSEEK_BASE_URL: ${{ vars.DEEPSEEK_BASE_URL }}
+        run: >-
+          node scripts/private-live-session.cjs evaluate
+          --directory "$RUNNER_TEMP/cue-private-session"
+          --output-dir artifacts/private-live
+          --mode "$PRIVATE_MODE"
+          --provider "$PRIVATE_PROVIDER"
+          --discover-models "$DISCOVER_MODELS"
+
+      - name: Upload encrypted answers and safe aggregate status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: private-live-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/private-live/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Remove ephemeral plaintext and session private key
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/cue-private-session"

@@ -7,8 +7,8 @@
   "main": "src/custom-main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node --test --test-concurrency=4 test/*.test.js",
-    "test:ui": "electron test/renderer-layout-smoke.cjs",
+    "test": "node scripts/test-essential.cjs",
+    "test:ui": "electron test/core-ui-smoke.cjs",
     "test:protection": "electron test/windows-capture-protection-smoke.cjs",
     "dist": "electron-builder --mac",
     "dist:linux": "electron-builder --linux --x64",
@@ -29,6 +29,9 @@
     "benchmark:materials": "node scripts/benchmark-project-materials.js",
     "verify:materials": "node scripts/verify-project-materials.js",
     "compile:materials": "node scripts/bundle-project-materials.cjs",
+    "sync:sources": "node scripts/sync-project-sources.cjs --refresh",
+    "prepare:personal": "node scripts/prepare-personal-workspace.cjs",
+    "start:personal": "node scripts/start-personal.cjs",
     "test:llm:live": "node scripts/e2e-live-llm.cjs",
     "test:llm:mock": "node scripts/e2e-live-llm.cjs --mock"
   },

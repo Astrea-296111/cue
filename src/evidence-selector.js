@@ -93,20 +93,21 @@ function questionRequirements(question, interviewPlan, projectPlan) {
   });
 }
 
-function relevant(item, question) {
+function relevant(item, question, features) {
   if (item.validatedQuestionIds?.length && !item.validatedQuestionIds.includes(question.id)) return false;
   const ownQuestion = !item.questionIds?.length || item.questionIds.includes(question.id);
   if (ownQuestion && (item.relevanceApproved || item.channels?.includes('exact') || item.channels?.includes('semantic') || item.channels?.includes('vector'))) return true;
   if (ownQuestion && (item.coverage > .12 || item.relevance > .12 || item.confidence >= .32)) return true;
-  const terms = [...new Set(tokenize(question.text.replace(QUERY_FILLER, ' '), true))];
-  const sourceTerms = new Set(tokenize(item.retrievalText || `${item.symbol || ''} ${item.path || ''} ${item.text || ''}`, true));
+  let terms=features?.questions.get(question),sourceTerms=features?.sources.get(item);
+  if(!terms){terms=[...new Set(tokenize(question.text.replace(QUERY_FILLER, ' '), true))];features?.questions.set(question,terms);}
+  if(!sourceTerms){sourceTerms=new Set(tokenize(item.retrievalText || `${item.symbol || ''} ${item.path || ''} ${item.text || ''}`,true));features?.sources.set(item,sourceTerms);}
   if (!terms.length) return true;
   const overlap = terms.filter(term => sourceTerms.has(term)).length;
   return overlap >= Math.min(2, terms.length) && overlap / terms.length >= .12;
 }
 
-function supportsNeed(item, need, question) {
-  if (!question.scopes.length || !inProjectScope(item, question.scopes) || !relevant(item, question) || item.provenance === 'derived_hint') return false;
+function supportsNeed(item, need, question, features) {
+  if (!question.scopes.length || !inProjectScope(item, question.scopes) || !relevant(item, question, features) || item.provenance === 'derived_hint') return false;
   const docType = inferDocType(item);
   if (['ownership', 'collaboration'].includes(need.type) && /团队负责人|技术负责人|管理职责|负责管理|带领团队|team lead|management responsibility/i.test(question.text) &&
     !/(?:我|本人|候选人|人物|成员|工程师)[^。；\n]{0,8}(?:担任[^。；\n]{0,8}(?:团队|技术)负责人|负责(?:团队管理|管理团队)|带领[^。；\n]{0,8}团队|管理[^。；\n]{0,8}团队)|(?:I (?:led|managed)|my management)/i.test(item.text)) return false;
@@ -180,13 +181,13 @@ function selectEvidence({ candidates = [], question = '', interviewPlan, project
   const ranked = [...unique.values()].sort((a, b) => (b.score || 0) - (a.score || 0));
   // The same demand is checked during allocation, detail selection and final
   // coverage. Cache only within this immutable selection, never across questions.
-  const supportMemo = new Map();
+  const supportMemo = new Map(), features={questions:new Map(),sources:new Map()};
   const supports = (item, need, q) => {
     let byNeed = supportMemo.get(q);
     if (!byNeed) supportMemo.set(q, byNeed = new Map());
     let bySource = byNeed.get(need);
     if (!bySource) byNeed.set(need, bySource = new Map());
-    if (!bySource.has(item)) bySource.set(item, supportsNeed(item, need, q));
+    if (!bySource.has(item)) bySource.set(item, supportsNeed(item, need, q,features));
     return bySource.get(item);
   };
   const selected = [], selectedIds = new Set();
@@ -212,7 +213,7 @@ function selectEvidence({ candidates = [], question = '', interviewPlan, project
   const supplement = item => item.sourceType === 'manual' && ['ownership', 'collaboration'].includes(inferDocType(item)) &&
     !['planned', 'abandoned', 'hypothetical'].includes(item.truthScope) &&
     questions.some(q => /介绍|概览|整体架构|项目.{0,8}架构|overview|architecture/i.test(q.text) &&
-      q.scopes.length && inProjectScope(item, q.scopes) && relevant(item, q));
+      q.scopes.length && inProjectScope(item, q.scopes) && relevant(item, q,features));
   const maxNeeds = Math.max(0, ...questions.map(q => q.evidenceNeeds.length));
   for (let needIndex = 0; needIndex < maxNeeds; needIndex++) {
     for (const q of questions) {

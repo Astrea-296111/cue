@@ -168,6 +168,7 @@ function refreshProjectIndex() {
 function getPreparedProjectIndexSnapshot() {
   const index = cache, revision = getProjectIndexRevision({ preparedOnly: true });
   const sources = chunksById, parents = parentsById;
+  const search = index && preparedSearchIndex === index ? preparedSearch : null;
   const resolveSource = item => {
     const parent = parents?.get(String(item.id));
     const source = sources?.get(String(item.id)) || parent;
@@ -178,7 +179,8 @@ function getPreparedProjectIndexSnapshot() {
       ancestorParentId: parent.parentId, parentId: parent.id } : source;
   };
   return { index, chunks: index?.chunks || [], projects: index?.projects || [], revision,
-    ready: !!(index && preparedSearchIndex === index && preparedSearch), byId: chunksById, resolveSource };
+    ready: !!search, byId: chunksById, resolveSource,
+    lookup: (query,scopes,limits) => search?.lookupPrepared(query,scopes,limits) || {rows:[],postingsVisited:0} };
 }
 
 function indexPath(file = INDEX_FILE) {

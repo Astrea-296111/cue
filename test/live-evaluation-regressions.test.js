@@ -2,6 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { isolateUnknownProject } = require('../src/instant-answer-policy');
+const { isClearProjectExit } = require('../src/project-query');
 const { planProjectEvidence } = require('../src/project-evidence-policy');
 const { createInterviewRuntime } = require('./helpers/interview-agent-runtime');
 const { fixture } = require('./helpers/material-fixture');
@@ -13,14 +14,19 @@ function resolved(question) {
     projectMentions: start < 0 ? [] : [{ start, end: start + 'Arclight'.length, excluded: false }], subQuestionScopes: [] };
 }
 test('known project generic descriptions remain resolved while distinct unknown names and conjunctions stay isolated', () => {
-  for (const question of ['你在 Arclight 个人实验项目负责哪些部分？', 'Arclight个人开源项目的职责是什么？', '介绍一下 Arclight 的练习项目。']) {
+  for (const question of ['你在 Arclight 个人实验项目负责哪些部分？', 'Arclight个人开源项目的职责是什么？', '介绍一下 Arclight 的练习项目。',
+    '沿Arclight继续：一个共享平台承接两个项目，现在项目甲已启动，负责人要求在项目内核对，资源不能借给项目乙。不要把岗位要求当成项目已有功能。',
+    'Arclight 的一个普通项目成员换成了另一个项目的任务，两个项目的权限边界不能混用。']) {
     assert.deepEqual(isolateUnknownProject(question, resolved(question), catalog).projectIds, ['arclight'], question);
   }
   for (const question of ['Arclight 和 Orion 项目各有什么职责？', 'Arclight 的背景不重要，Orion 项目做什么？',
-    'Arclight，还有个人实验项目负责什么？', 'Arclight SuperUnknown项目介绍']) {
+    'Arclight，还有个人实验项目负责什么？', 'Arclight SuperUnknown项目介绍', 'Arclight 和 天枢平台项目怎样对比？',
+    'Arclight之外，名为星河的数据平台项目如何恢复？', 'Arclight和“星河的数据平台”项目如何恢复？']) {
     const plan = isolateUnknownProject(question, resolved(question), catalog);
     assert.deepEqual(plan.projectIds, [], question); assert.deepEqual(plan.scopes, [], question);
   }
+  assert.equal(isClearProjectExit('离开这两个项目，单独解释事务与至少一次消息。'), true);
+  assert.equal(isClearProjectExit('不用引用个人项目经历，讨论一般的幂等原理。'), true);
 });
 
 test('real instant and standard session retain Arclight generic-description ownership and its follow-up', async t => {

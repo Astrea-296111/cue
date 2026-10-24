@@ -267,6 +267,23 @@ async function runCase(runtime, item, provider, options, budget, evaluateCase) {
     completion, quality, pipelineFailures, ...(error ? { error } : {}) };
 }
 
+function createProviderRuntime({ id, config, options, budget, provider, cleanups, dialogPaths = [] }) {
+  const actualProvider = id === 'qwen' ? 'custom' : 'deepseek';
+  return createInterviewRuntime({ after: cleanup => cleanups.push(cleanup) }, {
+    indexSnapshot: { version: 2, projects: [], chunks: [], stats: { fileCount: 0, chunkCount: 0 } },
+    dialogPaths, inMemorySettings: true, realTime: true,
+    settings: { provider: actualProvider, apiKeys: { [actualProvider]: config.apiKey }, smart: false,
+      models: { [actualProvider]: { fast: config.model, smart: config.model } },
+      ...(id === 'qwen' ? { baseUrl: config.baseURL, providerProtocolPresets: { custom: 'dashscope' },
+        providerOptions: { custom: { enable_thinking: false } }, instantProviderOptions: { custom: { enable_thinking: false } } }
+        : { deepseekBaseUrl: config.baseURL, providerProtocolPresets: { deepseek: 'deepseek' },
+          providerOptions: { deepseek: { thinking: { type: 'disabled' } } }, instantProviderOptions: { deepseek: { thinking: { type: 'disabled' } } } }),
+      resumeText: '', projectKnowledge: '', currentProjectId: '', firstContentDeadlineMs: options.firstContentTimeoutMs },
+    ...(!options.mock ? { liveTransport: { maxOutputTokens: options.maxOutputTokens, firstContentTimeoutMs: options.firstContentTimeoutMs,
+      totalTimeoutMs: options.totalTimeoutMs, onAttempt: () => { budget.attempt(id); provider.attemptedCalls++; } } } : {})
+  });
+}
+
 async function run(options, env = process.env) {
   const providerIds = options.provider === 'all' ? ['qwen', 'deepseek'] : [options.provider];
   const budget = createBudget(options, providerIds);
@@ -304,20 +321,7 @@ async function run(options, env = process.env) {
       let runtime;
       const cleanups = [], dialogPaths = [];
       try {
-        const actualProvider = id === 'qwen' ? 'custom' : 'deepseek';
-        runtime = createInterviewRuntime({ after: cleanup => cleanups.push(cleanup) }, {
-          indexSnapshot: { version: 2, projects: [], chunks: [], stats: { fileCount: 0, chunkCount: 0 } },
-          dialogPaths, inMemorySettings: true, realTime: true,
-          settings: { provider: actualProvider, apiKeys: { [actualProvider]: config.apiKey }, smart: false,
-            models: { [actualProvider]: { fast: config.model, smart: config.model } },
-            ...(id === 'qwen' ? { baseUrl: config.baseURL, providerProtocolPresets: { custom: 'dashscope' },
-              providerOptions: { custom: { enable_thinking: false } }, instantProviderOptions: { custom: { enable_thinking: false } } }
-              : { deepseekBaseUrl: config.baseURL, providerProtocolPresets: { deepseek: 'deepseek' },
-                providerOptions: { deepseek: { thinking: { type: 'disabled' } } }, instantProviderOptions: { deepseek: { thinking: { type: 'disabled' } } } }),
-            resumeText: '', projectKnowledge: '', currentProjectId: '', firstContentDeadlineMs: options.firstContentTimeoutMs },
-          ...(!options.mock ? { liveTransport: { maxOutputTokens: options.maxOutputTokens, firstContentTimeoutMs: options.firstContentTimeoutMs,
-            totalTimeoutMs: options.totalTimeoutMs, onAttempt: () => { budget.attempt(id); provider.attemptedCalls++; } } } : {})
-        });
+        runtime = createProviderRuntime({ id, config, options, budget, provider, cleanups, dialogPaths });
         temporaryPaths.push(runtime.temp);
         provider.materialImport = await importFixtures(runtime, fixtures.profile, dialogPaths);
         let session = null;
@@ -372,4 +376,4 @@ async function main(args = process.argv.slice(2)) {
 if (require.main === module) main().then(code => { process.exitCode = code; }).catch(() => {
   process.stderr.write('CUE evaluation could not write its report.\n'); process.exitCode = 1;
 });
-module.exports = { parseArgs, providerConfig, createBudget, loadFixtures, runCase, run, main };
+module.exports = { parseArgs, providerConfig, createBudget, loadFixtures, createProviderRuntime, codePositions, buildIdentity, runCase, run, main };

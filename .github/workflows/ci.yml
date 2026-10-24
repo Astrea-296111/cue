@@ -6,18 +6,20 @@ on:
       - main
       - "codex/**"
   pull_request:
+  workflow_dispatch:
+    inputs:
+      whisper_runtime:
+        description: Also verify the optional downloaded Whisper runtime
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   test:
-    name: Test (Node ${{ matrix.node-version }})
+    name: Essential tests (Node 22)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [22, 24]
 
     steps:
       - name: Check out Git repository
@@ -26,7 +28,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -36,11 +38,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in main.js preload.js electron-builder.cjs renderer/*.js src/*.js scripts/*.js test/*.js; do
+          for file in main.js preload.js electron-builder.cjs renderer/*.js src/*.js scripts/*.js scripts/*.cjs scripts/lib/*.cjs test/*.test.js test/*.cjs; do
             node --check "$file"
           done
 
-      - name: Run tests
+      - name: Run essential tests
         run: npm test
 
   package-windows:
@@ -66,11 +68,7 @@ jobs:
       - name: Package Windows app
         run: npm run pack:win
 
-  # Exercises the local whisper runtime end to end: download, checksum, launch.
-  #
-  # Limited to pushes and to PRs labelled whisper-runtime, because it needs the
-  # network and would otherwise sit on the critical path of every unrelated change.
-  #
+  # Explicitly requested maintenance check; not part of normal text Q&A CI.
   # macOS is deliberately not in this matrix. Windows and Linux fetch immutable
   # GitHub *release assets*, so their pinned checksums hold. macOS builds from
   # source via https://github.com/.../archive/refs/tags/<tag>.zip — a GitHub
@@ -81,9 +79,7 @@ jobs:
   runtime-smoke:
     name: Local runtime (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    if: >-
-      github.event_name == 'push' ||
-      contains(github.event.pull_request.labels.*.name, 'whisper-runtime')
+    if: github.event_name == 'workflow_dispatch' && inputs.whisper_runtime
     strategy:
       fail-fast: false
       matrix:

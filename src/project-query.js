@@ -18,7 +18,7 @@ const CLEAR_NON_PROJECT = /自我介绍|为什么(?:投|选择|想来|申请).{0
 const NEW_UNNAMED_PROJECT = /另一个项目|另外一个项目|下一个项目|换个项目|换一个项目/i;
 // A technology list cannot enumerate every interview topic. Explicit discourse
 // cues detach principles from project facts regardless of the technology name.
-const DETACH_PROJECT = /(?:不|别|无需|不要|先不)(?:结合|涉及|针对|联系|套用)[^，,。？！?!;；\n]{0,24}(?:项目|你的实现|实际实现)|(?:不|别|不要|先不)(?:谈|聊)\s*(?:这个|那个|当前|刚才的)?\s*项目|(?:脱离|跳出)[^，,。？！?!;；\n]{0,12}项目|\b(?:without (?:the |your )?project|independent(?:ly)? of (?:the |your )?project)\b/i;
+const DETACH_PROJECT = /(?:不|别|无需|不要|先不)(?:结合|涉及|针对|联系|套用)[^，,。？！?!;；\n]{0,24}(?:项目|你的实现|实际实现)|(?:不|别|不要|先不)(?:谈|聊)\s*(?:这个|那个|当前|刚才的)?\s*项目|(?:脱离|跳出|离开)[^，,。？！?!;；\n]{0,12}项目|(?:不用|无需)(?:引用|使用)(?:个人|你的|任何)?项目(?:经历|资料)?|\b(?:without (?:the |your )?project|independent(?:ly)? of (?:the |your )?project)\b/i;
 const GENERIC_OPENING = /^(?:(?:那|那么|现在|接下来|另外|再)\s*)?(?:单独(?:问|聊|讲)(?:一下)?|一般(?:来说|而言)|从(?:通用|一般)(?:原理|概念|角度)|就(?:一般|通用)(?:原理|情况))|(?:只|单纯)(?:问|讨论|讲).{0,12}(?:通用|一般|原理|概念)|\b(?:in general|generally speaking|as a general (?:concept|principle)|a separate (?:conceptual|general) question)\b/i;
 
 function isLikelyFollowUp(text) {

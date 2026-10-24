@@ -289,6 +289,19 @@ function createInterviewRuntime(t, options = {}) {
     },
     clear,
     invoke: async (name, payload) => { await ready; return handlers.get(name)(null, payload); },
+    async importMaterialSnapshot({ facts, sources }) {
+      await ready;
+      // The production service validates and atomically publishes both layers.
+      // Values cross the VM as data; no caller-supplied expression is executed.
+      context.__materialInput = copy({ facts, sources });
+      try {
+        context.__materialPreview = await value('materialService.prepareImport({index:__materialInput.facts,sourceSnapshot:__materialInput.sources,mode:"replace-all"})');
+        if (context.__materialPreview.conflicts.length || context.__materialPreview.packConflicts.length) throw new Error('Material snapshot has unresolved project identity.');
+        const state = await value('materialService.commitImport(__materialPreview)');
+        value('materialService.verifyPersisted()');
+        return copy(state);
+      } finally { delete context.__materialInput; delete context.__materialPreview; }
+    },
     captureFailure(value = true) { captureError = value; },
     get captures() { return captures; },
     async prefetch(payload) { await ready; ipc.emit('project:prefetch', null, payload); await tick(); },

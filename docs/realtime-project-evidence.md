@@ -111,7 +111,7 @@ aliases: [缓存选型]
 `[latency][background]` 记录 queued/started/completed/canceled/timedOut/stale 计数；由正式回答触发的准备带同一 requestId，ASR 提交前尚无回答 requestId 时为空。不记录原始对话、完整源码、密钥或隐藏思考。保留供应商事件、正文首字、UI paint ack 和输入预算计时。
 
 ```sh
-node --test test/realtime-project-evidence.test.js test/realtime-evidence-worker.test.js test/project-embeddings.test.js
+npm test
 node scripts/benchmark-realtime-evidence.cjs --samples 300 --cold-samples 20 --out /tmp/cue-realtime-evidence.json
 node scripts/benchmark-realtime-evidence.cjs --samples 300 --cold-samples 20 --sizes 4000,14000 --cpu-contention --out /tmp/cue-realtime-evidence-cpu.json
 node scripts/evaluate-rag.js --out /tmp/cue-rag.json
