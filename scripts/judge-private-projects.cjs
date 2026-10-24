@@ -38,10 +38,44 @@ function summarizeJudging(report) {
   const coverageRows = rows.flatMap(r => r.item.judging?.judges || []).filter(j => j.status === 'completed').flatMap(j => j.result.coverage);
   const criticalFailures = rows.filter(r => r.item.judging?.consensus?.criticalFailure).length;
   const crossModelVerifiedCases = rows.filter(r => r.item.judging?.modelDiversity === 'verified-distinct-served-models').length;
+  const rateAtLeastThree = (selected, dimension) => {
+    const values = selected.map(r => r.item.judging?.consensus?.scores?.[dimension]).filter(Number.isFinite);
+    return { evaluated: values.length, total: selected.length, rate: values.length ? values.filter(n => n >= 3).length / values.length : null };
+  };
+  const correctionRows = rows.filter(r => [...(r.item.sessionTags || []), ...(r.item.tags || []), r.item.precedingCandidateBehavior || '']
+    .some(tag => /correction|spoken.error|wrong.guarantee|contradiction|corrected.claim/u.test(tag)) || /纠正|口误|改口/u.test(JSON.stringify(r.item.scenarioEvaluation || {})));
+  const families = new Map();
+  for (const row of rows) for (const family of row.item.familyIds?.length ? row.item.familyIds : row.item.sessionTags?.length ? row.item.sessionTags : [row.item.category || 'unclassified']) {
+    const score = row.item.judging?.consensus?.scores?.oralNaturalness;
+    if (!families.has(family)) families.set(family, []);
+    if (Number.isFinite(score)) families.get(family).push(score);
+  }
+  const oralByFamily = Object.fromEntries([...families].map(([id, values]) => [id, { evaluated: values.length,
+    mean: values.length ? values.reduce((sum, n) => sum + n, 0) / values.length : null }]));
+  const coverageRate = coverageRows.length ? coverageRows.filter(r => r.status === 'conveyed').length / coverageRows.length : null;
+  const continuity = rateAtLeastThree(rows, 'contextContinuity'), correction = rateAtLeastThree(correctionRows, 'correctionQuality');
+  const noRepeatRows = rows.map(row => ({ row, expected: row.item.scenarioEvaluation || {}, checks: [] })).map(entry => {
+    for (const [source, field, wanted] of [['must_convey', 'coverage', 'conveyed'], ['must_not_assert', 'prohibitedClaims', 'not_asserted']]) {
+      (entry.expected[source] || []).forEach((text, index) => { if (/不重复|不再.*纠正|再次.*(?:道歉|纠正)|重复.*(?:纠正|道歉|提醒)/u.test(text)) entry.checks.push({ field, index, wanted }); });
+    }
+    return entry;
+  }).filter(entry => entry.checks.length);
+  const noRepeatEvaluated = noRepeatRows.filter(entry => entry.row.item.judging?.judges?.filter(j => j.status === 'completed').length === 2);
+  const noRepeat = { total: noRepeatRows.length, evaluated: noRepeatEvaluated.length, rate: noRepeatEvaluated.length ? noRepeatEvaluated.filter(entry =>
+    entry.row.item.judging.judges.every(j => entry.checks.every(check => j.result[check.field].find(c => c.constraintIndex === check.index)?.status === check.wanted))).length / noRepeatEvaluated.length : null };
+  const gates = { twoActualModelsPerCase: crossModelVerifiedCases === rows.length && rows.length > 0,
+    noCriticalFailure: criticalFailures === 0, requiredPointCoverage95: coverageRate === null ? null : coverageRate >= 0.95,
+    continuity95: continuity.rate === null ? null : continuity.rate >= 0.95,
+    correction95: correction.rate === null ? null : correction.rate >= 0.95,
+    noRepeatedCorrection95: noRepeat.rate === null ? null : noRepeat.rate >= 0.95,
+    oralMean35: means.oralNaturalness === null ? null : means.oralNaturalness >= 3.5,
+    everyFamilyOralMean3: Object.values(oralByFamily).length ? Object.values(oralByFamily).every(x => x.mean !== null && x.mean >= 3) : null };
   return { policy: POLICY, totalCases: rows.length, ...counts, dimensionMeans: means,
     criticalFailures, crossModelVerifiedCases,
+    continuity, correction, noRepeatedCorrection: noRepeat, oralByFamily, qualityGates: gates,
+    automatedGatesPassed: Object.values(gates).every(value => value === true || value === null),
     requiredPointCoverage: { conveyed: coverageRows.filter(r => r.status === 'conveyed').length, total: coverageRows.length,
-      rate: coverageRows.length ? coverageRows.filter(r => r.status === 'conveyed').length / coverageRows.length : null },
+      rate: coverageRate },
     ...usageSummary(all), byJudge: ['qwen', 'deepseek'].map(id => ({ id, ...usageSummary(all.filter(a => a.provider === id)) })),
     blinded: true, independentMessages: true, humanReview: 'pending',
     limitations: ['Automated scores are observations. Required human source review remains pending until recorded.',

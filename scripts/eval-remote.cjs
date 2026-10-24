@@ -217,9 +217,19 @@ async function runRemote(options,{github,log=message=>process.stdout.write(messa
   if(state.runs.every(run=>run.stage==='decrypted')) {
     const reports=state.runs.map(run=>read(run.reportPath,cipher.MAX_REPORT_BYTES));
     const {writeReports}=require('./lib/live-evaluation-report.cjs');
-    const providers=[...new Set(reports.flatMap(report=>(report.providers||[]).map(p=>p.id)))].map(id=>({id,model:reports.flatMap(r=>r.providers||[]).find(p=>p.id===id)?.model,status:reports.every(r=>r.providers?.find(p=>p.id===id)?.status==='passed')?'passed':'failed',cases:reports.flatMap(r=>r.providers?.find(p=>p.id===id)?.cases||[])}));
+    const providers=[...new Set(reports.flatMap(report=>(report.providers||[]).map(p=>p.id)))].map(id=>{
+      const entries=reports.flatMap(r=>(r.providers||[]).filter(p=>p.id===id)),models=[...new Set(entries.map(p=>p.model).filter(Boolean))];
+      return{id,model:models.length===1?models[0]:models.length?'mixed':null,models,status:entries.every(p=>p.status==='passed')?'passed':'failed',attemptedCalls:entries.reduce((n,p)=>n+(p.attemptedCalls||0),0),expectedCaseCount:entries.reduce((n,p)=>n+(p.expectedCaseCount||p.cases?.length||0),0),cases:entries.flatMap(p=>p.cases||[])};
+    });
     const attemptedCalls=reports.reduce((n,r)=>n+(r.budget?.attemptedCalls||0),0);
-    const merged={...reports[0],status:reports.every(r=>r.status==='passed')?'passed':'failed',finishedAt:new Date().toISOString(),providers,failures:reports.flatMap(r=>r.failures||[]),budget:{...reports[0].budget,attemptedCalls,shards:reports.length},shardReports:state.runs.map(run=>({runId:run.runId,runAttempt:run.runAttempt,reportPath:run.reportPath}))};
+    const callsByProvider=Object.fromEntries(providers.map(p=>[p.id,reports.reduce((n,r)=>n+(r.budget?.callsByProvider?.[p.id]||0),0)]));
+    const merged={...reports[0],status:reports.every(r=>r.status==='passed')?'passed':'failed',finishedAt:new Date().toISOString(),providers,failures:reports.flatMap(r=>r.failures||[]),evaluation:{...reports[0].evaluation,shardIndex:null,shardCount:reports.length,expectedQuestionCount:reports.reduce((n,r)=>n+(r.evaluation?.expectedQuestionCount||0),0)},budget:{...reports[0].budget,maxCalls:reports.reduce((n,r)=>n+(r.budget?.maxCalls||0),0),maxCallsPerProvider:reports.reduce((n,r)=>n+(r.budget?.maxCallsPerProvider||0),0),callsByProvider,attemptedCalls,shards:reports.length,concurrencyPerShard:reports[0].budget?.concurrency,concurrency:reports.reduce((n,r)=>n+(r.budget?.concurrency||0),0)},shardReports:state.runs.map(run=>({runId:run.runId,runAttempt:run.runAttempt,reportPath:run.reportPath}))};
+    if(reports.some(r=>r.dynamicSessions)) {
+      merged.dynamicSessions=reports.flatMap(r=>r.dynamicSessions||[]);
+      const actors=merged.dynamicSessions.flatMap(s=>s.turns.flatMap(t=>[...(t.candidate?.attempts||[]),...(t.followup?.attempts||[])]));
+      const {usageSummary}=require('./judge-private-projects.cjs');
+      merged.dynamicActors={...reports[0].dynamicActors,...usageSummary(actors),byRole:['candidate','followup'].map(role=>({role,...usageSummary(actors.filter(a=>a.role===role))}))};
+    }
     if(reports.some(r=>r.judging)) {
       merged.judging=require('./judge-private-projects.cjs').summarizeJudging(merged);
       merged.manualReview=require('./lib/multiturn-quality.cjs').createReviewPlan(merged);
