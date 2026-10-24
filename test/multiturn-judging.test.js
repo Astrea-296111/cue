@@ -81,6 +81,9 @@ test('two real transport contracts retain failed output usage, retry boundedly, 
   assert.equal(calls, before);
   assert.deepEqual(sent[0].messages, sent[2].messages);
   assert.notEqual(sent[0].model, sent[2].model);
+  assert.deepEqual(sent[0].response_format,{type:'json_object'});
+  assert.match(sent[1].messages.at(-1).content,/format-repair-only/);
+  assert.equal(judged.providers[0].cases[0].judging.judges[0].attempts[1].requestMessages.length,3);
 });
 
 test('distinct requested aliases that return the same served model cannot establish cross-model agreement', async t => {

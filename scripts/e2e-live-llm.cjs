@@ -230,7 +230,8 @@ async function runCase(runtime, item, provider, options, budget, evaluateCase) {
   const evidence = runtime.commits.slice(commitStart).at(-1)?.config?.evidence || [];
   const chunks = runtime.snapshot('materialService.snapshot.sources.chunks');
   const sentSources = sentSourceIds.map(id => evidence.find(source => source.id === id) || chunks.find(source => source.id === id))
-    .filter(Boolean).map(source => ({ id: source.id, projectId: source.projectId, path: source.path }));
+    .filter(Boolean).map(source => ({ id: source.id, projectId: source.projectId, path: source.path,
+      ...(source.sourceType ? {sourceType:source.sourceType,implementation:source.implementation,provenance:source.provenance,truthScope:source.truthScope} : {}) }));
   const metrics = latencyMetrics(runtime, eventStart, logStart);
   if (metrics.doneMs == null) metrics.doneMs = +(performance.now() - started).toFixed(2);
   const observed = runtime.observedTimes || [];

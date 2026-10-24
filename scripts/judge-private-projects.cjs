@@ -7,7 +7,7 @@ const { prepareJudgeInput, parseJudgeOutput, mergeJudges, DIMENSIONS } = require
 const { createReviewPlan, stableCaseKey } = require('./lib/multiturn-quality.cjs');
 const { roleConfig, runRole } = require('./lib/evaluation-role-client.cjs');
 const { sanitizeReport } = require('./lib/live-evaluation-report.cjs');
-const POLICY = 'cue-independent-judges-v1';
+const POLICY = 'cue-independent-judges-v2';
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
 function privateWrite(target, value) {

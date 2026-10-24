@@ -160,5 +160,5 @@ async function main(args = process.argv.slice(2)) {
   process.stdout.write(`Private CUE ${report.kind}: ${report.status}; attempted calls ${report.budget.attemptedCalls}. Complete reports remain private.\n`);
   return report.status === 'passed' ? 0 : 1;
 }
-if (require.main === module) main().then(code => { process.exitCode = code; }).catch(() => { process.stderr.write('Private evaluation setup failed; inspect the private report/configuration.\n'); process.exitCode = 1; });
 module.exports = { evaluatePrivate, validatePrivatePayload, importPrivateMaterials, loadCases, loadTrustedSources, MAX_PAYLOAD_BYTES };
+if (require.main === module) main().then(code => { process.exitCode = code; }).catch(() => { process.stderr.write('Private evaluation setup failed; inspect the private report/configuration.\n'); process.exitCode = 1; });
