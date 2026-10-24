@@ -30,4 +30,11 @@ test('public source snapshots match pinned Git blobs and the exact distribution 
     assert.ok(project.excluded.length>0&&project.excluded.every(file=>typeof file.reason==='string'));
   }
   for(const file of ['../escape.py','.env','server/private-key.pem','backend/src/test/java/ThingTest.java','tests/test_context.py','demo-data/input.json','frontend/package-lock.json'])assert.ok(exclusionReason(file),file);
+  const navigation=JSON.parse(fs.readFileSync(path.join(root,manifest.navigation.path),'utf8'));
+  assert.equal(createHash('sha256').update(fs.readFileSync(path.join(root,manifest.navigation.path))).digest('hex'),manifest.navigation.sha256);
+  const bundle=JSON.parse(fs.readFileSync(path.join(root,'bundle.json'),'utf8'));
+  for(const entry of navigation.entries){
+    assert.equal(lock.projects.find(project=>project.id===entry.projectId).commit,entry.sourceRevision);
+    assert.ok(bundle.sources.chunks.some(chunk=>chunk.projectId===entry.projectId&&chunk.path===entry.path&&(!entry.symbol||chunk.symbol===entry.symbol)&&entry.keywords.every(word=>chunk.navigationTerms?.includes(word))));
+  }
 });

@@ -2,7 +2,7 @@
 
 const { performance } = require('node:perf_hooks');
 const { createHash } = require('node:crypto');
-const { tokenize } = require('./project-search');
+const { tokenize, querySpec } = require('./project-search');
 const { inProjectScope } = require('./project-scope');
 const { RETRIEVAL_CONFIG_VERSION } = require('./project-prefetch-policy');
 const {projectQuestionParts, boundedRankingText}=require('./project-question-parts');
@@ -18,7 +18,7 @@ function boundedTerms(text, projectPlan) {
   if (!text) return null;
   const identity = new Set(tokenize(String(projectPlan.projectLabel || ''), true));
   const ignored = new Set(['当前', '问题', '团队', '具体', '描述', '介绍', '可以', '应该', '怎样', 'this', 'that']);
-  const terms=unique(tokenize(boundedRankingText(text), true)).filter(term => !identity.has(term) && !ignored.has(term));
+  const terms=[...querySpec(boundedRankingText(text)).weights.keys()].filter(term => !identity.has(term) && !ignored.has(term));
   return terms.length<=96?terms:[...terms.slice(0,48),...terms.slice(-48)];
 }
 
@@ -27,21 +27,22 @@ function relevant(source, text, terms, projectPlan, prepared) {
   const body = prepared?.body || `${source.symbol || ''}\n${source.path}\n${source.text}`;
   const available = prepared?.available || new Set(tokenize(body, true));
   const hits = terms.filter(term => available.has(term)).length;
-  if (!hits || hits < Math.min(2, terms.length)) return false;
+  const navigated=Array.isArray(source.navigationTerms)&&source.navigationTerms.some(word=>typeof word==='string'&&text.toLowerCase().includes(word.toLowerCase()));
+  if ((!hits || hits < Math.min(2, terms.length))&&!navigated) return false;
   const identity = new Set(tokenize(String(projectPlan.projectLabel || ''), true));
   const identifiers = unique(text.match(/\b[A-Za-z][A-Za-z0-9_.$-]{1,63}\b/g) || [])
     .filter(word => !identity.has(word.toLowerCase()) && !['why', 'what', 'how', 'the', 'a', 'is', 'in', 'of', 'for', 'to', 'and', 'or', 'can', 'you', 'please'].includes(word.toLowerCase()));
   // One snippet establishes only its own part of a compound ask. Requiring
   // every identifier (e.g. Outbox, Inbox and Execution) in every source made
   // all valid per-component snippets disappear from long questions.
-  if (identifiers.length&&!identifiers.some(word => body.toLowerCase().includes(word.toLowerCase()))) return false;
+  if (!navigated&&identifiers.length&&!identifiers.some(word => body.toLowerCase().includes(word.toLowerCase()))) return false;
   // Scenario constraints are questions, not quotations from the source. Their
   // negation need not occur verbatim in code. Authorship still needs personal
   // evidence; object responsibilities (Job/Execution) are implementation asks.
   if (/(?:你|我|本人|个人|候选人).{0,8}(?:职责|负责|贡献|分工|带领)|团队分工|个人贡献|我做|你做/.test(text) &&
     !['ownership', 'collaboration'].includes(source.docType) &&
     !/(?:我|本人|个人|候选人).{0,10}(?:负责|实现|承担)|分工|协作|职责/.test(source.text)) return false;
-  return hits / Math.max(1, terms.length);
+  return Math.max(navigated ? 0.1 : 0,hits / Math.max(1, terms.length));
 }
 
 function projectSource(source, revision, scopes) {
@@ -80,7 +81,7 @@ function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision,
   if (!candidateLimit || !sourceLimit || !charLimit) return done('empty-budget');
   const parts=projectQuestionParts(snapshot.text,projectPlan).map(part=>({...part,terms:boundedTerms(part.text,projectPlan)})).filter(part=>part.terms?.length);
   if (!parts.length) return done('no-bounded-query');
-  let candidates = [], origin = 'raw-pool';
+  let candidates = [], origin = 'raw-pool', preparedScores=new Map();
   // Completed results are usable only through the identical frozen target. No
   // Promise, fallback wait, or repair of a wrong-version result occurs here.
   if (retrievalInput?.epoch === epoch && retrievalInput.questionId === snapshot.questionId &&
@@ -101,21 +102,28 @@ function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision,
   if(origin!=='exact-ready'&&typeof projectIndexSnapshot.lookup==='function') {
     // A cold conversational cache can still use the immutable, already-warmed
     // posting index. No index build, filesystem access, embedding or promise.
-    const queries=parts.length<=4?parts:[...parts.slice(0,2),...parts.slice(-2)];
+    const information=part=>(part.text.match(/\b[A-Za-z][A-Za-z0-9_]{2,63}\b/g)||[]).length*2+
+      (part.text.match(/身份|幂等|重试|取消|终态|资源|预占|并发|权限|共享|恢复|对账|投递|持久化/g)||[]).length;
+    // The complete setup can name the relevant persisted artifacts even when
+    // the final asks use pronouns. Retain it as one bounded lookup, then cover
+    // the most informative independent asks with the remaining slots.
+    const queries=[{text:snapshot.text,scopes},...[...parts].sort((a,b)=>information(b)-information(a))]
+      .filter((part,index,all)=>all.findIndex(other=>other.text===part.text)===index).slice(0,4);
     candidates=[];
-    const lookupStarted=performance.now(); let visited=0, remaining=candidateLimit,calls=0;
-    for(const [index,part] of queries.entries()){
-      const limit=Math.max(1,Math.floor(remaining/(queries.length-index)));
+    const lookupStarted=performance.now(); let visited=0,calls=0;const pooled=new Map();
+    for(const part of queries){
       const found=projectIndexSnapshot.lookup(part.text,part.scopes.length?part.scopes:scopes,
-        {limit,maxPostings:Math.floor(4096/queries.length)});
+        {limit:candidateLimit,maxPostings:Math.floor(4096/queries.length)});
       calls++;
       visited+=found.postingsVisited||0;
-      for(const row of found.rows||[])if(!candidates.some(item=>item.id===row.chunk.id)){
-        candidates.push(projectSource(row.chunk,projectRevision,scopes));remaining--;
-        if(!remaining)break;
+      for(const [rank,row] of (found.rows||[]).entries()){
+        const own=pooled.get(row.chunk.id)||{chunk:row.chunk,score:0};
+        own.score+=(row.navigationMatches?3:1)/(20+rank+1);pooled.set(row.chunk.id,own);
       }
-      if(!remaining)break;
     }
+    const rows=[...pooled.values()].sort((a,b)=>b.score-a.score),files=new Set();
+    for(const row of rows){const file=row.chunk.projectId+':'+row.chunk.path;if(files.has(file))continue;
+      files.add(file);candidates.push(projectSource(row.chunk,projectRevision,scopes));preparedScores.set(row.chunk.id,row.score);if(candidates.length>=candidateLimit)break;}
     stats.preparedLookupMs=performance.now()-lookupStarted;stats.postingsVisited=visited;
     stats.preparedLookupCalls=calls;origin='prepared-postings';
   }
@@ -131,7 +139,7 @@ function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision,
     const ownParts=parts.filter(part=>!part.scopes.length||inProjectScope(source,part.scopes));
     const body=`${source.symbol||''}\n${source.path}\n${source.text}`,prepared={body,available:new Set(tokenize(body,true))};
     const score = Math.max(0,...ownParts.map(part=>relevant(source,part.text,part.terms,projectPlan,prepared)||0));
-    if (score) ranked.push({ source, score });
+    if (score) ranked.push({ source, score:preparedScores.get(source.id)||score });
   }
   let used = 0;
   const files=new Set();
