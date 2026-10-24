@@ -3,10 +3,11 @@
 const crypto = require('node:crypto');
 const zlib = require('node:zlib');
 
-const MAX_INPUT_BYTES = 2 * 1024 * 1024;
-const MAX_REPORT_BYTES = 16 * 1024 * 1024;
-const MAX_ENVELOPE_BYTES = 4 * 1024 * 1024;
-const SESSION_LIFETIME_MS = 20 * 60 * 1000;
+const MAX_INPUT_BYTES = 8 * 1024 * 1024;
+const MAX_REPORT_BYTES = 256 * 1024 * 1024;
+// Covers base64 plus gzip overhead for an incompressible maximum-size report.
+const MAX_ENVELOPE_BYTES = 384 * 1024 * 1024;
+const SESSION_LIFETIME_MS = 2 * 60 * 60 * 1000;
 const fail = () => { const error = new Error('Private session authentication or size validation failed.'); error.publicCode = 'invalid-private-envelope'; throw error; };
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 

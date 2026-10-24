@@ -12,11 +12,23 @@ const { evaluateCase } = require('../src/live-evaluation-quality');
 const { writeReports, sanitizeText } = require('./lib/live-evaluation-report.cjs');
 const { parseArgs, providerConfig, createBudget, createProviderRuntime, runCase, codePositions, buildIdentity } = require('./e2e-live-llm.cjs');
 const ROOT = path.resolve(__dirname, '..');
-const MAX_PAYLOAD_BYTES = 3 * 1024 * 1024;
+const MAX_PAYLOAD_BYTES = require('./lib/private-live-crypto.cjs').MAX_INPUT_BYTES;
 const sha = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const boundedString = (value, bytes) => typeof value === 'string' && Buffer.byteLength(value, 'utf8') <= bytes;
 
 function validatePrivatePayload(payload) {
+  if (payload?.schemaVersion === 2) {
+    if (Object.keys(payload).some(key=>!['schemaVersion','facts','profile','scenarios','evaluation','revision'].includes(key)) || Buffer.byteLength(JSON.stringify(payload),'utf8') > MAX_PAYLOAD_BYTES) throw new Error('Invalid multi-turn private payload.');
+    const {validateScenarios,validateEvaluation}=require('./evaluate-multiturn-projects.cjs');
+    const facts=validateIndex(payload.facts);
+    const profile=payload.profile;
+    if(!profile || Object.keys(profile).some(key=>!['resumeText','jobDescription','jobProfiles','activeJobProfile','activeJobProfileId','candidateProfile'].includes(key)) || !boundedString(profile.resumeText,256*1024)||!boundedString(profile.jobDescription,64*1024)||Buffer.byteLength(JSON.stringify(profile),'utf8')>512*1024)throw new Error('Invalid multi-turn profile.');
+    if(profile.activeJobProfileId&&profile.activeJobProfile&&profile.activeJobProfileId!==profile.activeJobProfile)throw new Error('Conflicting active job profile fields.');
+    const normalizedProfile={...profile};delete normalizedProfile.activeJobProfile;
+    if(profile.activeJobProfileId||profile.activeJobProfile)normalizedProfile.activeJobProfileId=profile.activeJobProfileId||profile.activeJobProfile;
+    validateScenarios(payload.scenarios);validateEvaluation(payload.evaluation||{});
+    return {...payload,facts,profile:normalizedProfile};
+  }
   if (!payload || payload.schemaVersion !== 1 || Array.isArray(payload) ||
       Object.keys(payload).some(key => !['schemaVersion', 'facts', 'profile', 'caseIds'].includes(key)) ||
       Buffer.byteLength(JSON.stringify(payload), 'utf8') > MAX_PAYLOAD_BYTES) throw new Error('Invalid private evaluation payload.');
@@ -40,8 +52,8 @@ function loadCases(mode, selectedIds) {
   return cases;
 }
 
-function loadTrustedSources() {
-  const bundlePath = path.join(ROOT, 'materials/bundle.json'), stat = fs.lstatSync(bundlePath);
+function loadTrustedSources(trustedRoot = ROOT) {
+  const bundlePath = path.join(trustedRoot, 'materials/bundle.json'), stat = fs.lstatSync(bundlePath);
   if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_BUNDLE_BYTES) throw new Error('Trusted source bundle is invalid.');
   const bundle = validateBundle(JSON.parse(fs.readFileSync(bundlePath, 'utf8')));
   if (!['cae', 'arclight'].every(id => bundle.sources.projects.some(project => project.id === id && bundle.sources.chunks.some(chunk => chunk.projectId === id)))) throw new Error('Compile both real project source snapshots before private evaluation.');
@@ -61,6 +73,11 @@ async function importPrivateMaterials(runtime, payload, sources) {
 }
 
 async function evaluatePrivate({ payload, outputDir, env = process.env, mode = 'smoke', providers = 'all', provider, mock = false }) {
+  if (payload?.schemaVersion === 2) {
+    const input=validatePrivatePayload(payload);
+    if(input.evaluation?.dynamic) return require('./evaluate-dynamic-projects.cjs').evaluateDynamic({payload:input,outputDir,env,provider:provider||providers,mock});
+    return require('./evaluate-multiturn-projects.cjs').evaluateMultiturn({payload:input,outputDir,env,provider:provider||providers,mock});
+  }
   const selectedProvider = provider || providers;
   if (!['smoke', 'deep'].includes(mode) || !['all', 'qwen', 'deepseek'].includes(selectedProvider) || !outputDir) throw new Error('Private evaluation requires mode, provider and an explicit private output directory.');
   const providerIds = selectedProvider === 'all' ? ['qwen', 'deepseek'] : [selectedProvider];
@@ -144,4 +161,4 @@ async function main(args = process.argv.slice(2)) {
   return report.status === 'passed' ? 0 : 1;
 }
 if (require.main === module) main().then(code => { process.exitCode = code; }).catch(() => { process.stderr.write('Private evaluation setup failed; inspect the private report/configuration.\n'); process.exitCode = 1; });
-module.exports = { evaluatePrivate, validatePrivatePayload, importPrivateMaterials, loadCases, MAX_PAYLOAD_BYTES };
+module.exports = { evaluatePrivate, validatePrivatePayload, importPrivateMaterials, loadCases, loadTrustedSources, MAX_PAYLOAD_BYTES };

@@ -85,6 +85,16 @@ test('call rates separate model quality from transport failures and unattempted 
   assert.equal(noCalls.callFailureRate, null);
 });
 
+test('failed retry attempts remain in transport denominators and usage without double-counting the final answer',()=>{
+  const failed={attempted:true,transportStatus:'failed',error:{code:'provider-http-429'},usage:{actualInputTokens:10}};
+  const passed={attempted:true,transportStatus:'passed',usage:{actualInputTokens:20}};
+  const report={kind:'live',providers:[{id:'qwen',cases:[{...passed,status:'passed',attempts:[failed,passed],metrics:{rendererDeliveryMs:4000,firstSentenceMs:6000,triggerToFirstContentMs:4000}}]}]};
+  const result=summarize(report);
+  assert.equal(result.caseCount,1);assert.equal(result.requestCount,2);assert.equal(result.retryCount,1);assert.equal(result.callFailureCount,1);
+  assert.equal(result.usage.actualInputTokens,30);assert.equal(result.performance.rendererDelivery,false);assert.equal(result.performance.firstSentence,false);
+  assert.equal(result.performance.physicalRenderingVerified,false);
+});
+
 test('quality summary distinguishes listed coverage, review and hard failures and never scores mock', () => {
   const cases = [
     { attempted: true, status: 'passed', quality: { deterministic: { passed: true }, qualityStatus: 'passed-listed-checks' } },

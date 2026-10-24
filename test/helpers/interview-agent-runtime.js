@@ -56,6 +56,9 @@ function writeIndex(temp, version, chunks, options = {}) {
  * result is mocked. SDK messages and scoped searches are observed unchanged.
  */
 function createInterviewRuntime(t, options = {}) {
+  // A new harness may observe a frozen application, but never substitutes its
+  // production modules or prompts. Node dependencies remain those installed by CI.
+  const root = path.resolve(options.targetRoot || path.resolve(__dirname, '../..'));
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cue-interview-agent-'));
   writeIndex(temp, options.indexVersion || 2, options.chunks || defaultChunks, options);
   const initialSettings = { provider: 'custom',
@@ -84,8 +87,22 @@ function createInterviewRuntime(t, options = {}) {
   app.getVersion = () => '0.2.2';
   app.commandLine = { appendSwitch() {} };
 
-  const calls = [], requestOptions = [], requests = [], commits = [], searches = [], events = [], loaded = [], logs = [], transportEvents = [];
+  const calls = [], requestOptions = [], requests = [], commits = [], searches = [], events = [], loaded = [], logs = [], transportEvents = [], observedTimes = [];
+  let requestObservedAt = null, bodyText = '';
+  const observeBody = text => {
+    if (typeof text !== 'string' || !text.trim()) return;
+    bodyText += text;
+    if (!observedTimes.some(item => item.type === 'first-body')) observedTimes.push({type:'first-body', at:performance.now()});
+    if (/[。！？.!?](?:[\s\n]|$)/.test(bodyText) && !observedTimes.some(item => item.type === 'first-sentence')) observedTimes.push({type:'first-sentence', at:performance.now()});
+  };
   const modules = new Map(), shortcuts = new Map(), pendingShortcuts = [];
+  const ownedTimers = new Set();
+  const trackedTimeout = (callback, ms, ...args) => {
+    const timer = setTimeout(() => { ownedTimers.delete(timer); callback(...args); }, ms);
+    ownedTimers.add(timer); return timer;
+  };
+  const trackedInterval = (callback, ms, ...args) => { const timer=setInterval(callback,ms,...args); ownedTimers.add(timer); return timer; };
+  const clearOwnedTimer = timer => { ownedTimers.delete(timer); clearTimeout(timer); clearInterval(timer); };
   let captures = 0, captureError = false, seq = 0, window;
   let response = { text: '测试答案', finishReason: 'stop' }, transport;
 
@@ -95,6 +112,8 @@ function createInterviewRuntime(t, options = {}) {
       const Client = live && (live.Client || require('openai'));
       const client = live && new Client({ ...config, maxRetries: 0, timeout: live.totalTimeoutMs || 60000 });
       this.chat = { completions: { create: async (body, sdkOptions) => {
+        requestObservedAt = performance.now(); bodyText = ''; observedTimes.length = 0;
+        observedTimes.push({type:'request', at:requestObservedAt});
         calls.push(copy(body));
         requestOptions.push(sdkOptions);
         if (live) {
@@ -125,6 +144,7 @@ function createInterviewRuntime(t, options = {}) {
                     firstContent = true;
                     clearTimeout(first);
                   }
+                  observeBody(part.choices?.[0]?.delta?.content);
                   yield part;
                 }
               } catch (error) {
@@ -181,7 +201,7 @@ function createInterviewRuntime(t, options = {}) {
     loaded.push(relative);
     const context = vm.createContext({ module, exports: module.exports, __filename: file, __dirname: path.dirname(file),
       require: id => shim._load(id, module), process, Buffer, URL, Headers, AbortController, AbortSignal, performance,
-      Date: options.liveTransport || options.realTime ? Date : ClockDate, setTimeout, clearTimeout, setInterval, clearInterval, setImmediate, queueMicrotask,
+      Date: options.liveTransport || options.realTime ? Date : ClockDate, setTimeout:trackedTimeout, clearTimeout:clearOwnedTimer, setInterval:trackedInterval, clearInterval:clearOwnedTimer, setImmediate, queueMicrotask,
       console: Object.fromEntries(['log', 'warn', 'error'].map(level => [level, (...args) => logs.push(args)])) });
     vm.runInContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
     module.context = context;
@@ -238,7 +258,7 @@ function createInterviewRuntime(t, options = {}) {
     const native = createRequire(parent.filename);
     return id.startsWith('.') ? load(native.resolve(id)) : native(id);
   };
-  const entry = load(path.join(root, require('../../package.json').main));
+  const entry = load(path.join(root, JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).main));
   const ready = options.coldIndex ? Promise.resolve() : load(path.join(root, 'src/project-knowledge.js')).warmProjectIndex();
   const context = modules.get(path.join(root, 'main.js')).context;
   async function submit(mode, text = '') {
@@ -249,20 +269,25 @@ function createInterviewRuntime(t, options = {}) {
   window = { isDestroyed: () => false, webContents: {
     getURL: () => 'file://' + root + '/renderer/index.html',
     send(channel, data) {
+      if (channel === 'llm:token') {
+        const text = String(data?.text || '');
+        if (!options.liveTransport) observeBody(text);
+        if (text.trim() && !observedTimes.some(item=>item.type==='renderer-delivery')) observedTimes.push({type:'renderer-delivery',at:performance.now()});
+      }
       events.push(copy({ channel, ...data }));
       if (channel === 'shortcut:mode') pendingShortcuts.push(submit(data.mode));
     }
   } };
   context.__window = window;
   vm.runInContext('win = __window', context);
-  entry.installShortcutOverrides();
+  entry?.installShortcutOverrides?.();
   const value = expression => vm.runInContext(expression, context);
   const clear = () => handlers.get('transcript:clear')(null);
   let disposed = false;
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
-    await ready.catch(() => {}); clear(); fs.rmSync(temp, { recursive: true, force: true });
+    await ready.catch(() => {}); clear(); for(const timer of ownedTimers) clearOwnedTimer(timer); fs.rmSync(temp, { recursive: true, force: true });
   };
   t.after(dispose);
   function speech(channel, text, final, meta = {}) {
@@ -272,7 +297,7 @@ function createInterviewRuntime(t, options = {}) {
     return value(`${final ? 'publishTranscript' : 'publishInterim'}(__channel, __text, __meta)`);
   }
   return {
-    temp, ready, calls, requestOptions, requests, commits, searches, events, loaded, logs, transportEvents, value, dispose,
+    temp, ready, calls, requestOptions, requests, commits, searches, events, loaded, logs, transportEvents, observedTimes, value, dispose,
     snapshot: expression => copy(value(expression)),
     exports: relative => load(path.join(root, relative)),
     answer(text, config = {}) { if (options.liveTransport) throw new Error('Live transport cannot be replaced.'); transport = null; response = { text, finishReason: 'stop', ...config }; },
@@ -288,7 +313,8 @@ function createInterviewRuntime(t, options = {}) {
       await Promise.all(pendingShortcuts.splice(0));
     },
     clear,
-    invoke: async (name, payload) => { await ready; return handlers.get(name)(null, payload); },
+    hasHandler: name => handlers.has(name),
+    invoke: async (name, payload) => { await ready; if (!handlers.has(name)) throw new Error('Unsupported production IPC: ' + name); return handlers.get(name)(null, payload); },
     async importMaterialSnapshot({ facts, sources }) {
       await ready;
       // The production service validates and atomically publishes both layers.

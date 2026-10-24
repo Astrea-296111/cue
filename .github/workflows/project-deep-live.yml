@@ -1,13 +1,18 @@
 name: Private project deep evaluation
+run-name: Private project evaluation ${{ inputs.request_tag }}
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Private questions per provider (smoke 6, deep 12)
+        description: Versioned private profile; multi-turn scenario configuration is authenticated encrypted data
         type: choice
-        options: [smoke, deep]
+        options: [smoke, regression, deep, stress]
         default: smoke
+      request_tag:
+        description: Client-generated resume correlation tag (no private data)
+        type: string
+        default: manual
       provider:
         description: Real API provider
         type: choice
@@ -22,14 +27,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: cue-llm-live-${{ github.repository }}
+  group: cue-llm-live-${{ github.repository }}-${{ inputs.request_tag }}
   cancel-in-progress: false
 
 jobs:
   private-live:
     name: Encrypted real project evaluation
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 120
     steps:
       - name: Require trusted main dispatch
         env:
@@ -45,6 +50,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check out the explicitly frozen baseline without credentials
+        uses: actions/checkout@v4
+        with:
+          ref: 9898a05184a8f860411da8e084cd4b1ed22093a6
+          path: .cue-baseline
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -65,8 +76,9 @@ jobs:
           retention-days: 1
 
       - name: Wait for encrypted data and call real providers
-        timeout-minutes: 16
+        timeout-minutes: 110
         env:
+          CUE_BASELINE_ROOT: ${{ github.workspace }}/.cue-baseline
           PRIVATE_MODE: ${{ inputs.mode }}
           PRIVATE_PROVIDER: ${{ inputs.provider }}
           DISCOVER_MODELS: ${{ inputs.discover_models }}

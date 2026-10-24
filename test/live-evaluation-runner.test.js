@@ -15,8 +15,9 @@ function output(t) {
 }
 
 test('runner rejects budgets beyond ceilings, requires explicit live config and accepts only safe HTTPS endpoints', () => {
-  for (const args of [['--max-calls', '61'], ['--max-calls-per-provider', '31'], ['--max-output-tokens', '1801'],
-    ['--first-content-timeout-ms', '30001'], ['--total-timeout-ms', '60001'], ['--max-calls', '-1'], ['--mode', 'unknown']]) assert.throws(() => parseArgs(args));
+  for (const args of [['--max-calls', '20001'], ['--max-calls-per-provider', '10001'], ['--max-output-tokens', '16385'],
+    ['--first-content-timeout-ms', '120001'], ['--total-timeout-ms', '120001'], ['--max-calls', '-1'], ['--mode', 'unknown']]) assert.throws(() => parseArgs(args));
+  assert.equal(parseArgs(['--max-calls','1440','--max-calls-per-provider','720','--max-output-tokens','8192','--first-content-timeout-ms','120000','--total-timeout-ms','120000']).maxCalls,1440);
   const base = { QWEN_API_KEY: 'key-in-memory-only', QWEN_MODEL: 'configured-model', QWEN_BASE_URL: 'https://compatible.example/v1' };
   assert.equal(providerConfig('qwen', base, false).hostname, 'compatible.example');
   assert.equal(providerConfig('qwen', {}, false).error.code, 'configuration');

@@ -53,8 +53,9 @@ function distribution(values) {
 
 const usageFields = ['actualInputTokens', 'actualOutputTokens', 'actualTotalTokens', 'cachedInputTokens', 'actualReasoningTokens'];
 function summarizeCases(cases, kind) {
-  const attempted = cases.filter(item => item.attempted === true);
-  const scored = kind === 'mock' ? [] : attempted.filter(item => item.quality && item.quality.scored !== false &&
+  const attempts = cases.flatMap(item=>item.attempts?.length?item.attempts:[item]);
+  const attempted = attempts.filter(item => item.attempted === true);
+  const scored = kind === 'mock' ? [] : cases.filter(item => item.attempted === true && item.quality && item.quality.scored !== false &&
     (typeof item.quality.deterministic?.passed === 'boolean' || ['passed-listed-checks', 'needs-review', 'failed'].includes(item.quality.qualityStatus)));
   const timeoutCount = attempted.filter(item => /^(?:first-content-timeout|total-timeout|timeout)$/i.test(item.error?.code || '')).length;
   const callFailureCount = attempted.filter(item => {
@@ -63,13 +64,14 @@ function summarizeCases(cases, kind) {
   }).length;
   const usage = {};
   for (const key of usageFields) {
-    const observed = cases.map(item => item.usage?.[key] ?? item.metrics?.[key])
+    const observed = attempts.map(item => item.usage?.[key] ?? item.metrics?.[key])
       .filter(value => typeof value === 'number' && Number.isFinite(value) && value >= 0);
     usage[key] = observed.length ? observed.reduce((sum, value) => sum + value, 0) : null;
   }
   return {
     caseCount: cases.length,
     requestCount: attempted.length,
+    retryCount: cases.reduce((n,item)=>n+Math.max(0,(item.attempts?.length||1)-1),0),
     timeoutCount,
     timeoutRate: attempted.length ? timeoutCount / attempted.length : null,
     callFailureCount,
@@ -84,8 +86,15 @@ function summarizeCases(cases, kind) {
     firstContentMs: distribution(cases.map(item => item.metrics?.firstContentMs)),
     triggerToFirstContentMs: distribution(cases.map(item => item.metrics?.triggerToFirstContentMs)),
     doneMs: distribution(cases.map(item => item.metrics?.doneMs)),
+    firstSentenceMs: distribution(cases.map(item=>item.metrics?.firstSentenceMs)),
+    rendererDeliveryMs: distribution(cases.map(item=>item.metrics?.rendererDeliveryMs)),
+    renderConfirmedMs: distribution(cases.map(item=>item.metrics?.renderConfirmedMs)),
+    requestDispatchMs: distribution(cases.map(item=>item.metrics?.requestDispatchMs)),
+    audioEndToFinalMs: distribution(cases.map(item=>item.metrics?.audioEndToFinalMs)),
+    lateBodyRate: attempted.length ? attempted.filter(item=>(item.metrics?.triggerToFirstContentMs??item.metrics?.firstContentMs)>8000).length/attempted.length : null,
     usage,
-    usageObservedCases: cases.filter(item => usageFields.some(key => typeof (item.usage?.[key] ?? item.metrics?.[key]) === 'number')).length
+    usageObservedCases: cases.filter(item => usageFields.some(key => typeof (item.usage?.[key] ?? item.metrics?.[key]) === 'number')).length,
+    usageObservedAttempts: attempts.filter(item => usageFields.some(key => typeof (item.usage?.[key] ?? item.metrics?.[key]) === 'number')).length
   };
 }
 
@@ -94,8 +103,21 @@ function summarize(report) {
     id: provider.id, model: provider.model || null, status: provider.status,
     ...summarizeCases(provider.cases || [], report.kind)
   }));
-  return { kind: report.kind, status: report.status, mode: report.mode,
-    ...summarizeCases((report.providers || []).flatMap(provider => provider.cases || []), report.kind), providers };
+  const allCases=(report.providers || []).flatMap(provider => provider.cases || []);
+  const statistics=summarizeCases(allCases,report.kind);
+  const generationCalls=Number.isFinite(report.budget?.attemptedCalls)?report.budget.attemptedCalls:statistics.requestCount;
+  const judgeCalls=Number.isFinite(report.judging?.attempts)?report.judging.attempts:0;
+  const dynamicActorCalls=Number.isFinite(report.dynamicActors?.attempts)?report.dynamicActors.attempts:0;
+  const thresholds={contextPreparationP95Ms:200,rendererDeliveryP50Ms:1500,rendererDeliveryP95Ms:3000,firstSentenceP95Ms:5000,lateBodyRate:0.01,requestSuccessRate:0.99};
+  return { kind: report.kind, status: report.status, mode: report.mode,...statistics, providers,
+    calls:{generation:generationCalls,judges:judgeCalls,dynamicActors:dynamicActorCalls,total:generationCalls+judgeCalls+dynamicActorCalls},
+    performance:{thresholds,physicalRenderingVerified:statistics.renderConfirmedMs.count>0,
+      rendererDelivery:statistics.rendererDeliveryMs.count?statistics.rendererDeliveryMs.p50<=1500&&statistics.rendererDeliveryMs.p95<=3000:null,
+      firstSentence:statistics.firstSentenceMs.count?statistics.firstSentenceMs.p95<=5000:null,
+      lateBody:statistics.lateBodyRate==null?null:statistics.lateBodyRate<=0.01,
+      requestSuccess:statistics.callFailureRate==null?null:1-statistics.callFailureRate>=0.99,
+      sampleNote:'Observed finite sample only; virtual renderer IPC is not a physical first-screen measurement.'},
+    byMode:[...new Set(allCases.map(item=>item.mode).filter(Boolean))].map(mode=>({mode,...summarizeCases(allCases.filter(item=>item.mode===mode),report.kind)})) };
 }
 
 const cell = value => String(value ?? '未知').replace(/\|/g, '\\|').replace(/[\r\n]+/g, ' ');
@@ -118,6 +140,7 @@ function overview(report, summary) {
     '', `提交：${cell(report.build?.commit)} · Node：${cell(report.build?.node)} · 公开夹具审批：${cell(report.approval?.id)}`,
     '', `用例：${summary.caseCount} · 通过：${summary.passedCases} · 失败：${summary.failedCases} · 未完成：${summary.uncompletedCases}`,
     '', `已发起请求：${summary.requestCount} · 调用失败：${summary.callFailureCount}（${rate(summary.callFailureRate)}） · 超时：${summary.timeoutCount}（${rate(summary.timeoutRate)}）`,
+    '', `全部推理尝试：${summary.calls.total}（生产问答 ${summary.calls.generation}、裁判 ${summary.calls.judges}、动态候选人/追问 ${summary.calls.dynamicActors}）。失败重试全部计入。`,
     '', '首正文只统计非空正文，reasoning 和空白不计入。p50/p95 使用已观测值的 nearest-rank；未知指标保留为未知。', '',
     '| 服务 | 模型 | 状态 | 无阻断错误 / 用例 | 首正文 p50 / p95 | 触发到首正文 p50 / p95 | 完整响应 p50 / p95 | 实际输入 / 输出 token |',
     '| --- | --- | --- | --- | --- | --- | --- | --- |'];
@@ -153,6 +176,10 @@ function markdown(report) {
         `项目：${ids(item.projectIds)}`, '', `实际发送事实 ID：${ids(item.sentFactIds)}`, '', `实际发送源码 ID：${ids(item.sentSourceIds)}`, '',
         '指标、完成状态和规则检查：', '', fenced(JSON.stringify({ metrics: item.metrics || {}, usage: item.usage || {},
           completion: item.completion || {}, quality: item.quality || {}, ...(item.error ? { error: item.error } : {}) }, null, 2), 'json'), '');
+      if(item.dialogueEvents) lines.push('真实事件回放：','',fenced(JSON.stringify(item.dialogueEvents,null,2),'json'),'');
+      if(item.actualMessages) lines.push('实际发送的上下文：','',fenced(JSON.stringify(item.actualMessages,null,2),'json'),'');
+      if(item.attempts) lines.push('全部尝试（包含失败与重试）：','',fenced(JSON.stringify(item.attempts,null,2),'json'),'');
+      if(item.judging) lines.push('独立裁判：','',fenced(JSON.stringify(item.judging,null,2),'json'),'');
     }
   }
   lines.push('## 相关代码位置', '');
