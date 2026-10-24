@@ -253405,15 +253405,7 @@
         "retrievalText": "CAE · implementation · ExecutionMonitor#reconcileExecution\n  /** Scoped synchronous reconciliation is also useful for deterministic recovery verification. */\n  public void reconcileExecution(long executionId) {\n    leases.makeDue(executionId);\n    for (ExecutionPollLeaseRepository.PollClaim claim :\n        leases.claim(owner, 1, leaseDuration, List.of(executionId))) reconcile(claim);\n  }",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
-        "navigationTerms": [
-          "对账",
-          "远端",
-          "UNKNOWN",
-          "迟到",
-          "恢复"
-        ],
-        "navigationPriority": 1
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
       },
       {
         "path": "backend/src/main/java/com/example/cae/monitoring/ExecutionMonitor.java",
@@ -253658,7 +253650,15 @@
         "retrievalText": "CAE · implementation · ExecutionMonitor#reconcile\n  private void reconcile(ExecutionPollLeaseRepository.PollClaim claim) {\n    String failure = null;\n    try {\n      Map<String, Object> execution = executions.find(claim.executionId());\n      if (RemoteExecutionStateService.TERMINAL.contains(execution.get(\"status\"))) {\n        states.applyStoredPolled(claim);\n        return;\n      }\n      String nodeId = execution.get(\"nodeId\").toString();\n      if (states.nodeOffline(nodeId)) {\n        failure = \"Node heartbeat is unavailable; capacity is retained\";\n        if (awaitingSubmitDelivery(execution)) return;\n        states.unknown(claim.executionId(), \"NODE_OFFLINE\", failure, claim);\n        return;\n      }\n      Map<String, Object> remote =\n          execution.get(\"externalExecutionId\") == null\n              ? agents.queryByRequest(nodeId, execution.get(\"submitRequestId\").toString())\n              : agents.query(nodeId, execution.get(\"externalExecutionId\").toString());\n      states.applyPolled(claim, remote);\n      checkWalltime(execution, remote);\n      if (RemoteExecutionStateService.cancellationRequested(executions.find(claim.executionId()))\n          && !RemoteExecutionStateService.TERMINAL.contains(remote.get(\"state\")))\n        cancellation.continueCancel(claim.jobId());\n    } catch (AgentException error) {\n      if (awaitingSubmitDelivery(executions.find(claim.executionId()))) {\n        // A queued/in-flight submit has no receipt yet. Its durable consumer owns bounded retries.\n        // Turning it UNKNOWN here would prevent that original command from ever being sent.\n        failure = \"Awaiting original submit delivery: \" + error.code();\n        return;\n      }\n      failure =\n          error.notFound()\n              ? \"Agent has no matching execution; absence does not prove the solver stopped\"\n              : error.getMessage();",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "对账",
+          "远端",
+          "UNKNOWN",
+          "迟到",
+          "恢复"
+        ],
+        "navigationPriority": 1
       },
       {
         "path": "backend/src/main/java/com/example/cae/monitoring/ExecutionMonitor.java",
@@ -253830,7 +253830,15 @@
         "retrievalText": "CAE · implementation · ExecutionMonitor#reconcile\n      states.unknown(\n          claim.executionId(),\n          error.notFound() ? \"UNKNOWN_REMOTE_STATE\" : error.code().name(),\n          failure,\n          claim);\n    } catch (ApiException error) {\n      failure = \"Remote execution observation could not be validated: \" + error.code();\n      states.unknown(claim.executionId(), \"UNKNOWN_REMOTE_STATE\", failure, claim);\n    } catch (RuntimeException error) {\n      failure = \"Reconciliation deferred: \" + error.getClass().getSimpleName();\n      LOG.warn(\n          \"Execution reconciliation deferred executionId={} cause={}\",\n          claim.executionId(),\n          error.getClass().getSimpleName());\n    } finally {\n      leases.finish(claim, pollDelay, failure);\n    }\n  }",
         "projectId": "cae",
         "projectName": "CAE",
-        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab"
+        "projectRevision": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e:f8e47eda6f5d6da2f3db33ab",
+        "navigationTerms": [
+          "对账",
+          "远端",
+          "UNKNOWN",
+          "迟到",
+          "恢复"
+        ],
+        "navigationPriority": 0.5
       },
       {
         "path": "backend/src/main/java/com/example/cae/monitoring/ExecutionMonitor.java",
@@ -312411,5 +312419,5 @@
     }
   },
   "profile": {},
-  "revision": "a35806d676a3ba72e608f063ef8f4fef25179c10aaa0e205fdcab80904416abd"
+  "revision": "17b795808e028feef0bc40ec33fe7dfcd1a2024a522fe410f2e370055a45bd2a"
 }

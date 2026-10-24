@@ -59,3 +59,7 @@ node scripts/private-live-session.cjs decrypt --session SESSION/session.json --k
 本轮不测录音通道；Electron 虚拟显示、Mock、真实 API 与真实 Windows 物理设备验收分别记录。
 
 首轮[真实双模型 smoke](https://github.com/Astrea-296111/cue/actions/runs/40072205570)使用 `qwen3.8-flash` 与 `deepseek-flash`，12次外部调用全部完成、无超时，首正文 P50/P95 为959/1448ms。该轮整体失败：六条CAE结果缺少必要实现来源，人工审查还发现把PID校验当作fencing、以局部幂等推导全链路保证的风险。后续按这些回答修正来源分配、字符/token预算和两模式共用的证据边界规则；未将该轮记为质量通过。完整回答为加密artifact，解密文件仅在个人工作区。
+
+修复后的[完整双模型评测](https://github.com/Astrea-296111/cue/actions/runs/40074502603)完成24次真实调用，24/24确定性断言通过，0超时、0调用失败，包含两道超过1600汉字的场景题。Qwen首正文P50/P95为1112/2175ms，DeepSeek为864/1081ms；两者合计本地准备P50/P95为75/180ms。完整响应P50分别为8445/3868ms，用户可在首正文到达时开始阅读流式回答。它是本轮样本，不是服务延迟保证。
+
+有2条内容覆盖提示需要人工判断：DeepSeek跨项目题给出了中断后恢复并检查消息链的具体验收，属于同义表达；Qwen长场景题没有把主动查询路径说清，后续将导航指向实际 `reconcile` 方法并明确要求说明核验动作。没有把内容提示包装成自动事实证明。公开的[汇总JSON](benchmarks/project-depth-2026-10-24.json)仅保留计数、版本、usage和时延，不含私人材料和回答正文。
