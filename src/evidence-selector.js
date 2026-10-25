@@ -1,7 +1,7 @@
 'use strict';
 
 const { createHash } = require('crypto');
-const { tokenize } = require('./project-search');
+const { tokenize,hasImplementationBody } = require('./project-search');
 const { inProjectScope } = require('./project-scope');
 
 // Evidence selection is deliberately independent of model inference. Ranking
@@ -110,6 +110,8 @@ function relevant(item, question, features) {
 function supportsNeed(item, need, question, features) {
   if (!question.scopes.length || !inProjectScope(item, question.scopes) || !relevant(item, question, features) || item.provenance === 'derived_hint') return false;
   const docType = inferDocType(item);
+  if(docType==='implementation'&&/\.(?:java|py|[cm]?[jt]sx?|go|rs|cs|sql)$/i.test(item.path||'')&&
+    ['context','class','interface'].includes(item.kind)&&!hasImplementationBody(item)&&!/字段|声明|类结构|类型|签名|构造|初始化|\b(?:fields?|signature|declaration|constructor|schema)\b/i.test(question.text))return false;
   if (['ownership', 'collaboration'].includes(need.type) && /团队负责人|技术负责人|管理职责|负责管理|带领团队|team lead|management responsibility/i.test(question.text) &&
     !/(?:我|本人|候选人|人物|成员|工程师)[^。；\n]{0,8}(?:担任[^。；\n]{0,8}(?:团队|技术)负责人|负责(?:团队管理|管理团队)|带领[^。；\n]{0,8}团队|管理[^。；\n]{0,8}团队)|(?:I (?:led|managed)|my management)/i.test(item.text)) return false;
   if (docType === 'implementation' && item.kind === 'context' && (String(item.text).match(/[A-Za-z0-9\u3400-\u9fff]/g) || []).length < 20) return false;

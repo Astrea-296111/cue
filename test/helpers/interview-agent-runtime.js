@@ -69,8 +69,9 @@ function createInterviewRuntime(t, options = {}) {
   const memorySettings = !!(options.inMemorySettings || options.liveTransport);
   // Live credentials are injected only after the real store module loads.
   // Neither the temporary store nor material snapshots ever contain keys.
-  fs.writeFileSync(path.join(temp, 'cue-data.json'), JSON.stringify(memorySettings
-    ? { ...initialSettings, apiKeys: {} } : initialSettings),{mode:0o600});
+  const persistedInitial=memorySettings?{...initialSettings,apiKeys:{},
+    ...(initialSettings.qwenAsr?{qwenAsr:{...initialSettings.qwenAsr,apiKey:''}}:{})}:initialSettings;
+  fs.writeFileSync(path.join(temp, 'cue-data.json'), JSON.stringify(persistedInitial),{mode:0o600});
 
   let time = options.startedAt || 1_800_000_000_000;
   class ClockDate extends Date {
@@ -219,11 +220,16 @@ function createInterviewRuntime(t, options = {}) {
         // boundary; temporary profile files are private and removed at cleanup.
         const getPersisted=module.exports.getSettings,setPersisted=module.exports.setSettings;
         let apiKeys={...(initialSettings.apiKeys||{})};
-        const withKeys=stored=>({...stored,apiKeys:{...(stored.apiKeys||{}),...apiKeys}});
+        let asrKey=initialSettings.qwenAsr?.apiKey;
+        const withKeys=stored=>({...stored,apiKeys:{...(stored.apiKeys||{}),...apiKeys},
+          ...(asrKey!==undefined?{qwenAsr:{...stored.qwenAsr,apiKey:asrKey}}:{})});
         module.exports.getSettings=()=>withKeys(getPersisted());
         module.exports.setSettings=(patch,settingsOptions)=>{
           const {apiKeys:updateKeys,...ordinary}=patch||{};
           if(updateKeys)apiKeys={...apiKeys,...updateKeys};
+          if(ordinary.qwenAsr&&Object.hasOwn(ordinary.qwenAsr,'apiKey')){
+            asrKey=ordinary.qwenAsr.apiKey;ordinary.qwenAsr={...ordinary.qwenAsr,apiKey:''};
+          }
           return withKeys(setPersisted(ordinary,settingsOptions));
         };
       } else {

@@ -38,7 +38,12 @@ function createSession({runId, runAttempt = '1', repository, commitSha, now = Da
 }
 
 function bytes64(value, expectedLength, maxLength = MAX_ENVELOPE_BYTES) {
-  if (typeof value !== 'string' || value.length > maxLength * 2 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) fail();
+  if (typeof value !== 'string' || value.length > Math.ceil(maxLength / 3) * 4 || value.length % 4 !== 0 ||
+      expectedLength != null && value.length !== Math.ceil(expectedLength / 3) * 4) fail();
+  // A repeated capture/group over multi-megabyte ciphertext exhausts V8's
+  // regexp stack. Scan the alphabet once; only terminal padding is allowed.
+  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  if (/[^A-Za-z0-9+/]/.test(value.slice(0, value.length - padding))) fail();
   const bytes = Buffer.from(value, 'base64');
   if (bytes.length > maxLength || expectedLength != null && bytes.length !== expectedLength || bytes.toString('base64') !== value) fail();
   return bytes;

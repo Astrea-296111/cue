@@ -6,9 +6,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const {performance} = require('node:perf_hooks');
 const {setTimeout: delay} = require('node:timers/promises');
 const cipher = require('./lib/private-live-crypto.cjs');
 const {sanitizeReport, sanitizeText} = require('./lib/live-evaluation-report.cjs');
+const {hydrateJudgeSnapshot,DIRECTORY:JUDGE_JOURNAL_DIRECTORY}=require('./lib/judge-journal.cjs');
 
 const CANDIDATES = Object.freeze({qwen:['qwen3.6-flash','qwen3.5-flash','qwen-flash','qwen-turbo'], deepseek:['deepseek-flash','deepseek-chat']});
 const PUBLIC_ERRORS = Object.freeze({
@@ -139,7 +141,7 @@ function publicSummary(report, session, discovery, error, reportEncrypted = fals
       message:PUBLIC_ERRORS[error.publicCode] || PUBLIC_ERRORS['private-evaluation-failed']}} : {})};
 }
 function publishSummary(outputDir, summary, env) {
-  summary = sanitizeReport(summary, {secrets:[env.QWEN_API_KEY, env.DEEPSEEK_API_KEY]});
+  summary = sanitizeReport(summary, {secrets:[env.QWEN_API_KEY, env.DEEPSEEK_API_KEY, env.QWEN_ASR_API_KEY]});
   writeJson(path.join(outputDir, 'summary.json'), summary);
   if (env.GITHUB_STEP_SUMMARY) {
     const lines = ['# CUE private real-model evaluation', '',
@@ -153,31 +155,62 @@ function publishSummary(outputDir, summary, env) {
 
 async function evaluateSession({directory, outputDir, env = process.env, mode = 'smoke', provider = 'all', discoverModels = false,
   fetchImpl = fetch, evaluatePrivate, waitOptions = {}}) {
+  const evaluationDeadline=Date.now()+100*60*1000;
   const plainDir = path.join(directory, 'plain-reports'), privateKeyPath = path.join(directory, 'private-key.pem');
   let session, key, report, discovery, error, snapshotTimer, lastSnapshot, inferenceStarted = false;
-  const sanitize = {secrets:[env.QWEN_API_KEY, env.DEEPSEEK_API_KEY], workspaceRoot:path.resolve(__dirname, '..'), tempRoots:[directory]};
-  const saveEncrypted = (value, markdown) => {
+  let lastSnapshotSignature=null;
+  const reportPersistence={snapshotIntervalMs:30000,attempts:0,completed:0,failures:0,unchangedSkipped:0,totalMs:0,maxMs:0,lastEnvelopeBytes:0};
+  const sanitize = {secrets:[env.QWEN_API_KEY, env.DEEPSEEK_API_KEY, env.QWEN_ASR_API_KEY], workspaceRoot:path.resolve(__dirname, '..'), tempRoots:[directory]};
+  const saveEncrypted = (value, markdown, {partial=false}={}) => {
+    const started=performance.now();reportPersistence.attempts++;
+    try {
+    const hydrated=hydrateJudgeSnapshot(plainDir,value);
+    value=hydrated.report;
+    if(hydrated.checkpoint) {
+      value={...value,judging:{...value.judging,...require('./judge-private-projects.cjs').summarizeJudging(value),
+        status:value.judging?.status||'running'}};
+      value={...value,summary:require('./lib/live-evaluation-report.cjs').summarize(value)};
+    }
     const artifacts={};
     if(fs.existsSync(plainDir))for(const name of fs.readdirSync(plainDir)) {
       if(!/^(?:judge-checkpoint|manual-review-queue|dynamic-[a-f0-9]{24})\.json$/.test(name))continue;
+      if(partial&&name==='manual-review-queue.json')continue;
+      if(name==='judge-checkpoint.json'&&hydrated.checkpoint){artifacts[name]=sanitizeReport(hydrated.checkpoint,sanitize);continue;}
       try {artifacts[name]=sanitizeReport(readJson(path.join(plainDir,name),cipher.MAX_REPORT_BYTES),sanitize);}catch{/* A concurrent checkpoint is collected by the next snapshot. */}
     }
     writeJson(path.join(outputDir, 'report.encrypted.json'), cipher.encryptReports({session, key,
-      reports:{report:sanitizeReport({...value, modelSelection:discovery}, sanitize), markdown:sanitizeText(markdown, sanitize),artifacts}}));
+      reports:{report:sanitizeReport({...value, modelSelection:discovery,
+        reportPersistence:{...reportPersistence,measurement:'Completed prior snapshots; the public final summary includes the final encryption cost.'}}, sanitize),
+        markdown:sanitizeText(markdown, sanitize),artifacts}}));
+    reportPersistence.completed++;
+    reportPersistence.lastEnvelopeBytes=fs.statSync(path.join(outputDir,'report.encrypted.json')).size;
+    return value;
+    } catch(error) {
+      reportPersistence.failures++;throw error;
+    } finally {
+      const elapsed=performance.now()-started;
+      reportPersistence.totalMs=+(reportPersistence.totalMs+elapsed).toFixed(2);
+      reportPersistence.maxMs=+Math.max(reportPersistence.maxMs,elapsed).toFixed(2);
+    }
   };
-  const snapshot = () => {
+  const snapshot = ({force=false}={}) => {
     if (!key || !session) return;
     try {
+      const stat=fs.statSync(path.join(plainDir,'report.json'));
+      const journalDir=path.join(plainDir,JUDGE_JOURNAL_DIRECTORY);
+      const journalStamp=fs.existsSync(journalDir)?fs.statSync(journalDir).mtimeMs:0;
+      const signature=stat.mtimeMs+':'+stat.size+':'+journalStamp;
+      if(!force&&signature===lastSnapshotSignature){reportPersistence.unchangedSkipped++;return;}
       const partial = readJson(path.join(plainDir, 'report.json'), cipher.MAX_REPORT_BYTES);
-      const file = path.join(plainDir, 'report.md');
-      const markdown = fs.existsSync(file) && fs.statSync(file).size <= cipher.MAX_REPORT_BYTES ? fs.readFileSync(file, 'utf8') : '';
-      saveEncrypted(partial, markdown);
-      lastSnapshot = partial;
+      const saved=saveEncrypted(partial, '运行中的完整回答与全部尝试保存在加密 report.json；结束后生成完整 Markdown。',{partial:true});
+      lastSnapshotSignature=signature;
+      lastSnapshot = saved;
     } catch { /* A not-yet-written or concurrently replaced snapshot is retried. */ }
   };
   const interrupted = () => {
-    snapshot(); clearInterval(snapshotTimer);
+    snapshot({force:true}); clearInterval(snapshotTimer);
     const summary = publicSummary(report || lastSnapshot, session, discovery, failure('private-evaluation-failed'), fs.existsSync(path.join(outputDir, 'report.encrypted.json')));
+    summary.reportPersistence={...reportPersistence};
     try { publishSummary(outputDir, summary, env); } catch { /* No private diagnostics on cancellation. */ }
     key?.fill(0); fs.rmSync(plainDir, {recursive:true, force:true}); fs.rmSync(privateKeyPath, {force:true});
     process.exit(143);
@@ -191,23 +224,26 @@ async function evaluateSession({directory, outputDir, env = process.env, mode = 
     const decoded = cipher.decryptPayload({session, privateKey:fs.readFileSync(privateKeyPath, 'utf8'), envelope});
     key = decoded.key;
     // Keep encrypted partial answers available if the step later times out.
-    snapshotTimer = setInterval(snapshot, 5000); snapshotTimer.unref();
+    snapshotTimer = setInterval(snapshot, reportPersistence.snapshotIntervalMs); snapshotTimer.unref();
     process.once('SIGTERM', interrupted); process.once('SIGINT', interrupted);
     const run = evaluatePrivate || require('./evaluate-private-projects.cjs').evaluatePrivate;
     // The actual evaluator returns all reports to an ephemeral plaintext folder.
     // Its environment cannot append private contents to the Actions Summary.
     const evaluationEnv = {...resolved.env}; delete evaluationEnv.GITHUB_STEP_SUMMARY;
+    // Stop scoring with enough time to finalize authenticated artifacts before
+    // the workflow's 110-minute evaluation-step ceiling.
+    evaluationEnv.CUE_EVALUATION_DEADLINE_MS=String(evaluationDeadline);
     inferenceStarted = true;
     report = await run({payload:decoded.payload, outputDir:plainDir, env:evaluationEnv, mode, provider});
     report.modelSelection = discovery;
     const markdownPath = path.join(plainDir, 'report.md');
     const markdown = fs.existsSync(markdownPath) && fs.statSync(markdownPath).size <= cipher.MAX_REPORT_BYTES
       ? fs.readFileSync(markdownPath, 'utf8') : '';
-    saveEncrypted(report, markdown);
+    report=saveEncrypted(report, markdown);
   } catch (caught) {
     error = caught;
     if (key && session) {
-      snapshot(); report ||= lastSnapshot;
+      snapshot({force:true}); report ||= lastSnapshot;
       if (!fs.existsSync(path.join(outputDir, 'report.encrypted.json'))) {
         report = {schemaVersion:1, kind:'live-private', status:'failed', modelSelection:discovery,
           error:{code:caught.publicCode || 'private-evaluation-failed', message:PUBLIC_ERRORS[caught.publicCode] || PUBLIC_ERRORS['private-evaluation-failed']}};
@@ -221,6 +257,7 @@ async function evaluateSession({directory, outputDir, env = process.env, mode = 
     fs.rmSync(plainDir, {recursive:true, force:true}); fs.rmSync(privateKeyPath, {force:true});
   }
   const summary = publicSummary(report, session, discovery, error, fs.existsSync(path.join(outputDir, 'report.encrypted.json')));
+  summary.reportPersistence={...reportPersistence};
   if (!inferenceStarted && summary.attemptedCalls == null) summary.attemptedCalls = 0;
   publishSummary(outputDir, summary, env);
   return summary;

@@ -42,6 +42,26 @@ test('warm facts request performs no filesystem reads on the answer key path',as
  assert.deepEqual(reads,[]);
 });
 
+test('technical recovery answers retain the original state-changing body rather than a matching class declaration',async t=>{
+  const source={version:2,projects:[{id:'cae-code',name:'cae-job-platform'},{id:'arc-code',name:'Arclight'}],chunks:[
+    {id:'queue-header',projectId:'cae-code',path:'src/Queue.java',symbol:'Queue',kind:'context',startLine:1,endLine:3,text:'public class Queue { private String recoveryStatus; private String retryStatus; }'},
+    {id:'queue-claim',projectId:'cae-code',path:'src/Queue.java',symbol:'Queue#claim',kind:'method',startLine:4,endLine:9,text:'Claim claim(Row row) { if (row.state.equals("DONE")) return DONE; if (row.leased) return BUSY; return ACQUIRED; }'},
+    {id:'foreign-queue',projectId:'arc-code',path:'src/Queue.java',symbol:'Queue#claim',kind:'method',startLine:1,endLine:4,text:'Claim claim() { return FOREIGN_QUEUE_ONLY; }'}],stats:{fileCount:2,chunkCount:3}};
+  for(const mode of ['instant','standard']) {
+    const app=createInterviewRuntime(t,{indexSnapshot:source,settings:{realtimeAnswerMode:mode,sourceRagPolicies:{instant:'ready-only',standard:'standard'}}});
+    const facts=fixture(8),card=facts.cards.find(c=>c.projectId==='cae'&&c.docType==='implementation');
+    card.text='合成 Queue 恢复机制按状态与租约区分重试。';card.keywords=['Queue','恢复','状态','重试'];
+    card.sources=[{path:'src/Queue.java',symbol:'Queue#claim',commit:null,contentSha256:'a'.repeat(64)}];
+    await install(app,facts);await app.exports('src/project-knowledge.js').warmProjectIndex();
+    await app.ask('say','CAE Queue 恢复状态如何区分已完成与正在处理？');
+    const body=JSON.stringify(app.calls.at(-1).messages),diagnostic=app.events.filter(e=>e.channel==='llm:materials').at(-1);
+    assert.match(body,/DONE/);assert.match(body,/BUSY/);assert.match(body,/ACQUIRED/);
+    assert.ok(diagnostic.sentSourceIds.includes('queue-claim'));
+    assert.ok(!diagnostic.sentSourceIds.includes('queue-header'));
+    assert.doesNotMatch(body,/FOREIGN_QUEUE_ONLY/);
+  }
+});
+
 test('manual project toggle remains independent for a facts-only canonical project in standard mode',async t=>{
  const r=createInterviewRuntime(t,{chunks:[],settings:{realtimeAnswerMode:'standard',projectFactsEnabled:false,sourceRagPolicies:{standard:'off'},projectKnowledge:'# CAE\n\nMANUAL_CANONICAL 我负责合成恢复校验；源码未导入，不能声称已检索源码。'}});await install(r);
  await r.ask('say','CAE 你负责什么');assert.match(r.calls.at(-1).messages[0].content,/MANUAL_CANONICAL/);assert.equal(r.searches.length,0);

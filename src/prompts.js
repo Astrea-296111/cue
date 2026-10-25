@@ -87,7 +87,7 @@ function getAnswerPlan(question = '', interviewPlan = null) {
 function answerShapeInstruction(plan) {
   const p = plan || getAnswerPlan('');
   if (p.questionCount >= 2) {
-    return `这是复杂问题：本轮有${p.questionCount}个子问题（含同话题仍适用的遗漏）：先给方案主干，再按原顺序逐项回应；当前新问优先，每个子问至少覆盖结论和最关键的理由或做法。` +
+    return `这是复杂问题：本轮有${p.questionCount}个子问题（含面试官本轮明确要求补答的问题）：先给方案主干，再按原顺序逐项回应；当前新问优先，每个子问至少覆盖结论和最关键的理由或做法。` +
       `先保证全部覆盖，再展开细节；通常控制在${p.sentenceLimit}句以内，不能为了沿用单点题句数限制而漏答。`;
   }
   if (p.level === 'complex') return '这是复杂单问：主卡先用2–4句说结论、一处具体机制和取舍或验证；需要深入时再展开，不强制编号。';

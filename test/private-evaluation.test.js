@@ -5,6 +5,38 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { evaluatePrivate, validatePrivatePayload, importPrivateMaterials } = require('../scripts/evaluate-private-projects.cjs');
+
+test('judge-only continuation preserves archived answers and never creates a production runtime',async t=>{
+  const {validatePersonalWorkspace}=require('../src/personal-workspace');
+  const {projectJudgeReference}=require('../scripts/lib/evaluation-workspace.cjs');
+  const {projectCase,validateRecoveryPayload,evaluateRecovery,hash}=require('../scripts/lib/judge-recovery.cjs');
+  const workspace=validatePersonalWorkspace({schemaVersion:1,facts:fixture(),profile:{resumeText:'Synthetic candidate',jobDescription:'Synthetic role'}});
+  const reference=projectJudgeReference(workspace),trusted='b'.repeat(40);
+  const original={id:'archived-one',sessionId:'session-one',repeat:1,question:'How does synthetic recovery work?',answer:'ARCHIVED_ANSWER_ONLY',
+    attempted:true,status:'passed',transportStatus:'passed',dialogueEvents:[],scenarioEvaluation:{expected_route:'cae',must_convey:[],must_not_assert:[]}};
+  const providers=[{id:'qwen',model:'synthetic-qwen',cases:[projectCase(original)]}];
+  const input={schemaVersion:3,kind:'judge-recovery',workspace,judgeReference:reference,
+    source:{repository:'example/cue',trustedSha:trusted,combinedReportSha256:'a'.repeat(64),payloadSha256:'c'.repeat(64),selectedCasesSha256:hash(providers),generationCallsObserved:1,
+      partition:{index:0,count:1},authenticationBoundary:'synthetic authenticated-source test',artifacts:[{runId:'123',runAttempt:'1',commitSha:trusted,
+        fingerprint:'d'.repeat(64),envelopeSha256:'e'.repeat(64),reportSha256:'f'.repeat(64),checkpointSha256:null}]},
+    report:{application:{commit:'a'.repeat(40)},build:{commit:trusted},inputs:{factsSha256:hash(workspace.facts),profileSha256:hash(workspace.profile),judgeReferenceSha256:reference.sha256},providers},
+    evaluation:{concurrency:1,shardCount:1,shardIndex:0}};
+  assert.equal(validatePrivatePayload(input).kind,'judge-recovery');
+  const changed=structuredClone(input);changed.report.providers[0].cases[0].answer='changed';assert.throws(()=>validateRecoveryPayload(changed),/digest/);
+  const oversized=structuredClone(input);oversized.source.authenticationBoundary='x'.repeat(8*1024*1024);assert.throws(()=>validateRecoveryPayload(oversized),/oversized/);
+  const d=fs.mkdtempSync(path.join(os.tmpdir(),'cue-judge-only-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
+  const transport=require('../scripts/e2e-live-llm.cjs'),create=transport.createProviderRuntime;
+  transport.createProviderRuntime=()=>{throw Error('Judge-only continuation must not create a CUE runtime');};
+  let judgeInvocations=0;
+  try {
+    const result=await evaluateRecovery({payload:input,outputDir:d,env:{},evaluateJudgesImpl:async({report})=>{judgeInvocations++;report.status='unverified';return report;}});
+    assert.equal(judgeInvocations,1);assert.equal(result.budget.attemptedCalls,0);
+    assert.equal(result.recovery.generationExecutedThisRun,0);
+    assert.equal(result.providers[0].cases[0].answer,original.answer);
+    assert.equal(result.providers[0].cases[0].attempted,false);
+    assert.equal(result.providers[0].cases[0].archivedGeneration.attempted,true);
+  }finally{transport.createProviderRuntime=create;}
+});
 const { createInterviewRuntime } = require('./helpers/interview-agent-runtime');
 const { fixture, sourceFixture } = require('./helpers/material-fixture');
 const {migrateFactIndex}=require('../src/project-fact-packs');

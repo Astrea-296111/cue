@@ -19,6 +19,32 @@ function fixture(t) {
   return directory;
 }
 
+test('encrypted snapshots include a newer per-case judge journal even before the aggregate report is flushed',async t=>{
+  const directory=fixture(t),outputDir=path.join(directory,'artifacts');
+  const session=initialize(directory,env),encrypted=envelope.encryptPayload({session,payload:{schemaVersion:1}});
+  const {writeCaseJournal}=require('../scripts/lib/judge-journal.cjs');
+  const {stableCaseKey}=require('../scripts/lib/multiturn-quality.cjs');
+  const item={id:'case-one',sessionId:'session-one',repeat:1,answer:'complete synthetic answer',attempted:true,status:'passed'};
+  const key=stableCaseKey(item,'qwen'),identity='b'.repeat(64);
+  const result=await evaluateSession({directory,outputDir,env,
+    fetchImpl:async()=>new Response(JSON.stringify(encrypted.envelope),{status:200}),
+    evaluatePrivate:async options=>{
+      fs.mkdirSync(options.outputDir,{recursive:true});
+      fs.writeFileSync(path.join(options.outputDir,'judge-checkpoint.json'),JSON.stringify({schemaVersion:1,policy:'cue-independent-judges-v2',identity,updatedAt:'2026-01-01T00:00:00Z',entries:{}}));
+      writeCaseJournal(options.outputDir,identity,key,{inputDigest:'c'.repeat(64),judges:[{provider:'qwen',status:'running',attempts:[{
+        status:'running',usage:null,requestMessages:[{role:'user',content:'private observation '+env.QWEN_API_KEY}]}]}]});
+      return {kind:'live',status:'running',budget:{attemptedCalls:1},judging:{status:'running'},providers:[{id:'qwen',cases:[item]}]};
+    }});
+  assert.equal(result.reportPersistence.snapshotIntervalMs,30000);
+  assert.equal(result.reportPersistence.completed,1);
+  const decoded=envelope.decryptReports({session,key:encrypted.key,envelope:JSON.parse(fs.readFileSync(path.join(outputDir,'report.encrypted.json'),'utf8'))});
+  const attempt=decoded.report.providers[0].cases[0].judging.judges[0].attempts[0];
+  assert.equal(attempt.status,'running');
+  assert.ok(attempt.requestMessages[0].content.includes('[REDACTED]'));
+  assert.equal(decoded.artifacts['judge-checkpoint.json'].entries[key].judges[0].attempts.length,1);
+  assert.equal(fs.existsSync(path.join(directory,'plain-reports')),false);
+});
+
 test('private envelopes bind run, trusted code, key and size, and reports decrypt only with the local response key', () => {
   const {session, privateKey} = envelope.createSession({runId:'123', repository:env.GITHUB_REPOSITORY, commitSha:env.GITHUB_SHA});
   const payload = {facts:{text:'PRIVATE_PERSONAL_FACT'}, profile:{resumeText:'PRIVATE_RESUME'}};
@@ -36,6 +62,24 @@ test('private envelopes bind run, trusted code, key and size, and reports decryp
   assert.ok(!JSON.stringify(result).includes('PRIVATE_FULL_ANSWER'));
   assert.deepEqual(envelope.decryptReports({session, key:encrypted.key, envelope:result}), reports);
   assert.throws(() => envelope.decryptReports({session, key:crypto.randomBytes(32), envelope:result}), /authentication/);
+});
+
+test('large encrypted reports decode linearly while malformed base64 and authentication changes remain rejected', () => {
+  const {session} = envelope.createSession({runId:'987', repository:env.GITHUB_REPOSITORY, commitSha:env.GITHUB_SHA});
+  const key = crypto.randomBytes(32);
+  // Incompressible data crosses the size that exhausted the old grouped regexp
+  // in the real 16-answer report. Use the actual seal/open path, not a mock.
+  const reports = {report:{answer:crypto.randomBytes(5 * 1024 * 1024).toString('base64')}};
+  const encrypted = envelope.encryptReports({session, key, reports});
+  assert.ok(encrypted.ciphertext.length > 6 * 1024 * 1024);
+  assert.deepEqual(envelope.decryptReports({session, key, envelope:encrypted}), reports);
+  for (const bad of ['YQ=', 'YQ===', 'Y=Q=', 'YQ==\n', 'YR==', '====', 'AA-A'])
+    assert.throws(() => envelope.bytes64(bad), /authentication/);
+  assert.throws(() => envelope.bytes64('YQ==', 2), /authentication/);
+  assert.throws(() => envelope.bytes64('YQ==', null, 0), /authentication/);
+  assert.throws(() => envelope.decryptReports({session, key, envelope:{...encrypted,runId:'988'}}), /authentication/);
+  assert.throws(() => envelope.decryptReports({session, key, envelope:{...encrypted,tag:crypto.randomBytes(16).toString('base64')}}), /authentication/);
+  key.fill(0);
 });
 
 test('trusted private evaluation publishes only encrypted answers and aggregate status and removes local plaintext/key', async t => {

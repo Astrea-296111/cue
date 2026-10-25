@@ -21,13 +21,14 @@ function validateScenarios(value){
  if(count>1000)throw new Error('Too many question events.');return value;
 }
 function validateEvaluation(value={}){
- const allowed=['profile','repeats','sessionIds','shardIndex','shardCount','applicationCommit','label','judge','concurrency','retryLimit','baselineRoot','timeoutMs','outputCeiling','dynamic','sourceSnapshot'];
+ const allowed=['profile','repeats','sessionIds','shardIndex','shardCount','applicationCommit','label','judge','concurrency','retryLimit','baselineRoot','timeoutMs','outputCeiling','dynamic','sourceSnapshot','audioFixture'];
  if(!value||Array.isArray(value)||Object.keys(value).some(k=>!allowed.includes(k)))throw new Error('Invalid evaluation configuration.');
  if(value.label!=null&&(typeof value.label!=='string'||value.label.length>100))throw new Error('Invalid evaluation label.');
  if(value.applicationCommit!=null&&!['current','baseline',BASELINE].includes(value.applicationCommit)&&!/^[a-f0-9]{40}$/.test(value.applicationCommit))throw new Error('Invalid application commit.');
  if(value.baselineRoot!=null)throw new Error('Input cannot select local application paths.');
  if(value.sourceSnapshot!=null&&!['baseline','current'].includes(value.sourceSnapshot))throw new Error('Invalid trusted source snapshot.');
  if(value.judge!=null&&typeof value.judge!=='boolean'||value.dynamic!=null&&typeof value.dynamic!=='boolean'&&(typeof value.dynamic!=='object'||Array.isArray(value.dynamic)))throw new Error('Invalid evaluation role configuration.');
+ if(value.audioFixture!==undefined&&(value.audioFixture!==true||value.dynamic||value.shardCount!=null&&value.shardCount!==1||value.shardIndex!=null&&value.shardIndex!==0||value.repeats!=null&&value.repeats!==1||value.applicationCommit!=null&&value.applicationCommit!=='current'||value.sourceSnapshot!=null&&value.sourceSnapshot!=='current'))throw new Error('Audio fixtures require one current-application run without dynamic roles or shards.');
  resolveProfile(value);
  return value;
 }
@@ -130,13 +131,16 @@ async function evaluateMultiturn({payload,outputDir,env=process.env,provider='al
  }
  await Promise.all(Array.from({length:Math.min(profile.concurrency,tasks.length)},work));
  for(const p of report.providers){const expected=tasks.filter(t=>t.provider===p.id).reduce((n,t)=>n+t.session.events.filter(e=>e.invoke_cue).length,0);p.expectedCaseCount=expected;p.unexecutedCaseIds=p.cases.filter(c=>c.status==='pending').map(c=>c.id);p.status=p.cases.length===expected&&p.cases.every(c=>c.status==='passed')?'passed':'failed';}
- report.status=report.providers.every(p=>p.status==='passed')&&!report.failures.some(f=>f.code==='multiturn-runner')?'passed':'failed';report.finishedAt=new Date().toISOString();let document=save();
+ report.status=report.providers.every(p=>p.status==='passed')&&!report.failures.some(f=>f.code==='multiturn-runner')?'passed':'failed';
+ report.generationFinishedAt=new Date().toISOString();
+ report.finishedAt=configuration.judge&&!mock?null:report.generationFinishedAt;
+ let document=save();
  if(configuration.judge&&!mock){
   const {evaluateJudges}=require('./judge-private-projects.cjs');
   const updateJudged=value=>{const judged=value?.report||value;if(judged?.judging){report.judging=judged.judging;if(judged.inputs)report.inputs={...report.inputs,...judged.inputs};if(judged.providers)report.providers=judged.providers;if(judged.manualReview)report.manualReview=judged.manualReview;if(judged.status)report.status=judged.status;}save();};
   try{updateJudged(await evaluateJudges({report:document,payload:input,env,outputDir,concurrency:Math.min(profile.concurrency,4),onCheckpoint:updateJudged}));}
   catch(error){report.judging={status:'failed',error:sanitizeText(error.message,{secrets,workspaceRoot:ROOT,tempRoots})};report.status='failed';}
-  document=save();
+  report.finishedAt=new Date().toISOString();document=save();
  }
  return document;
 }

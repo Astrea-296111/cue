@@ -23,6 +23,31 @@ function copyEntry(entry, current = false) {
     ...(entry.answerEvidence ? { answerEvidence: entry.answerEvidence } : {}) };
 }
 
+function requestedPending(question, entries, previousRequestId) {
+  // An unresolved coverage heuristic is bookkeeping, not a new instruction
+  // from the interviewer. Reintroduce an old ask only when it is requested.
+  const value = String(question || '').trim();
+  const complete = /(?:补答|补上|答完|答全|答完整|回答完整|回答完|讲完|说完|讲完整).{0,20}(?:问题|遗漏|刚才|前面|之前|上次)|(?:问题|遗漏|刚才|前面|之前|上次).{0,20}(?:补答|补上|答完|答全|答完整|回答完整|回答完|讲完|说完|讲完整)|(?:漏答|没答|未回答|遗漏).{0,8}(?:问题|子问|部分)|(?:问题|子问|部分).{0,8}(?:未答|没答|没回答|未回答|漏答|遗漏)|(?:刚才|前面|之前).{0,20}(?:没答|没回答|漏答|未回答)|\b(?:unanswered|omitted|remaining|missed)\s+(?:questions?|points?|parts?)\b|\b(?:answer|cover|finish|complete).{0,32}(?:previous|earlier|both|all)\s+(?:questions?|points?|parts?)\b/i.test(value);
+  const ordinal = value.match(/第\s*([一二三四五六七八九十\d]+)\s*(?:个|道|小)?(?:问题|问|点|部分)/) ||
+    value.match(/\b(?:the\s+)?(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|\d+(?:st|nd|rd|th)?)\s+(?:question|point|part)\b/i);
+  if (ordinal) {
+    // Mentioning an earlier question inside a new, specific question is a
+    // reference, not a request to repeat its whole answer.
+    const remainder=(value.slice(0,ordinal.index)+value.slice(ordinal.index+ordinal[0].length)).replace(/[\s\p{P}\p{S}]/gu,'').toLowerCase();
+    if(!complete&&!/^(?:(?:那|那么|还有|然后|刚才的?|前面的?|之前的?|上次的?|请|先|再|继续|接着|回答|答一下|答完整|答完|补答|补充|讲讲|说说|展开|解释|呢|的回答|的答案)|(?:whatabout|howabout|and|please|answer|finish|complete|continue|elaborate|expand))*$/.test(remainder))return [];
+    const raw = ordinal[1].toLowerCase(), words = ['first','second','third','fourth','fifth','sixth','seventh','eighth','ninth','tenth'];
+    const digits = '一二三四五六七八九';
+    let number = /^\d/.test(raw) ? Number.parseInt(raw, 10) : words.indexOf(raw) + 1;
+    if (!number) number = raw.includes('十') ? (raw[0] === '十' ? 1 : digits.indexOf(raw[0]) + 1) * 10 +
+      (raw.endsWith('十') ? 0 : digits.indexOf(raw.at(-1)) + 1) : digits.indexOf(raw) + 1;
+    return entries.filter(entry => entry.sourceIndex === number - 1).slice(-1);
+  }
+  if (complete) return entries;
+  if (/^(?:继续|接着(?:说|讲)?|go on|continue|carry on)[。.!！?？]*$/i.test(value))
+    return entries.filter(entry => entry.lastRequestedId === previousRequestId);
+  return [];
+}
+
 function coverageEvidence(question, answer, index, total) {
   if (question.partial || !answer.trim()) return '';
   const numbered = answer.split(/^\s*(?:\d+[.)、]|#{1,6})\s+/m).map(s => s.trim()).filter(Boolean);
@@ -110,8 +135,9 @@ class InterviewChecklist {
     this.lastRequest = { id, epoch, threadId, scopeKey: key, topics };
     this._prune();
     const current = ids.map(entryId => this.entries.get(entryId)).filter(Boolean);
-    const pending = [...this.entries.values()].filter(entry => request.mode !== 'assist' && entry.threadId === threadId && !ids.includes(entry.id) &&
-      !entry.partial && UNRESOLVED.has(entry.status)).slice(-8);
+    const candidates = [...this.entries.values()].filter(entry => request.mode !== 'assist' && entry.threadId === threadId && !ids.includes(entry.id) &&
+      !entry.partial && UNRESOLVED.has(entry.status));
+    const pending = requestedPending(question, candidates, previous?.id).slice(-8);
     // The request owns a stable snapshot; new speech cannot change its checklist.
     return { epoch, threadId, scenario: this.threads.get(threadId)?.scenario || '', scopes: [...(plan?.scopes || [])],
       questions: [...current.map(entry => copyEntry(entry, true)), ...pending.map(entry => copyEntry(entry))],

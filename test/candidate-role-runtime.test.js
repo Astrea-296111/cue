@@ -45,6 +45,9 @@ test('evaluation imports candidate data through the personal preview/commit path
   assert.equal(JSON.parse(persisted).personalWorkspaceRevision,workspace.revision);
   assert.ok(!persisted.includes('EVALUATION_MEMORY_ONLY_KEY'));
   assert.equal(settings.apiKeys.custom,'EVALUATION_MEMORY_ONLY_KEY');
+  await app.invoke('settings:set',{qwenAsr:{apiKey:'EVALUATION_ASR_MEMORY_ONLY_KEY'}});
+  assert.equal(app.exports('src/store.js').getSettings().qwenAsr.apiKey,'EVALUATION_ASR_MEMORY_ONLY_KEY');
+  assert.ok(!require('node:fs').readFileSync(require('node:path').join(app.temp,'cue-data.json'),'utf8').includes('EVALUATION_ASR_MEMORY_ONLY_KEY'));
   await app.ask('say','请介绍一下自己。');
   assert.match(JSON.stringify(app.calls.at(-1).messages),/ENTRY_CANDIDATE/);
   assert.doesNotMatch(JSON.stringify(settings)+JSON.stringify(app.calls),/JUDGE_ONLY_SENTINEL/);

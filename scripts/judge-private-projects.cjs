@@ -8,6 +8,7 @@ const { createReviewPlan, stableCaseKey } = require('./lib/multiturn-quality.cjs
 const { roleConfig, runRole } = require('./lib/evaluation-role-client.cjs');
 const { sanitizeReport } = require('./lib/live-evaluation-report.cjs');
 const {validateJudgeReference} = require('./lib/evaluation-workspace.cjs');
+const {writeCaseJournal,readCaseJournals}=require('./lib/judge-journal.cjs');
 const POLICY = 'cue-independent-judges-v2';
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
@@ -18,19 +19,23 @@ function privateWrite(target, value) {
   fs.renameSync(temporary, target); fs.chmodSync(target, 0o600);
 }
 function usageSummary(attempts) {
+  const observedAttempts=attempts.length,reusedAttempts=attempts.filter(attempt=>attempt.executedThisRun===false).length;
+  attempts=attempts.filter(attempt=>attempt.executedThisRun!==false);
   const fields = ['prompt_tokens', 'completion_tokens', 'total_tokens'], result = {};
   for (const field of fields) {
     const seen = attempts.map(a => a.usage?.[field]).filter(Number.isFinite);
     result[field] = seen.length ? seen.reduce((sum, n) => sum + n, 0) : null;
   }
-  return { attempts: attempts.length, completedAttempts: attempts.filter(a => a.status === 'completed').length,
+  return { attempts: attempts.length,observedAttempts,reusedAttempts, completedAttempts: attempts.filter(a => a.status === 'completed').length,
     failedAttempts: attempts.filter(a => a.status !== 'completed').length,
     observedUsageAttempts: attempts.filter(a => a.usage !== null && a.usage !== undefined).length, usage: result };
 }
 function summarizeJudging(report) {
   const rows = (report.providers || []).flatMap(p => (p.cases || []).map(item => ({ provider: p.id, item })));
-  const all = rows.flatMap(({ item }) => (item.judging?.judges || []).flatMap(j => j.attempts || []));
+  const all = rows.flatMap(({ item }) => [...(item.judgingHistory||[]),item.judging].filter(Boolean).flatMap(entry=>(entry.judges||[]).flatMap(j=>j.attempts||[])));
   const counts = Object.fromEntries(['passed', 'failed', 'needs-review', 'unverified'].map(status => [status, rows.filter(r => r.item.judging?.consensus?.status === status).length]));
+  const pendingCases=rows.filter(r=>!r.item.judging?.consensus).length;
+  counts.unverified+=pendingCases;
   const means = {};
   for (const d of DIMENSIONS) {
     const values = rows.map(r => r.item.judging?.consensus?.scores?.[d]).filter(Number.isFinite);
@@ -65,13 +70,13 @@ function summarizeJudging(report) {
   const noRepeat = { total: noRepeatRows.length, evaluated: noRepeatEvaluated.length, rate: noRepeatEvaluated.length ? noRepeatEvaluated.filter(entry =>
     entry.row.item.judging.judges.every(j => entry.checks.every(check => j.result[check.field].find(c => c.constraintIndex === check.index)?.status === check.wanted))).length / noRepeatEvaluated.length : null };
   const gates = { twoActualModelsPerCase: crossModelVerifiedCases === rows.length && rows.length > 0,
-    noCriticalFailure: criticalFailures === 0, requiredPointCoverage95: coverageRate === null ? null : coverageRate >= 0.95,
+    noCriticalFailure: criticalFailures>0?false:rows.length>0&&crossModelVerifiedCases===rows.length?true:null, requiredPointCoverage95: coverageRate === null ? null : coverageRate >= 0.95,
     continuity95: continuity.rate === null ? null : continuity.rate >= 0.95,
     correction95: correction.rate === null ? null : correction.rate >= 0.95,
     noRepeatedCorrection95: noRepeat.rate === null ? null : noRepeat.rate >= 0.95,
     oralMean35: means.oralNaturalness === null ? null : means.oralNaturalness >= 3.5,
     everyFamilyOralMean3: Object.values(oralByFamily).length ? Object.values(oralByFamily).every(x => x.mean !== null && x.mean >= 3) : null };
-  return { policy: POLICY, totalCases: rows.length, ...counts, dimensionMeans: means,
+  return { policy: POLICY, totalCases: rows.length, ...counts,pendingCases, dimensionMeans: means,
     criticalFailures, crossModelVerifiedCases,
     continuity, correction, noRepeatedCorrection: noRepeat, oralByFamily, qualityGates: gates,
     automatedGatesPassed: Object.values(gates).every(value => value === true || value === null),
@@ -85,7 +90,7 @@ function summarizeJudging(report) {
 }
 
 async function evaluateJudges({ report, payload = {}, env = process.env, outputDir, concurrency = 2,
-  onCheckpoint = async () => {}, fetchImpl, pauseImpl }) {
+  onCheckpoint = async () => {}, fetchImpl, pauseImpl,initialEntries={} }) {
   if (!report || !Array.isArray(report.providers) || !outputDir) throw new Error('Judge evaluation requires a report and private output directory.');
   if (report.kind === 'mock') throw new Error('Mock production output cannot be accepted as real judged evaluation.');
   if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 4) throw new Error('Judge concurrency must be between 1 and 4.');
@@ -100,22 +105,34 @@ async function evaluateJudges({ report, payload = {}, env = process.env, outputD
   const checkpointPath = path.join(outputDir, 'judge-checkpoint.json');
   const identity = hash({ policy: POLICY, application: report.application, build: report.build?.commit, inputs: report.inputs,
     judges: configurations.map(c => ({ id: c.id, model: c.model, endpoint: c.hostname })) });
-  let checkpoint = { schemaVersion: 1, policy: POLICY, identity, entries: {} };
+  let checkpoint = { schemaVersion: 1, policy: POLICY, identity, entries: initialEntries };
   if (fs.existsSync(checkpointPath)) {
     const previous = JSON.parse(fs.readFileSync(checkpointPath, 'utf8'));
     if (previous.identity === identity && previous.policy === POLICY) checkpoint = previous;
     else throw new Error('Judge checkpoint belongs to different inputs, code or models; use a separate output directory.');
   }
+  Object.assign(checkpoint.entries,readCaseJournals(outputDir,identity,{after:checkpoint.updatedAt}));
   const rows = report.providers.flatMap(provider => (provider.cases || []).map(item => ({ provider: provider.id, item })));
-  const persist = async () => {
+  let lastFullFlush=0;
+  const persist = async ({key,entry,force=false}={}) => {
+    // Every attempt transition is durable before its request proceeds. The
+    // aggregate export is coalesced; encrypted snapshots also read journals.
+    if(key&&entry)writeCaseJournal(outputDir,identity,key,sanitizeReport(entry,{secrets}));
+    if(!force&&Date.now()-lastFullFlush<15000)return;
+    lastFullFlush=Date.now();
     checkpoint.updatedAt = new Date().toISOString();
     report.judging = { ...summarizeJudging(report), status: 'running' };
     privateWrite(checkpointPath, sanitizeReport(checkpoint, { secrets }));
     await onCheckpoint(report);
   };
-  let cursor = 0;
+  await persist({force:true});
+  let cursor = 0,paused=false;
+  const deadline=Number(env.CUE_EVALUATION_DEADLINE_MS)||Infinity;
   async function worker() {
     while (cursor < rows.length) {
+      // A role has up to three bounded 120s attempts. Do not start another pair
+      // when its worst-case retry budget would consume the artifact-save margin.
+      if(Date.now()+7*60*1000>=deadline){paused=true;break;}
       const { provider, item } = rows[cursor++];
       const prepared = prepareJudgeInput({ item, payload });
       const key = stableCaseKey(item, provider), previous = checkpoint.entries[key];
@@ -125,19 +142,21 @@ async function evaluateJudges({ report, payload = {}, env = process.env, outputD
         input: prepared.input, judges: configurations.map(c => ({ provider: c.id, status: 'pending', model: c.model || null, attempts: [] })) };
       checkpoint.entries[key] = entry;
       item.judging = entry;
+      const persistCase=({force=false}={})=>persist({key,entry,force});
       if (!String(item.answer || '').trim()) {
         entry.consensus = { status: 'unverified', needsReview: true, scores: null, reason: 'No complete answer was available for semantic judging.' };
-        await persist(); continue;
+        await persistCase({force:true}); continue;
       }
-      // Sequential within one answer; independent fresh messages for each model.
-      for (let i = 0; i < configurations.length; i++) {
-        const old = entry.judges[i], config = configurations[i];
+      // Both models see independent fresh messages; neither receives the other
+      // result. Parallel scoring keeps each provider bounded by case concurrency.
+      await Promise.all(configurations.map(async(config,i)=>{
+        const old = entry.judges[i];
         const judged = await runRole({ config, messages: prepared.messages, role: 'judge', attempts: old.attempts,
           retryLimit: 2, maxTokens: 8192, timeoutMs: 120000, fetchImpl, pauseImpl, secrets,
-          validate: raw => parseJudgeOutput(raw, prepared.input), onCheckpoint: persist });
+          validate: raw => parseJudgeOutput(raw, prepared.input), onCheckpoint: persistCase });
         entry.judges[i] = { provider: config.id, ...judged };
-        await persist();
-      }
+        await persistCase();
+      }));
       entry.consensus = mergeJudges(entry.judges);
       const servedModels = entry.judges.map(j => j.status === 'completed' ? j.attempts.findLast(a => a.status === 'completed')?.model : null);
       entry.modelDiversity = servedModels.every(Boolean) && new Set(servedModels).size === 2 ? 'verified-distinct-served-models' :
@@ -148,7 +167,7 @@ async function evaluateJudges({ report, payload = {}, env = process.env, outputD
         reason: 'Bounded judge input omitted part of the answer, dialogue or evidence; full-source human review is required.' };
       item.quality = { ...(item.quality || {}), semanticJudged: entry.consensus.status !== 'unverified',
         semanticStatus: entry.consensus.status, manualReviewRequired: true };
-      await persist();
+      await persistCase({force:true});
     }
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, rows.length) }, worker));
@@ -156,15 +175,16 @@ async function evaluateJudges({ report, payload = {}, env = process.env, outputD
   const packets = report.manualReview.selectedCases.map(selection => {
     const row = rows.find(r => stableCaseKey(r.item, r.provider) === selection.key);
     const sessionRows = rows.filter(r => r.provider === row.provider && r.item.sessionId === row.item.sessionId && r.item.repeat === row.item.repeat);
-    const complete = sessionRows.map(r => r.item.dialogueEvents || r.item.dialogue || []).sort((a, b) => b.length - a.length)[0] || [];
     return { ...selection, question: row.item.question, answer: row.item.answer,
-      completeDialogue: complete, sessionAnswers: sessionRows.map(r => ({ id: r.item.id, question: r.item.question, answer: r.item.answer,
-        scenarioEvaluation: r.item.scenarioEvaluation, authoritativeSources: r.item.authoritativeSources || [], judging: r.item.judging })),
-      judging: row.item.judging, sourceRevision: report.inputs?.sourceRevision || null };
+      completeSession:{reportFile:'report.json',provider:row.provider,sessionId:row.item.sessionId,repeat:row.item.repeat,
+        caseIds:sessionRows.map(r=>r.item.id)},
+      judgingRef:{reportFile:'report.json',provider:row.provider,caseId:row.item.id},
+      consensus:row.item.judging?.consensus||null,sourceRevision: report.inputs?.sourceRevision || null };
   });
-  privateWrite(path.join(outputDir, 'manual-review-queue.json'), sanitizeReport({ ...report.manualReview, packets }, { secrets }));
-  report.judging = { ...summarizeJudging(report), status: report.manualReview.selectedCases.length ? 'needs-review' : 'completed',
-    reviewQueueFile: 'manual-review-queue.json', completedAt: new Date().toISOString() };
+  privateWrite(path.join(outputDir, 'manual-review-queue.json'), sanitizeReport({schemaVersion:2,packetLayout:'report-references', ...report.manualReview, packets }, { secrets }));
+  report.judging = { ...summarizeJudging(report), status: paused?'needs-resume':report.manualReview.selectedCases.length ? 'needs-review' : 'completed',
+    ...(paused?{pauseReason:'workflow-budget-margin',resumable:true}:{}),
+    reviewQueueFile: 'manual-review-queue.json',...(paused?{pausedAt:new Date().toISOString()}:{completedAt:new Date().toISOString()}) };
   if (report.judging.unverified || report.judging.failed || report.judging['needs-review']) report.status = 'failed';
   else if (report.manualReview.selectedCases.length && report.status !== 'failed') report.status = 'needs-review';
   checkpoint.updatedAt = new Date().toISOString();

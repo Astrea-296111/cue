@@ -159,6 +159,42 @@ for (const scenario of [
   });
 }
 
+test('a new standard project question does not reactivate unknown old asks, while explicit ordinal follow-ups retain the requested ask',async t=>{
+  const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:'standard'}});
+  const oldQuestion='RepoPilot 的消息确认边界是什么？';
+  app.answer('这段建议没有生成完整。',{finishReason:'length'});
+  await app.ask('say',oldQuestion);
+  app.candidate('我刚才说 Kafka 是口误，实际是 RabbitMQ 用来派发任务。');
+  const nextQuestion='RepoPilot 如何避免 RabbitMQ 重复派发？';
+  app.answer('这个问题需要使用幂等执行身份和持久化记录。');
+  await app.ask('say',nextQuestion);
+  assert.equal(app.requests[1].checklist.pending.length,0);
+  assert.ok(app.requests[1].checklist.questions.every(row=>row.current));
+  assert.ok(!app.requests[1].projectInterviewState.unresolvedTopics.includes(oldQuestion));
+  const nextPrompt=currentText(app.calls[1]);
+  assert.ok(nextPrompt.includes(nextQuestion));
+  assert.match(nextPrompt,/我刚才说 Kafka 是口误/);
+  assert.doesNotMatch(nextPrompt,/此前未确认覆盖|含同话题仍适用的遗漏/);
+
+  const compound='RepoPilot 重试身份如何确定？崩溃恢复后怎样避免重复？';
+  app.answer('这次回答也被截断。',{finishReason:'length'});
+  await app.ask('say',compound);
+  const planned=app.requests[2].interviewPlan.subQuestions;
+  assert.equal(planned.length,2);
+  assert.equal(app.requests[2].checklist.pending.length,0);
+  assert.equal(app.requests[2].checklist.questions.filter(row=>row.current).length,2);
+  for(const question of planned)assert.ok(currentText(app.calls[2]).includes(question.text));
+  app.answer('持久化记录提供恢复时的状态依据。');
+  await app.ask('say','在刚才第二个问题里，为什么需要持久化记录？');
+  assert.equal(app.requests[3].checklist.pending.length,0,'a reference inside a new specific question must not request the whole earlier answer');
+  app.answer('通过持久化执行身份核对恢复结果，避免重复执行。');
+  await app.ask('say','第二个问题呢？');
+  assert.equal(app.requests[4].checklist.pending.length,1);
+  assert.equal(app.requests[4].checklist.pending[0].text,planned[1].text);
+  assert.ok(currentText(app.calls[4]).includes(planned[1].text));
+  assert.ok(!app.requests[4].checklist.pending.some(row=>row.text===oldQuestion));
+});
+
 for (const finishReason of ['length', null]) {
   test(`SDK finish_reason=${finishReason} cannot mark requested answers covered`, async t => {
     const app = createInterviewRuntime(t);

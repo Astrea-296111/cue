@@ -18,6 +18,7 @@ const sha = value => createHash('sha256').update(JSON.stringify(value)).digest('
 const boundedString = (value, bytes) => typeof value === 'string' && Buffer.byteLength(value, 'utf8') <= bytes;
 
 function validatePrivatePayload(payload) {
+  if(payload?.schemaVersion===3)return require('./lib/judge-recovery.cjs').validateRecoveryPayload(payload);
   if (payload?.schemaVersion === 2) {
     if (Object.keys(payload).some(key=>!['schemaVersion','facts','profile','scenarios','evaluation','revision','sourceManifest','mergeLog','judgeReference'].includes(key)) || Buffer.byteLength(JSON.stringify(payload),'utf8') > MAX_PAYLOAD_BYTES) throw new Error('Invalid multi-turn private payload.');
     const {validateScenarios,validateEvaluation}=require('./evaluate-multiturn-projects.cjs');
@@ -72,8 +73,10 @@ async function importPrivateMaterials(runtime, payload, sources) {
 }
 
 async function evaluatePrivate({ payload, outputDir, env = process.env, mode = 'smoke', providers = 'all', provider, mock = false }) {
+  if(payload?.schemaVersion===3)return require('./lib/judge-recovery.cjs').evaluateRecovery({payload:validatePrivatePayload(payload),outputDir,env,mock});
   if (payload?.schemaVersion === 2) {
     const input=validatePrivatePayload(payload);
+    if(input.evaluation?.audioFixture) return require('./evaluate-audio-projects.cjs').evaluateAudioProjects({payload:input,outputDir,env,provider:provider||providers,mock});
     if(input.evaluation?.dynamic) return require('./evaluate-dynamic-projects.cjs').evaluateDynamic({payload:input,outputDir,env,provider:provider||providers,mock});
     return require('./evaluate-multiturn-projects.cjs').evaluateMultiturn({payload:input,outputDir,env,provider:provider||providers,mock});
   }

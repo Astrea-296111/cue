@@ -214,7 +214,9 @@ async function runCase(runtime, item, provider, options, budget, evaluateCase) {
   try {
     // Explicit text is the production manual-question IPC path. ASR fragment
     // merging depends on real speech pauses and is covered by separate tests.
-    await Promise.race([runtime.ask('say', item.question), new Promise((resolve, reject) => {
+    const trigger=item.trigger==='recognized-shortcut'
+      ? runtime.shortcut('CommandOrControl+Return') : runtime.ask('say', item.question);
+    await Promise.race([trigger, new Promise((resolve, reject) => {
       timer = setTimeout(() => { outerTimeout = true; if(runtime.hasHandler('llm:cancel')) void runtime.invoke('llm:cancel'); else runtime.clear(); reject(new Error('Evaluation total timeout.')); }, options.totalTimeoutMs + 1000);
     })]);
   } catch { /* runtime and sanitized transport state supply a bounded diagnostic */ }
@@ -270,6 +272,7 @@ async function runCase(runtime, item, provider, options, budget, evaluateCase) {
   if (!error && pipelineFailures.length) error = safeError('pipeline', 'Production evidence invariant failed: ' + pipelineFailures.join(', ') + '.');
   if (!error && !options.mock && !quality.passed) error = safeError('quality', 'Deterministic approved-fact checks failed; see quality.deterministic.');
   return { id: item.id, sessionId: item.sessionId, mode: item.mode, question: item.question, category: item.category,
+    trigger:item.trigger==='recognized-shortcut'?'production-recognized-question-shortcut':'production-manual-question',
     sourcePolicy: item.sourcePolicy, factsEnabled: item.factsEnabled !== false, attempted, sdkRequestCount: actualCalls,
     status: error ? 'failed' : 'passed', transportStatus: !attempted ? 'not-attempted' : providerError || outerTimeout ||
       transportErrors.some(event => ['first-content-timeout', 'total-timeout', 'aborted', 'provider-error'].includes(event.code)) || !answer.trim() || !completion.complete ? 'failed' : 'passed',
@@ -288,6 +291,7 @@ function createProviderRuntime({ id, config, options, budget, provider, cleanups
   return createInterviewRuntime({ after: cleanup => cleanups.push(cleanup) }, {
     indexSnapshot: { version: 2, projects: [], chunks: [], stats: { fileCount: 0, chunkCount: 0 } },
     dialogPaths, inMemorySettings: true, persistProfile:true, realTime: true, targetRoot: options.targetRoot,
+    liveSpeech:options.liveSpeech===true,
     settings: { provider: actualProvider, apiKeys: { [actualProvider]: config.apiKey }, smart: false,
       models: { [actualProvider]: { fast: config.model, smart: config.model } },
       ...(id === 'qwen' ? { baseUrl: config.baseURL, providerProtocolPresets: { custom: 'dashscope' },

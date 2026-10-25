@@ -72,11 +72,27 @@ function compileProjectPacks({ rootDir = path.join(__dirname,'../project-packs')
   return index;
 }
 const intents = [ ['ownership',/负责|职责|个人贡献|你做|我做|本人/], ['collaboration',/分工|协作|同事|团队|联调|几个人|多少人|几人|一个人|独立开发/], ['challenge',/困难|难点|挑战|排查|故障/], ['performance',/性能|压测|延迟|吞吐|指标|数字/], ['decision',/选型|取舍|为什么|为何|不用|不采用/], ['overview',/介绍|概览|整体|链路|做什么|多久|时间|几个月/]];
-const grams = text => { const s=String(text).toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');return new Set([...s].slice(0,-1).map((_,i)=>s.slice(i,i+2))); };
+const grams = text => {
+  // Equivalent database vocabulary should meet the same prepared feature;
+  // this affects retrieval only, never rewrites a source or a model question.
+  const s=String(text).normalize('NFKC').toLowerCase()
+    .replace(/唯一(?:索引|约束)|\bunique\s+(?:index|constraint|key)\b/g,'唯一键')
+    .replace(/介绍一下|这个项目|那个项目|你们|我们|刚才|前面|这里|那里|为什么|为何|如何|怎么|怎样|什么|哪些|具体|一下|解决|问题|能不能|可不可以/g,'')
+    .replace(/[^\p{L}\p{N}]/gu,'');
+  return new Set([...s].slice(0,-1).map((_,i)=>s.slice(i,i+2)).filter(term=>!/^[的了呢吗这那它其]|[的了呢吗]$/.test(term)));
+};
 class ProjectFactPacks {
   constructor({index}={}) {this.replace(index||JSON.parse(fs.readFileSync(path.join(__dirname,'../project-packs/index.json'),'utf8')));}
   replace(index) { const next=validateIndex(index);next.revision=hash({schemaVersion:next.schemaVersion,projects:next.projects,cards:next.cards,sourceDocuments:next.sourceDocuments,provenanceNotes:next.provenanceNotes});next.coverage=coverage(next);this.index=next;
-    this.features=next.cards.map(c=>({card:c,terms:grams(c.keywords.join(' ')+c.text),keywords:c.keywords.map(k=>String(k).toLowerCase())}));
+    this.features=next.cards.map(c=>{
+      // Question/keyword features describe the card's subject more precisely
+      // than incidental mentions in its answer. Prepare them on publication;
+      // foreground requests only compare bounded, project-scoped features.
+      const keywords=c.keywords.slice(0,64).map(k=>String(k).toLowerCase().slice(0,256));
+      const questions=(c.questions||[]).slice(0,16).map(value=>String(value).slice(0,1000));
+      return {card:c,terms:grams(keywords.join(' ')+c.text),keywords,
+        subjects:grams([...keywords,...questions,c.topic||''].join(' ')),questions:questions.map(grams)};
+    });
     this.featuresByProject=new Map(next.projects.map(p=>[p.id,this.features.filter(f=>f.card.projectId===p.id)]));
     this.evidenceById=new Map(next.cards.map(c=>[c.cardId,{...c,id:c.cardId,projectName:next.projects.find(p=>p.id===c.projectId).name,sourceType:'project-pack',revision:next.revision,startLine:1,endLine:c.text.split('\n').length,text:`[${c.provenance} / ${c.status}${c.implementation?' / '+c.implementation:''}] ${c.text}\n来源：${c.sources.map(s=>`${s.path}#${s.symbol}@${s.commit||s.contentSha256}`).join('; ')}`} ]));
     return this.getIndex(); }
@@ -89,8 +105,8 @@ class ProjectFactPacks {
     const selected=features.map(f=>({f,score:[...query].filter(g=>f.terms.has(g)).length/Math.max(1,query.size)+f.keywords.filter(k=>q.toLowerCase().includes(k)).length*.6+(preferred&&f.card.cardId.startsWith(preferred)?.06:0)})).filter(row=>row.score>.08).sort((a,b)=>b.score-a.score||a.f.card.cardId.localeCompare(b.f.card.cardId)).slice(0,Math.max(0,Math.min(6,maxCards)));
     return {evidence:selected.map(row=>this.evidenceById.get(row.f.card.cardId)),stats:{selectedCardCount:selected.length,packRevision:this.index.revision},scope:'general-knowledge-reference'};
   }
-  select(question,{projectId,anchor,maxCards=4,effectiveModel={},resolution}={}) {
-    const at=performance.now(), q=boundedRankingText(question), lower=q.toLowerCase();
+  select(question,{projectId,anchor,maxCards=4,effectiveModel={},resolution,primaryQuestion}={}) {
+    const at=performance.now(), q=boundedRankingText(primaryQuestion||question), lower=q.toLowerCase();
     const resolvedIds=resolution ? resolution.canonicalProjectIds||resolution.projectIds||[] : null;
     let mentioned;
     if(resolution) mentioned=this.index.projects.filter(p=>p.kind!=='knowledge'&&resolvedIds.includes(p.id)&&resolution.retrieveFacts!==false);
@@ -103,20 +119,33 @@ class ProjectFactPacks {
     if(!mentioned.length&&contextual) { const id=projectId||anchor?.projectId; mentioned=this.index.projects.filter(p=>p.kind!=='knowledge'&&p.id===id); }
     }
     if(!mentioned.length) return {evidence:[],localFacts:[],anchor:null,projectIds:[],gaps:[],stats:{selectedCardCount:0,selectionMs:performance.now()-at,packRevision:this.index.revision}};
-    const requested=resolution?.intent?.length?resolution.intent:intents.filter(([,re])=>re.test(q)).map(([t])=>t);
+    // A previous candidate utterance may help identify a topic but does not
+    // change what the interviewer is asking now. Inherited broad route intents
+    // must not make a technical follow-up look like another self-introduction.
+    const requested=intents.filter(([,re])=>re.test(q)).map(([t])=>t);
     const rankText=mentioned.reduce((text,p)=>[p.name,...p.aliases].reduce((s,a)=>s.toLowerCase().split(a.toLowerCase()).join(''),text),q);
     const terms=grams(rankText), scoped=mentioned.flatMap(p=>this.featuresByProject.get(p.id)||[]);
-    const parts=projectQuestionParts(question,resolution||{projectIds:mentioned.map(p=>p.id)});
+    const contextTerms=primaryQuestion&&String(primaryQuestion)!==String(question)
+      ? grams(boundedRankingText(String(question).replace(String(primaryQuestion),''))) : new Set();
+    const parts=projectQuestionParts(q,resolution||{projectIds:mentioned.map(p=>p.id)});
     const multi=parts.length>1;
     const scoreFor=(f,text,queryTerms,requestedTypes)=>{
       const c=f.card, normalized=text.toLowerCase(), overlap=[...queryTerms].filter(g=>f.terms.has(g)).length;
-      const lexical=overlap/Math.max(1,queryTerms.size) + f.keywords.filter(k=>normalized.includes(k)).length*.6;
-      let score=lexical;
-      if(c.provenance==='USER'&&c.status!=='missing'&&(overlap>0||requestedTypes.includes(c.docType))) score+=.3;
-      if(requestedTypes.includes(c.docType)) score+=multi ? .15 : 3;
-      if(/多久|时间线|开发周期|几个月|何时|哪年/.test(text)&&c.docType==='overview'&&f.keywords.some(k=>/时间|周期|几个月|timeline/.test(k)))score+=4;
+      const matches=values=>[...queryTerms].filter(g=>values.has(g)).length;
+      const bodyMatch=overlap/Math.max(1,queryTerms.size),subjectMatch=matches(f.subjects)/Math.max(1,queryTerms.size);
+      const keywordHits=f.keywords.filter(k=>k.length>1&&normalized.includes(k)).length;
+      const questionMatch=Math.max(0,...f.questions.map(terms=>matches(terms)/Math.max(1,Math.sqrt(queryTerms.size*terms.size))));
+      const lexical=bodyMatch+Math.min(3,keywordHits)*.4;
+      let score=lexical+subjectMatch*1.2+questionMatch*.9;
+      if(contextTerms.size)score+=[...contextTerms].filter(term=>f.subjects.has(term)).length/contextTerms.size*.12;
+      const personal=/个人贡献|你(?:具体|主要)?负责(?:哪|什么|的部分)|具体负责哪些|职责(?:是什么|有哪些|边界)|几个人|多少人|团队(?:分工|组成)|和谁协作|一个人做|独立开发|时间线|开发周期|几个月|(?:开发|做|用|持续|历时)(?:了)?多久/.test(text);
+      const intentMatch=requestedTypes.includes(c.docType);
+      const relevant=bodyMatch>.08||subjectMatch>.04||keywordHits>0||personal&&intentMatch;
+      if(relevant&&intentMatch)score+=personal?.9:.15;
+      if(personal&&c.provenance==='USER'&&c.status!=='missing'&&intentMatch)score+=.2;
+      if(/时间线|开发周期|几个月|何时(?:开始|完成)|哪年|(?:开发|做|用|持续|历时)(?:了)?多久/.test(text)&&c.docType==='overview'&&f.keywords.some(k=>/时间|周期|几个月|timeline/.test(k)))score+=1.2;
       if(anchor?.cardIds?.includes(c.cardId)&&/刚才|这个困难|那个方案|另一种/.test(q)) score+=2;
-      return {c,score,lexical};
+      return {c,score,lexical,relevant};
     };
     const order=(a,b)=>b.score-a.score||a.c.cardId.localeCompare(b.c.cardId);
     const ranked=scoped.map(f=>scoreFor(f,rankText,terms,requested)).sort(order);
@@ -127,19 +156,17 @@ class ProjectFactPacks {
     if(multi)for(const part of parts){
       const ownTerms=grams(part.text), wanted=intents.filter(([,re])=>re.test(part.text)).map(([t])=>t);
       const own=scoped.filter(f=>!part.projectIds.length||part.projectIds.includes(f.card.projectId)).map(f=>scoreFor(f,part.text,ownTerms,wanted)).sort(order);
-      for(const project of mentioned.filter(p=>!part.projectIds.length||part.projectIds.includes(p.id)))add(own.find(row=>row.c.projectId===project.id&&row.lexical>.04)?.c);
+      for(const project of mentioned.filter(p=>!part.projectIds.length||part.projectIds.includes(p.id)))add(own.find(row=>row.c.projectId===project.id&&row.relevant)?.c);
     }
     // Short personal followups still rely on their explicit intent, even when
     // they contain no implementation vocabulary.
-    const wanted=requested;
     for(const p of mentioned) {
-      let best=ranked.find(x=>x.c.projectId===p.id&&(!wanted.length||wanted.includes(x.c.docType)));
-      if(!wanted.length&&best?.lexical<=.04)best=ranked.find(x=>x.c.projectId===p.id&&x.c.docType==='overview')||best;
+      let best=ranked.find(x=>x.c.projectId===p.id&&x.relevant);
+      if(!best)best=ranked.find(x=>x.c.projectId===p.id&&x.c.docType==='overview');
       add(best?.c);
     }
-    if(!multi)for(const t of wanted) for(const p of mentioned) add(ranked.find(x=>x.c.projectId===p.id&&x.c.docType===t)?.c);
-    if(chosen.length<Math.min(4,maxCards)&&chosen.length) { const first=chosen[0];add(this.index.cards.find(c=>first.related.includes(c.cardId)&&c.projectId===first.projectId)); }
-    for(const x of ranked) if(x.score>.04) add(x.c);
+    for(const x of ranked) if(x.relevant&&x.score>.04) add(x.c);
+    if(chosen.length<Math.min(4,maxCards)&&chosen.length) { const first=chosen[0];add(scoped.find(f=>first.related.includes(f.card.cardId))?.card); }
     const evidence=chosen.map(c=>this.evidenceById.get(c.cardId));
     const localFacts=evidence.filter(c=>c.status==='verified'&&c.provenance==='CODE').slice(0,2).map(c=>({cardId:c.cardId,text:c.text,projectName:c.projectName}));
     return {evidence,localFacts,anchor:{projectId:mentioned.length===1?mentioned[0].id:null,cardIds:chosen.map(c=>c.cardId),revision:this.index.revision},projectIds:mentioned.map(p=>p.id),gaps:chosen.filter(c=>c.status==='missing').map(c=>c.cardId),stats:{selectedCardCount:chosen.length,selectionMs:performance.now()-at,packRevision:this.index.revision,cacheKey:hash([mentioned.map(p=>p.id),this.index.revision,q,resolution?.sourceScopes||[],resolution?.intent||[]])}};

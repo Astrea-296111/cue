@@ -3,7 +3,7 @@
 const { performance } = require('perf_hooks');
 const { createHash } = require('crypto');
 const knowledge = require('./project-knowledge');
-const { ProjectSearch } = require('./project-search');
+const { ProjectSearch,implementationWeight,implementationQuery } = require('./project-search');
 const { inProjectScope } = require('./project-scope');
 const { selectEvidence, questionRequirements, evidenceId, inferDocType } = require('./evidence-selector');
 const { RETRIEVAL_CONFIG_VERSION, RETRIEVAL_POLICY } = require('./project-prefetch-policy');
@@ -23,7 +23,7 @@ function retrievalIdentity(request, revision, modelVersion = '') {
     request.questionVersion ?? null, request.sourceKey || request.interviewPlan?.sourceKey || '', RETRIEVAL_CONFIG_VERSION,
     createHash('sha256').update(JSON.stringify([request.interviewPlan?.scenario || '', request.interviewPlan?.constraints || [],
       request.interviewPlan?.subQuestions?.map(q => [q.text, q.evidenceNeeds]) || [], request.projectPlan?.subQuestionScopes || []])).digest('hex'),
-    request.hashFallback !== false, request.semanticThreshold ?? .70]);
+    request.hashFallback !== false, request.semanticThreshold ?? .70,request.sourceHints||[],request.topicContext||'']);
 }
 
 function groupQuestions(question, interviewPlan, projectPlan, contextual = false) {
@@ -67,7 +67,7 @@ function lexicalCandidates(group, current, options) {
   return fallbackSearch.getCandidates(group.query, group.scopes, options);
 }
 
-function fuseCandidates(base, semantic, scopes, { semanticThreshold = .70 } = {}) {
+function fuseCandidates(base, semantic, scopes, { semanticThreshold = .70,question='' } = {}) {
   const channels = base?.channels || { bm25: base?.rows || [] };
   const learned = (semantic?.rows || []).filter(row => row?.chunk && inProjectScope(row.chunk, scopes) &&
     Number.isFinite(row.similarity ?? row.score) && (row.similarity ?? row.score) >= semanticThreshold).slice(0, CANDIDATE_LIMIT);
@@ -95,7 +95,8 @@ function fuseCandidates(base, semantic, scopes, { semanticThreshold = .70 } = {}
       if (channel === 'exact') item.relevanceApproved = true;
     }
   }
-  return [...merged.values()].map(item => ({ ...item, score: item.score * (item.channels.includes('exact') ? 1.15 : 1) }))
+  const identifiers=implementationQuery(question);
+  return [...merged.values()].map(item => ({ ...item, score: item.score * (item.channels.includes('exact') ? 1.15 : 1)*implementationWeight(identifiers,item) }))
     .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
 }
 
@@ -245,14 +246,22 @@ async function retrieveProjectEvidenceAsync(request = {}) {
   }
   if (revision !== knowledge.getProjectIndexRevision({ preparedOnly })) return { evidence: [], byQuestion: [],
     missing: [{ text: question, reason: 'revision-changed' }], revision, identity, stats: { semanticReasons: ['revision-changed'], searchCalls } };
+  if(request.sourceHints?.length&&typeof current.lookupSourceHints==='function') {
+    const hinted=current.lookupSourceHints(request.sourceHints,[question,request.topicContext||''].join('\n'),plan.scopes,{limit:6});
+    const scale=Math.max(.1,...candidates.map(row=>row.score||0));
+    candidates.push(...(hinted.rows||[]).map(row=>({...row.chunk,score:scale*(1.2+Math.log1p(row.score)/5),
+      channels:['source-hint'],relevanceApproved:true})));
+  }
   const converted = knowledge.toProjectEvidence(candidates.map(item => ({ ...item,
     docType: item.docType ? inferDocType(item) : inferDocType({ ...item, docType: undefined }),
   })), { scopes: plan.scopes, revision });
-  let selected = realtime && pool && !searchCalls ? { ...pool, missing: [...pool.missing, ...unretrieved] }
+  let selected = realtime && pool && !searchCalls && !request.sourceHints?.length ? { ...pool, missing: [...pool.missing, ...unretrieved] }
     : selectEvidence({ candidates: converted, question, interviewPlan: request.interviewPlan, featureCache,
       projectPlan: plan, contextBudget: request.contextBudget ?? 4000, formatContext: knowledge.formatRetrievedProjectContext, unretrieved });
   if (searchCalls && selected.evidence.length && typeof knowledge.getRelatedProjectEvidence === 'function') {
-    const linked = searchCalls ? knowledge.getRelatedProjectEvidence(selected.evidence, { scopes: plan.scopes, revision, preparedOnly, limit: 6, maxDepth: 2 }) : [];
+    const methods=selected.evidence.filter(item=>['method','function'].includes(item.kind));
+    const relationSeeds=(methods.length?methods:selected.evidence).slice(0,2);
+    const linked = searchCalls ? knowledge.getRelatedProjectEvidence(relationSeeds, { scopes: plan.scopes, revision, preparedOnly, limit: 6, maxDepth: 2 }) : [];
     const expanded = linked.map(item => ({ ...item, relevanceApproved: true,
       questionIds: [...new Set(selected.evidence.filter(source => item.relation?.sourcePath === source.path || item.parentId && item.parentId === source.parentId)
         .flatMap(source => source.questionIds || []))],

@@ -1,0 +1,23 @@
+# 私有评测超时与续评
+
+2026-10-25 排查的四个旧版大样本运行共完成480次回答生成，生成阶段无超时、重试或传输失败。110分钟工作流上限发生在后续裁判阶段，不能把这些运行标成模型回答超时，也不能把未评分样本算成通过。
+
+旧流程每次裁判状态变化都重写完整检查点、JSON及Markdown，并每5秒重新加密完整报告。单个120题分片的进度导出包含约21MB JSON、18MB Markdown；逐次请求之间出现大量本地报告处理等待。与接口响应时间分开统计后，四个任务分别有约38—40分钟的请求间隔。另一个报告下载故障来自大体积Base64校验正则导致的栈溢出，现改为线性校验；认证、运行绑定与大小限制保留。
+
+修复后，每题状态原子写入私有小文件，完整进度合并写入；运行中Markdown只写概览，所有回答和尝试仍保存在JSON。加密快照每30秒检查变化，并收集最新逐题记录；正常结束输出完整Markdown。两个独立裁判并行，每个提供商仍受并发上限约束。默认任务按最多60个待评分回答自动拆分；显式分片参数仍有效。接近工作流预算时停止领取新题，保存 `needs-resume` 和未评分数量，留出上传产物的时间。
+
+同一份本地120题报告的单次进度写入从约3.6秒降到约1.0秒。这只证明本地序列化改善；远端实际节省时间需以新运行的时间线及 `reportPersistence` 指标验证。
+
+对于已经生成但未评完的旧报告，先恢复并认证原加密产物，再准备只评分任务：
+
+```sh
+node scripts/prepare-judge-recovery.cjs prepare --source-dir PRIVATE_SOURCE --output-dir PRIVATE_RECOVERY --shards 8
+```
+
+按生成的 `plan.json` 中各项 `arguments` 运行 `node scripts/eval-remote.cjs`。它只发送已生成回答及评分所需材料，复用有效裁判，不执行被测回答生成。结束后合并到新目录，保留原失败记录：
+
+```sh
+node scripts/prepare-judge-recovery.cjs merge --source-dir PRIVATE_SOURCE --recovery-dir PRIVATE_RECOVERY --output-dir PRIVATE_MERGED
+```
+
+解密密钥和完整报告仅保存在忽略的私有目录。`manual-review-queue.json` 的第二版用 `report.json` 中的提供商、会话、题目ID引用完整记录，避免每题重复复制整段会话；审阅必须读取引用对应的完整问答及来源。未完成、裁判无效、来源不足或模型分歧均保留为待核查，不以HTTP成功替代语义质量。
