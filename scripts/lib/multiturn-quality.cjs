@@ -18,7 +18,9 @@ function evaluateMultiturnCase(input = {}) {
   add('request-completed', !input.error && ['ok', 'passed', 'completed', 'success'].includes(input.status || 'passed'), 'The production request finished without an error.');
   add('answer-present', !!answer.trim(), 'A complete, nonempty answer is retained.');
   if (expected) add('project-routing', JSON.stringify(actual) === JSON.stringify([...expected].sort()), 'The actual production route matches the predeclared oracle.', { expected, observed: actual });
-  const sourceProjects = unique((input.sentSources || []).map(x => x.projectId));
+  const reference = source => source.sourceType==='knowledge-reference'&&source.projectId==='general'&&['general_knowledge','proposed_design','unverified_reference'].includes(source.implementation);
+  const sourceProjects = unique((input.sentSources || []).filter(source=>!reference(source)).map(x => x.projectId));
+  add('knowledge-reference-boundary',(input.sentSources||[]).filter(source=>source.sourceType==='knowledge-reference').every(reference),'General knowledge is a declared reference, never project implementation evidence.');
   if (expected) add('source-project-isolation', sourceProjects.every(id => expected.includes(id)), 'Sent source provenance stays inside the declared project scope.', { expected, observed: sourceProjects });
   const sent = unique((input.sentFactIds || []).map(x => typeof x === 'string' ? x : x.cardId));
   const wrong = sent.filter(id => /^(cae|arclight)[.-]/u.test(id) && expected && !expected.includes(id.split(/[.-]/u)[0]));

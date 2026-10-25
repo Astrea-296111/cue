@@ -25,6 +25,7 @@ async function callRoleOnce({ config, messages, role = 'judge', timeoutMs = 1200
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const body = { model: config.model, messages, stream: false, max_tokens: maxTokens,
+      response_format:{type:'json_object'},
       ...(config.id === 'qwen' ? { enable_thinking: false } : { thinking: { type: 'disabled' } }) };
     const response = await fetchImpl(config.baseURL + '/chat/completions', { method: 'POST', redirect: 'error',
       headers: { Authorization: 'Bearer ' + config.apiKey, 'Content-Type': 'application/json' },
@@ -58,12 +59,16 @@ async function runRole({ config, messages, role, attempts = [], retryLimit = 2, 
   if (completed) return { status: 'completed', result: completed.result, attempts, model: completed.model || config.model };
   if (config.error) return { status: 'failed', error: config.error, attempts, model: config.model || null };
   while (attempts.length <= retryLimit) {
+    const previous=attempts.at(-1);
+    const repair=previous?.error?.code?.startsWith('judge-') ? [{role:'user',content:JSON.stringify({task:'format-repair-only',validationError:previous.error.code,
+      requirements:'保留原始评分标准，重新评价原输入。citations必须列全六维，每条answerQuote仅取answer中一段连续原文，建议10–40字，不能用省略号拼接或改变空格标点。无需纠正时也保留correctionQuality引用并说明无需纠正。所有constraintIndex逐项列出。不得编造原句。'})}] : [];
+    const requestMessages=[...messages,...repair];
     const attempt = { attempt: attempts.length + 1, role, status: 'running', startedAt: new Date().toISOString(),
-      provider: config.id, requestedModel: config.model, model: null, usage: null, finishReason: null };
+      provider: config.id, requestedModel: config.model, model: null, usage: null, finishReason: null,requestMessages };
     attempts.push(attempt); await onCheckpoint();
     const started = performance.now();
     try {
-      const observation = await callRoleOnce({ config, messages, role, fetchImpl, timeoutMs, maxTokens });
+      const observation = await callRoleOnce({ config, messages:requestMessages, role, fetchImpl, timeoutMs, maxTokens });
       Object.assign(attempt, observation);
       attempt.result = validate(observation.rawOutput);
       attempt.status = 'completed'; attempt.finishedAt = new Date().toISOString();
