@@ -2,7 +2,7 @@
 
 const { performance } = require('node:perf_hooks');
 const { createHash } = require('node:crypto');
-const { tokenize, querySpec,hasImplementationBody } = require('./project-search');
+const { tokenize, querySpec,hasImplementationBody,implementationQuery } = require('./project-search');
 const { inProjectScope } = require('./project-scope');
 const { RETRIEVAL_CONFIG_VERSION } = require('./project-prefetch-policy');
 const {projectQuestionParts, boundedRankingText}=require('./project-question-parts');
@@ -76,12 +76,14 @@ function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision,
   if (!projectPlan.retrieve || !scopes.length || (projectPlan.scopes || []).length > 2) return done('no-project-scope');
   if (!projectRevision || projectIndexSnapshot?.revision !== projectRevision || !projectIndexSnapshot?.ready ||
     typeof projectIndexSnapshot.resolveSource !== 'function') return done('index-not-ready');
+  const prioritizeBody=implementationQuery(snapshot.text)!==null||implementationQuery(retrievalInput?.topicContext||'')!==null;
+  const contextAnchor=!!retrievalInput?.topicContext&&!/\b[A-Z][a-z][A-Za-z0-9_]*[A-Z][A-Za-z0-9_]*\b/.test(snapshot.text);
   const candidateLimit = integerLimit(maxCandidates, 8, 8), sourceLimit = integerLimit(maxSources, 3, 6);
   const charLimit = integerLimit(maxChars, 1800, 6000);
   if (!candidateLimit || !sourceLimit || !charLimit) return done('empty-budget');
   const parts=projectQuestionParts(snapshot.text,projectPlan).map(part=>({...part,terms:boundedTerms(part.text,projectPlan)})).filter(part=>part.terms?.length);
   if (!parts.length) return done('no-bounded-query');
-  let candidates = [], origin = 'raw-pool', preparedScores=new Map();
+  let candidates = [], origin = 'raw-pool', preparedScores=new Map(), primarySeeds=[];
   // Completed results are usable only through the identical frozen target. No
   // Promise, fallback wait, or repair of a wrong-version result occurs here.
   if (retrievalInput?.epoch === epoch && retrievalInput.questionId === snapshot.questionId &&
@@ -107,23 +109,24 @@ function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision,
     // The complete setup can name the relevant persisted artifacts even when
     // the final asks use pronouns. Retain it as one bounded lookup, then cover
     // the most informative independent asks with the remaining slots.
-    const queries=[{text:snapshot.text,scopes},...[...parts].sort((a,b)=>information(b)-information(a))]
+    const queries=[{text:snapshot.text,scopes},...(retrievalInput?.topicContext?[{text:retrievalInput.topicContext,scopes}]:[]),...[...parts].sort((a,b)=>information(b)-information(a))]
       .filter((part,index,all)=>all.findIndex(other=>other.text===part.text)===index).slice(0,4);
     candidates=[];
     const lookupStarted=performance.now(); let visited=0,calls=0;const pooled=new Map();
-    for(const part of queries){
+    for(const [queryIndex,part] of queries.entries()){
       const found=projectIndexSnapshot.lookup(part.text,part.scopes.length?part.scopes:scopes,
         {limit:candidateLimit,maxPostings:Math.floor(4096/queries.length)});
+      if(queryIndex===(contextAnchor?1:0))primarySeeds=(found.rows||[]).map(row=>projectSource(row.chunk,projectRevision,scopes));
       calls++;
       visited+=found.postingsVisited||0;
       for(const [rank,row] of (found.rows||[]).entries()){
         const own=pooled.get(row.chunk.id)||{chunk:row.chunk,score:0};
-        own.score+=(row.navigationMatches?3:1)/(20+rank+1);pooled.set(row.chunk.id,own);
+        own.score+=(row.navigationMatches?3:1)*(prioritizeBody?(queryIndex===0?3:retrievalInput?.topicContext===part.text?2:1):1)/(20+rank+1);pooled.set(row.chunk.id,own);
       }
     }
     const rows=[...pooled.values()].sort((a,b)=>b.score-a.score),files=new Map();
     for(const row of rows){const file=row.chunk.projectId+':'+row.chunk.path;if((files.get(file)||0)>=2)continue;
-      files.set(file,(files.get(file)||0)+1);candidates.push(projectSource(row.chunk,projectRevision,scopes));preparedScores.set(row.chunk.id,row.score);if(candidates.length>=candidateLimit)break;}
+      files.set(file,(files.get(file)||0)+1);candidates.push(projectSource(row.chunk,projectRevision,scopes));preparedScores.set(row.chunk.id,(prioritizeBody ? 0.4 : 0)+row.score+(contextAnchor&&primarySeeds.some(seed=>seed.id===row.chunk.id)?0.2:0));if(candidates.length>=candidateLimit)break;}
     stats.preparedLookupMs=performance.now()-lookupStarted;stats.postingsVisited=visited;
     stats.preparedLookupCalls=calls;origin='prepared-postings';
   }
@@ -131,8 +134,23 @@ function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision,
     const hinted=projectIndexSnapshot.lookupSourceHints(sourceHints,[snapshot.text,retrievalInput?.topicContext||''].join('\n'),scopes,{limit:6});
     stats.sourceHintCandidates=hinted.rows?.length||0;stats.sourceHintExamined=hinted.examined||0;
     const extra=(hinted.rows||[]).map(row=>{
-      preparedScores.set(row.chunk.id,Math.max(preparedScores.get(row.chunk.id)||0,.25+Math.log1p(row.score)/20));
+      preparedScores.set(row.chunk.id,Math.max(preparedScores.get(row.chunk.id)||0,.15+Math.min(.12,Math.log1p(row.score)/40)));
       return {...projectSource(row.chunk,projectRevision,scopes),sourceHint:true};
+    });
+    const hintedIds=new Set(extra.map(row=>row.id));
+    candidates=[...candidates,...extra].filter((row,i,all)=>all.findIndex(other=>other.id===row.id)===i).map(row=>hintedIds.has(row.id)?{...row,sourceHint:true}:row).sort((a,b)=>(preparedScores.get(b.id)||0)-(preparedScores.get(a.id)||0)).slice(0,candidateLimit);
+  }
+  if(prioritizeBody&&typeof projectIndexSnapshot.lookupRelated==='function'){
+    const methods=(primarySeeds.length?primarySeeds:candidates).filter(row=>['method','function'].includes(row.kind)&&!/^(?:__init__|constructor)$/.test(String(row.symbol||'').split('#').at(-1)));
+    const seeds=methods.slice(0,1);
+    const related=projectIndexSnapshot.lookupRelated(seeds,scopes).filter(row=>row.relation?.status==='resolved');
+    stats.preparedRelationCandidates=related.length;
+    const terms=boundedTerms(snapshot.text,projectPlan)||[];
+    const ordered=related.map(row=>{const available=new Set(tokenize(`${row.path} ${row.symbol||''} ${row.text}`,true));return {row,hits:terms.filter(term=>available.has(term)).length};})
+      .sort((a,b)=>b.hits-a.hits);
+    const extra=ordered.slice(0,6).map(({row,hits})=>{
+      preparedScores.set(row.id,.85+Math.min(80,hits)/500);
+      return {...projectSource(row,projectRevision,scopes),sourceHint:true};
     });
     candidates=[...extra,...candidates].filter((row,i,all)=>all.findIndex(other=>other.id===row.id)===i).slice(0,candidateLimit);
   }

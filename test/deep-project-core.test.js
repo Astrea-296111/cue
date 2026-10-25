@@ -9,6 +9,23 @@ const {requestText}=require('../src/final-request-budget');
 const {peekReadyEvidence}=require('../src/instant-ready-evidence');
 const {selectEvidence}=require('../src/evidence-selector');
 
+test('Python multiline constructors keep their body and declared instance calls link to the correct project implementation',()=>{
+  const {chunkText}=require('../src/project-chunks'),{buildProjectCodeRelations}=require('../src/project-code-relations'),{hasImplementationBody}=require('../src/project-search');
+  const input='class Router:\n    def __init__(\n        self,\n        gate: Gate,\n    ) -> None:\n        self.gate = gate\n\n    def check(self, value):\n        return self.gate.decide(value)\n';
+  const gate='class Gate:\n    def decide(self, value):\n        if value:\n            return True\n        return False\n';
+  const chunks=[...chunkText('router.py',input).map(c=>({...c,projectId:'one'})),...chunkText('gate.py',gate).map(c=>({...c,projectId:'one'})),...chunkText('gate.py',gate.replace('True','FOREIGN')).map(c=>({...c,projectId:'two'}))];
+  const init=chunks.find(c=>c.symbol==='Router#__init__'),caller=chunks.find(c=>c.symbol==='Router#check');
+  assert.match(init.text,/self.gate = gate/);assert.equal(caller.fieldTypes.gate,'Gate');
+  const edges=buildProjectCodeRelations(chunks).edges.get(chunks.indexOf(caller));
+  const edge=edges.find(e=>e.status==='resolved'&&e.method==='decide');assert.ok(edge);assert.equal(chunks[edge.targetId].projectId,'one');assert.equal(edge.toSymbol,'Gate#decide');
+  assert.equal(hasImplementationBody({path:'tool.py',text:'class Tool:\n    description = "work with files; return a result if needed"\n'}),false);
+  assert.equal(hasImplementationBody(chunks[edge.targetId]),true);
+  const java=chunkText('Feed.java','class Feed {\n  int feed() { return one(); }\n  int one() { return 1; }\n}').map(c=>({...c,projectId:'one'}));
+  const feed=java.findIndex(c=>c.symbol==='Feed#feed'),related=buildProjectCodeRelations(java).edges.get(feed)||[];
+  assert.ok(related.some(e=>e.status==='resolved'&&e.toSymbol==='Feed#one'));
+  assert.ok(!related.some(e=>e.status==='resolved'&&e.toSymbol==='Feed#feed'));
+});
+
 test('expanded source selection rechecks truth and changed source text while sharing token features',()=>{
   const featureCache={questions:new Map(),sources:new Map()};
   const source={id:'source-version',projectId:'cae',path:'src/Dispatch.java',startLine:1,endLine:2,

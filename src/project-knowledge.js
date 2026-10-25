@@ -181,6 +181,7 @@ function getPreparedProjectIndexSnapshot() {
   return { index, chunks: index?.chunks || [], projects: index?.projects || [], revision,
     ready: !!search, byId: chunksById, resolveSource,
     lookupSourceHints:(hints,query,scopes,limits)=>search?.lookupSourceHints(hints,query,scopes,limits)||{rows:[],examined:0},
+    lookupRelated:(seeds,scopes)=>getRelatedProjectEvidence(seeds,{scopes,revision,preparedOnly:true,limit:6,maxDepth:2}),
     lookup: (query,scopes,limits) => search?.lookupPrepared(query,scopes,limits) || {rows:[],postingsVisited:0} };
 }
 

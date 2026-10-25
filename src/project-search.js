@@ -16,6 +16,10 @@ const ALIASES = [
   ['重复消费', '幂等', 'idempotency', 'idempotent', 'deduplication'],
   ['重试', 'retry', 'retries'], ['一致性', 'consistency'],
   ['状态', 'status', 'state'], ['领取', '认领', 'claim'], ['租约', 'lease'],
+  ['排队', 'waiting', 'queued'], ['学科', 'discipline', 'analysis_type'], ['候选', 'candidate'],
+  ['批次', 'batch'], ['接入', 'admit', 'admission'], ['保存', 'save'], ['永久', 'permanent'], ['锁', 'lock', 'locked'],
+  ['规则', 'rule', 'rules'], ['匹配', 'match', 'matches'], ['优先级', 'priority'],
+  ['背压', 'backpressure'], ['积压', 'backlog'], ['暂停', 'pause', 'paused'], ['阈值', 'threshold'],
   ['唯一索引', '唯一约束', 'unique', 'duplicate key'],
   ['崩溃', '崩了', 'crash'], ['确认', 'confirm'], ['持久化', 'persistent', 'persistence', 'durable'],
   ['检索增强', 'rag'], ['大模型', 'llm'], ['向量', 'vector', 'embedding'],
@@ -48,14 +52,18 @@ function normalizeConceptText(value) {
 // evidence. Match identifiers to code paths/symbols without project-specific
 // file lists or expected-answer rules.
 function implementationQuery(query) {
-  if(!/实现|源码|代码|接口|执行|取消|报告|权限|幂等|事务|并发|恢复|隔离|持久化|状态|\b(?:code|implementation|Outbox|Inbox|execution|timeout|retries|retry|duplicate|idempotency|transaction)\b/i.test(query))return null;
+  if(!/实现|源码|代码|接口|执行|取消|报告|权限|幂等|事务|并发|恢复|隔离|持久化|状态|规则|匹配|暂停|接入|排队|\b(?:code|implementation|Outbox|Inbox|execution|timeout|retries|retry|duplicate|idempotency|transaction)\b/i.test(query))return null;
   return [...new Set(String(query).match(/\b[A-Za-z][A-Za-z0-9_]{2,63}\b/g)||[])].map(normalize)
     .filter(word=>!STOP_WORDS.has(word));
 }
+const implementationBodyCache=new WeakMap();
 function hasImplementationBody(chunk) {
-  const text=String(chunk.text||'').replace(/\/\*[\s\S]*?\*\//g,'').replace(/^\s*\/\/.*$/gm,'');
-  return /\b(?:return|throw|if|for|while|try|await|with|yield|update|insert|delete|create\s+table)\b|\b\w+\.\w+\s*\(/i.test(text)||
+  const input=String(chunk.text||''),previous=implementationBodyCache.get(chunk);
+  if(previous?.text===input)return previous.result;
+  const text=require('./project-chunks').maskCode(String(chunk.text||''),/\.py$/i.test(chunk.path||''));
+  const result=/\b(?:return|throw|if|for|while|try|await|with|yield|update|insert|delete|create\s+table)\b|\b\w+\.\w+\s*\(/i.test(text)||
     /\binterface\s+\w+(?:<[^>]*>)?\s+extends\s+\w+/.test(text);
+  implementationBodyCache.set(chunk,{text:input,result});return result;
 }
 function implementationWeight(identifiers, chunk) {
   if(!identifiers)return 1;
@@ -65,7 +73,7 @@ function implementationWeight(identifiers, chunk) {
   const identity=normalize(chunk.projectId||'');
   const direct=identifiers.filter(word=>word!==identity&&field.includes(word)).length;
   const names=String(chunk.symbol||'').split('#');
-  const constructor=names.length>1&&names[0].split('.').at(-1)===names.at(-1);
+  const constructor=names.at(-1)==='__init__'||names.length>1&&names[0].split('.').at(-1)===names.at(-1);
   const body=String(chunk.text||'');
   const executable=hasImplementationBody(chunk);
   const behavior=constructor||body.length<65||chunk.kind==='context'&&!executable ? .25 : ['method','function'].includes(chunk.kind)?1.3:1;
@@ -201,6 +209,7 @@ class ProjectSearch {
 
   add(id) {
     const chunk = this.chunks[id];
+    hasImplementationBody(chunk);
     for(const word of (Array.isArray(chunk.navigationTerms)?chunk.navigationTerms:[]).slice(0,32)){
       const term=normalize(word),key=String(chunk.projectId||'')+':'+term;
       if(!this.navigation.has(key)&&this.navigation.size<512)this.navigation.set(key,{term,ids:[]});
@@ -283,7 +292,7 @@ class ProjectSearch {
     if (!Array.isArray(scopes) || !scopes.length || !limit) return {rows:[],postingsVisited:0};
     const spec = querySpec(query), n = this.chunks.length, avg = this.totalLength / Math.max(1,n);
     const terms = [...spec.weights].filter(([term]) => this.postings.has(term))
-      .sort((a,b) => b[1]-a[1] || this.postings.get(a[0]).length-this.postings.get(b[0]).length || b[0].length-a[0].length).slice(0,64);
+      .sort((a,b) => b[1]*Math.log(1+n/this.postings.get(b[0]).length)-a[1]*Math.log(1+n/this.postings.get(a[0]).length) || b[0].length-a[0].length).slice(0,64);
     const candidates = new Map(); let visits = 0;
     for (const [term,weight] of terms) {
       const postings = this.postings.get(term), idf = Math.log(1+(n-postings.length+.5)/(postings.length+.5));

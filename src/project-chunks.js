@@ -65,20 +65,28 @@ function sourceDescription(lines, start, declaration) {
     .filter(Boolean).join('\n');
 }
 
-function sourceCalls(text, startLine, python = false, localTypes = {}) {
+function sourceCalls(text, startLine, python = false, localTypes = {}, language = '') {
   const masked = maskCode(text, python), calls = [];
   const re = /\b([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)\s*\(/g;
   let match;
   while ((match = re.exec(masked))) {
     const prefix = masked.slice(0, match.index).trimEnd();
     if (/^\s*@/.test(masked.slice(masked.lastIndexOf('\n', match.index) + 1, match.index))) continue;
-    // A chain such as foo.bar.run() has an unknown receiver type. The explicit
-    // this.field.run() form can use a declared field of the current class.
-    if (prefix.endsWith('.') && !/\bthis\s*\.\s*$/.test(prefix)) continue;
-    const explicitThis = /\bthis\s*\.\s*$/.test(prefix);
+    // Only declared current-instance fields establish a receiver type.
+    // Arbitrary chains still remain unresolved rather than guessed.
+    if (prefix.endsWith('.') && !/\b(?:this|self)\s*\.\s*$/.test(prefix)) continue;
+    const explicitThis = /\b(?:this|self)\s*\.\s*$/.test(prefix);
     calls.push({ receiver: match[1], method: match[2], line: startLine + (masked.slice(0, match.index).match(/\n/g) || []).length,
       ...(explicitThis ? { explicitThis: true } : {}),
       ...(!explicitThis && Object.hasOwn(localTypes, match[1]) ? { shadowed: true } : {}) });
+  }
+  if(language==='java') {
+    const bodyStart=masked.indexOf('{');
+    for(const item of masked.matchAll(/\b([A-Za-z_$][\w$]*)\s*\(/g)) {
+      const prefix=masked.slice(0,item.index).trimEnd();
+      if(bodyStart<0||item.index<=bodyStart||/[.@]$/.test(prefix)||/\bnew$/.test(prefix)||/^(?:if|for|while|switch|catch|synchronized|try|super|this)$/.test(item[1]))continue;
+      calls.push({receiver:'this',method:item[1],line:startLine+(masked.slice(0,item.index).match(/\n/g)||[]).length,explicitThis:true});
+    }
   }
   return calls;
 }
@@ -128,6 +136,21 @@ function javaClassMetadata(span, maskedText, text) {
     role: roleFor('', span.symbol, text, span.kind, 'java') };
 }
 
+function pythonClassMetadata(span,spans,masked) {
+  const fieldTypes={},conflicts=new Set();
+  const own=spans.filter(s=>s.kind==='function'&&s.symbol==='__init__'&&s.declaration>span.declaration&&s.end<=span.end&&
+    !spans.some(inner=>inner.kind==='class'&&inner!==span&&inner.declaration>span.declaration&&inner.declaration<s.declaration&&inner.end>=s.end));
+  const put=(name,type)=>{if(conflicts.has(name))return;if(fieldTypes[name]&&fieldTypes[name]!==type){delete fieldTypes[name];conflicts.add(name);}else fieldTypes[name]=type;};
+  for(const init of own){
+    const parameters=new Map([...masked.slice(init.declaration,init.headerEnd+1).join('\n').matchAll(/\b([A-Za-z_]\w*)\s*:\s*((?:[A-Za-z_]\w*\.)*[A-Z]\w*)/g)].map(m=>[m[1],m[2]]));
+    const body=masked.slice(init.headerEnd+1,init.end).join('\n');
+    for(const m of body.matchAll(/\bself\.(\w+)\s*:\s*((?:[A-Za-z_]\w*\.)*[A-Z]\w*)/g))put(m[1],m[2]);
+    for(const m of body.matchAll(/\bself\.(\w+)\s*=\s*((?:[A-Za-z_]\w*\.)*[A-Z]\w*)\s*\(/g))put(m[1],m[2]);
+    for(const m of body.matchAll(/\bself\.(\w+)\s*=\s*(\w+)\s*(?=$|\n)/gm))if(parameters.has(m[2]))put(m[1],parameters.get(m[2]));
+  }
+  return {fieldTypes,extends:[],implements:[]};
+}
+
 function chunkText(filePath, text, options = {}) {
   const safePath = String(filePath || '').replace(/\\/g, '/');
   const language = ({ '.java': 'java', '.go': 'go', '.py': 'python', '.js': 'javascript', '.cjs': 'javascript', '.mjs': 'javascript', '.ts': 'typescript', '.tsx': 'typescript', '.jsx': 'javascript' })[path.extname(safePath).toLowerCase()] || 'text';
@@ -143,7 +166,7 @@ function chunkText(filePath, text, options = {}) {
   const parents = [];
   Object.defineProperty(chunks, 'parents', { value: parents });
   const defaultMetadata = { docType: 'implementation', truthScope: language === 'text' ? 'unverified' : /(?:^|\/)(?:test|tests|__tests__)(?:\/|$)|(?:Test|Spec)\.[^/]+$|\.(?:test|spec)\./i.test(safePath) ? 'test_only' : 'implemented',
-    status: 'draft', topics: [], aliases: [], codeRefs: [], relatedDocs: [], headingPath: [], provenance: 'imported', offsetEncoding: 'utf16', docTypeDeclared: language !== 'text', metadataDeclared: false, parserKind: 'lexical', parserVersion: 'cue-lexical-4', parserQuality: 'conservative', ...options.metadata };
+    status: 'draft', topics: [], aliases: [], codeRefs: [], relatedDocs: [], headingPath: [], provenance: 'imported', offsetEncoding: 'utf16', docTypeDeclared: language !== 'text', metadataDeclared: false, parserKind: 'lexical', parserVersion: 'cue-lexical-5', parserQuality: 'conservative', ...options.metadata };
   function emit(start, end, symbol = '', kind = 'text', metadata = {}) {
     if (end <= start) return;
     const parentId = metadata.parentId || hash(safePath + ':' + offsets[start] + ':' + offsets[end] + ':' + symbol);
@@ -182,7 +205,7 @@ function chunkText(filePath, text, options = {}) {
           imports, packageName, fieldTypes: {}, localTypes: {}, extends: [], implements: [], description: '', declarationLine: cursor + 1, descriptionLine: null,
           role, importance: /(?:^|\/)(?:test|tests|__tests__|build|dist|generated)(?:\/|$)|(?:Test|Spec)\.[^/]+$|\.(?:test|spec)\./i.test(safePath) ? 'low' : /^(?:controller|service|repository)$/.test(role) || /(?:^|\/)readme\./i.test(safePath) ? 'high' : 'normal',
           interviewTopics, ...defaultMetadata, ...metadata, parentId,
-          calls: language === 'text' ? [] : sourceCalls(part, startLine, language === 'python', metadata.localTypes),
+          calls: language === 'text' ? [] : sourceCalls(part, startLine, language === 'python', metadata.localTypes, language),
           ...(cursor !== start || stop !== end || body.length > MAX ? { partial: true } : {}) };
         if (language === 'text' && record.truthScope === 'implemented' && CONDITIONAL_BODY.test(part)) {
           record.declaredTruthScope = 'implemented'; record.truthScope = 'unverified';
@@ -234,13 +257,20 @@ function chunkText(filePath, text, options = {}) {
   for (let i = 0; i < masked.length; i++) {
     const line = masked[i];
     if (!line.trim()) continue;
-    let name = '', kind = 'function', end = -1, openOffset = -1, closeOffset = -1, declarationOnly = false;
+    let name = '', kind = 'function', end = -1, openOffset = -1, closeOffset = -1, declarationOnly = false,headerEnd=i;
     if (language === 'python') {
       const match = /^(\s*)(?:async\s+)?(def|class)\s+(\w+)\s*[(\[:]/.exec(line);
       if (!match) continue;
       kind = match[2] === 'class' ? 'class' : 'function'; name = match[3];
       const indent = match[1].replace(/\t/g, '    ').length;
-      end = i + 1;
+      let depth=0,headerComplete=false;
+      for(let j=i;j<Math.min(masked.length,i+96)&&!headerComplete;j++)for(const c of masked[j]){
+        if('([{'.includes(c))depth++;
+        else if(')]}'.includes(c))depth--;
+        else if(c===':'&&depth===0){headerEnd=j;headerComplete=true;break;}
+      }
+      if(!headerComplete)continue;
+      end = headerEnd + 1;
       while (end < masked.length) {
         const next = masked[end];
         if (next.trim() && next.match(/^\s*/)[0].replace(/\t/g, '    ').length <= indent) break;
@@ -287,12 +317,12 @@ function chunkText(filePath, text, options = {}) {
     }
     if (end > i) {
       const start = declarationStart(lines, i);
-      spans.push({ start, declaration: i, declarationOffset: offsets[i], end, symbol: name, kind,
+      spans.push({ start, declaration: i, declarationOffset: offsets[i],headerEnd, end, symbol: name, kind,
         openOffset, closeOffset, declarationOnly, description: sourceDescription(lines, start, i) });
     }
   }
   for (const span of spans.filter(s => s.kind === 'class')) {
-    span.metadata = language === 'java' ? javaClassMetadata(span, maskedSource, lines.slice(span.start, span.end).join('\n')) : { fieldTypes: {}, extends: [], implements: [] };
+    span.metadata = language === 'java' ? javaClassMetadata(span, maskedSource, lines.slice(span.start, span.end).join('\n')) : language==='python'?pythonClassMetadata(span,spans,masked):{ fieldTypes: {}, extends: [], implements: [] };
     span.metadata.methods = [...new Set(spans.filter(s => s.kind !== 'class' && s.declaration > span.declaration && s.end <= span.end
       && !spans.some(inner => inner.kind === 'class' && inner !== span && inner.declaration > span.declaration && inner.declaration < s.declaration && inner.end >= s.end)).map(s => s.symbol))];
     span.metadata.parentClass = span.symbol;
@@ -328,4 +358,4 @@ function chunkText(filePath, text, options = {}) {
   emitContext(cursor, lines.length);
   return chunks;
 }
-module.exports = { chunkText };
+module.exports = { chunkText,maskCode };

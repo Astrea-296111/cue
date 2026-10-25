@@ -1021,7 +1021,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const relatedSpeech=(request.spokenState?.claims||[]).filter(claim=>claim.status!=='uncertain').map(claim=>claim.text).join('\n');
     const priorQuestion=conversation.recent.at(-1);
     const sameTopic=request.plan.canonicalProjectIds?.some(id=>priorQuestion?.plan?.canonicalProjectIds?.includes(id));
-    const topicContext=sameTopic&&/这条|这个|这套|上述|前面|刚才|你(?:的)?方案|该方案|证伪|怎样验证|如何验证|怎么验证/.test(question)
+    const topicContext=sameTopic&&/这条|这个|这套|这些|同一个|它|上述|前面|刚才|你刚|你说|你(?:的)?方案|该方案|证伪|怎样验证|如何验证|怎么验证/.test(question)
       ? String(priorQuestion.question||'').slice(-1600) : '';
     retrieval.topicContext=topicContext;
     const contextualQuestion=topicContext?question+'\n被指代的上一真人问题（仅用于检索，不作为本轮待答）：'+topicContext:question;
@@ -1041,7 +1041,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       sourceHints:retrieval.sourceHints,
       modelVersion: retrieval.modelVersion, projectIndexSnapshot: readProjectIndexSnapshot({ preparedOnly: true }),
       cache: activeProjectContextCache, ragSession, retrievalInput: retrieval, policy: canRetrieveSources ? 'ready-only' : 'off',
-      maxSources:evidenceLimits.longScenario||evidenceLimits.mechanismDetail?4:3,
+      maxSources:evidenceLimits.mechanismDetail?6:evidenceLimits.longScenario?4:3,
       maxChars:evidenceLimits.longScenario?4800:evidenceLimits.mechanismDetail?4200:2400 });
     const ready = policy.ragPolicy !== 'standard' || !canRetrieveSources ? preparedSources : null;
     const contextBundle = policy.instant ? {context:'',evidence:ready?.evidence||[],missing:[],byQuestion:[],stats:ready?.stats||{}}
