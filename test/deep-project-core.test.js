@@ -7,6 +7,19 @@ const {createInterviewRuntime}=require('./helpers/interview-agent-runtime');
 const {fixture}=require('./helpers/material-fixture');
 const {requestText}=require('../src/final-request-budget');
 const {peekReadyEvidence}=require('../src/instant-ready-evidence');
+const {selectEvidence}=require('../src/evidence-selector');
+
+test('expanded source selection rechecks truth and changed source text while sharing token features',()=>{
+  const featureCache={questions:new Map(),sources:new Map()};
+  const source={id:'source-version',projectId:'cae',path:'src/Dispatch.java',startLine:1,endLine:2,
+    kind:'method',truthScope:'implemented',text:'reservation permits resource allocation before dispatch'};
+  const input={question:'reservation allocation implementation',projectPlan:{scopes:['@project:cae']},
+    candidates:[source],featureCache};
+  assert.equal(selectEvidence(input).evidence.length,1);
+  assert.equal(selectEvidence({...input,candidates:[{...source,truthScope:'hypothetical'}]}).evidence.length,0);
+  assert.equal(selectEvidence({...input,candidates:[{...source,text:'unrelated setup logging'}]}).evidence.length,0);
+  assert.equal(selectEvidence({...input,question:'unrelated setup logging implementation'}).evidence.length,0);
+});
 
 test('prepared source lookup is scoped and bounded without scanning or calling a model provider',()=>{
   const chunks=Array.from({length:40},(_,i)=>({id:'s'+i,projectId:i%2?'cae':'arclight',path:'src/Outbox'+i+'.java',text:'Outbox transaction event retry recovery '+i}));

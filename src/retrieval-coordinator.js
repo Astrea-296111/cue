@@ -171,6 +171,10 @@ async function retrieveProjectEvidenceAsync(request = {}) {
   let candidates = [], searchCalls = 0, lexicalMs = 0, semanticWorkerMs = 0, semanticReasons = [], candidateCounts = [];
   let retrievalPath = 'lexical-fallback', poolLookupMs = 0, poolCandidateCount = 0, poolSufficientHit = false;
   let pool;
+  // All selection passes share this request's immutable text tokenization.
+  // Discard it with the request, so revisions and later questions cannot reuse
+  // a relevance or factual-support decision.
+  const featureCache={questions:new Map(),sources:new Map()};
   const prefetched = request.prefetchedRetrieval;
   if (prefetched?.identity === identity && prefetched.revision === revision) {
     candidates = prefetched.candidates || prefetched.evidence || [];
@@ -189,7 +193,7 @@ async function retrieveProjectEvidenceAsync(request = {}) {
   // Exact results are also reselected under the *actual* source budget. If a
   // completed result was insufficient, supplement the gaps rather than hiding them.
   if (retrievalPath === 'exact-ready' && realtime) {
-    pool = selectEvidence({ candidates, question, interviewPlan: request.interviewPlan, projectPlan: plan,
+    pool = selectEvidence({ candidates, question, interviewPlan: request.interviewPlan, projectPlan: plan, featureCache,
       contextBudget: request.contextBudget ?? 4000, formatContext: knowledge.formatRetrievedProjectContext });
     poolSufficientHit = false;
   }
@@ -245,7 +249,7 @@ async function retrieveProjectEvidenceAsync(request = {}) {
     docType: item.docType ? inferDocType(item) : inferDocType({ ...item, docType: undefined }),
   })), { scopes: plan.scopes, revision });
   let selected = realtime && pool && !searchCalls ? { ...pool, missing: [...pool.missing, ...unretrieved] }
-    : selectEvidence({ candidates: converted, question, interviewPlan: request.interviewPlan,
+    : selectEvidence({ candidates: converted, question, interviewPlan: request.interviewPlan, featureCache,
       projectPlan: plan, contextBudget: request.contextBudget ?? 4000, formatContext: knowledge.formatRetrievedProjectContext, unretrieved });
   if (searchCalls && selected.evidence.length && typeof knowledge.getRelatedProjectEvidence === 'function') {
     const linked = searchCalls ? knowledge.getRelatedProjectEvidence(selected.evidence, { scopes: plan.scopes, revision, preparedOnly, limit: 6, maxDepth: 2 }) : [];
@@ -253,7 +257,7 @@ async function retrieveProjectEvidenceAsync(request = {}) {
       questionIds: [...new Set(selected.evidence.filter(source => item.relation?.sourcePath === source.path || item.parentId && item.parentId === source.parentId)
         .flatMap(source => source.questionIds || []))],
       score: (selected.evidence[0]?.score || .02) * (item.relation?.status === 'resolved' ? .95 : .5) }));
-    selected = selectEvidence({ candidates: [...converted, ...expanded], question, interviewPlan: request.interviewPlan,
+    selected = selectEvidence({ candidates: [...converted, ...expanded], question, interviewPlan: request.interviewPlan, featureCache,
       projectPlan: plan, contextBudget: request.contextBudget ?? 4000, formatContext: knowledge.formatRetrievedProjectContext, unretrieved });
     candidates = [...converted, ...expanded];
   } else candidates = converted;
@@ -266,7 +270,7 @@ async function retrieveProjectEvidenceAsync(request = {}) {
         score: Math.max(0, ...children.map(source => source.score || 0)) * 1.03 };
     }) : [];
     candidates.push(...parents);
-    selected = selectEvidence({ candidates, question, interviewPlan: request.interviewPlan,
+    selected = selectEvidence({ candidates, question, interviewPlan: request.interviewPlan, featureCache,
       projectPlan: plan, contextBudget: request.contextBudget ?? 4000, formatContext: knowledge.formatRetrievedProjectContext, unretrieved });
   }
   if (request.signal?.aborted) throw abortError();

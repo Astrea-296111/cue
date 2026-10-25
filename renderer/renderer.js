@@ -1247,7 +1247,7 @@ micStream = stream;
   cue.on('vad:state', ({ channel, speaking }) => {
     setLiveDotState(speaking ? 'speaking' : 'idle');
   });
-cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }) => {
+cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, mode }) => {
   if (aiEl) finalizeAi();
   activeRequestId = requestId || null;
   activeRequestEpoch = epoch ?? null;
@@ -1276,6 +1276,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
 
   const group = document.createElement('div');
   group.className = 'response-group';
+  group.dataset.mode = mode || '';
 
   const sep = document.createElement('div');
   sep.className = 'response-sep';
@@ -1427,7 +1428,31 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
   cue.on('llm:done', ({ requestId, epoch } = {}) => {
     if (!acceptsReply(requestId, epoch)) return;
     clearTimeout(answerWaitTimer);
+    const completed = aiEl;
     finalizeAi(); setBusy(false); activeRequestId = null; activeRequestEpoch = null;
+    if (completed && completed.textContent.length > 800 && !['technical', 'leetcode', 'assist'].includes(completed.parentElement?.dataset.mode)) {
+      completed.classList.add('answer-collapsed');
+      const expand = document.createElement('button');
+      expand.type = 'button'; expand.className = 'answer-expand'; expand.textContent = '展开完整回答';
+      expand.setAttribute('aria-expanded', 'false');
+      expand.addEventListener('click', () => {
+        const collapsed = completed.classList.toggle('answer-collapsed');
+        expand.textContent = collapsed ? '展开完整回答' : '收起完整回答';
+        expand.setAttribute('aria-expanded', String(!collapsed));
+      });
+      completed.after(expand);
+    }
+  });
+  window.addEventListener('cue:generation-canceled', () => {
+    clearTimeout(answerWaitTimer);
+    activeRequestId = null; activeRequestEpoch = null;
+    finalizeAi(); setBusy(false);
+    showStatus('已停止生成，真人发言记录已保留。');
+  });
+  window.addEventListener('cue:personal-applied', async () => {
+    settings = await cue.settingsGet();
+    fillSettings(); syncAnswerMode();
+    await refreshProjectIndexState();
   });
   cue.on('llm:error', ({ message, requestId, epoch }) => {
     if (!acceptsReply(requestId, epoch)) return;
@@ -1938,6 +1963,8 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot }
 
   function fillSettings() {
     $('#context-window-tokens').value = settings.contextWindowTokens || 16384;
+    $('#oral-output-tokens').value = settings.responseBudgets?.oral || 1800;
+    $('#code-output-tokens').value = settings.responseBudgets?.code || 6000;
     $('#instant-rag-policy').value = settings.sourceRagPolicies?.instant || settings.instantRagPolicy || 'ready-only';
     $('#standard-rag-policy').value=settings.sourceRagPolicies?.standard || 'standard';
     $('#project-facts-enabled').checked=settings.projectFactsEnabled!==false;
@@ -2339,6 +2366,10 @@ cue.on(
     settings.models[settings.provider].smart = $('#model-smart').value.trim();
     settings.providerProtocolPresets ||= {}; settings.providerProtocolPresets[settings.provider]=$('#protocol-preset').value;
     settings.contextWindowTokens = Math.max(1024, Math.min(2000000, Number($('#context-window-tokens').value) || 16384));
+    settings.responseBudgets = {
+      oral: Math.max(256, Math.min(4096, Number($('#oral-output-tokens').value) || 1800)),
+      code: Math.max(1024, Math.min(16384, Number($('#code-output-tokens').value) || 6000))
+    };
     settings.instantRagPolicy = $('#instant-rag-policy').value === 'off' ? 'off' : 'ready-only';
     settings.sourceRagPolicies={instant:settings.instantRagPolicy,standard:$('#standard-rag-policy').value};
     settings.projectFactsEnabled=$('#project-facts-enabled').checked;

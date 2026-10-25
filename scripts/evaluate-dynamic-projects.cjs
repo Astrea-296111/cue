@@ -50,6 +50,7 @@ async function evaluateDynamic({ payload, outputDir, env = process.env, provider
     build: buildIdentity(env), application: { commit: app.commit, kind: app.kind }, codePositions: codePositions(),
     evaluation: { ...profile, dynamic: configuration, expectedQuestionCount: expected, label: evaluation.label || null },
     inputs: { factsSha256: sha(materialInput.facts), originalFactsSha256: sha(payload.facts), profileSha256: sha(payload.profile),
+      ...(payload.judgeReference?{judgeReferenceSha256:payload.judgeReference.sha256,judgeReferenceRevision:payload.judgeReference.revision}:{}),
       scenariosSha256: sha(suite), sourceRevision: bundle.revision, sourceBundleSha256: sha(bundle), sourceSnapshot: evaluation.sourceSnapshot || 'current',
       oracleQaCardsExcluded: payload.facts.cards.length - materialInput.facts.cards.length, familyManifestSha256: sha(configuration.familyManifest || null) },
     privacy: { containsPrivateAnswers: true, publicAnswerArtifactsAllowed: false, encryptBeforeUpload: true },
@@ -132,7 +133,7 @@ async function evaluateDynamic({ payload, outputDir, env = process.env, provider
   report.status = report.providers.every(p => p.status === 'passed') && !report.failures.length ? 'passed' : 'failed';
   report.finishedAt = new Date().toISOString(); let document = save();
   if (evaluation.judge && !mock) {
-    const update = value => { Object.assign(report, { providers: value.providers, judging: value.judging, manualReview: value.manualReview, status: value.status }); save(); };
+    const update = value => { Object.assign(report, { providers: value.providers, judging: value.judging, manualReview: value.manualReview, status: value.status,inputs:{...report.inputs,...value.inputs} }); save(); };
     try { document = await require('./judge-private-projects.cjs').evaluateJudges({ report: document, payload, env, outputDir,
       concurrency: profile.concurrency, onCheckpoint: update }); update(document); }
     catch (error) { report.status = 'failed'; report.judging = { status: 'failed', error: sanitizeText(error.message, { secrets }) }; }

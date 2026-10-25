@@ -7,6 +7,15 @@ contextBridge.exposeInMainWorld('cue', {
   materialPrepare:input=>ipcRenderer.invoke('materials:prepare',input),
   materialCommit:input=>ipcRenderer.invoke('materials:commit',input),
   materialRollback:input=>ipcRenderer.invoke('materials:rollback',input),
+  personalPrepare: () => ipcRenderer.invoke('materials:personal:prepare', {}),
+  personalCommit: input => ipcRenderer.invoke('materials:personal:commit', input),
+  personalState: () => ipcRenderer.invoke('materials:personal:state'),
+  personalJob: jobProfileId => ipcRenderer.invoke('materials:personal:job', { jobProfileId }),
+  dialogueSnapshot: input => ipcRenderer.invoke('dialogue:snapshot', input || {}),
+  dialogueEvent: input => ipcRenderer.invoke('dialogue:event', input),
+  dialogueCorrect: input => ipcRenderer.invoke('dialogue:correct', input),
+  exportDiagnostics: () => ipcRenderer.invoke('diagnostics:export'),
+  cancelAnswer: () => ipcRenderer.invoke('llm:cancel'),
   providerCapabilities: config => ipcRenderer.invoke('provider:capabilities',config),
   testProviderConnection: config => ipcRenderer.invoke('provider:test',config),
   getProjectFactPackStatus: () => ipcRenderer.invoke('facts:status'),
@@ -54,6 +63,7 @@ contextBridge.exposeInMainWorld('cue', {
   log: (msg) => ipcRenderer.send('log', msg),
   on: (channel, cb) => {
     const allowed = ['capture:state', 'llm:start', 'llm:token', 'llm:done', 'llm:error', 'llm:evidence', 'llm:materials', 'materials:changed', 'materials:progress', 'llm:local-facts', 'llm:profile', 'llm:metrics', 'question:target', 'project:active', 'project:catalog', 'project:semantic-progress', 'project:semantic-state', 'status', 'transcript', 'stt:interim', 'stt:final', 'stt:status', 'vad:state', 'applink:consent-request', 'hide:toggle', 'shortcut:mode', 'whisper:download-progress', 'whisper:models-changed'];
+    allowed.push('dialogue:changed', 'materials:personal:changed');
     if (!allowed.includes(channel)) return;
     ipcRenderer.on(channel, (_e, data) => cb(data));
   }

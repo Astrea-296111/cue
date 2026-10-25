@@ -287,7 +287,7 @@ function createProviderRuntime({ id, config, options, budget, provider, cleanups
   const actualProvider = id === 'qwen' ? 'custom' : 'deepseek';
   return createInterviewRuntime({ after: cleanup => cleanups.push(cleanup) }, {
     indexSnapshot: { version: 2, projects: [], chunks: [], stats: { fileCount: 0, chunkCount: 0 } },
-    dialogPaths, inMemorySettings: true, realTime: true, targetRoot: options.targetRoot,
+    dialogPaths, inMemorySettings: true, persistProfile:true, realTime: true, targetRoot: options.targetRoot,
     settings: { provider: actualProvider, apiKeys: { [actualProvider]: config.apiKey }, smart: false,
       models: { [actualProvider]: { fast: config.model, smart: config.model } },
       ...(id === 'qwen' ? { baseUrl: config.baseURL, providerProtocolPresets: { custom: 'dashscope' },

@@ -8,9 +8,13 @@ const hash = x => createHash('sha256').update(JSON.stringify(x)).digest('hex').s
 const validPath = x => typeof x === 'string' && x.length > 0 && !/^(?:[A-Za-z]:|[/\\])/.test(x) && !x.replace(/\\/g,'/').split('/').some(p=>p==='..'||p==='.');
 const types = new Set('overview implementation decision challenge incident performance ownership collaboration limitation'.split(' '));
 const scopes = new Set('implemented test_only planned hypothetical unverified'.split(' '));
+const MAX_FACT_BYTES = 16 * 1024 * 1024;
+const MAX_FACT_CARDS = 4096;
+const implementations = new Set(['current_public_repo','resume_claim','narrative_scenario','proposed_design','general_knowledge','unverified_reference']);
 function validateIndex(index) {
-  if (Buffer.byteLength(JSON.stringify(index)||'', 'utf8') > 2*1024*1024) throw new Error('事实包超过 2MB');
-  if (index?.schemaVersion !== 1 || !Array.isArray(index.projects) || index.projects.length > 8 || !Array.isArray(index.cards) || index.cards.length > 160) throw new Error('事实包 schema/version 或数量无效');
+  const v2 = index?.schemaVersion === 2;
+  if (Buffer.byteLength(JSON.stringify(index)||'', 'utf8') > (v2 ? MAX_FACT_BYTES : 2*1024*1024)) throw new Error('事实包超过允许大小');
+  if (![1,2].includes(index?.schemaVersion) || !Array.isArray(index.projects) || index.projects.length > (v2 ? 16 : 8) || !Array.isArray(index.cards) || index.cards.length > (v2 ? MAX_FACT_CARDS : 160)) throw new Error('事实包 schema/version 或数量无效');
   const projects = new Set(), aliases = new Map(), ids = new Set();
   for (const p of index.projects) {
     if (!/^[a-z][a-z0-9-]{1,40}$/.test(p.id) || projects.has(p.id) || typeof p.name !== 'string' || p.name.length>80 || !Array.isArray(p.aliases) || p.aliases.length>12 || p.aliases.some(a=>typeof a!=='string'||a.length>80)) throw new Error('项目身份无效或重复');
@@ -19,10 +23,20 @@ function validateIndex(index) {
   }
   for (const c of index.cards) {
     if (!/^[a-z][a-z0-9.-]{2,100}$/.test(c.cardId) || ids.has(c.cardId) || !projects.has(c.projectId) || !types.has(c.docType) || !scopes.has(c.truthScope) || !['verified','source-claim','missing','draft'].includes(c.status)) throw new Error('卡片身份/事实状态无效');
-    if (!validPath(c.path) || typeof c.text !== 'string' || !c.text.trim() || c.text.length>1800 || !Array.isArray(c.keywords) || !Array.isArray(c.related) || !Array.isArray(c.sources) || !c.sources.length) throw new Error('卡片内容/相对路径无效');
-    if (c.sources.some(s=>!validPath(s.path)||!s.symbol||!(/^[a-f0-9]{40}$/.test(s.commit)||(c.provenance==='USER'&&s.commit==null&&/^[a-f0-9]{64}$/.test(s.contentSha256))))) throw new Error('缺少有效来源路径/符号/提交');
+    if (!validPath(c.path) || typeof c.text !== 'string' || !c.text.trim() || c.text.length>(v2 ? 12000 : 1800) || !Array.isArray(c.keywords) || !Array.isArray(c.related) || !Array.isArray(c.sources) || !c.sources.length) throw new Error('卡片内容/相对路径无效');
+    if (c.sources.some(s=>!validPath(s.path)||!s.symbol||!(/^[a-f0-9]{40}$/.test(s.commit)||((v2||c.provenance==='USER')&&s.commit==null&&/^[a-f0-9]{64}$/.test(s.contentSha256))))) throw new Error('缺少有效来源路径/符号/提交');
     if (!['PROJECT','CODE','REFERENCE','REFERENCE-STORY','LOCAL-BENCH','FUTURE','GAP','USER'].includes(c.provenance)) throw new Error('来源范围无效');
     if (['REFERENCE','REFERENCE-STORY','LOCAL-BENCH','FUTURE'].includes(c.provenance) && ['ownership','collaboration'].includes(c.docType) && c.status==='verified') throw new Error('参考材料不能升级为本人经历');
+    if (v2) {
+      if (!implementations.has(c.implementation) || typeof c.topic !== 'string' || !c.topic.trim() || !Array.isArray(c.questions) || !c.questions.length || c.questions.some(q=>typeof q!=='string') || typeof c.answerShort !== 'string' || !Array.isArray(c.deepPoints) || !Array.isArray(c.boundaries) || !Array.isArray(c.cannotSay) || !Array.isArray(c.followups) || !Array.isArray(c.facts) || typeof c.applicableVersion !== 'string') throw new Error('v2 卡片范围或问答元数据无效');
+      for (const key of ['deepPoints','boundaries','cannotSay','followups']) if (c[key].some(value=>typeof value!=='string')) throw new Error('v2 卡片文本元数据无效');
+      if (c.provenance === 'USER' && (c.status === 'verified' || c.implementation !== 'resume_claim')) throw new Error('用户声明不能升级为独立实证');
+      if (c.provenance === 'REFERENCE-STORY' && (c.implementation !== 'narrative_scenario' || c.status === 'verified' || !c.story || typeof c.story !== 'object')) throw new Error('合成叙事不可升级为代码或历史实证');
+      if (c.provenance === 'FUTURE' && c.implementation !== 'proposed_design') throw new Error('未来方案范围无效');
+      if (c.provenance === 'CODE' && c.status === 'verified' && (c.implementation !== 'current_public_repo' || c.sources.some(s=>!s.commit) || c.verification?.method !== 'source-review' || !Array.isArray(c.verification.checkedSources) || !c.verification.checkedSources.length || c.verification.checkedSources.some(s=>!validPath(s.path)||!/^[a-f0-9]{40}$/.test(s.commit)||!/^[a-f0-9]{64}$/.test(s.contentSha256)))) throw new Error('核实代码必须绑定实际源码检查和真实提交');
+      if (c.provenance === 'CODE' && c.status === 'verified' && c.sources.some(s=>typeof index.sourceDocuments?.[s.path]!=='string'||!s.contentSha256||!index.sourceDocuments[s.path].includes(s.symbol)||!c.verification.checkedSources.some(checked=>checked.commit===s.commit&&checked.contentSha256===s.contentSha256))) throw new Error('核实代码必须包含对应源码正文与已核查摘要');
+      if (c.provenance === 'LOCAL-BENCH' && (!c.experiment || !c.experiment.reportPath || !/^[a-f0-9]{64}$/.test(c.experiment.contentSha256||''))) throw new Error('本地实验必须关联真实报告摘要');
+    }
     ids.add(c.cardId);
   }
   for(const c of index.cards) if(c.related.some(id=>!ids.has(id))) throw new Error('关联卡片不存在');
@@ -61,29 +75,37 @@ const intents = [ ['ownership',/负责|职责|个人贡献|你做|我做|本人/
 const grams = text => { const s=String(text).toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');return new Set([...s].slice(0,-1).map((_,i)=>s.slice(i,i+2))); };
 class ProjectFactPacks {
   constructor({index}={}) {this.replace(index||JSON.parse(fs.readFileSync(path.join(__dirname,'../project-packs/index.json'),'utf8')));}
-  replace(index) { const next=validateIndex(index);next.revision=hash({schemaVersion:1,projects:next.projects,cards:next.cards,sourceDocuments:next.sourceDocuments,provenanceNotes:next.provenanceNotes});next.coverage=coverage(next);this.index=next;
+  replace(index) { const next=validateIndex(index);next.revision=hash({schemaVersion:next.schemaVersion,projects:next.projects,cards:next.cards,sourceDocuments:next.sourceDocuments,provenanceNotes:next.provenanceNotes});next.coverage=coverage(next);this.index=next;
     this.features=next.cards.map(c=>({card:c,terms:grams(c.keywords.join(' ')+c.text),keywords:c.keywords.map(k=>String(k).toLowerCase())}));
-    this.evidenceById=new Map(next.cards.map(c=>[c.cardId,{...c,id:c.cardId,projectName:next.projects.find(p=>p.id===c.projectId).name,sourceType:'project-pack',revision:next.revision,startLine:1,endLine:c.text.split('\n').length,text:`[${c.provenance} / ${c.status}] ${c.text}\n来源：${c.sources.map(s=>`${s.path}#${s.symbol}@${s.commit||s.contentSha256}`).join('; ')}`} ]));
+    this.featuresByProject=new Map(next.projects.map(p=>[p.id,this.features.filter(f=>f.card.projectId===p.id)]));
+    this.evidenceById=new Map(next.cards.map(c=>[c.cardId,{...c,id:c.cardId,projectName:next.projects.find(p=>p.id===c.projectId).name,sourceType:'project-pack',revision:next.revision,startLine:1,endLine:c.text.split('\n').length,text:`[${c.provenance} / ${c.status}${c.implementation?' / '+c.implementation:''}] ${c.text}\n来源：${c.sources.map(s=>`${s.path}#${s.symbol}@${s.commit||s.contentSha256}`).join('; ')}`} ]));
     return this.getIndex(); }
   getIndex(){return JSON.parse(JSON.stringify(this.index));}
-  listProjects(){return JSON.parse(JSON.stringify(this.index.projects));}
+  listProjects(){return JSON.parse(JSON.stringify(this.index.projects.filter(p=>p.kind!=='knowledge')));}
+  pageCards({projectId,offset=0,limit=100}={}) {const cards=projectId?(this.featuresByProject.get(projectId)||[]).map(f=>f.card):this.index.cards;const start=Math.max(0,Math.floor(offset)||0),size=Math.max(1,Math.min(250,Math.floor(limit)||100));return {cards:JSON.parse(JSON.stringify(cards.slice(start,start+size))),total:cards.length,offset:start,nextOffset:start+size<cards.length?start+size:null};}
+  selectKnowledge(question,{jobProfileId='',maxCards=3}={}) {
+    const q=boundedRankingText(question),query=grams(q),features=this.index.projects.filter(p=>p.kind==='knowledge').flatMap(p=>this.featuresByProject.get(p.id)||[]);
+    const preferred=jobProfileId==='ai_supply_chain'?'ai-':jobProfileId==='java_security'?'sec-':'';
+    const selected=features.map(f=>({f,score:[...query].filter(g=>f.terms.has(g)).length/Math.max(1,query.size)+f.keywords.filter(k=>q.toLowerCase().includes(k)).length*.6+(preferred&&f.card.cardId.startsWith(preferred)?.06:0)})).filter(row=>row.score>.08).sort((a,b)=>b.score-a.score||a.f.card.cardId.localeCompare(b.f.card.cardId)).slice(0,Math.max(0,Math.min(6,maxCards)));
+    return {evidence:selected.map(row=>this.evidenceById.get(row.f.card.cardId)),stats:{selectedCardCount:selected.length,packRevision:this.index.revision},scope:'general-knowledge-reference'};
+  }
   select(question,{projectId,anchor,maxCards=4,effectiveModel={},resolution}={}) {
     const at=performance.now(), q=boundedRankingText(question), lower=q.toLowerCase();
     const resolvedIds=resolution ? resolution.canonicalProjectIds||resolution.projectIds||[] : null;
     let mentioned;
-    if(resolution) mentioned=this.index.projects.filter(p=>resolvedIds.includes(p.id)&&resolution.retrieveFacts!==false);
+    if(resolution) mentioned=this.index.projects.filter(p=>p.kind!=='knowledge'&&resolvedIds.includes(p.id)&&resolution.retrieveFacts!==false);
     else {
-      mentioned=this.index.projects.filter(p=>[p.name,...p.aliases].some(a=>lower.includes(a.toLowerCase())));
+      mentioned=this.index.projects.filter(p=>p.kind!=='knowledge'&&[p.name,...p.aliases].some(a=>lower.includes(a.toLowerCase())));
       mentioned=mentioned.filter(p=>![p.name,...p.aliases].some(a=>new RegExp('(?:不是|别谈|不要|并非)\\s*'+a.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'i').test(q)));
     const unknownNames=[...q.matchAll(/([\p{L}\p{N}_.-]{2,48})\s*项目/gu)].map(m=>m[1].replace(/^(?:请)?(?:介绍一下|介绍|讲讲|说说|关于|你在|我在|在|你的|我的)/,'')).filter(n=>n&&!/^(?:这个|那个|你们|我们|当前|刚才|之前|上一个)$/.test(n)&&!this.index.projects.some(p=>[p.name,...p.aliases].some(a=>a.toLowerCase()===n.toLowerCase())));
     if(unknownNames.length&&!mentioned.length)return {evidence:[],localFacts:[],anchor:null,projectIds:[],gaps:[],stats:{selectedCardCount:0,selectionMs:performance.now()-at,packRevision:this.index.revision}};
     const contextual=/这个项目|你们项目|项目中|你负责|你做|个人贡献|团队分工|刚才|这个困难|那个方案|为什么不用|怎么解决/.test(q);
-    if(!mentioned.length&&contextual) { const id=projectId||anchor?.projectId; mentioned=this.index.projects.filter(p=>p.id===id); }
+    if(!mentioned.length&&contextual) { const id=projectId||anchor?.projectId; mentioned=this.index.projects.filter(p=>p.kind!=='knowledge'&&p.id===id); }
     }
     if(!mentioned.length) return {evidence:[],localFacts:[],anchor:null,projectIds:[],gaps:[],stats:{selectedCardCount:0,selectionMs:performance.now()-at,packRevision:this.index.revision}};
     const requested=resolution?.intent?.length?resolution.intent:intents.filter(([,re])=>re.test(q)).map(([t])=>t);
     const rankText=mentioned.reduce((text,p)=>[p.name,...p.aliases].reduce((s,a)=>s.toLowerCase().split(a.toLowerCase()).join(''),text),q);
-    const terms=grams(rankText), scoped=this.features.filter(f=>mentioned.some(p=>p.id===f.card.projectId));
+    const terms=grams(rankText), scoped=mentioned.flatMap(p=>this.featuresByProject.get(p.id)||[]);
     const parts=projectQuestionParts(question,resolution||{projectIds:mentioned.map(p=>p.id)});
     const multi=parts.length>1;
     const scoreFor=(f,text,queryTerms,requestedTypes)=>{
@@ -110,7 +132,11 @@ class ProjectFactPacks {
     // Short personal followups still rely on their explicit intent, even when
     // they contain no implementation vocabulary.
     const wanted=requested;
-    for(const p of mentioned) add(ranked.find(x=>x.c.projectId===p.id&&(!wanted.length||wanted.includes(x.c.docType)))?.c);
+    for(const p of mentioned) {
+      let best=ranked.find(x=>x.c.projectId===p.id&&(!wanted.length||wanted.includes(x.c.docType)));
+      if(!wanted.length&&best?.lexical<=.04)best=ranked.find(x=>x.c.projectId===p.id&&x.c.docType==='overview')||best;
+      add(best?.c);
+    }
     if(!multi)for(const t of wanted) for(const p of mentioned) add(ranked.find(x=>x.c.projectId===p.id&&x.c.docType===t)?.c);
     if(chosen.length<Math.min(4,maxCards)&&chosen.length) { const first=chosen[0];add(this.index.cards.find(c=>first.related.includes(c.cardId)&&c.projectId===first.projectId)); }
     for(const x of ranked) if(x.score>.04) add(x.c);
@@ -148,8 +174,22 @@ function mergeFactIndexes(base, incoming, {mode='merge', resolutions={}, selecte
     if(matching!==undefined)documents[ref.path]=matching;
   }
   const usedPaths=new Set([...cards.values()].flatMap(c=>c.sources.map(s=>s.path)));
-  const index=validateIndex({schemaVersion:1,projects:[...projects.values()],cards:[...cards.values()],sourceDocuments:Object.fromEntries(Object.entries(documents).filter(([p])=>usedPaths.has(p))),provenanceNotes:{...base.provenanceNotes,...incoming.provenanceNotes},updatedAt:incoming.updatedAt||base.updatedAt});
-  index.revision=hash({schemaVersion:1,projects:index.projects,cards:index.cards,sourceDocuments:index.sourceDocuments,provenanceNotes:index.provenanceNotes});index.coverage=coverage(index);
+  const version=Math.max(base.schemaVersion||1,incoming.schemaVersion||1);
+  const rows=[...cards.values()].map(c=>version===2?migrateCard(c):c);
+  const index=validateIndex({schemaVersion:version,projects:[...projects.values()],cards:rows,sourceDocuments:Object.fromEntries(Object.entries(documents).filter(([p])=>usedPaths.has(p))),provenanceNotes:{...base.provenanceNotes,...incoming.provenanceNotes},updatedAt:incoming.updatedAt||base.updatedAt});
+  index.revision=hash({schemaVersion:index.schemaVersion,projects:index.projects,cards:index.cards,sourceDocuments:index.sourceDocuments,provenanceNotes:index.provenanceNotes});index.coverage=coverage(index);
   return {index,changes:[...changes,...deleted]};
 }
-module.exports={ProjectFactPacks,validateIndex,compileProjectPacks,mergeFactIndexes,coverage};
+function migrateCard(card) {
+  if(card.implementation) return JSON.parse(JSON.stringify(card));
+  const c=JSON.parse(JSON.stringify(card));
+  // A legacy "verified" label alone is not a new source review or benchmark report.
+  const unreviewed = c.status==='verified'&&((c.provenance==='CODE'&&!c.verification)||(c.provenance==='LOCAL-BENCH'&&!c.experiment)||c.provenance==='USER');
+  if(c.provenance==='LOCAL-BENCH'&&!c.experiment)c.provenance='REFERENCE';
+  return {...c,status:unreviewed?'source-claim':c.status,topic:c.topic||c.docType,questions:[c.question||c.keywords?.[0]||c.cardId],answerShort:c.text,deepPoints:c.text.split(/\n\s*\n/),facts:c.facts||[],boundaries:unreviewed?['旧版本验证标签未经本次独立核查，保留为来源声明。']:[],cannotSay:[],followups:[],implementation:c.provenance==='USER'?'resume_claim':c.provenance==='CODE'?'current_public_repo':c.provenance==='REFERENCE-STORY'?'narrative_scenario':c.provenance==='FUTURE'?'proposed_design':'unverified_reference',applicableVersion:c.sources.find(s=>s.commit)?.commit||'user-supplied',migration:{fromSchema:1,preserved:true,originalProvenance:card.provenance,originalStatus:card.status,originalTruthScope:card.truthScope}};
+}
+function migrateFactIndex(index) {
+  const current=validateIndex(index);if(current.schemaVersion===2)return current;
+  return validateIndex({...current,schemaVersion:2,cards:current.cards.map(migrateCard),migration:{fromSchema:1,originalRevision:current.revision||hash(current)}});
+}
+module.exports={ProjectFactPacks,validateIndex,compileProjectPacks,mergeFactIndexes,coverage,migrateCard,migrateFactIndex,MAX_FACT_BYTES,MAX_FACT_CARDS};

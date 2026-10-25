@@ -33,15 +33,18 @@ const ALIASES = [
 // A project manifest is useful orientation, but cannot replace implementation
 // evidence. Match identifiers to code paths/symbols without project-specific
 // file lists or expected-answer rules.
-function implementationWeight(query, chunk) {
-  if(!/实现|源码|代码|接口|执行|取消|报告|权限|幂等|事务|并发|恢复|隔离|持久化|状态|\b(?:code|implementation|Outbox|Inbox|Execution)\b/i.test(query))return 1;
+function implementationQuery(query) {
+  if(!/实现|源码|代码|接口|执行|取消|报告|权限|幂等|事务|并发|恢复|隔离|持久化|状态|\b(?:code|implementation|Outbox|Inbox|Execution)\b/i.test(query))return null;
+  return [...new Set(String(query).match(/\b[A-Za-z][A-Za-z0-9_]{2,63}\b/g)||[])].map(normalize)
+    .filter(word=>!STOP_WORDS.has(word));
+}
+function implementationWeight(identifiers, chunk) {
+  if(!identifiers)return 1;
   const code=/\.(?:java|py|[cm]?[jt]sx?|go|rs|c|cpp|h|cs|sql)$/i.test(chunk.path||'');
   if(!code)return /(?:^|\/)interview\/project\.md$|(?:^|\/)readme\./i.test(chunk.path||'') ? 0.4 : 1;
   const field=normalize(`${chunk.path||''} ${chunk.symbol||''}`);
   const identity=normalize(chunk.projectId||'');
-  const identifiers=[...new Set(String(query).match(/\b[A-Za-z][A-Za-z0-9_]{2,63}\b/g)||[])].map(normalize)
-    .filter(word=>word!==identity&&!STOP_WORDS.has(word));
-  const direct=identifiers.filter(word=>field.includes(word)).length;
+  const direct=identifiers.filter(word=>word!==identity&&field.includes(word)).length;
   const names=String(chunk.symbol||'').split('#');
   const constructor=names.length>1&&names[0].split('.').at(-1)===names.at(-1);
   const body=String(chunk.text||'');
@@ -164,6 +167,8 @@ class ProjectSearch {
     this.lengths = [];
     this.totalLength = 0;
     this.symbols = [];
+    this.symbolParts = [];
+    this.paths = [];
     this.embeddings = [];
     this.cache = new Map();
     this.termCache = new Map();
@@ -187,6 +192,8 @@ class ProjectSearch {
     this.lengths[id] = Math.max(1, bodyTokens.length);
     this.totalLength += this.lengths[id];
     this.symbols[id] = normalize(chunk.symbol || '');
+    this.symbolParts[id] = this.symbols[id].split(/[.#]/).filter(part => part.length > 3);
+    this.paths[id] = normalize(chunk.path || '');
     // Hash vectors are an optional fallback. Eagerly building them for every
     // imported source stalls the first live request even on lexical-only paths.
     for (const term of terms) {
@@ -265,7 +272,8 @@ class ProjectSearch {
       }
       if (visits >= maxVisits) break;
     }
-    for(const row of candidates.values())row.score*=implementationWeight(query,row.chunk);
+    const implementationIdentifiers=implementationQuery(query);
+    for(const row of candidates.values())row.score*=implementationWeight(implementationIdentifiers,row.chunk);
     // Version-checked navigation supplies aliases for code symbols, never
     // answer text. The metadata is compiled once; source bodies stay verbatim.
     const folded=normalize(query);let navigationVisits=0;
@@ -308,11 +316,11 @@ class ProjectSearch {
 
   rank(query, scopes = [], options = {}) {
     scopes = Array.isArray(scopes) ? [...new Set(scopes.map(String))].sort() : [];
-    const spec = querySpec(query);
+    const spec = querySpec(query), folded = normalize(query);
     const providerVersion = JSON.stringify([this.vectorProvider?.ready, this.vectorProvider?.modelVersion || this.vectorProvider?.version,
       this.reranker?.ready, this.reranker?.modelVersion || this.reranker?.version]);
     const candidateLimit = Math.max(1, Math.min(50, Number(options.candidateLimit) || 50));
-    const key = spec.key + '\n' + normalize(query) + '\n' + JSON.stringify(scopes) + '\n' + providerVersion + '\n' + candidateLimit + ':' + (options.hashFallback !== false);
+    const key = spec.key + '\n' + folded + '\n' + JSON.stringify(scopes) + '\n' + providerVersion + '\n' + candidateLimit + ':' + (options.hashFallback !== false);
     if (this.cache.has(key)) return { ...this.remember(this.cache, key, this.cache.get(key), 32), cacheHit: true,
       candidates: 0, postingsVisited: 0, denseScanned: 0 };
     const { ids, allowed } = this.scopedIds(scopes);
@@ -358,9 +366,7 @@ class ProjectSearch {
     }
     const vector = [...vectorById].sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 50);
     const exact = ids.filter(id => {
-      const chunk = this.chunks[id], folded = normalize(query);
-      const symbol = this.symbols[id].split(/[.#]/).filter(part => part.length > 3);
-      return symbol.some(part => folded.includes(part)) || (chunk.path && folded.includes(normalize(chunk.path)));
+      return this.symbolParts[id].some(part => folded.includes(part)) || (this.paths[id] && folded.includes(this.paths[id]));
     }).slice(0, candidateLimit).map(id => ({ id, score: 1 }));
     const merged = new Map();
     const merge = (id, rank, channelScore, channel) => {
@@ -390,7 +396,7 @@ class ProjectSearch {
     }
     vector.forEach(([id, score], i) => merge(id, i, score, 'vector'));
     exact.forEach((item, i) => merge(item.id, i, item.score, 'exact'));
-    const q = normalize(query);
+    const implementationIdentifiers=implementationQuery(query);
     const rows = [];
     for (const item of merged.values()) {
       const chunk = this.chunks[item.id];
@@ -398,13 +404,13 @@ class ProjectSearch {
       const coverage = spec.groups.length ? spec.groups.filter(g => g.some(t => item.matched.has(t))).length / spec.groups.length : 0;
       const originalMatches = spec.original.filter(t => item.matched.has(t)).length;
       const termCoverage = spec.original.length ? originalMatches / spec.original.length : 0;
-      const exactSymbol = !!this.symbols[item.id] && this.symbols[item.id].split(/[.#]/).some(s => s.length > 3 && q.includes(s));
+      const exactSymbol = this.symbolParts[item.id].some(part => folded.includes(part));
       const aliasMatch = spec.groups.some(g => g.some(t => item.contentMatched.has(t)) && g.some(t => !spec.original.includes(t)));
       // This is a heuristic relevance level, not a calibrated probability.
       const similarity = item.denseSimilarity || 0;
       const vectorSimilarity = item.vectorSimilarity || 0;
       const confidence = Math.min(1, 0.36 * coverage + 0.31 * termCoverage + (item.fieldMatch ? 0.14 : 0) + (exactSymbol ? 0.32 : 0) + (aliasMatch ? 0.13 : 0) + Math.min(0.48, similarity * 0.68) + vectorSimilarity * 0.45);
-      let score = item.rrfScore * 1000 * implementationWeight(query,chunk);
+      let score = item.rrfScore * 1000 * implementationWeight(implementationIdentifiers,chunk);
       if (exactSymbol) score *= 1.18;
       if (!/测试|test\b/i.test(query) && /(?:^|\/)(?:tests?|__tests__)(?:\/|$)|\.(?:test|spec)\./i.test(chunk.path)) score *= 0.85;
       if (/架构|概览|overview|architecture/i.test(query) && /readme|docs?\/|architecture/i.test(chunk.path)) score *= 1.2;

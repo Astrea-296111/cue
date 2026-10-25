@@ -4,7 +4,7 @@
 // not imply a question about the candidate's implementation.
 const PROJECT_REFERENCE = /项目介绍|你们(?:当时)?(?:几个人|多少人)|你负责哪块|是你一个人做|用了多久|当时怎么|你们|你在|你的.{0,12}(项目|系统|服务|平台|工作)|贵团队|本项目|该项目|这个项目|那个项目|项目里|项目中|项目的|项目.{0,22}(架构|实现|选型|难点|优化|负责|职责|团队|合作|独立)|(?:介绍|讲讲|说说|展开).{0,10}项目|(?:这个|那个|该)(?:系统|服务|平台|接口|模块)|\b(?:your|our|this|that)\s+(?:project|system|service|implementation|team)\b|\bin your\b/i;
 const PROJECT_CONTINUATION = /(?:项目|课题|论文).{0,24}(?:独立|团队|合作|负责|职责|贡献|难点|挑战|过程|怎么做|如何做|实现|结果|指标|效果)|(?:独立完成|团队合作|你具体负责|你的职责|你的贡献|这个过程中|在这个过程|最大的困难|最大的挑战)/i;
-const REFERENTIAL = /你刚才|你提到|你说的|刚才提到|前面说的|上一个项目|刚才那个项目|回到.{0,8}项目|\byou (?:mentioned|said)\b/i;
+const REFERENTIAL = /你刚才|你提到|你说的|刚才提到|前面说的|上一个项目|刚才那个项目|回到.{0,8}(?:项目|任务|方案|链路)|\byou (?:mentioned|said)\b/i;
 const SHORT_FOLLOWUP = /^(?:那|那么|所以|再|然后)?(?:具体)?(?:为什么|怎么做|怎么实现|如何实现|怎么保证|如何保证|有什么难点|有什么取舍|展开一下|详细说说|继续说|然后呢)[呢吗啊呀？?。!！\s]*$|^(?:why|how|can you elaborate|could you expand)[?!.\s]*$/i;
 const OVERVIEW = /(?:介绍|讲讲|说说|概述).{0,10}(?:项目|系统|架构)|整体架构|总体架构|技术栈|项目概况|架构概览|\b(?:overview|tech stack|overall architecture|walk me through)\b/i;
 const SPECIFIC = /幂等|回调|重试|限流|熔断|一致性|死锁|事务|缓存|支付|具体实现|\b(?:retry|idempotenc\w*|callback|cache|circuit|transaction)\b/i;
@@ -20,6 +20,7 @@ const NEW_UNNAMED_PROJECT = /另一个项目|另外一个项目|下一个项目|
 // cues detach principles from project facts regardless of the technology name.
 const DETACH_PROJECT = /(?:不|别|无需|不要|先不)(?:结合|涉及|针对|联系|套用)[^，,。？！?!;；\n]{0,24}(?:项目|你的实现|实际实现)|(?:不|别|不要|先不)(?:谈|聊)\s*(?:这个|那个|当前|刚才的)?\s*项目|(?:脱离|跳出|离开)[^，,。？！?!;；\n]{0,12}项目|(?:不用|无需)(?:引用|使用)(?:个人|你的|任何)?项目(?:经历|资料)?|\b(?:without (?:the |your )?project|independent(?:ly)? of (?:the |your )?project)\b/i;
 const GENERIC_OPENING = /^(?:(?:那|那么|现在|接下来|另外|再)\s*)?(?:单独(?:问|聊|讲)(?:一下)?|一般(?:来说|而言)|从(?:通用|一般)(?:原理|概念|角度)|就(?:一般|通用)(?:原理|情况))|(?:只|单纯)(?:问|讨论|讲).{0,12}(?:通用|一般|原理|概念)|\b(?:in general|generally speaking|as a general (?:concept|principle)|a separate (?:conceptual|general) question)\b/i;
+const SECURITY_DESIGN = /\b(?:KMS|RBAC|TBAC|tenantId|tenant_id)\b|信封加密|(?:权限|鉴权).{0,8}(?:缓存|撤权)/i;
 
 function isLikelyFollowUp(text) {
   const value = String(text || '').trim();
@@ -109,6 +110,9 @@ function isClearProjectExit(text) {
   if (!value) return false;
   if (CLEAR_NON_PROJECT.test(value)) return true;
   if (DETACH_PROJECT.test(value)) return true;
+  if(/(?:只|仅)保留.{0,8}(?:最近|最后).{0,8}(?:句话|发言)|(?:前面|之前).{0,8}改口.{0,12}(?:保留|记住|保存)/.test(value)&&!PROJECT_REFERENCE.test(value))return true;
+  if (SECURITY_DESIGN.test(value)&&!PROJECT_REFERENCE.test(value)&&!PROJECT_CONTINUATION.test(value)&&!REFERENTIAL.test(value)) return true;
+  if (/^(?:先|顺便)?插(?:一)?(?:句|个问题)[，,：:\s]/.test(value) && !PROJECT_REFERENCE.test(value)) return true;
   if (GENERIC_OPENING.test(value) && !PROJECT_REFERENCE.test(value) && !PROJECT_CONTINUATION.test(value)) return true;
   if (GENERIC_QUESTION.test(value) && !PROJECT_REFERENCE.test(value) && !PROJECT_CONTINUATION.test(value)) return true;
   return false;
@@ -145,7 +149,7 @@ function planProjectRetrieval(transcript, mode = 'say', options = {}) {
     const newUnnamedProject = NEW_UNNAMED_PROJECT.test(current) && !named.length;
     const hardSwitch = TOPIC_SWITCH.test(current);
     const clearExit = isClearProjectExit(current);
-    const explicitProjectContinuation = PROJECT_CONTINUATION.test(current) || REFERENTIAL.test(current) && /项目|课题|论文/.test(current);
+    const explicitProjectContinuation = PROJECT_CONTINUATION.test(current) || REFERENTIAL.test(current) && /项目|课题|论文|任务|方案|链路/.test(current);
 
     if (newUnnamedProject) activeProject = null;
     if (named.length) {

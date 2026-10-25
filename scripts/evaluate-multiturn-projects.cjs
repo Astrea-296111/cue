@@ -54,11 +54,25 @@ async function deliverEvent(runtime,event,sessionId){
  return 'legacy-production-transcript-publisher';
 }
 async function importMaterials(runtime,input,bundle){
- const state=await runtime.importMaterialSnapshot({facts:input.facts,sources:bundle.sources});
- const activeJobProfileId=input.profile.activeJobProfileId||input.profile.activeJobProfile||'';
- await runtime.invoke('settings:set',{resumeText:input.profile.resumeText,jobDescription:input.profile.jobDescription,currentProjectId:'',projectFactsEnabled:true,manualProjectKnowledgeEnabled:false,projectKnowledge:'',...(input.profile.jobProfiles?{jobProfiles:input.profile.jobProfiles}:{}),activeJobProfileId});
+ let state,importMethod;
+ if(runtime.hasHandler('materials:personal:prepare')&&runtime.hasHandler('materials:personal:commit')) {
+   // Install the distributed sources first, then use the same validated personal
+   // file preview/commit path as the protected UI. No direct profile injection.
+   await runtime.importMaterialSnapshot({facts:bundle.facts,sources:bundle.sources});
+   const workspace={schemaVersion:input.facts.schemaVersion,facts:input.facts,profile:input.profile,
+     ...(input.revision?{revision:input.revision}:{}),
+     ...(input.sourceManifest?{sourceManifest:input.sourceManifest}:{}),...(input.mergeLog?{mergeLog:input.mergeLog}:{})};
+   const preview=await runtime.invoke('materials:personal:prepare',{workspace});
+   await runtime.invoke('materials:personal:commit',{token:preview.token,baseGeneration:preview.baseGeneration});
+   state=await runtime.invoke('materials:state');importMethod='production-personal-preview-commit';
+ } else {
+   state=await runtime.importMaterialSnapshot({facts:input.facts,sources:bundle.sources});
+   await runtime.invoke('settings:set',{...input.profile});
+   importMethod='legacy-production-material-and-settings';
+ }
+ await runtime.invoke('settings:set',{currentProjectId:'',projectFactsEnabled:true,manualProjectKnowledgeEnabled:false,projectKnowledge:''});
  await runtime.exports('src/project-knowledge.js').warmProjectIndex();
- return {generation:state.generation,counts:state.counts,projects:state.projects.map(p=>({id:p.id,factCount:p.factCount,sourceChunks:p.sourceChunks}))};
+ return {generation:state.generation,counts:state.counts,importMethod,projects:state.projects.map(p=>({id:p.id,factCount:p.factCount,sourceChunks:p.sourceChunks}))};
 }
 async function evaluateMultiturn({payload,outputDir,env=process.env,provider='all',providers,mock=false}){
  const input=payload,configuration=validateEvaluation(input.evaluation||{}),suite=validateScenarios(input.scenarios);
@@ -70,6 +84,7 @@ async function evaluateMultiturn({payload,outputDir,env=process.env,provider='al
  const options={mock,outputDir,targetRoot:app.root,maxCalls:questionCount*(1+profile.retryLimit),maxCallsPerProvider:questionCount*(1+profile.retryLimit),maxOutputTokens:profile.outputCeiling,firstContentTimeoutMs:profile.timeoutMs,totalTimeoutMs:profile.timeoutMs};
  const budget=createBudget(options,providerIds),secrets=[env.QWEN_API_KEY,env.DEEPSEEK_API_KEY].filter(Boolean),tempRoots=[];
  const report={schemaVersion:2,kind:mock?'mock':'live',status:'running',mode:'multiturn',startedAt:new Date().toISOString(),finishedAt:null,build:buildIdentity(env),application:{commit:app.commit,kind:app.kind},evaluation:{...profile,label:configuration.label||null,expectedQuestionCount:questionCount},providers:providerIds.map(id=>({id,model:null,status:'running',attemptedCalls:0,cases:tasks.filter(t=>t.provider===id).flatMap(t=>t.session.events.filter(e=>e.invoke_cue).map(e=>({id:t.session.id+'-r'+(t.repeat+1)+'-'+e.event_id,sessionId:t.session.id,repeat:t.repeat+1,scenarioEventId:e.event_id,question:e.text,mode:t.session.execution_profile,status:'pending',attempted:false,transportStatus:'not-attempted',answer:'',attempts:[]})))})),failures:[],budget:budget.snapshot(),codePositions:codePositions(),privacy:{containsPrivateAnswers:true,publicAnswerArtifactsAllowed:false,encryptBeforeUpload:true},inputs:{factsSha256:hash(input.facts),profileSha256:hash(input.profile),scenariosSha256:hash(suite),schema:input.facts.version||input.facts.schemaVersion,materialRevision:input.revision||hash({facts:input.facts,profile:input.profile})},measurementLimits:{renderer:'virtual Electron IPC delivery, not painted pixels',audio:'fixed text replay; audio-to-final unavailable',baseline:'Frozen application modules untouched; new harness only observes old production boundaries'}};
+ if(input.judgeReference)Object.assign(report.inputs,{judgeReferenceSha256:input.judgeReference.sha256,judgeReferenceRevision:input.judgeReference.revision});
  fs.mkdirSync(outputDir,{recursive:true,mode:0o700});
  const save=()=>{report.budget={...budget.snapshot(),concurrency:profile.concurrency,profileVersion:profile.version,retryLimit:profile.retryLimit};return writeReports(report,{outputDir,sanitize:{secrets,workspaceRoot:ROOT,tempRoots}});};save();
  if(app.kind==='frozen-baseline'&&input.facts.schemaVersion!==1){report.status='failed';report.compatibility={status:'incompatible',reason:'The frozen application only accepts original v1 facts; no silent downgrade is applied.',applicationSchema:1,inputSchema:input.facts.schemaVersion};report.finishedAt=new Date().toISOString();report.failures.push({code:'baseline-schema-incompatible',message:report.compatibility.reason});return save();}
@@ -85,7 +100,11 @@ async function evaluateMultiturn({payload,outputDir,env=process.env,provider='al
    try{
     runtime=createProviderRuntime({id:p.id,config,options,budget,provider:p,cleanups});tempRoots.push(runtime.temp);await runtime.ready;
     const imported=await importMaterials(runtime,input,bundle);p.materialImport||=imported;
-    runtime.clear();await runtime.invoke('settings:set',{activeJobProfile:task.session.job_profile||'',activeJobProfileId:task.session.job_profile||''});
+    runtime.clear();
+    if(runtime.hasHandler('materials:personal:job')&&(input.profile.jobProfiles||[]).some(job=>job.id===task.session.job_profile))
+      await runtime.invoke('materials:personal:job',{jobProfileId:task.session.job_profile});
+    else await runtime.invoke('settings:set',{activeJobProfile:task.session.job_profile||'',activeJobProfileId:task.session.job_profile||''});
+    const jobDescriptionSha256=hash(runtime.exports('src/store.js').getSettings().jobDescription||'');
     const activeSessionId=runtime.hasHandler('dialogue:snapshot')?(await runtime.invoke('dialogue:snapshot')).sessionId:task.session.id;
     const dialogue=[];let deliveryMode='';
     for(const event of [...(task.session.context_prelude||[]),...task.session.events]){
@@ -99,7 +118,7 @@ async function evaluateMultiturn({payload,outputDir,env=process.env,provider='al
       if(!result.error||!/^provider-http-(?:429|5\d\d)$|^(?:provider-error|total-timeout|first-content-timeout)$/.test(result.error.code)||attempt===profile.retryLimit)break;
       await pause(Math.min(10000,1000*(2**attempt)));
      }
-     result={...result,repeat:task.repeat+1,attempts:history,scenarioEventId:event.event_id,scenarioEvaluation:event.evaluation,dialogueEvents:dialogue.slice(),deliveryMode,jobProfile:task.session.job_profile,applicationCommit:app.commit,tags:task.session.tags||[],sessionTags:task.session.tags||[]};
+     result={...result,repeat:task.repeat+1,attempts:history,scenarioEventId:event.event_id,scenarioEvaluation:event.evaluation,dialogueEvents:dialogue.slice(),deliveryMode,jobProfile:task.session.job_profile,jobDescriptionSha256,applicationCommit:app.commit,tags:task.session.tags||[],sessionTags:task.session.tags||[]};
      const sent=new Set(result.sentSourceIds||[]);result.authoritativeSources=bundle.sources.chunks.filter(c=>sent.has(c.id)).map(c=>({id:c.id,projectId:c.projectId,path:c.path,text:c.text,startLine:c.startLine,endLine:c.endLine}));
      // Preserve every observed attempt. A successful retry cannot erase it.
      p.cases[p.cases.findIndex(c=>c.id===result.id)]=result;if(result.error)report.failures.push({provider:p.id,caseId:result.id,...result.error});save();
@@ -114,7 +133,7 @@ async function evaluateMultiturn({payload,outputDir,env=process.env,provider='al
  report.status=report.providers.every(p=>p.status==='passed')&&!report.failures.some(f=>f.code==='multiturn-runner')?'passed':'failed';report.finishedAt=new Date().toISOString();let document=save();
  if(configuration.judge&&!mock){
   const {evaluateJudges}=require('./judge-private-projects.cjs');
-  const updateJudged=value=>{const judged=value?.report||value;if(judged?.judging){report.judging=judged.judging;if(judged.providers)report.providers=judged.providers;if(judged.manualReview)report.manualReview=judged.manualReview;if(judged.status)report.status=judged.status;}save();};
+  const updateJudged=value=>{const judged=value?.report||value;if(judged?.judging){report.judging=judged.judging;if(judged.inputs)report.inputs={...report.inputs,...judged.inputs};if(judged.providers)report.providers=judged.providers;if(judged.manualReview)report.manualReview=judged.manualReview;if(judged.status)report.status=judged.status;}save();};
   try{updateJudged(await evaluateJudges({report:document,payload:input,env,outputDir,concurrency:Math.min(profile.concurrency,4),onCheckpoint:updateJudged}));}
   catch(error){report.judging={status:'failed',error:sanitizeText(error.message,{secrets,workspaceRoot:ROOT,tempRoots})};report.status='failed';}
   document=save();

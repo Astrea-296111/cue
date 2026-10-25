@@ -138,9 +138,10 @@
       if (option) commit(Number(option.dataset.index));
     });
     select.addEventListener('change', sync);
-    new MutationObserver(sync).observe(select, { childList: true, subtree: true, characterData: true,
+    const observer = new MutationObserver(sync);
+    observer.observe(select, { childList: true, subtree: true, characterData: true,
       attributes: true, attributeFilter: ['disabled', 'selected', 'label', 'value'] });
-    const api = { sync, close };
+    const api = { sync, close, destroy() { close(); observer.disconnect(); trigger.remove(); menu.remove(); } };
     sync();
     return api;
   }

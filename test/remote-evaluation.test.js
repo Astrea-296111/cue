@@ -4,6 +4,7 @@ const cipher=require('../scripts/lib/private-live-crypto.cjs');
 const {parseArgs,runRemote,verifySession}=require('../scripts/eval-remote.cjs');
 const {resolveProfile,buildTasks}=require('../scripts/lib/evaluation-profiles.cjs');
 const {validateEvaluation,validateScenarios}=require('../scripts/evaluate-multiturn-projects.cjs');
+const {fixture}=require('./helpers/material-fixture');
 function suite(){return{schema_version:'cue_multiturn_seed_v1',sessions:Array.from({length:20},(_,i)=>({id:'s'+i,execution_profile:'instant',events:Array.from({length:4},(_,j)=>({event_id:'s'+i+'q'+j,text:'PRIVATE_QUESTION_'+i+'_'+j,speaker:'interviewer',channel:'them',is_final:true,invoke_cue:true}))}))};}
 test('deep profile partitions all 480 answers once, preserving sequential sessions and bounded retries',()=>{
  const sessions=suite().sessions;const assignments=[];
@@ -16,8 +17,10 @@ test('deep profile partitions all 480 answers once, preserving sequential sessio
 });
 test('remote dispatch uploads ciphertext only, binds session SHA/run/attempt, resumes without duplicate inference, and decrypts locally',async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'cue-remote-test-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
- const input=path.join(dir,'payload.json'),scenarios=path.join(dir,'scenarios.json');
- fs.writeFileSync(input,JSON.stringify({schemaVersion:1,facts:{cards:[],private:'PRIVATE_FACT'},profile:{resumeText:'PRIVATE_RESUME',jobDescription:'PRIVATE_JD'}}));fs.writeFileSync(scenarios,JSON.stringify(suite()));
+ const input=path.join(dir,'payload.json'),scenarios=path.join(dir,'scenarios.json'),reference=path.join(dir,'reference.json');
+ const facts=fixture(2);facts.cards[0].text='PRIVATE_FACT';
+ fs.writeFileSync(input,JSON.stringify({schemaVersion:1,facts,profile:{resumeText:'PRIVATE_RESUME',jobDescription:'PRIVATE_JD'}}));fs.writeFileSync(scenarios,JSON.stringify(suite()));
+ fs.writeFileSync(reference,JSON.stringify({schemaVersion:1,facts:fixture(2),profile:{resumeText:'CANONICAL_REFERENCE_SENTINEL',jobDescription:'CANONICAL_JD'}}));
  const repository='example/cue',sha='a'.repeat(40),runId='12345';let dispatched=0,uploaded=0,completed=false,encryptedReport;
  const {session,privateKey}=cipher.createSession({repository,runId,commitSha:sha});
  const calls=[],github={repository,
@@ -30,12 +33,13 @@ test('remote dispatch uploads ciphertext only, binds session SHA/run/attempt, re
   },
   async artifacts(){return[{name:'private-session-'+runId+'-1'},{name:'private-live-'+runId+'-1'}];},
   async download(id,name,directory){fs.mkdirSync(directory,{recursive:true});fs.writeFileSync(path.join(directory,name.startsWith('private-session')?'session.json':'report.encrypted.json'),JSON.stringify(name.startsWith('private-session')?session:encryptedReport));},
-  async publish(id,envelope){uploaded++;assert.equal(id,runId);const serialized=JSON.stringify(envelope);for(const text of ['PRIVATE_FACT','PRIVATE_RESUME','PRIVATE_JD','PRIVATE_QUESTION'])assert.ok(!serialized.includes(text));
+  async publish(id,envelope){uploaded++;assert.equal(id,runId);const serialized=JSON.stringify(envelope);for(const text of ['PRIVATE_FACT','PRIVATE_RESUME','PRIVATE_JD','PRIVATE_QUESTION','CANONICAL_REFERENCE_SENTINEL'])assert.ok(!serialized.includes(text));
    const decoded=cipher.decryptPayload({session,privateKey,envelope});assert.equal(decoded.payload.profile.resumeText,'PRIVATE_RESUME');assert.equal(decoded.payload.evaluation.applicationCommit,'baseline');
+   assert.equal(decoded.payload.judgeReference.profile.resumeText,'CANONICAL_REFERENCE_SENTINEL');assert.match(decoded.payload.judgeReference.sha256,/^[a-f0-9]{64}$/);
    encryptedReport=cipher.encryptReports({session,key:decoded.key,reports:{report:{kind:'live',status:'failed',budget:{attemptedCalls:1},providers:[{id:'qwen',model:'actual-model',status:'failed',cases:[{id:'q',answer:'PRIVATE_FULL_ANSWER',status:'failed',attempted:true,transportStatus:'passed',error:{code:'quality'}}]}],failures:[]},markdown:'PRIVATE_FULL_MARKDOWN'}});decoded.key.fill(0);
   }
  };
- const options=parseArgs(['--payload',input,'--scenarios',scenarios,'--repository',repository,'--application','baseline','--source-snapshot','baseline','--provider','qwen','--output-dir',path.join(dir,'private-output'),'--detach']);
+ const options=parseArgs(['--payload',input,'--judge-reference',reference,'--scenarios',scenarios,'--repository',repository,'--application','baseline','--source-snapshot','baseline','--provider','qwen','--output-dir',path.join(dir,'private-output'),'--detach']);
  const first=await runRemote(options,{github,log:()=>{}});assert.equal(first.state.runs[0].stage,'uploaded');assert.equal(dispatched,1);assert.equal(uploaded,1);
  assert.equal(fs.statSync(first.manifest).mode&0o777,0o600);assert.equal(fs.statSync(path.join(first.state.directory,'shard-0','local-key.json')).mode&0o777,0o600);
  completed=true;const resumed=await runRemote(parseArgs(['--resume',first.manifest]),{github,log:()=>{}});

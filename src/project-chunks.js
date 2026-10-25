@@ -258,8 +258,8 @@ function chunkText(filePath, text, options = {}) {
       } else if (language === 'go' && (match = /^\s*func\s+(?:\([^)]*\)\s*)?(\w+)\s*\(/.exec(line))) name = match[1];
       else if ((match = /^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s*\*?\s*(\w+)\s*\(/.exec(line))) name = match[1];
       else if ((match = /^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?(?:\([^)]*\)|\w+)\s*=>\s*\{/.exec(signature))) name = match[1];
-      else if (language !== 'go' && (match = /^\s*(?:(?:public|private|protected|static|final|synchronized|abstract|default|async|override|readonly)\s+)*(?:[\w<>[\],.?]+\s+)?(\w+)\s*\([^;{}]*\)\s*(?:throws\s+[\w.,\s]+|:\s*[^;={]+)?\s*\{/.exec(signature))) {
-        if (/^(if|for|while|switch|catch|with|synchronized)$/.test(match[1])) continue;
+      else if (language !== 'go' && (match = /^\s*(?:(?:public|private|protected|static|final|synchronized|abstract|default|async|override|readonly)\s+)*(?:[\w.$]+(?:\s*<[^;{}()]+>)?(?:\s*\[\])*\s+)?(\w+)\s*\([^;{}]*\)\s*(?:throws\s+[\w.,\s]+|:\s*[^;={]+)?\s*\{/.exec(signature))) {
+        if (/^(if|for|while|switch|catch|with|synchronized|try)$/.test(match[1])) continue;
         name = match[1]; kind = 'method';
       }
       else if (language === 'java' && (match = /^\s*(?:(?:public|private|protected|static|final|abstract|default)\s+)*(?:[\w<>[\],.?]+\s+)(\w+)\s*\([^;{}]*\)\s*(?:throws\s+[\w.,\s]+)?\s*;/.exec(signature))) {

@@ -30,7 +30,7 @@ for (const indexVersion of [1, 2]) {
     await app.ask('say', '在这个过程中，你遇到的最大困难是什么？你是怎么解决的？');
     app.answer(repoAnswer);
     await app.ask('say', '关于第二个，你的 agent 项目。这个项目最难的地方在哪里？');
-    assert.ok(['src/custom-main.js', 'src/bugfix-main.js', 'main.js', 'src/llm.js', 'src/project-knowledge.js'].every(file => app.loaded.includes(file)));
+    assert.ok(['src/custom-main.js', 'src/overlay-interaction.js', 'src/application-integration.js', 'main.js', 'src/llm.js', 'src/project-knowledge.js'].every(file => app.loaded.includes(file)));
     assert.equal(app.loaded.includes('src/main.js'), false);
     assert.match(app.value('conversation.recent.at(-1).plan.projectLabel'), /RepoPilot/);
     assert.doesNotMatch(JSON.stringify(app.calls.at(-1).messages), /平台压缩|微信|Facebook|TCS_ONLY|FLASH_ONLY/);
@@ -270,9 +270,9 @@ test('source-code question sends a cited Controller-Service-Repository chain to 
   assertScoped(app);
 });
 
-test('manual ask with a screenshot keeps the adapter screen-code token budget', async t => {
-  const app = createInterviewRuntime(t);
+test('manual ask with a screenshot uses the configured code output budget', async t => {
+  const app = createInterviewRuntime(t,{settings:{responseBudgets:{oral:1800,code:5120}}});
   await app.ask('ask', '请修改这段代码，保留输入输出接口');
   assert.ok(imageUrl(app.calls[0]));
-  assert.equal(app.calls[0].max_tokens, 4096);
+  assert.equal(app.calls[0].max_tokens, 5120);
 });

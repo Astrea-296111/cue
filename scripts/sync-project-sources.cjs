@@ -19,7 +19,7 @@ const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const safePath = value => typeof value === 'string' && !!value && !/^(?:[A-Za-z]:|[/\\])/.test(value) && !value.includes('\\') && !value.split('/').some(part => !part || part === '.' || part === '..');
 function exclusionReason(file) {
   if (!safePath(file)) return 'unsafe-path';
-  if (/(^|\/)(?:tests?|__tests__|fixtures?|demo-data|validation|reference|screenshots?)(\/|$)/i.test(file)) return 'test-or-reference-data';
+  if (/(^|\/)(?:tests?|__tests__|fixtures?|demo-data|reference|screenshots?)(\/|$)/i.test(file) || /^(?:validation|docs\/validation)\//i.test(file)) return 'test-or-reference-data';
   if (/(^|\/)(?:node_modules|\.git|dist|build|out|target|vendor|coverage|__pycache__)(\/|$)/i.test(file)) return 'generated-or-dependency';
   if (/(^|\/)(?:\.env(?:[.-].*)?|[^/]*(?:credentials?|secrets?|private[-_]?key)[^/]*|id_rsa|id_ed25519)$/i.test(file) || /\.(?:pem|key|pfx|p12|keystore|jks|crt|cer|db|sqlite3?)$/i.test(file)) return 'sensitive-path';
   if (/(?:^|\/)(?:[^/]*\.lock|package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$/i.test(file)) return 'dependency-lock';

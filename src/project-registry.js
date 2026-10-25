@@ -7,7 +7,7 @@ function strictProjectScopes(scopes) {
   return Array.isArray(scopes) && scopes.length>0 && scopes.every(s=>typeof s==='string'&&s.trim()===s&&s.length>0&&(s.startsWith('@project:')?s.length>9:!s.includes('..')));
 }
 function buildRegistry(facts, source, mappings={}) {
-  const rows = facts.projects.map(p=>({...p,projectId:p.id,factProjectId:p.id,sourceProjectIds:[],sourceScopes:[],resumeOrder:null,factRevision:facts.revision,sourceRevision:''}));
+  const rows = facts.projects.filter(p=>p.kind!=='knowledge').map(p=>({...p,projectId:p.id,factProjectId:p.id,sourceProjectIds:[],sourceScopes:[],resumeOrder:Number.isInteger(p.resumeOrder)?p.resumeOrder:null,factRevision:facts.revision,sourceRevision:''}));
   const conflicts=[];
   for(const original of buildProjectCatalog(source)) {
     const names=[original.name,...original.aliases||[]].map(normalized);
@@ -27,7 +27,7 @@ function buildRegistry(facts, source, mappings={}) {
     row.sourceProjectIds.push(original.projectId);
     row.sourceScopes.push(...sourceScopes(original));
     row.aliases=[...new Set([...(row.aliases||[]),original.name,...original.aliases||[]])];
-    row.resumeOrder=original.resumeOrder??row.resumeOrder??null;
+    row.resumeOrder=row.resumeOrder??original.resumeOrder??null;
     row.sourceRevision=original.sourceRevision;
     row.hasManifest=original.hasManifest;row.manifestPath=original.manifestPath;
   }

@@ -49,6 +49,7 @@ function familyIds(session, configuration) {
 }
 function dynamicMaterialPayload(payload) {
   // Oracle QA and the embedded original seed never enter a dynamic CUE request.
+  const {judgeReference,revision,sourceManifest,mergeLog,...productionPayload}=payload;
   const { sourceDocuments = {}, ...facts } = payload.facts;
   const selected = facts.cards.filter(card => card.seedOrigin?.collection !== 'question_answers' &&
     !(card.seedOrigin?.id && /^(?:cae|arc|gen|ai|sec)-\d+$/u.test(card.seedOrigin.id)));
@@ -59,8 +60,10 @@ function dynamicMaterialPayload(payload) {
     try { if (Array.isArray(JSON.parse(raw).question_answers)) return false; } catch { /* ordinary source document */ }
     return true;
   }));
-  return { ...payload, facts: { ...facts, sourceDocuments: codeDocuments,
+  const result={ ...productionPayload, facts: { ...facts, sourceDocuments: codeDocuments,
     cards: selected.map(card => ({ ...card, related: (card.related || []).filter(id => ids.has(id)) })) } };
+  if(result.profile&&[1,2].includes(result.facts.schemaVersion)) result.revision=require('./evaluation-workspace.cjs').validateEvaluationWorkspace({schemaVersion:result.facts.schemaVersion,facts:result.facts,profile:result.profile}).revision;
+  return result;
 }
 function actorMessages(role, data) {
   return [{ role: 'system', content: role === 'candidate' ? CANDIDATE_SYSTEM : FOLLOWUP_SYSTEM },

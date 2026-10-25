@@ -98,9 +98,10 @@ function relevant(item, question, features) {
   const ownQuestion = !item.questionIds?.length || item.questionIds.includes(question.id);
   if (ownQuestion && (item.relevanceApproved || item.channels?.includes('exact') || item.channels?.includes('semantic') || item.channels?.includes('vector'))) return true;
   if (ownQuestion && (item.coverage > .12 || item.relevance > .12 || item.confidence >= .32)) return true;
-  let terms=features?.questions.get(question),sourceTerms=features?.sources.get(item);
-  if(!terms){terms=[...new Set(tokenize(question.text.replace(QUERY_FILLER, ' '), true))];features?.questions.set(question,terms);}
-  if(!sourceTerms){sourceTerms=new Set(tokenize(item.retrievalText || `${item.symbol || ''} ${item.path || ''} ${item.text || ''}`,true));features?.sources.set(item,sourceTerms);}
+  const sourceText=item.retrievalText || `${item.symbol || ''} ${item.path || ''} ${item.text || ''}`;
+  let terms=features?.questions.get(question.text),sourceTerms=features?.sources.get(sourceText);
+  if(!terms){terms=[...new Set(tokenize(question.text.replace(QUERY_FILLER, ' '), true))];features?.questions.set(question.text,terms);}
+  if(!sourceTerms){sourceTerms=new Set(tokenize(sourceText,true));features?.sources.set(sourceText,sourceTerms);}
   if (!terms.length) return true;
   const overlap = terms.filter(term => sourceTerms.has(term)).length;
   return overlap >= Math.min(2, terms.length) && overlap / terms.length >= .12;
@@ -160,7 +161,7 @@ function formatEvidenceBlock(item) {
 }
 
 function selectEvidence({ candidates = [], question = '', interviewPlan, projectPlan, contextBudget = 4000,
-  maxSources, formatContext, unretrieved = [] } = {}) {
+  maxSources, formatContext, unretrieved = [], featureCache } = {}) {
   const questions = questionRequirements(question, interviewPlan, projectPlan);
   const max = Math.max(1, Math.min(12, maxSources || (questions.length > 2 ? 9 : 6)));
   const unique = new Map();
@@ -181,7 +182,10 @@ function selectEvidence({ candidates = [], question = '', interviewPlan, project
   const ranked = [...unique.values()].sort((a, b) => (b.score || 0) - (a.score || 0));
   // The same demand is checked during allocation, detail selection and final
   // coverage. Cache only within this immutable selection, never across questions.
-  const supportMemo = new Map(), features={questions:new Map(),sources:new Map()};
+  // The coordinator may reuse token features across its linked/parent expansion
+  // passes. Keys contain the exact input text; support decisions still belong
+  // to this selection because metadata and approved relevance may change.
+  const supportMemo = new Map(), features=featureCache || {questions:new Map(),sources:new Map()};
   const supports = (item, need, q) => {
     let byNeed = supportMemo.get(q);
     if (!byNeed) supportMemo.set(q, byNeed = new Map());

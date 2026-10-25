@@ -4,6 +4,10 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
 const { prepareJudgeInput, parseJudgeOutput, mergeJudges, DIMENSIONS, answerSegments, OUTPUT_PROTOCOL } = require('../scripts/lib/multiturn-judge.cjs');
 const { createReviewPlan } = require('../scripts/lib/multiturn-quality.cjs');
 const { evaluateJudges } = require('../scripts/judge-private-projects.cjs');
+const {projectJudgeReference}=require('../scripts/lib/evaluation-workspace.cjs');
+const {fixture}=require('./helpers/material-fixture');
+const {migrateFactIndex}=require('../src/project-fact-packs');
+const {validatePersonalWorkspace}=require('../src/personal-workspace');
 
 const env = { QWEN_API_KEY: 'test-key-a', DEEPSEEK_API_KEY: 'test-key-b', QWEN_MODEL: 'model-a', DEEPSEEK_MODEL: 'model-b',
   QWEN_BASE_URL: 'https://a.example/v1', DEEPSEEK_BASE_URL: 'https://b.example/v1' };
@@ -19,6 +23,29 @@ function item(id = 'sample') { return { id, sessionId: 'anonymous', repeat: 1, s
   scenarioEvaluation: { must_convey: ['区别受理与完成'], must_not_assert: ['求解完成'], supporting_card_ids: ['support-a'] },
   dialogueEvents: [{ speaker: 'candidate', text: '我指的是受理时间。' }],
   authoritativeSources: [{ id: 'source-a', projectId: 'sample', path: 'src/accept.js', text: 'persistIntent(); return accepted;' }], sentSourceIds: ['source-a'] }; }
+function canonicalWorkspace() {
+  const facts=migrateFactIndex(fixture(2));facts.cards[0].cardId='cae.ownership';facts.cards[0].text='CURRENT_CONFIRMED_DUTIES：负责后端和后处理联调，不确认牵头或团队人数。';facts.cards[0].answerShort=facts.cards[0].text;
+  return validatePersonalWorkspace({schemaVersion:2,facts,profile:{resumeText:'CURRENT_CANONICAL_RESUME',jobDescription:'CURRENT_AI_JD',
+    candidateProfile:{subjectRole:'candidate',education:[],employment:[],resumeProjectOrder:['cae','arclight'],projects:[],availability:{},doNotInfer:['真人团队人数或姓名','个人牵头经历']},
+    jobProfiles:[{id:'ai_supply_chain',label:'AI',jobDescription:'CURRENT_AI_JD',priorityTopics:[]},{id:'java_security',label:'Java',jobDescription:'CURRENT_JAVA_JD',priorityTopics:[]}],activeJobProfileId:'ai_supply_chain'}});
+}
+
+test('canonical judge authority supersedes observed old USER claims and retains current personal boundaries',()=>{
+  const old=fixture(2);old.cards[0].cardId='cae.ownership';old.cards[0].text='OLD_SIX_PERSON_TEAM_AND_LEAD';
+  const reference=projectJudgeReference(canonicalWorkspace());
+  const prepared=prepareJudgeInput({item:{...item(),sentFactIds:['cae.ownership'],jobProfile:'java_security'},payload:{facts:old,profile:{resumeText:'OLD_RESUME'},judgeReference:reference}});
+  const input=prepared.input;
+  assert.equal(input.authorityPolicy.sha256,reference.sha256);
+  assert.equal(input.candidateResume.text,'CURRENT_CANONICAL_RESUME');
+  assert.ok(input.candidateProfile.doNotInfer.includes('真人团队人数或姓名'));
+  assert.equal(input.targetRole[0].jobDescription,'CURRENT_JAVA_JD');
+  assert.match(JSON.stringify(input.authoritativeEvidence),/CURRENT_CONFIRMED_DUTIES/);
+  assert.ok(!JSON.stringify(input.authoritativeEvidence).includes('OLD_SIX_PERSON_TEAM'));
+  assert.equal(input.observedMaterialEvidence[0].text,'OLD_SIX_PERSON_TEAM_AND_LEAD');
+  assert.equal(input.observedMaterialEvidence[0].authorityRole,'observed-production-material-not-current-authority');
+  assert.equal(input.sourceEvidence,undefined);assert.ok(input.observedSourceEvidence.length);
+  assert.match(prepared.messages[0].content,/旧卡即使标USER也不能覆盖/);
+});
 
 test('judge messages contain actual speech, exact sent evidence and matching oracle but no version or model labels', () => {
   const row = { ...item(), applicationCommit: 'VERSION_SECRET', model: 'MODEL_SECRET', actualMessages: [{ content: 'HIDDEN_PROMPT' }],
@@ -56,6 +83,15 @@ test('the full output contract has six separate dimension rows and independently
   assert.throws(() => parseJudgeOutput(JSON.stringify(input.outputTemplate), input), /invalid-scores/);
   assert.equal(input.candidateResume.text, 'CANDIDATE_ONLY');
   assert.equal(input.targetRole[0].jobDescription, 'ROLE_ONLY');
+});
+
+test('truncation commentary cannot be cited as if it were part of the tested answer', () => {
+  const answer = '实'.repeat(30001), { input } = prepareJudgeInput({ item: { ...item(), answer } });
+  assert.equal(input.truncationObserved, true);
+  assert.equal(input.answerSegments.map(row => row.text).join(''), input.answer);
+  const output = result(input);
+  output.citations[0].answerQuote = '[裁判输入到此截断；据此不能判断未展示内容]';
+  assert.throws(() => parseJudgeOutput(JSON.stringify(output), input), /fabricated-citation/);
 });
 
 test('segment references resolve to exact answer slices without inventing joined quotations', () => {
@@ -171,6 +207,17 @@ test('segment protocol retries preserve invalid results and usage; exhausted inv
   assert.equal(judged.judging.crossModelVerifiedCases, 0);
   assert.ok(judged.providers[0].cases[0].judging.judges.every(judge => judge.attempts.every(attempt =>
     attempt.status === 'failed' && attempt.rawOutput && attempt.error.code === 'judge-invalid-answer-segment-id')));
+});
+
+test('changed canonical authority cannot reuse an existing judge checkpoint',async t=>{
+  const outputDir=directory(t),workspace=canonicalWorkspace();let calls=0;
+  const fetchImpl=async(_url,options)=>{calls++;const request=JSON.parse(options.body),input=JSON.parse(request.messages[1].content);return new Response(JSON.stringify({model:request.model,choices:[{message:{content:JSON.stringify(result(input))},finish_reason:'stop'}]}),{status:200});};
+  const sourceReport={kind:'live',status:'passed',providers:[{id:'tested',cases:[item()]}]};
+  const first=await evaluateJudges({report:structuredClone(sourceReport),payload:{judgeReference:projectJudgeReference(workspace)},env,outputDir,fetchImpl,pauseImpl:async()=>{}});
+  assert.equal(calls,2);assert.equal(first.judging.authorityReference.sha256,projectJudgeReference(workspace).sha256);
+  const changed=structuredClone(workspace);delete changed.revision;changed.profile.resumeText='CHANGED_CANONICAL_RESUME';
+  await assert.rejects(evaluateJudges({report:structuredClone(sourceReport),payload:{judgeReference:projectJudgeReference(changed)},env,outputDir,fetchImpl,pauseImpl:async()=>{}}),/checkpoint belongs to different inputs/);
+  assert.equal(calls,2);
 });
 
 test('distinct requested aliases that return the same served model cannot establish cross-model agreement', async t => {

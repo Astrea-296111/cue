@@ -8,6 +8,24 @@ const { getConfig } = require('app-builder-lib/out/util/config/load');
 const { validateConfiguration } = require('app-builder-lib/out/util/config/config');
 const { DebugLogger } = require('builder-util');
 
+test('package bootstrap obtains the single-instance lock before opening shared material services', () => {
+  const vm = require('node:vm');
+  const source = fs.readFileSync(path.resolve(__dirname, '../src/custom-main.js'), 'utf8');
+  for (const granted of [false, true]) {
+    const calls = [];
+    const application = {installApplicationIntegration: () => calls.push('application')};
+    const overlay = {prepareOverlayIntegration: () => calls.push('prepare'), activateOverlayControls: () => calls.push('activate')};
+    vm.runInNewContext(source, {module:{exports:{}}, require(name) {
+      if (name === 'electron') return {app:{requestSingleInstanceLock() {calls.push('lock');return granted;},quit() {calls.push('quit');}}};
+      if (name === './overlay-interaction') return overlay;
+      if (name === './application-integration') return application;
+      if (name === '../main.js') {calls.push('main');return {};}
+      throw Error('Unexpected bootstrap dependency');
+    }});
+    assert.deepEqual(calls, granted ? ['lock','prepare','main','activate','application'] : ['lock','quit']);
+  }
+});
+
 // Regression test for the actual incident behind the "cue is damaged and
 // can't be opened" bug reports: package.json used to carry its own legacy
 // "build" field (mac.identity: null, no publish config). electron-builder

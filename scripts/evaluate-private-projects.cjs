@@ -7,6 +7,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { validateIndex } = require('../src/project-fact-packs');
+const {validateEvaluationWorkspace,validateJudgeReference} = require('./lib/evaluation-workspace.cjs');
 const { validateBundle, MAX_BUNDLE_BYTES } = require('../src/bundled-materials');
 const { evaluateCase } = require('../src/live-evaluation-quality');
 const { writeReports, sanitizeText } = require('./lib/live-evaluation-report.cjs');
@@ -18,16 +19,14 @@ const boundedString = (value, bytes) => typeof value === 'string' && Buffer.byte
 
 function validatePrivatePayload(payload) {
   if (payload?.schemaVersion === 2) {
-    if (Object.keys(payload).some(key=>!['schemaVersion','facts','profile','scenarios','evaluation','revision'].includes(key)) || Buffer.byteLength(JSON.stringify(payload),'utf8') > MAX_PAYLOAD_BYTES) throw new Error('Invalid multi-turn private payload.');
+    if (Object.keys(payload).some(key=>!['schemaVersion','facts','profile','scenarios','evaluation','revision','sourceManifest','mergeLog','judgeReference'].includes(key)) || Buffer.byteLength(JSON.stringify(payload),'utf8') > MAX_PAYLOAD_BYTES) throw new Error('Invalid multi-turn private payload.');
     const {validateScenarios,validateEvaluation}=require('./evaluate-multiturn-projects.cjs');
-    const facts=validateIndex(payload.facts);
-    const profile=payload.profile;
-    if(!profile || Object.keys(profile).some(key=>!['resumeText','jobDescription','jobProfiles','activeJobProfile','activeJobProfileId','candidateProfile'].includes(key)) || !boundedString(profile.resumeText,256*1024)||!boundedString(profile.jobDescription,64*1024)||Buffer.byteLength(JSON.stringify(profile),'utf8')>512*1024)throw new Error('Invalid multi-turn profile.');
-    if(profile.activeJobProfileId&&profile.activeJobProfile&&profile.activeJobProfileId!==profile.activeJobProfile)throw new Error('Conflicting active job profile fields.');
-    const normalizedProfile={...profile};delete normalizedProfile.activeJobProfile;
-    if(profile.activeJobProfileId||profile.activeJobProfile)normalizedProfile.activeJobProfileId=profile.activeJobProfileId||profile.activeJobProfile;
+    const workspace={schemaVersion:payload.facts?.schemaVersion,facts:payload.facts,profile:payload.profile};
+    for(const name of ['revision','sourceManifest','mergeLog'])if(payload[name]!==undefined)workspace[name]=payload[name];
+    const validated=validateEvaluationWorkspace(workspace);
+    const judgeReference=payload.judgeReference===undefined?undefined:validateJudgeReference(payload.judgeReference);
     validateScenarios(payload.scenarios);validateEvaluation(payload.evaluation||{});
-    return {...payload,facts,profile:normalizedProfile};
+    return {...payload,facts:validated.facts,profile:validated.profile,revision:validated.revision,...(judgeReference?{judgeReference}:{})};
   }
   if (!payload || payload.schemaVersion !== 1 || Array.isArray(payload) ||
       Object.keys(payload).some(key => !['schemaVersion', 'facts', 'profile', 'caseIds'].includes(key)) ||

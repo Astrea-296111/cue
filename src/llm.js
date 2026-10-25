@@ -122,8 +122,11 @@ function resolveMaxTokens(settings, params = {}) {
   if (explicit) return explicit;
 
   if (isDedicatedTechnicalScreenPrompt(params.system)) {
-    return TECH_SCREEN_MAX_TOKENS;
+    return clampTokenBudget(settings?.responseBudgets?.code) || TECH_SCREEN_MAX_TOKENS;
   }
+
+  if (['technical','leetcode'].includes(params.mode)) return clampTokenBudget(settings?.responseBudgets?.code) || TECH_SCREEN_MAX_TOKENS;
+  if (['say','answerThis'].includes(params.mode) && settings?.responseBudgets?.oral) return Math.min(4096,clampTokenBudget(settings.responseBudgets.oral) || FAST_MAX_TOKENS);
 
   if (params.imageDataUrl) {
     return SCREEN_MAX_TOKENS;
