@@ -318,6 +318,13 @@ test('configured code output budget reaches production request planning and rema
   assert.deepEqual(plain(request.responseBudget),{kind:'code',maxTokens:6000});
   assert.equal(request.settingsSnapshot.responseBudgets.code,6000);
   assert.equal(app.calls.at(-1).max_tokens,6000);
+  const scenario='假设多个客户端重复提交批次，远端确认响应丢失。'.repeat(25)+'请分别说明受理身份、执行资源、输入版本和故障验证，逐项给出机制与边界。';
+  await app.ask('say',scenario);
+  assert.equal(app.commits.at(-1).request.responseBudget.kind,'scenario');
+  assert.ok(app.calls.at(-1).max_tokens>1800&&app.calls.at(-1).max_tokens<=4096);
+  await app.invoke('settings:set',{responseBudgets:{oral:900,code:2048}});
+  await app.ask('say',scenario);assert.equal(app.calls.at(-1).max_tokens,2048);
+  await app.ask('say','什么是幂等？');assert.ok(app.calls.at(-1).max_tokens<=900);
 });
 
 test('diagnostic export writes only a user-selected local file with contacts and configured keys redacted',async t=>{

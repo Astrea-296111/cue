@@ -1021,7 +1021,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const relatedSpeech=(request.spokenState?.claims||[]).filter(claim=>claim.status!=='uncertain').map(claim=>claim.text).join('\n');
     const priorQuestion=conversation.recent.at(-1);
     const sameTopic=request.plan.canonicalProjectIds?.some(id=>priorQuestion?.plan?.canonicalProjectIds?.includes(id));
-    const topicContext=sameTopic&&/这条|这个|这套|上述|前面|刚才|你(?:的)?方案|该方案|证伪|怎样验证|如何验证|怎么验证/.test(question)
+    const topicContext=sameTopic&&/这条|这个|这套|这些|同一个|它|上述|前面|刚才|你刚|你说|你(?:的)?方案|该方案|证伪|怎样验证|如何验证|怎么验证/.test(question)
       ? String(priorQuestion.question||'').slice(-1600) : '';
     retrieval.topicContext=topicContext;
     const contextualQuestion=topicContext?question+'\n被指代的上一真人问题（仅用于检索，不作为本轮待答）：'+topicContext:question;
@@ -1041,7 +1041,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       sourceHints:retrieval.sourceHints,
       modelVersion: retrieval.modelVersion, projectIndexSnapshot: readProjectIndexSnapshot({ preparedOnly: true }),
       cache: activeProjectContextCache, ragSession, retrievalInput: retrieval, policy: canRetrieveSources ? 'ready-only' : 'off',
-      maxSources:evidenceLimits.longScenario||evidenceLimits.mechanismDetail?4:3,
+      maxSources:evidenceLimits.mechanismDetail?6:evidenceLimits.longScenario?4:3,
       maxChars:evidenceLimits.longScenario?4800:evidenceLimits.mechanismDetail?4200:2400 });
     const ready = policy.ragPolicy !== 'standard' || !canRetrieveSources ? preparedSources : null;
     const contextBundle = policy.instant ? {context:'',evidence:ready?.evidence||[],missing:[],byQuestion:[],stats:ready?.stats||{}}
@@ -1116,8 +1116,11 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const codeRequest=!!imageDataUrl||mode==='leetcode'||mode==='technical'||mode==='assist'||/编写|写出|代码实现|实现.{0,20}(?:函数|方法|遍历|算法)|\b(?:implement|write\s+(?:code|a function))\b/i.test(question);
     const boundedBudget=(value,fallback,ceiling)=>Number.isFinite(Number(value))&&Number(value)>=128?Math.min(ceiling,Math.floor(Number(value))):fallback;
     const responseBudgets={oral:boundedBudget(settings.responseBudgets?.oral,1800,4096),code:boundedBudget(settings.responseBudgets?.code,6000,16384)};
-    const maxTokens=codeRequest?responseBudgets.code:Math.min(def.resolveMaxTokens?.(responseContext)||def.maxTokens,responseBudgets.oral);
-    request.responseBudget={kind:codeRequest?'code':'oral',maxTokens};
+    const extensiveScenario=!codeRequest&&question.length>=450&&answerPlan.level==='complex';
+    const maxTokens=codeRequest?responseBudgets.code:extensiveScenario
+      ?Math.min(responseBudgets.code,4096,Math.max(2400,Math.ceil(question.length*2)))
+      :Math.min(def.resolveMaxTokens?.(responseContext)||def.maxTokens,responseBudgets.oral);
+    request.responseBudget={kind:codeRequest?'code':extensiveScenario?'scenario':'oral',maxTokens};
     request.settingsSnapshot={provider:settings.provider,model:llm.model,smart:!!settings.smart,jobProfileId:settings.jobProfileId,
       contextWindowTokens:settings.contextWindowTokens||16384,responseBudgets};
     // A fresh screen task stands on its own; its answer is still available to

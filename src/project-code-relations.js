@@ -98,7 +98,7 @@ function buildProjectCodeRelations(chunks = []) {
       if (!call || typeof call.method !== 'string' || !Number.isInteger(call.line) || call.line < chunk.startLine || call.line > chunk.endLine) continue;
       const receiver = String(call.receiver || '').replace(/^this\./, '');
       const localShadow = !call.explicitThis && (call.shadowed || Object.hasOwn(chunk.localTypes || {}, receiver));
-      const type = receiver === 'this' ? chunk.parentClass
+      const type = ['this','self'].includes(receiver) ? chunk.parentClass
         : localShadow ? ''
           : chunk.fieldTypes?.[receiver] || (/^[A-Z][A-Za-z0-9_$]*$/.test(receiver) ? receiver : '');
       const edge = { status: 'unresolved', fromSymbol: chunk.symbol || chunk.parentClass || '',

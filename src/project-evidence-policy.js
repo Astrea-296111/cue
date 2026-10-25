@@ -9,8 +9,8 @@ const VERSION='project-evidence-v2';
 function resolveEvidenceLimits({question='',answerPlan={},instant=false}={}) {
   const longScenario=answerPlan.questionCount>=3||String(question).length>450;
   return longScenario ? {maxSources:instant?6:9,evidenceTokens:instant?2400:4200,softInputTokens:6500,longScenario:true}
-    : /状态|事务|崩溃|超时|重试|幂等|租约|\b(?:claim|confirm|lease|transaction|retry|retries|timeout|duplicate|execution|crash)\b/i.test(question)
-      ? {maxSources:instant?4:7,evidenceTokens:instant?2100:3200,softInputTokens:3800,longScenario:false,mechanismDetail:true}
+    : /权限|规则|匹配|暂停|锁|接入|批次|状态|事务|崩溃|超时|重试|幂等|租约|\b(?:claim|confirm|lease|transaction|retry|retries|timeout|duplicate|execution|crash)\b/i.test(question)
+      ? {maxSources:instant?6:7,evidenceTokens:instant?2100:3200,softInputTokens:3800,longScenario:false,mechanismDetail:true}
       : {maxSources:instant?4:7,evidenceTokens:instant?1500:2800,softInputTokens:3000,longScenario:false};
 }
 function planProjectEvidence({question='',resolution={},facts=[],sources=[],factsEnabled=true,sourcePolicy='ready-only',maxSources=4,evidenceTokens=1500}={}) {
