@@ -1,7 +1,7 @@
 'use strict';
 
 const { tokenize } = require('./project-search');
-const { planProjectRetrieval, isLikelyFollowUp, sameProjectScopes } = require('./project-query');
+const { planProjectRetrieval, isLikelyFollowUp, sameProjectScopes, isClearProjectExit } = require('./project-query');
 const { planInterviewQuestion, stableId } = require('./interview-question-planner');
 const { InterviewChecklist } = require('./interview-checklist');
 const { ProjectInterviewState } = require('./project-interview-state');
@@ -89,7 +89,7 @@ class ConversationMemory {
   }
 
   begin({ mode, question, transcript = [], settings = {}, catalog = [], interviewPlan = null, evidenceRevision = null,
-    executionProfile = 'standard', questionSnapshot = null, manualFingerprint = '' }) {
+    executionProfile = 'standard', questionSnapshot = null, manualFingerprint = '', spokenState = null, projectEntityHint = null }) {
     const instant = executionProfile === 'instant';
     const startedAt = Date.now();
     const current = clean(question);
@@ -104,6 +104,43 @@ class ConversationMemory {
       interviewPlan,
       answerHint: instant ? '' : this.recent.at(-1)?.answer || ''
     });
+    if(projectEntityHint?.projectId&&!isClearProjectExit(current)&&!plan.projectMentions?.some(mention=>!mention.excluded)) {
+      const project=catalog.find(item=>[item.id,item.projectId].includes(projectEntityHint.projectId));
+      if(project&&(!plan.retrieve||!plan.canonicalProjectIds?.includes(projectEntityHint.projectId))) {
+        const mentions=plan.projectMentions;
+        plan=planProjectRetrieval([{channel:'them',text:`关于 ${project.name} 项目：${current}`}],mode,
+          {previousPlan:this.lastPlan,activeProjectPlan:this.activeProjectPlan,catalog,interviewPlan});
+        plan.question=current;plan.query=current;plan.anchor=current;plan.projectMentions=mentions;
+        if(plan.activeProject)plan.activeProject={...plan.activeProject,anchor:current,question:current};
+        plan.reason='indexed-project-entity';plan.entityMatches=projectEntityHint.entities;
+      }
+    }
+    // A stand-alone technology question may refer directly to something the
+    // candidate actually said, even without a lexical follow-up marker. This
+    // identity comes only from speech, never from our previous suggestion.
+    if (!plan.retrieve && !isClearProjectExit(current) && spokenState?.text && spokenState.projectIds?.length === 1 &&
+        !/换个|新话题|不(?:结合|涉及).{0,12}项目|单独问|一般来说/.test(current)) {
+      const id = spokenState.projectIds[0];
+      const project = catalog.find(item => [item.id, item.projectId].includes(id));
+      if (project) {
+        plan = planProjectRetrieval([{channel:'them',text:`关于 ${project.name || id} 项目：${current}`}], mode,
+          {previousPlan:this.lastPlan,activeProjectPlan:this.activeProjectPlan,catalog,interviewPlan});
+        plan.question = current;
+        plan.query = current + '\n' + spokenState.text.slice(-1600);
+        plan.reason = 'candidate-spoken-context';
+      }
+    }
+    const currentIds=plan.canonicalProjectIds||[];
+    const priorIds=this.activeProjectPlan?.canonicalProjectIds||this.activeProjectPlan?.projectIds||[];
+    if(plan.retrieve&&currentIds.length===1&&priorIds.length===1&&currentIds[0]!==priorIds[0]&&
+        /比较|区别|不同|相比|\b(?:compare|difference)\b/i.test(current)&&/前面|刚才|之前|上一个|先前|\bprevious\b/i.test(current)) {
+      const compared=catalog.filter(project=>[...currentIds,...priorIds].includes(project.id||project.projectId));
+      if(compared.length===2) {
+        plan=planProjectRetrieval([{channel:'them',text:`比较 ${compared.map(project=>project.name).join(' 与 ')} 项目：${current}`}],mode,
+          {previousPlan:this.lastPlan,activeProjectPlan:this.activeProjectPlan,catalog,interviewPlan});
+        plan.question=current;plan.query=current;plan.reason='project-comparison-reference';
+      }
+    }
     if (instant && !plan.kind) plan = require('./instant-answer-policy').isolateUnknownProject(current, plan, catalog);
     const policy = contextPolicy(mode, current, this.recent.length + this.archive.length > 0, plan);
     const configured = Number(settings.conversationContextChars);
@@ -120,10 +157,13 @@ class ConversationMemory {
         ? Math.min(48000, Math.floor(configured), Math.max(legacyBudget, 4000))
         : defaultBudget;
     const snapshot = instant ? this.buildInstantHistory(current, plan) : this.buildHistory(current, plan, budget, policy);
-    const spokenContext = plan.projectSwitched ? '' : excerpt(transcript.filter(t => t.channel === 'you' && t.ts > this.lastStartedAt).slice(-2)
-      .map(t => clean(t.text)).filter(Boolean).join('\n'), 1400);
+    const scopedClaims = spokenState?.claims?.filter(claim => !plan.canonicalProjectIds?.length ||
+      !claim.projectIds.length || claim.projectIds.some(id => plan.canonicalProjectIds.includes(id)));
+    const spokenContext = spokenState ? scopedClaims?.map(claim =>
+      `[${claim.status === 'uncertain' ? '说话人待确认，不视作候选人已说' : claim.status==='hypothetical'?'候选人提出的假设或后续设计，不是项目已实现事实':claim.status==='question'?'候选人提出的问题，不当成实现断言':claim.status==='contradicted'?'候选人前后说法冲突，按证据澄清':claim.correction||claim.replaces.length||claim.manuallyCorrected ? '候选人已主动纠正，沿用新版本，不重复提醒旧口误' : '候选人实际发言，可能有口误'}；event=${claim.eventIds.join(',')}]\n${claim.text}`).join('\n\n') || ''
+      : excerpt(transcript.filter(t => t.channel === 'you').slice(-8).map(t => clean(t.text)).filter(Boolean).join('\n'), 3600);
     const request = { epoch: this.epoch, id: ++this.sequence, startedAt, mode, question: current,
-      plan, policy, spokenContext, ...snapshot,
+      plan, policy, spokenContext, spokenState: spokenState ? {...spokenState, text: spokenContext, claims: scopedClaims} : null, ...snapshot,
       executionProfile, questionSnapshot,
       interviewPlan: interviewPlan || planInterviewQuestion({ text: current, mode }),
       evidenceRevision, manualFingerprint: instant ? manualFingerprint : stableId(settings.projectKnowledge || '') };
@@ -248,6 +288,7 @@ class ConversationMemory {
     }
     this.recent.push({ id: request.id, question: excerpt(request.question || '请解决当前屏幕上的题目（原始截图未保留）', 8000),
       spokenContext: request.spokenContext, answer: excerpt(answer, 48000), plan: request.plan,
+      actualRequest:request.actualRequest?JSON.parse(JSON.stringify(request.actualRequest)):null,
       checklist: checklist ? { ...checklist, questions: checklist.questions.map(item => ({ ...item, text: excerpt(item.text, 500) })),
         pending: checklist.pending.map(item => ({ ...item, text: excerpt(item.text, 500) })) } : null });
     this.lastPlan = request.plan;

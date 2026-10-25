@@ -11,7 +11,7 @@ function formatTranscript(turns, limit) {
   const list = Array.isArray(turns) ? turns : [];
   const recent = limit ? list.slice(-limit) : list;
   return recent.filter(t => t && cleanText(t.text))
-    .map(t => `${t.channel === 'them' ? '面试官' : '候选人'}：${cleanText(t.text)}`).join('\n');
+    .map(t => `${t.channel === 'them' ? '面试官' : t.channel === 'you' ? '候选人' : '角色待确认'}：${cleanText(t.text)}`).join('\n');
 }
 
 function latestInterviewerTurn(turns) {
@@ -81,7 +81,7 @@ function getAnswerPlan(question = '', interviewPlan = null) {
   };
   const brief = briefPattern.test(focused);
   return { level: brief ? 'brief' : 'standard', questionCount,
-    sentenceLimit: brief ? 3 : 5, maxTokens: brief ? 400 : 640 };
+    sentenceLimit: brief ? 3 : 4, maxTokens: brief ? 400 : 640 };
 }
 
 function answerShapeInstruction(plan) {
@@ -90,9 +90,9 @@ function answerShapeInstruction(plan) {
     return `这是复杂问题：本轮有${p.questionCount}个子问题（含同话题仍适用的遗漏）：先给方案主干，再按原顺序逐项回应；当前新问优先，每个子问至少覆盖结论和最关键的理由或做法。` +
       `先保证全部覆盖，再展开细节；通常控制在${p.sentenceLimit}句以内，不能为了沿用单点题句数限制而漏答。`;
   }
-  if (p.level === 'complex') return '这是复杂问题：先说方案/结论主干，再展开相关机制、流程或取舍。';
+  if (p.level === 'complex') return '这是复杂单问：主卡先用2–4句说结论、一处具体机制和取舍或验证；需要深入时再展开，不强制编号。';
   return p.level === 'brief' ? '这是简要问题：通常1~3句即可，不凑字数。'
-    : '这是单点问题：通常3~5句，只补关键原因或例子。';
+    : '这是单点问题：通常2–4句自然口述，只补关键原因或例子，不强制编号。';
 }
 
 function screenTokenBudget({ userText = '', answerPlan = getAnswerPlan(userText) } = {}) {
@@ -129,6 +129,7 @@ const HUMAN_INTERVIEW_RULES = `
 像真实候选人说话：
 短句、口语化，第一两句直接回答；不铺背景、写 AI 开场或补未问的知识清单。
 核心名词可以自然重复，无需刻意替换成书面同义词。多个观点编号分行，单点短答不强行列点；重要结论可少量加粗。
+普通单问主卡用2–4句，按结论、一处具体机制、取舍或验证组织；下一问预测不混入当前口述答案。
 `;
 
 const PROJECT_GROUNDING_RULES = `

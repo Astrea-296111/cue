@@ -85,7 +85,11 @@ async function evaluateMultiturn({payload,outputDir,env=process.env,provider='al
    try{
     runtime=createProviderRuntime({id:p.id,config,options,budget,provider:p,cleanups});tempRoots.push(runtime.temp);await runtime.ready;
     const imported=await importMaterials(runtime,input,bundle);p.materialImport||=imported;
-    runtime.clear();await runtime.invoke('settings:set',{activeJobProfile:task.session.job_profile||'',activeJobProfileId:task.session.job_profile||''});
+    runtime.clear();
+    if(runtime.hasHandler('materials:personal:job')&&(input.profile.jobProfiles||[]).some(job=>job.id===task.session.job_profile))
+      await runtime.invoke('materials:personal:job',{jobProfileId:task.session.job_profile});
+    else await runtime.invoke('settings:set',{activeJobProfile:task.session.job_profile||'',activeJobProfileId:task.session.job_profile||''});
+    const jobDescriptionSha256=hash(runtime.exports('src/store.js').getSettings().jobDescription||'');
     const activeSessionId=runtime.hasHandler('dialogue:snapshot')?(await runtime.invoke('dialogue:snapshot')).sessionId:task.session.id;
     const dialogue=[];let deliveryMode='';
     for(const event of [...(task.session.context_prelude||[]),...task.session.events]){
@@ -99,7 +103,7 @@ async function evaluateMultiturn({payload,outputDir,env=process.env,provider='al
       if(!result.error||!/^provider-http-(?:429|5\d\d)$|^(?:provider-error|total-timeout|first-content-timeout)$/.test(result.error.code)||attempt===profile.retryLimit)break;
       await pause(Math.min(10000,1000*(2**attempt)));
      }
-     result={...result,repeat:task.repeat+1,attempts:history,scenarioEventId:event.event_id,scenarioEvaluation:event.evaluation,dialogueEvents:dialogue.slice(),deliveryMode,jobProfile:task.session.job_profile,applicationCommit:app.commit,tags:task.session.tags||[],sessionTags:task.session.tags||[]};
+     result={...result,repeat:task.repeat+1,attempts:history,scenarioEventId:event.event_id,scenarioEvaluation:event.evaluation,dialogueEvents:dialogue.slice(),deliveryMode,jobProfile:task.session.job_profile,jobDescriptionSha256,applicationCommit:app.commit,tags:task.session.tags||[],sessionTags:task.session.tags||[]};
      const sent=new Set(result.sentSourceIds||[]);result.authoritativeSources=bundle.sources.chunks.filter(c=>sent.has(c.id)).map(c=>({id:c.id,projectId:c.projectId,path:c.path,text:c.text,startLine:c.startLine,endLine:c.endLine}));
      // Preserve every observed attempt. A successful retry cannot erase it.
      p.cases[p.cases.findIndex(c=>c.id===result.id)]=result;if(result.error)report.failures.push({provider:p.id,caseId:result.id,...result.error});save();

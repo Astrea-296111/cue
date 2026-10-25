@@ -5,6 +5,22 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {createHash}=require('node:crypto');
 const {exclusionReason}=require('../scripts/sync-project-sources.cjs');
+const {chunkText}=require('../src/project-chunks');
+
+test('Java input validation methods retain their full boundaries around resource blocks and generic return types',()=>{
+  const source=`public class SnapshotService {
+  public Map<String, Object> create(Map<String, Object> input) {
+    try (var stream = Files.walk(root)) {
+      return Map.of("snapshot", stream.toList());
+    }
+  }
+}`;
+  const chunks=chunkText('SnapshotService.java',source);
+  const method=chunks.find(chunk=>chunk.symbol==='SnapshotService#create');
+  assert.ok(method,'Navigation must reach the real implementation method');
+  assert.ok(method.text.includes('Files.walk(root)')&&method.text.includes('return Map.of'));
+  assert.ok(!chunks.some(chunk=>chunk.symbol.endsWith('#try')),'try-with-resources is not a nested method');
+});
 
 test('public source snapshots match pinned Git blobs and the exact distribution whitelist',()=>{
   const root=path.resolve(__dirname,'../materials');
@@ -30,6 +46,11 @@ test('public source snapshots match pinned Git blobs and the exact distribution 
     assert.ok(project.excluded.length>0&&project.excluded.every(file=>typeof file.reason==='string'));
   }
   for(const file of ['../escape.py','.env','server/private-key.pem','backend/src/test/java/ThingTest.java','tests/test_context.py','demo-data/input.json','frontend/package-lock.json'])assert.ok(exclusionReason(file),file);
+  for(const file of ['backend/src/main/java/com/example/cae/job/validation/InputSnapshotService.java','backend/src/main/java/com/example/cae/job/validation/CaseValidationService.java']) {
+    assert.equal(exclusionReason(file),null,'Production input validation is implementation evidence');
+    assert.ok(lock.projects.find(project=>project.id==='cae').files.some(item=>item.path===file));
+  }
+  assert.ok(exclusionReason('docs/validation/m11-benchmark.json'),'Benchmark sample data remains excluded');
   const navigation=JSON.parse(fs.readFileSync(path.join(root,manifest.navigation.path),'utf8'));
   assert.equal(createHash('sha256').update(fs.readFileSync(path.join(root,manifest.navigation.path))).digest('hex'),manifest.navigation.sha256);
   const bundle=JSON.parse(fs.readFileSync(path.join(root,'bundle.json'),'utf8'));

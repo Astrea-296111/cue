@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const {createHash, randomUUID} = require('crypto');
 const {EventEmitter} = require('events');
-const {ProjectFactPacks,validateIndex,mergeFactIndexes} = require('./project-fact-packs');
+const {ProjectFactPacks,validateIndex,mergeFactIndexes,MAX_FACT_BYTES,migrateCard} = require('./project-fact-packs');
 const {buildRegistry} = require('./project-registry');
 const digest = value => createHash('sha256').update(value).digest('hex');
 const copy = value => JSON.parse(JSON.stringify(value));
@@ -47,7 +47,7 @@ class ProjectMaterialService extends EventEmitter {
       const record=pointer.files[key],expected=`snapshots/${pointer.generation}/${key}.json`;
       if(record?.path!==expected||!/^[a-f0-9]{64}$/.test(record.sha256))throw new Error('材料路径或摘要无效');
       const target=path.join(this.directory,expected),stat=fs.lstatSync(target);
-      if(!stat.isFile()||stat.isSymbolicLink()||stat.size>(key==='facts'?2:key==='sources'?512:2)*1024*1024)throw new Error('材料文件或大小无效');
+      if(!stat.isFile()||stat.isSymbolicLink()||stat.size>(key==='facts'?MAX_FACT_BYTES:(key==='sources'?512:2)*1024*1024))throw new Error('材料文件或大小无效');
       const real=fs.realpathSync(target);if(!real.startsWith(fs.realpathSync(this.directory)+path.sep))throw new Error('材料符号链接越界');
       const text=fs.readFileSync(target,'utf8');if(digest(text)!==record.sha256)throw new Error('材料摘要不匹配');data[key]=JSON.parse(text);
     }
@@ -101,17 +101,17 @@ class ProjectMaterialService extends EventEmitter {
   }
   previousGeneration(){try{return JSON.parse(fs.readFileSync(path.join(this.directory,'previous.json'),'utf8')).generation;}catch{return null;}}
   async discover({kind,path:inputPath,factPaths=[]}) {
-    if(kind==='json') {const stat=await fs.promises.stat(inputPath);if(stat.size>2*1024*1024)throw new Error('事实包超过 2MiB');return {packs:[validateIndex(JSON.parse(await fs.promises.readFile(inputPath,'utf8')))],excluded:[]};}
+    if(kind==='json') {const stat=await fs.promises.stat(inputPath);if(stat.size>MAX_FACT_BYTES)throw new Error('事实包超过允许大小');return {packs:[validateIndex(JSON.parse(await fs.promises.readFile(inputPath,'utf8')))],excluded:[]};}
     if(!this.adapter)throw new Error('源码导入适配器不可用');
     const candidates=[...new Set([...FACT_PATHS,...factPaths])];for(const rel of candidates)if(!this.adapter.safeRelativePath(rel)||!this.adapter.shouldIndexPath(rel))throw new Error('事实文件相对路径无效或敏感');
     const packs=[],excluded=[],seen=new Set();
-    const accept=(rel,buffer)=>{if(buffer.length>2*1024*1024)throw new Error(rel+'：事实包超过 2MiB');let parsed;try{parsed=validateIndex(JSON.parse(buffer.toString('utf8')));}catch(e){throw new Error(rel+'：'+e.message);}excluded.push(rel);const id=digest(buffer);if(!seen.has(id)){seen.add(id);packs.push(parsed);}};
+    const accept=(rel,buffer)=>{if(buffer.length>MAX_FACT_BYTES)throw new Error(rel+'：事实包超过允许大小');let parsed;try{parsed=validateIndex(JSON.parse(buffer.toString('utf8')));}catch(e){throw new Error(rel+'：'+e.message);}excluded.push(rel);const id=digest(buffer);if(!seen.has(id)){seen.add(id);packs.push(parsed);}};
     if(kind==='folder') {
       const root=await fs.promises.realpath(inputPath);
       for(const rel of candidates) {
         const file=path.join(root,rel);let stat;try{stat=await fs.promises.lstat(file);}catch(e){if(e.code==='ENOENT')continue;throw e;}
         if(stat.isSymbolicLink()||!stat.isFile()||!(await fs.promises.realpath(file)).startsWith(root+path.sep))throw new Error(rel+'：符号链接或路径越界');
-        if(stat.size>2*1024*1024)throw new Error(rel+'：事实包超过 2MiB');accept(rel,await fs.promises.readFile(file));
+        if(stat.size>MAX_FACT_BYTES)throw new Error(rel+'：事实包超过允许大小');accept(rel,await fs.promises.readFile(file));
       }
     } else if(kind==='zip') {
       const stat=await fs.promises.stat(inputPath);if(stat.size>96*1024*1024)throw new Error('ZIP 超过 96MiB');
@@ -126,7 +126,7 @@ class ProjectMaterialService extends EventEmitter {
       for(let i=0;i<entries.length;i++) {
         const entry=entries[i],rel=root?paths[i]?.slice(root.length+1):paths[i];
         if(!candidates.includes(rel))continue;if(names.has(rel))throw new Error('ZIP 存在重复事实文件：'+rel);names.add(rel);
-        const extracted=this.adapter.extractZipEntry(buffer,entry,2*1024*1024);if(!extracted)throw new Error(rel+'：事实文件不能解压');accept(rel,extracted);
+        const extracted=this.adapter.extractZipEntry(buffer,entry,MAX_FACT_BYTES);if(!extracted)throw new Error(rel+'：事实文件不能解压');accept(rel,extracted);
       }
     } else throw new Error('未知材料导入类型');
     return {packs,excluded};
@@ -188,6 +188,7 @@ function combinePacks(packs,choices={},requireChoices=false) {
   const projects=[],cards=[],sourceDocuments=Object.create(null);
   for(const [key,values] of groups){if(values.length>1){conflicts.push({key,variants:values});if(requireChoices&&(!Number.isInteger(choices[key])||choices[key]<0||choices[key]>=values.length))throw materialError('conflicting-packs','多份事实文件存在差异，请选择版本：'+key);}
     const value=values[choices[key]??values.length-1];if(key.startsWith('project:'))projects.push(value);else if(key.startsWith('card:'))cards.push(value);else sourceDocuments[key.slice(9)]=value;}
-  return {index:validateIndex({schemaVersion:1,projects,cards,sourceDocuments,provenanceNotes:Object.assign({},...packs.map(p=>p.provenanceNotes||{}))}),conflicts};
+  const version=Math.max(...packs.map(p=>p.schemaVersion||1));
+  return {index:validateIndex({schemaVersion:version,projects,cards:version===2?cards.map(migrateCard):cards,sourceDocuments,provenanceNotes:Object.assign({},...packs.map(p=>p.provenanceNotes||{}))}),conflicts};
 }
 module.exports={ProjectMaterialService,FACT_PATHS,digest,validateSources,combinePacks};

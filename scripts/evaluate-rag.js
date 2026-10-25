@@ -243,7 +243,7 @@ async function main() {
           foreignAssistantHistory: foreignAdvice.length, sdkVisibleSources: sources.length - hiddenSources.length,
           sourcesHiddenInSdkMessages: hiddenSources.length, maxTokens: sdkCall.max_tokens || sdkCall.max_completion_tokens,
           localPrepareMs: timing?.prepareMs ?? null, promptChars: prompt.length,
-          startupChainVerified: ['src/custom-main.js', 'src/bugfix-main.js', 'main.js'].every(file => runtime.loaded.includes(file)) });
+          startupChainVerified: ['src/custom-main.js', 'src/overlay-interaction.js', 'src/application-integration.js', 'main.js'].every(file => runtime.loaded.includes(file)) });
       }
     } finally { while (runtimeCleanup.length) await runtimeCleanup.pop()(); }
 

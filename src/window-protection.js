@@ -39,7 +39,7 @@ function createWindowProtection({ platform = process.platform, windowsProtection
     attached.add(win);
     // Explicit display paths verify BEFORE showing. These cover OS-initiated
     // restore/focus and window-style changes after creation as well.
-    for (const event of ['show', 'restore', 'focus', 'blur', 'resize']) {
+    for (const event of ['show', 'restore', 'focus', 'blur', 'resize', 'move']) {
       win.on(event, () => requestWindowProtection(win));
     }
   }

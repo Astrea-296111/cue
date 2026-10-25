@@ -16,6 +16,7 @@ const DEFAULTS = {
   smart: false,
   realtimeEvidencePrefetch: true,
   realtimeAnswerMode: 'instant',
+  responseBudgets: { oral: 1800, code: 6000 },
   instantRagPolicy: 'ready-only',
   projectFactsEnabled: true,
   sourceRagPolicies: { instant: 'ready-only', standard: 'standard' },
@@ -38,6 +39,12 @@ const DEFAULTS = {
   currentProjectId: '', // 空值表示自动；只作为无显式项目时的默认选择。
   contextWindowTokens: 16384,
   jobDescription: '',
+  // Separate candidate facts from role requirements; changing a role never rewrites evidence.
+  candidateProfile: null,
+  jobProfiles: [],
+  activeJobProfileId: '',
+  personalWorkspace: {},
+  personalWorkspaceRevision: '',
 
   // 面试准备
   starStories: '',
@@ -72,7 +79,7 @@ let data = null;
 function deepMerge(base, over) {
   const out = Array.isArray(base) ? base.slice() : { ...base };
   for (const k of Object.keys(over || {})) {
-    if (over[k] && typeof over[k] === 'object' && !Array.isArray(over[k]) && typeof base[k] === 'object') {
+    if (over[k] && typeof over[k] === 'object' && !Array.isArray(over[k]) && base && base[k] && typeof base[k] === 'object') {
       out[k] = deepMerge(base[k], over[k]);
     } else {
       if (k === 'aiRules' && typeof over[k] === 'string') out[k] = over[k].slice(0, MAX_AI_RULES_CHARS);
@@ -100,21 +107,40 @@ function load() {
 }
 
 function save() {
-  try { fs.writeFileSync(FILE, JSON.stringify(data, null, 2)); } catch (e) { /* ignore */ }
+  fs.mkdirSync(path.dirname(FILE), { recursive: true });
+  const temporary = FILE + '.tmp-' + process.pid;
+  try {
+    const fd = fs.openSync(temporary, 'w', 0o600);
+    try { fs.writeFileSync(fd, JSON.stringify(data, null, 2)); fs.fsyncSync(fd); }
+    finally { fs.closeSync(fd); }
+    fs.renameSync(temporary, FILE);
+  } catch (error) {
+    try { fs.unlinkSync(temporary); } catch {}
+    throw error;
+  }
 }
 
 module.exports = {
   MAX_AI_RULES_CHARS, migrateMaterialSettings,
   getSettings() { return load(); },
-  setSettings(patch) {
+  verifyPersisted() {
+    if (JSON.stringify(JSON.parse(fs.readFileSync(FILE, 'utf8'))) !== JSON.stringify(load())) throw new Error('设置持久化校验失败');
+    return true;
+  },
+  setSettings(patch, { replaceFields = [], deleteFields = [] } = {}) {
     load();
     const update = { ...(patch || {}) };
     if (Object.hasOwn(update, 'instantRagPolicy') && !update.sourceRagPolicies) update.sourceRagPolicies = { instant: update.instantRagPolicy === 'off' ? 'off' : 'ready-only' };
     const nextSettings = deepMerge(data, update);
+    // Transaction compensation replaces only explicitly owned top-level fields;
+    // recursive merging would retain keys introduced by a failed profile import.
+    for (const key of replaceFields) if (Object.hasOwn(update, key)) nextSettings[key] = update[key];
+    for (const key of deleteFields) delete nextSettings[key];
     nextSettings.baseUrl = normalizeBaseUrl(nextSettings.baseUrl);
     nextSettings.deepseekBaseUrl = normalizeBaseUrl(nextSettings.deepseekBaseUrl || 'https://api.deepseek.com');
+    const previous = data;
     data = nextSettings;
-    save();
+    try { save(); } catch (error) { data = previous; throw error; }
     return data;
   }
 };

@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, globalShortcut, screen, session, desktopCap
 const path = require('path');
 const { requestWindowProtection, showWindowWithProtection, attachWindowProtection, setProtectedMouseEvents } = require('./src/window-protection');
 const { performance } = require('perf_hooks');
-const { withCurrentQuestion, isLikelyFollowUp, planProjectRetrieval } = require('./src/project-query');
+const { withCurrentQuestion, planProjectRetrieval } = require('./src/project-query');
 const { QuestionResolver } = require('./src/question-resolver');
 const { planInterviewQuestion, stableId } = require('./src/interview-question-planner');
 const { formatInterviewChecklist } = require('./src/interview-checklist');
@@ -27,10 +27,15 @@ const { peekReadyEvidence } = require('./src/instant-ready-evidence');
 const { getBuildIdentity } = require('./src/build-info');
 const { MODES, shouldCaptureScreen, getAnswerPlan, contextCharsFor } = require('./src/prompts');
 const { ConversationMemory } = require('./src/conversation-memory');
+const {buildCandidateRoleContext}=require('./src/candidate-role-context');
+const { ProjectEntityIndex } = require('./src/project-entity-index');
+const { DialogueStore, SPOKEN_CONTEXT_RULES, projectIds: spokenProjectIds } = require('./src/spoken-claim-ledger');
+const personalWorkspace = require('./src/personal-workspace');
 const { getProjectIndexRevision: readProjectIndexRevision,
   getProjectIndexSnapshot: readProjectIndexSnapshot, warmProjectIndex, refreshProjectIndex } = require('./src/project-knowledge');
 const sourceAdapter = require('./src/project-knowledge');
 const materialService = new ProjectMaterialService({directory:app.getPath('userData'),bundled:factPacks.getIndex(),legacySource:()=>sourceAdapter.readLegacyIndex(),sourceAdapter});
+let projectEntityIndex=new ProjectEntityIndex(materialService.snapshot);
 factPacks = materialService.snapshot.factPacks;
 sourceAdapter.setMaterialProvider({getSourceIndex:()=>materialService.snapshot.sources,
   getSourceRevision:()=>materialService.snapshot.generation+':'+materialService.snapshot.sourceRevision,
@@ -41,10 +46,10 @@ const { enabled: realtimePrefetchEnabled, adjacentNeeds } = require('./src/proje
 const { getProjectEmbeddings } = require('./src/project-embeddings');
 const { ProjectRagSession, sourceEvents, formatRetrievalRequirements } = require('./src/project-rag-session');
 const { retrieveProjectEvidenceAsync } = require('./src/retrieval-coordinator');
-const { prepareFinalRequest, visibleEvidence } = require('./src/final-request-budget');
+const { prepareFinalRequest, visibleEvidence, estimateTokens } = require('./src/final-request-budget');
 const { rms16 } = require('./src/wav');
 const { createStreamingSTT } = require('./src/stt-streaming');
-const { normalizeTranscript, TranscriptDeduper } = require('./src/transcript-normalizer');
+const { normalizeTranscript } = require('./src/transcript-normalizer');
 const { normalizeTechnicalVocabulary } = require('./src/technical-vocabulary');
 const { isSpeechNoise } = require('./src/speech-noise-filter');
 const { AdaptiveVAD, AudioRingBuffer } = require('./src/vad');
@@ -91,6 +96,9 @@ const state = { capturing: false, busy: false, transcribing: { you: false, them:
 let sttDisabled = false; // set when the key can't reach any speech model (stops retry spam)
 const buffers = { you: [], them: [] };
 const conversation = new ConversationMemory();
+const dialogue = new DialogueStore();
+const speechDraftIds = new Map();
+let speechEventSequence = 0;
 const questionResolver = new QuestionResolver();
 questionResolver.reset({ epoch: conversation.epoch });
 const instantCards = new InstantContextCards(store.getSettings());
@@ -99,8 +107,16 @@ let lastScreenSnapshot = null;
 let latestUiRequestId = null;
 const targetModes = new Map();
 let streamingSessionSequence = 0;
-const transcriptDeduper = new TranscriptDeduper();
 let activeGeneration = null;
+// A safe identity of the latest actual attempt survives completion and failure.
+// It contains no settings object, credentials, prompt or raw SDK response.
+let lastActualRequest = null;
+const diagnosticText = (value, limit=200) => typeof value==='string' ? value.slice(0,limit) : null;
+function actualRequestMetrics(timing) {
+  const metrics=timing?.metrics?.()||{},safe={};
+  for(const key of ['prepareMs','triggerToDispatchMs','firstContentMs','triggerToFirstContentMs','triggerToFirstUsefulSentenceMs','actualInputTokens','actualOutputTokens','actualTotalTokens','cachedInputTokens','actualReasoningTokens'])safe[key]=Number.isFinite(metrics[key])?metrics[key]:null;
+  safe.aborted=!!metrics.aborted;return safe;
+}
 const uiReplyTimings = new Map();
 let semanticRetriever = null;
 let formalProjectPlan = null;
@@ -196,6 +212,7 @@ function stopGenerationForSources() {
   const previous = activeGeneration;
   activeGeneration = null;
   previous?.controller.abort();
+  if(previous) dialogue.recordSuggestion({requestId:previous.id,sessionId:previous.sessionId,status:'canceled'});
   if(previous)send('llm:materials',{requestId:previous.id,epoch:previous.epoch,generation:previous.materials?.generation,canceled:true,reasons:['revision-changed']});
   state.busy = false;
   ragSession.reset();
@@ -213,7 +230,9 @@ function stopGenerationForSources() {
 materialService.on('warning',()=>send('materials:changed',materialService.state()));
 materialService.on('changed', state => {
   factPacks = materialService.snapshot.factPacks;
+  projectEntityIndex=new ProjectEntityIndex(materialService.snapshot);
   sourceAdapter.adoptMaterialIndex(materialService.snapshot.sources);
+  dialogue.setActiveProject(dialogue.activeProjectIds,getProjectIndexRevision());
   sourceEvents.emit('changed', {generation:state.generation});
   warmProjectIndex().catch(()=>{});
   send('materials:changed',state);
@@ -236,6 +255,8 @@ const RMS_GATE = 180;
 let flushTimer = null;
 let whisperModelManager = null;
 let localWhisperTranscriber = null;
+let localWhisperStartPromise = null;
+let localWhisperOwner = null;
 let activeWhisperModelId = null;
 let desiredCaptureState = false;
 let captureTransition = Promise.resolve(false);
@@ -314,55 +335,89 @@ function recentInterviewerText(limit = 4) {
 }
 
 function publishInterim(channel, text, meta = {}) {
-  const normalized = normalizeSpeechText(text, store.getSettings(), recentInterviewerText());
-  if (!normalized) {
-    send('stt:interim', { ...meta, channel, text: '' });
-    return;
-  }
-  if (channel === 'them' && isSpeechNoise(normalized)) return;
-  send('stt:interim', { ...meta, channel, text: normalized });
+  return ingestSpeechEvent({ ...meta, channel, text, isFinal:false, source:meta.source || 'asr' });
 }
 
 function publishTranscript(channel, text, meta = {}) {
-  const settings = store.getSettings();
-  const normalized = normalizeSpeechText(text, settings, recentInterviewerText());
-  if (!normalized) return;
-  if (channel === 'them' && isSpeechNoise(normalized)) {
-    console.log('[stt-noise-filter]', JSON.stringify({ chars: normalized.length }));
-    return;
-  }
+  return ingestSpeechEvent({ ...meta, channel, text, isFinal:true, source:meta.source || 'asr' });
+}
 
-  const ts = Date.now();
-  // Stable speech identity owns revisions; text-similarity dedupe must not
-  // discard a shorter corrected final before the resolver can inspect its order.
-  const verdict = meta.utteranceKey ? { drop: false, text: normalized } : transcriptDeduper.accept(channel, normalized, ts);
-  if (verdict.drop) {
-    console.log('[stt-dedup]', channel, verdict.reason, JSON.stringify({ chars: normalized.length }));
-    return;
+function dialogueChanged() { send('dialogue:changed', {sessionId:dialogue.sessionId,revision:dialogue.revision}); }
+function speechTurn(event) {
+  return {...event, ts:event.receivedAt, channel:event.speaker==='candidate'?'you':event.speaker==='interviewer'?'them':'unknown',
+    utteranceKey:event.utteranceKey || event.eventId, sourceId:event.sourceId || event.source,
+    sourceSessionId:event.sourceSessionId || event.sessionId};
+}
+function updateSpeechTranscript(event) {
+  const index=transcript.findIndex(turn=>turn.eventId===event.eventId);
+  if(index>=0) transcript.splice(index,1);
+  const turn=speechTurn(event);
+  if(event.isFinal) { pushTranscript(turn); transcript.sort((a,b)=>a.orderMs-b.orderMs || a.ingestOrder-b.ingestOrder); }
+  // Echo detection can change the earlier event's role too.
+  for(const old of transcript) {
+    const current=dialogue.events.get(old.eventId);
+    if(current?.speaker==='unknown') {old.channel='unknown';old.speaker='unknown';old.echoOf=current.echoOf;}
   }
-
-  if (verdict.removeEvent) {
-    const i = transcript.findLastIndex((turn) =>
-      turn.channel === verdict.removeEvent.channel &&
-      Math.abs(turn.ts - verdict.removeEvent.ts) < 80 &&
-      turn.text === verdict.removeEvent.text
-    );
-    if (i >= 0) transcript.splice(i, 1);
+  return turn;
+}
+function rebuildSpeechTarget() {
+  questionResolver.reset({epoch:conversation.epoch});
+  const latest=dialogue.ordered().findLast(event=>event.isFinal&&event.speaker==='interviewer'&&!event.echoOf);
+  if(latest) questionResolver.observe(speechTurn(latest),true);
+  publishQuestionTarget();
+}
+function ingestSpeechEvent(input={}) {
+  if(!input||typeof input!=='object'||Array.isArray(input)) throw new Error('无效的对话事件');
+  if(input.sessionId&&input.sessionId!==dialogue.sessionId||input.session_id&&input.session_id!==dialogue.sessionId)
+    return {accepted:false,reason:'stale-session'};
+  const channel=['you','them'].includes(input.channel)?input.channel:input.speaker==='candidate'?'you':input.speaker==='interviewer'?'them':null;
+  const normalized=normalizeSpeechText(input.text,store.getSettings(),recentInterviewerText());
+  if(!normalized) return {accepted:false,reason:'empty'};
+  if(channel==='them'&&isSpeechNoise(normalized)) return {accepted:false,reason:'speech-noise'};
+  const isFinal=input.isFinal!==false&&input.is_final!==false;
+  const draftKey=[input.sourceId||input.source||'asr',input.sourceSessionId||dialogue.sessionId,channel].join(':');
+  let eventId=input.eventId||input.event_id;
+  if(!eventId&&!input.utteranceKey) {
+    if(isFinal&&!speechDraftIds.has(draftKey)) {
+      const duplicate=dialogue.ordered().findLast(event=>event.isFinal&&event.channel===channel&&event.text===normalized&&Date.now()-event.receivedAt>=0&&Date.now()-event.receivedAt<6500);
+      if(duplicate)return {accepted:false,reason:'duplicate',event:duplicate,sessionId:dialogue.sessionId,revision:dialogue.revision};
+    }
+    eventId=speechDraftIds.get(draftKey)||`speech-${++speechEventSequence}`;
+    if(!isFinal) speechDraftIds.set(draftKey,eventId);
   }
-
-  if (meta.utteranceKey) {
-    const same = transcript.findLastIndex(turn => turn.channel === channel && turn.sourceId === meta.sourceId &&
-      turn.sourceSessionId === meta.sourceSessionId && turn.utteranceKey === meta.utteranceKey);
-    if (same >= 0) transcript.splice(same, 1);
-  }
-  const turn = { ...meta, channel, text: verdict.text, ts };
-  pushTranscript(turn);
-  send('transcript', turn);
-  send('stt:final', { ...meta, channel, text: turn.text });
+  dialogue.setActiveProject(dialogue.activeProjectIds,getProjectIndexRevision());
+  const result=dialogue.ingest({...input,channel,eventId,text:normalized,rawText:input.rawText??input.text,isFinal});
+  if(!result.accepted) return result;
+  if(isFinal) speechDraftIds.delete(draftKey);
+  const turn=updateSpeechTranscript(result.event);
+  if(isFinal) {send('transcript',turn);send('stt:final',turn);}
+  else send('stt:interim',turn);
+  if(result.event.echoOf) rebuildSpeechTarget();
+  dialogueChanged();
+  return result;
 }
 
 
-async function startLocalWhisper(settings) {
+function cancelLocalWhisperStartup() {
+  const owner=localWhisperOwner;
+  if(!owner||owner.started||owner.canceled)return;
+  owner.canceled=true;
+  owner.cancel();
+  if(localWhisperTranscriber===owner.transcriber)localWhisperTranscriber=null;
+  if(localWhisperOwner===owner)activeWhisperModelId=null;
+  if(owner.transcriber)owner.transcriber.forceStop().catch(()=>{});
+}
+
+function startLocalWhisper(settings) {
+  if(localWhisperStartPromise)return localWhisperStartPromise;
+  const owner={sessionId:dialogue.sessionId,canceled:false,started:false,transcriber:null};
+  localWhisperOwner=owner;
+  const cancelled=()=>Object.assign(new Error('本地语音启动已取消。'),{code:'STARTUP_CANCELLED'});
+  const current=()=>localWhisperOwner===owner&&!owner.canceled&&owner.sessionId===dialogue.sessionId;
+  const checkCurrent=()=>{if(!current()||!desiredCaptureState)throw cancelled();};
+  const canceled=new Promise((_resolve,reject)=>{owner.cancel=()=>reject(cancelled());});
+  const startup=(async()=>{
+  const sessionId=owner.sessionId;
   if (!whisperModelManager) throw new Error('本地 Whisper 模型管理器尚未就绪。');
   const localSettings = settings.localWhisper || {};
   const model = requireWhisperModel(localSettings.modelId || 'base.en');
@@ -377,6 +432,7 @@ async function startLocalWhisper(settings) {
       }
       throw error;
     });
+    checkCurrent();
 
     transcriber = new LocalWhisperTranscriber({
       sessionOptions: {
@@ -390,17 +446,19 @@ async function startLocalWhisper(settings) {
   ),
         tinydiarize: model.tinydiarize
       },
-      onTranscript: publishTranscript,
+      onTranscript: (channel,text,meta={})=>{if(current())publishTranscript(channel,text,{...meta,sessionId});},
       onSpeechState: (channel, speaking, durationMs, meta = {}) => {
+        if(!current()||!desiredCaptureState)return;
         send('vad:state', { ...meta, channel, speaking, durationMs,
           ...(speaking ? { speechStartedAt: meta.speechStartedAt || Date.now() } : { speechEndedAt: meta.speechEndedAt || Date.now() }) });
       },
       onInterim:
   (channel, text, meta = {}) => {
-    publishInterim(channel, text, meta);
+    if(current())publishInterim(channel, text, {...meta,sessionId});
   },
   onMetrics:
   (metrics) => {
+    if(!current())return;
     if (
       metrics.kind ===
       'dropped-final'
@@ -427,8 +485,9 @@ async function startLocalWhisper(settings) {
       `pending=${metrics.pending}`
     );
   },
-      onStatus: (status) => send('stt:status', { provider: 'local', ...status }),
+      onStatus: (status) => {if(current()&&desiredCaptureState)send('stt:status', { provider: 'local', ...status });},
       onError: (error) => {
+        if(!current()||!desiredCaptureState)return;
         sttDisabled = true;
         console.log('[local-whisper] error', error && error.message);
         send('stt:status', { provider: 'local', status: 'error' });
@@ -436,14 +495,24 @@ async function startLocalWhisper(settings) {
       }
     });
 
+    owner.transcriber=transcriber;
     localWhisperTranscriber = transcriber;
     await transcriber.start();
+    checkCurrent();
+    owner.started=true;
   } catch (error) {
     if (localWhisperTranscriber === transcriber) localWhisperTranscriber = null;
-    activeWhisperModelId = null;
+    if(localWhisperOwner===owner)activeWhisperModelId = null;
     if (transcriber) await transcriber.forceStop().catch(() => {});
     throw error;
   }
+  })();
+  const pending=Promise.race([startup,canceled]).finally(()=>{
+    if(localWhisperStartPromise===pending)localWhisperStartPromise=null;
+    if(!owner.started&&localWhisperOwner===owner)localWhisperOwner=null;
+  });
+  localWhisperStartPromise=pending;
+  return pending;
 }
 
 async function getWhisperOverview() {
@@ -549,6 +618,8 @@ async function flushChannel(channel) {
   if (rms16(pcm) < RMS_GATE) return; // silence gate
 
   state.transcribing[channel] = true;
+  const sessionId=dialogue.sessionId;
+  const eventId=`batch-${++speechEventSequence}`;
   try {
     const settings = store.getSettings();
     const stt = createSTT(settings);
@@ -562,7 +633,7 @@ async function flushChannel(channel) {
       return;
     }
     if (res.text && res.text.trim() && res.text.trim().length > 1 && !/^[?!.,;:\-…]+$/.test(res.text.trim())) {
-      publishTranscript(channel, res.text.trim(), { sourceId: 'batch' });
+      publishTranscript(channel, res.text.trim(), { sourceId:'batch',sessionId,eventId });
     }
   } catch (e) {
     console.log('[stt] error', e && e.message);
@@ -608,15 +679,17 @@ function initStreamingSTT() {
   streamingMode = false;
 
   const sourceSessionId = `stream-session-${++streamingSessionSequence}`;
+  const sessionId=dialogue.sessionId;
   ['you', 'them'].forEach((channel) => {
     const sttInstance = createStreamingSTT(settings, channel, {
       onTranscript: (ch, text, meta = {}) => {
-        publishTranscript(ch, text, { ...meta, sourceId: meta.sourceId || 'stream', sourceSessionId: meta.sourceSessionId || sourceSessionId });
+        publishTranscript(ch, text, { ...meta,sessionId, sourceId: meta.sourceId || 'stream', sourceSessionId: meta.sourceSessionId || sourceSessionId });
       },
       onInterim: (ch, text, meta = {}) => {
-        publishInterim(ch, text, { ...meta, sourceId: meta.sourceId || 'stream', sourceSessionId: meta.sourceSessionId || sourceSessionId });
+        publishInterim(ch, text, { ...meta,sessionId, sourceId: meta.sourceId || 'stream', sourceSessionId: meta.sourceSessionId || sourceSessionId });
       },
       onError: (err) => {
+        if(sessionId!==dialogue.sessionId)return;
         console.log('[streaming-stt] error', err.provider, err.message);
         const batchFallbackAvailable = createSTT(settings).available;
         stopStreamingSTT(); // close WebSockets and clear keep-alive intervals
@@ -630,6 +703,7 @@ function initStreamingSTT() {
         streamingMode = false;
       },
       onStatusChange: (ch, status) => {
+        if(sessionId!==dialogue.sessionId)return;
         send('stt:status', { channel: ch, status });
         if (status === 'connected') {
           console.log(`[streaming-stt] ${ch} channel connected`);
@@ -724,28 +798,40 @@ function routeAudio(channel, pcmBuffer) {
 // Mic + system audio are both captured in the RENDERER (getUserMedia for the mic,
 // getDisplayMedia loopback for system audio) so they run inside cue's own process
 // and use cue's own Screen-Recording grant — no separate helper binary to authorize.
+function queueCaptureState(active) {
+  desiredCaptureState=!!active;
+  if(!desiredCaptureState)cancelLocalWhisperStartup();
+  captureTransition=captureTransition.catch(()=>state.capturing).then(()=>setCapturing(!!active));
+  return captureTransition;
+}
+
 async function setCapturing(active) {
-  if (active === state.capturing) return state.capturing;
+  if(active&&!desiredCaptureState)return state.capturing;
+  if (active === state.capturing && (active||!localWhisperTranscriber&&!localWhisperStartPromise)) return state.capturing;
 
   if (active) {
     sttDisabled = false; // reset on re-enable
-    transcriptDeduper.reset();
     const settings = store.getSettings();
     if ((settings.sttProvider || 'auto') === 'local') {
+      const sessionId=dialogue.sessionId;
       try {
         await startLocalWhisper(settings);
+        if(!desiredCaptureState||sessionId!==dialogue.sessionId)return false;
         state.capturing = true;
         console.log('[cue] capture started, mode: local');
         send('capture:state', { active: true, streaming: false, mode: 'local' });
         return true;
       } catch (error) {
         state.capturing = false;
-        desiredCaptureState = false;
         if (error.code === 'STARTUP_CANCELLED') {
-          send('stt:status', { provider: 'local', status: 'off' });
-          send('capture:state', { active: false, streaming: false, mode: 'local' });
+          if(!desiredCaptureState) {
+            send('stt:status', { provider: 'local', status: 'off' });
+            send('capture:state', { active: false, streaming: false, mode: 'local' });
+          }
           return false;
         }
+        if(sessionId!==dialogue.sessionId||!desiredCaptureState)return false;
+        desiredCaptureState = false;
         send('stt:status', { provider: 'local', status: 'error' });
         send('status', { message: `本地语音识别无法启动：${error.message}；未向云端服务发送音频。` });
         send('capture:state', { active: false, streaming: false, mode: 'local' });
@@ -765,12 +851,14 @@ async function setCapturing(active) {
   }
 
   state.capturing = false;
+  cancelLocalWhisperStartup();
   stopFlushLoop();
   stopStreamingSTT();
   buffers.you = []; buffers.them = [];
   vad.you.reset(); vad.them.reset();
   ringBuffers.you.clear(); ringBuffers.them.clear();
   const stoppingLocalTranscriber = localWhisperTranscriber;
+  const stoppingOwner=localWhisperOwner;
   localWhisperTranscriber = null;
   send('capture:state', { active: false, streaming: false, mode: stoppingLocalTranscriber ? 'local' : 'off' });
   if (stoppingLocalTranscriber) {
@@ -780,7 +868,11 @@ async function setCapturing(active) {
     } catch (error) {
       console.log('[local-whisper] stop error', error && error.message);
     } finally {
-      activeWhisperModelId = null;
+      if(localWhisperOwner===stoppingOwner) {
+        localWhisperOwner=null;
+        activeWhisperModelId = null;
+        send('stt:status',{provider:'local',status:'off'});
+      }
     }
   }
   return false;
@@ -791,10 +883,9 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
   const triggerAt = performance.now();
   const def = MODES[mode];
   if (!def) { send('llm:error', { message: '未知的回答模式。' }); return; }
-  const settings = store.getSettings();
+  const settings = JSON.parse(JSON.stringify({...store.getSettings(),...personalWorkspace.getSelectedJobProfileContext({store,materialService})}));
   const explicit = typeof userText === 'string' ? userText.trim() : '';
   const voiceAnswer = ['say', 'answerThis', 'ask', 'assist', 'technical'].includes(mode);
-  const liveMode = voiceAnswer;
   let resolved = explicit ? questionResolver.manualSnapshot(explicit, { epoch: conversation.epoch })
     : retrySnapshot || (voiceAnswer ? questionResolver.resolveForSubmit({ allowPartial: true, epoch: conversation.epoch }) : null);
   if (mode === 'assist' && !explicit && !resolved?.text) {
@@ -817,6 +908,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const previous = activeGeneration;
     activeGeneration = null;
     previous?.controller.abort();
+    if(previous) dialogue.recordSuggestion({requestId:previous.id,sessionId:previous.sessionId,status:'canceled'});
     if (previous?.snapshot) questionResolver.settle(previous.snapshot, 'canceled');
     state.busy = false;
   }
@@ -826,14 +918,13 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
   // ASR fragment back into the prompt through raw transcript history. Candidate
   // speech is kept for genuine follow-up context; the confirmed question is
   // inserted below by withCurrentQuestion().
-  let freshTranscript = policy.instant ? transcript.slice(-8).filter(t => t.channel === 'you')
-    : ['recap', 'followup'].includes(mode) ? transcript
-    : transcript.filter(t => t.ts > conversation.lastStartedAt);
-  if (liveMode) {
-    freshTranscript = isLikelyFollowUp(question)
-      ? freshTranscript.filter(t => t.channel === 'you').slice(-4)
-      : [];
-  }
+  // Freeze real speech separately from suggestions and from request timestamps.
+  // An explicit topic exit is handled by the speech selector, not by dropping
+  // all candidate speech whenever the question lacks a follow-up keyword.
+  const spokenState = dialogue.selectContext({question,projectIds:spokenProjectIds(question),maxEvents:10,maxChars:3600});
+  const speechIds = new Set(spokenState.eventIds);
+  const freshTranscript = ['recap','followup'].includes(mode) ? transcript.slice()
+    : transcript.filter(turn => turn.channel === 'you' && speechIds.has(turn.eventId));
   const contextTranscript = withCurrentQuestion(freshTranscript, question);
   const fromResolved = !explicit && resolved?.text === question;
   const partial = fromResolved && !!resolved?.partial;
@@ -844,7 +935,13 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     triggerAt, questionSnapshot: resolved, questionSource: explicit ? 'manual' : retrySnapshot ? 'retry' : resolved?.partial ? 'stt-interim' : 'stt-final',
     epoch: conversation.epoch, executionProfile: policy.instant ? 'instant' : 'standard', ...getBuildIdentity() });
   const frozen = voiceAnswer || mode === 'leetcode' ? questionResolver.claim(resolved, timing.requestId) || resolved : resolved;
-  const generation = { id: timing.requestId, controller: new AbortController(), epoch: conversation.epoch, snapshot: frozen, mode, policy, timing, materials:materialService.snapshot };
+  const generation = { id: timing.requestId, sessionId:dialogue.sessionId, spokenRevision:spokenState.revision, entityIndex:projectEntityIndex, controller: new AbortController(), epoch: conversation.epoch, snapshot: frozen, mode, policy, timing, materials:materialService.snapshot };
+  generation.diagnostic={requestId:generation.id,sessionId:generation.sessionId,epoch:generation.epoch,mode,
+    executionProfile:policy.executionProfile,startedAt:new Date().toISOString(),status:'preparing',dispatched:false,
+    provider:null,model:null,modelIdentitySource:'not-created',servedModel:null,build:{...getBuildIdentity()},
+    materials:{generation:generation.materials.generation,factRevision:generation.materials.factRevision,sourceRevision:generation.materials.sourceRevision,registryRevision:generation.materials.registryRevision},
+    evidenceRevision:null,jobProfileId:diagnosticText(settings.jobProfileId||settings.activeJobProfileId||'',80)};
+  lastActualRequest=generation.diagnostic;
   lastFrozenSnapshot = frozen; latestUiRequestId = generation.id;
   if (frozen?.status === 'claimed') {
     targetModes.set(frozen.questionId, mode);
@@ -862,11 +959,12 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
   try {
     const llm = createLLM(settings, { executionProfile: policy.executionProfile });
     generation.provider = llm.provider;
+    Object.assign(generation.diagnostic,{provider:diagnosticText(llm.provider),model:diagnosticText(llm.model),modelIdentitySource:'selected-adapter'});
     const effectiveSettings = {...settings,...(policy.executionProfile === 'instant'?{smart:false}:{}),...(settings.manualProjectKnowledgeEnabled===false?{projectKnowledge:''}:{})};
     timing.configure?.({ ...llm.diagnostics, model: llm.model });
     const userBubble = def.userBubble !== null ? def.userBubble
       : (mode === 'ask' || mode === 'answerThis' ? question : null);
-    emit('llm:start', { userBubble, small: !!def.small,
+    emit('llm:start', { userBubble, small: !!def.small, mode,
       category: mode !== 'leetcode' ? detectCategory(contextTranscript) : null,
       snapshot: frozen, executionProfile: policy.instant ? 'instant' : 'standard' });
     emit('llm:profile', { ...llm.diagnostics, executionProfile: policy.instant ? 'instant' : 'standard', referenceDraft: policy.instant });
@@ -876,7 +974,10 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       settings: effectiveSettings, catalog: generation.materials.registry.projects,
       executionProfile: policy.instant ? 'instant' : 'standard', questionSnapshot: frozen,
       manualFingerprint: policy.instant ? instantCards.manualFingerprint : undefined,
-      interviewPlan, evidenceRevision: readProjectIndexRevision({ preparedOnly: true }) });
+      interviewPlan, spokenState,projectEntityHint:generation.entityIndex.infer(question), evidenceRevision: readProjectIndexRevision({ preparedOnly: true }) });
+    generation.diagnostic.evidenceRevision=diagnosticText(request.evidenceRevision,128);
+    dialogue.setActiveProject(request.plan.canonicalProjectIds || [], request.evidenceRevision);
+    dialogue.recordSuggestion({requestId:generation.id,sessionId:generation.sessionId,status:'generating',question,eventIds:spokenState.eventIds});
     request.plan.preparedOnly = realtimePrefetchEnabled(settings) && !settings.smart;
     if (!request.plan.retrieve) ragSession.pause();
     if (request.plan.projectSwitched) ragSession.retainScopes(request.plan.scopes);
@@ -910,7 +1011,9 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       requestId: timing.requestId, hashFallback: !fast };
     const materialIdentity = {generation:generation.materials.generation,factRevision:generation.materials.factRevision,sourceRevision:generation.materials.sourceRevision,registryRevision:generation.materials.registryRevision};
     request.materials=materialIdentity;
-    const factSelection = policy.factsEnabled ? generation.materials.factPacks.select(question, {resolution:request.plan,maxCards:12}) : null;
+    const relatedSpeech=(request.spokenState?.claims||[]).filter(claim=>claim.status!=='uncertain').map(claim=>claim.text).join('\n');
+    const factQuery=relatedSpeech?question+'\n当前相关真人发言（用于检索，不是事实依据）：'+relatedSpeech:question;
+    const factSelection = policy.factsEnabled ? generation.materials.factPacks.select(factQuery, {resolution:request.plan,maxCards:12}) : null;
     const evidenceLimits=resolveEvidenceLimits({question,answerPlan,instant:policy.instant});
     const canRetrieveSources = policy.ragPolicy !== 'off' && request.plan.retrieveSources;
     const preparedSources = peekReadyEvidence({ snapshot: frozen,
@@ -931,6 +1034,17 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       .filter((item,index,all)=>all.findIndex(other=>other.id===item.id)===index);
     const evidencePlan=planProjectEvidence({question,resolution:request.plan,facts:factSelection?.evidence||[],sources:contextBundle.evidence,
       factsEnabled:policy.factsEnabled,sourcePolicy:policy.ragPolicy,...evidenceLimits});
+    // General reference cards use the same finite request budget, but never
+    // become another resume project or evidence of personal implementation.
+    const knowledge=policy.factsEnabled&&request.plan.kind!=='unresolved'
+      ? generation.materials.factPacks.selectKnowledge(question,{jobProfileId:settings.jobProfileId,maxCards:policy.instant?2:3}):null;
+    evidencePlan.contextKnowledgeIds=[];
+    for(const item of knowledge?.evidence||[]) {
+      const reference={...item,sourceType:'knowledge-reference',text:'通用知识参考，不证明候选人经历或项目已采用。\n'+item.text};
+      const size=estimateTokens(require('./src/evidence-selector').formatEvidenceBlock(reference));
+      if(evidencePlan.evidence.length>=evidenceLimits.maxSources||evidencePlan.estimatedTokens+size>evidenceLimits.evidenceTokens)continue;
+      evidencePlan.evidence.push(reference);evidencePlan.contextKnowledgeIds.push(reference.id);evidencePlan.estimatedTokens+=size;
+    }
     contextBundle.evidence=evidencePlan.evidence;
     applyFactCoverage(contextBundle,request.plan);
     if(request.plan.kind==='unresolved')contextBundle.missing.push({reason:'unresolved-project',message:'项目不明确，请确认项目身份。'});
@@ -957,6 +1071,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     if (!owned() || generation.controller.signal.aborted) return;
     request.evidenceRevision = contextBundle.evidence.find(item => item.sourceType === 'imported')?.revision ||
       (policy.instant ? readProjectIndexRevision({ preparedOnly: true }) : getProjectIndexRevision());
+    generation.diagnostic.evidenceRevision=diagnosticText(request.evidenceRevision,128);
     const instantContext = policy.instant ? buildInstantContext({ settings, question, snapshot: frozen, request,
       readyEvidence: {evidence:contextBundle.evidence}, answerPlan, evidenceLimits, cards: instantCards }) : null;
     if (instantContext) {
@@ -969,12 +1084,20 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const builtSystem = instantContext ? instantContext.system : def.buildSystem ? def.buildSystem(contextBundle.context, settings.aiRules || '',
       { answerPlan, interviewPlan, projectPlan: request.plan, hasImage: !!imageDataUrl,
         projectContextLimit:Math.min(14000,contextBundle.context.length) }) : (def.system || '');
-    const narrativeRule='\nUSER/source-claim 是用户指定的口述资料，可按范围直接回答既有职责，不复述资料编辑历史；没有材料才简短说明缺口。默认中文第一人称，以1.、2.、3.分点，每点一至两句；代码题保留完整代码。';
-    const resolvedSystem = builtSystem + (instantContext?'':narrativeRule) + (request.plan.kind==='unresolved'?'\n项目不明确：仅简短询问用户指哪个项目，不猜团队或职责。':'');
+    const narrativeRule='\nUSER/source-claim 是用户指定的口述资料，可按范围直接回答既有职责，不复述资料编辑历史；没有材料才简短说明缺口。普通单问用2–4句自然第一人称口述：结论、一处具体机制、取舍或验证；多子问按题目分点，代码题保留完整代码。';
+    const resolvedSystem = builtSystem + (instantContext?'':narrativeRule + SPOKEN_CONTEXT_RULES) + (request.plan.kind==='unresolved'?'\n项目不明确：仅简短询问用户指哪个项目，不猜团队或职责。':'');
     const initialSystem = llm.prepareSystem ? llm.prepareSystem(resolvedSystem) : resolvedSystem;
+    const candidateRole=buildCandidateRoleContext(settings,question,{project:request.plan.retrieve});
+    const candidateRoleSection={id:'candidate-role',text:candidateRole.text,protected:candidateRole.required,priority:2};
     const responseContext = { transcript: contextTranscript, userText: question, answerPlan, partial, hasImage: !!imageDataUrl };
     const built = def.build(responseContext);
-    const maxTokens = def.resolveMaxTokens?.(responseContext) || def.maxTokens;
+    const codeRequest=!!imageDataUrl||mode==='leetcode'||mode==='technical'||mode==='assist'||/编写|写出|代码实现|实现.{0,20}(?:函数|方法|遍历|算法)|\b(?:implement|write\s+(?:code|a function))\b/i.test(question);
+    const boundedBudget=(value,fallback,ceiling)=>Number.isFinite(Number(value))&&Number(value)>=128?Math.min(ceiling,Math.floor(Number(value))):fallback;
+    const responseBudgets={oral:boundedBudget(settings.responseBudgets?.oral,1800,4096),code:boundedBudget(settings.responseBudgets?.code,6000,16384)};
+    const maxTokens=codeRequest?responseBudgets.code:Math.min(def.resolveMaxTokens?.(responseContext)||def.maxTokens,responseBudgets.oral);
+    request.responseBudget={kind:codeRequest?'code':'oral',maxTokens};
+    request.settingsSnapshot={provider:settings.provider,model:llm.model,smart:!!settings.smart,jobProfileId:settings.jobProfileId,
+      contextWindowTokens:settings.contextWindowTokens||16384,responseBudgets};
     // A fresh screen task stands on its own; its answer is still available to
     // subsequent manual follow-ups. No previous screenshot bytes are retained.
     const history = mode === 'leetcode' ? [] : request.turns;
@@ -991,8 +1114,10 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const prepared = prepareFinalRequest({ system: initialSystem, history: instantContext ? instantContext.history : history, maxTokens,
       contextWindow: settings.contextWindowTokens || 16384, imageDataUrl, evidence: contextBundle.evidence,
       evidenceGapNote: policy.instant ? '资料仅供参考；未附全时仍按当前条件给可采用方案，不编造实际经历或指标。' : undefined,
-      currentSections: instantContext ? instantContext.currentSections : [
+      currentSections: instantContext ? [...instantContext.currentSections,candidateRoleSection] : [
+        candidateRoleSection,
         { id: 'topic', text: topic, priority: 1 }, { id: 'memory', text: memory, priority: 0 },
+        { id: 'spoken-state', text: request.spokenContext ? 'SPOKEN_STATE（真人实际发言，仅用于承接和纠正）\n'+request.spokenContext : '', protected:true },
         { id: 'question', text: built, protected: true }, { id: 'scenario', text: scenario, protected: true },
         { id: 'evidence-needs', text: formatRetrievalRequirements(contextBundle), protected: true },
         { id: 'checklist', text: checklist, priority: 3 }, { id: 'progress', text: progress, priority: 2 }
@@ -1066,6 +1191,8 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
             executionProfile: policy.instant ? 'instant' : 'standard', referenceDraft: policy.instant && !sentEvidence.length }); } },
           onRequest: serialized => {
             if (!owned()) return;
+            Object.assign(generation.diagnostic,{status:'dispatched',dispatched:true,model:diagnosticText(serialized?.model)||generation.diagnostic.model,
+              modelIdentitySource:typeof serialized?.model==='string'?'serialized-request':'selected-adapter'});
             requestSent = performance.now(); generation.requestSent = requestSent;
             contentDeadline?.dispatch();
             sentEvidence = visibleEvidence(prepared.evidence, serialized);
@@ -1139,7 +1266,11 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       if (contextBundle.missing?.some(gap => ['index-not-ready', 'unresolved-project'].includes(gap.reason))) {
         request.unavailableEvidenceQuestionIds.push(...(effectiveInterviewPlan?.subQuestions || []).map(item => item.id));
       }
+      Object.assign(generation.diagnostic,{status:'completed',finishReason:diagnosticText(completion.finishReason,80),truncated:!!completion.truncated,metrics:actualRequestMetrics(timing)});
+      request.actualRequest=JSON.parse(JSON.stringify(generation.diagnostic));
       const committed = conversation.commit(request, answer, { completion, evidence: sentEvidence });
+      generation.diagnostic.status=committed?'completed':'uncommitted';
+      dialogue.recordSuggestion({requestId:generation.id,sessionId:generation.sessionId,status:committed?'completed':'uncommitted',text:answer,question,eventIds:spokenState.eventIds});
       if (committed && frozen) questionResolver.settle(frozen, 'completed');
     } finally {
       streamSettled = true;
@@ -1151,6 +1282,8 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     timing.finish({ aborted: false }); emit('llm:metrics', timing.metrics());
     emit('llm:done', {});
   } catch (e) {
+    Object.assign(generation.diagnostic,{status:generation.controller.signal.aborted?'canceled':'failed',errorClass:diagnosticText(e?.name||'Error',80),firstContentTimeout:!!generation.firstContentTimedOut});
+    dialogue.recordSuggestion({requestId:generation.id,sessionId:generation.sessionId,status:generation.controller.signal.aborted?'canceled':'failed',question,eventIds:spokenState.eventIds});
     if (frozen) questionResolver.settle(frozen, generation.controller.signal.aborted ? 'canceled' : 'failed');
     if (owned()) {
       recordEvent({ level: 'error', event: 'llm_failed', msg: e?.message || String(e), frame: 'runFeature', context: { mode, provider: generation.provider } });
@@ -1161,11 +1294,95 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     streamSettled = true;
     ragSession.resume(generation.id);
     timing.finish({ aborted: generation.controller.signal.aborted });
+    if(['preparing','dispatched'].includes(generation.diagnostic.status))generation.diagnostic.status=generation.controller.signal.aborted||!owned()?'canceled':'failed';
+    generation.diagnostic.metrics=actualRequestMetrics(timing);
     if (activeGeneration === generation) { activeGeneration = null; state.busy = false; publishQuestionTarget(); }
   }
 }
 
 // -------- IPC --------
+function cancelCurrentGeneration(reason='user') {
+  const previous=activeGeneration;
+  activeGeneration=null;
+  previous?.controller.abort();
+  state.busy=false;
+  if(previous) {
+    dialogue.recordSuggestion({requestId:previous.id,sessionId:previous.sessionId,status:'canceled'});
+    if(previous.snapshot) questionResolver.settle(previous.snapshot,'canceled');
+    ragSession.resume(previous.id);
+    send('llm:done',{requestId:previous.id,epoch:previous.epoch,canceled:true,reason});
+  }
+  publishQuestionTarget();
+  return {ok:true,canceled:!!previous,sessionId:dialogue.sessionId};
+}
+ipcMain.handle('llm:cancel',()=>cancelCurrentGeneration());
+ipcMain.on('llm:cancel',()=>cancelCurrentGeneration());
+ipcMain.handle('dialogue:event',(_event,input)=>ingestSpeechEvent(input));
+ipcMain.handle('dialogue:snapshot',(_event,options={})=>dialogue.snapshot(options));
+ipcMain.handle('dialogue:correct',(_event,input={})=>{
+  const result=dialogue.correct(input);
+  if(result.accepted) {
+    cancelCurrentGeneration('dialogue-corrected');
+    const turn=updateSpeechTranscript(result.event);
+    send('transcript',turn);
+    rebuildSpeechTarget();
+    dialogueChanged();
+  }
+  return result;
+});
+ipcMain.handle('materials:personal:state',()=>personalWorkspace.getPersonalWorkspaceState({materialService,store}));
+ipcMain.handle('materials:personal:prepare',async(_event,input={})=>{
+  let filePath=input.filePath;
+  if(!filePath&&!input.workspace) {
+    const selected=await dialog.showOpenDialog(win,{title:'导入个人资料工作区',properties:['openFile'],filters:[{name:'CUE 个人资料',extensions:['json']}]});
+    if(selected.canceled||!selected.filePaths?.length) return {canceled:true};
+    filePath=selected.filePaths[0];
+  }
+  return personalWorkspace.preparePersonalWorkspaceImport({filePath,workspace:input.workspace,materialService,store});
+});
+ipcMain.handle('materials:personal:commit',async(_event,input={})=>{
+  const result=await personalWorkspace.commitPersonalWorkspaceImport({token:input.token,baseGeneration:input.baseGeneration,materialService,store});
+  instantCards.update(store.getSettings());
+  send('materials:personal:changed',result);
+  return result;
+});
+ipcMain.handle('materials:personal:job',(_event,input={})=>{
+  cancelCurrentGeneration('job-profile-changed');
+  const result=personalWorkspace.selectJobProfile({jobProfileId:typeof input==='string'?input:input.jobProfileId,materialService,store});
+  send('materials:personal:changed',result);
+  return result;
+});
+function redactedDiagnostics() {
+  const settings=store.getSettings();
+  const secrets=[];
+  const collect=(value,key='')=>{
+    if(typeof value==='string'&&/key|secret|password|token/i.test(key)&&value.length>=6) secrets.push(value);
+    else if(value&&typeof value==='object') for(const [name,item] of Object.entries(value)) collect(item,key+':'+name);
+  };
+  collect(settings);
+  const scrub=value=>{
+    if(typeof value==='string') {
+      let text=personalWorkspace.sanitizeResumeForPrompt(value);
+      for(const secret of secrets) text=text.split(secret).join('[密钥已省略]');
+      return text.replace(/\b(?:sk|sess)-[A-Za-z0-9_-]{12,}\b/g,'[密钥已省略]').replace(/(Bearer\s+)[A-Za-z0-9._~+\/-]{8,}/gi,'$1[密钥已省略]');
+    }
+    if(Array.isArray(value))return value.map(scrub);
+    if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).filter(([key])=>!/api.?key|secret|password|authorization|access.?token/i.test(key)).map(([key,item])=>[key,scrub(item)]));
+    return value;
+  };
+  return scrub({schemaVersion:2,exportedAt:new Date().toISOString(),build:getBuildIdentity(),platform:process.platform,
+    materials:{generation:materialService.snapshot.generation,factRevision:materialService.snapshot.factRevision,sourceRevision:materialService.snapshot.sourceRevision},
+    jobProfileId:settings.activeJobProfileId||'',model:{provider:lastActualRequest?.provider||null,model:lastActualRequest?.model||null},
+    configuredModel:{provider:diagnosticText(settings.provider),fast:diagnosticText(settings.models?.[settings.provider]?.fast),smart:diagnosticText(settings.models?.[settings.provider]?.smart),smartEnabled:!!settings.smart},
+    lastActualRequest,
+    dialogue:dialogue.snapshot(),question:currentTargetEnvelope(),lastRequest:conversation.recent.at(-1)||null});
+}
+ipcMain.handle('diagnostics:export',async()=>{
+  const selected=await dialog.showSaveDialog(win,{title:'导出本地脱敏会话诊断',defaultPath:`cue-diagnostics-${new Date().toISOString().slice(0,10)}.json`,filters:[{name:'JSON',extensions:['json']}]});
+  if(selected.canceled||!selected.filePath)return {canceled:true};
+  await fs.promises.writeFile(selected.filePath,JSON.stringify(redactedDiagnostics(),null,2),{encoding:'utf8',mode:0o600});
+  return {canceled:false,fileName:path.basename(selected.filePath),sessionId:dialogue.sessionId};
+});
 ipcMain.handle('question:get-target', () => currentTargetEnvelope());
 ipcMain.handle('question:retry', (_event, questionId) => {
   const snapshot = questionResolver.retrySnapshot(typeof questionId === 'string' ? questionId : lastFrozenSnapshot?.questionId);
@@ -1253,18 +1470,11 @@ ipcMain.handle('project:current', (_event, projectId) => {
   if (id && !getProjectCatalog().some(project => (project.id || project.projectId) === id)) throw new Error('此项目已不在当前索引中，请重新选择。');
   stopGenerationForSources();
   formalProjectPlan = null;
+  dialogue.setActiveProject(id?[id]:[],getProjectIndexRevision());
   return store.setSettings({ currentProjectId: id });
 });
 ipcMain.handle('capture:toggle', () => {
-  const targetState = !desiredCaptureState;
-  desiredCaptureState = targetState;
-  if (!targetState && !state.capturing && localWhisperTranscriber) {
-    localWhisperTranscriber.forceStop().catch(() => {});
-  }
-  captureTransition = captureTransition
-    .catch(() => state.capturing)
-    .then(() => setCapturing(targetState));
-  return captureTransition;
+  return queueCaptureState(!desiredCaptureState);
 });
 ipcMain.handle('capture:state', () => ({ active: state.capturing }));
 ipcMain.handle('whisper:models', () => getWhisperOverview());
@@ -1368,6 +1578,8 @@ ipcMain.handle('transcript:clear', () => {
   if (previous) previous.controller.abort();
   state.busy = false;
   conversation.reset();
+  dialogue.reset();
+  speechDraftIds.clear();
 
   uiReplyTimings.clear();
   formalProjectPlan = null;
@@ -1379,11 +1591,14 @@ ipcMain.handle('transcript:clear', () => {
   lastScreenSnapshot = null;
   targetModes.clear();
   publishQuestionTarget();
-  transcriptDeduper.reset();
   if (previous) send('llm:done', { requestId: previous.id, canceled: true });
   transcript.splice(0, transcript.length);
+  dialogueChanged();
   replyLatency.reset();
-  return { ok: true };
+  const restartCapture=desiredCaptureState||state.capturing||!!localWhisperStartPromise||!!localWhisperTranscriber;
+  cancelLocalWhisperStartup();
+  if(restartCapture) captureTransition=captureTransition.catch(()=>{}).then(()=>setCapturing(false)).then(()=>desiredCaptureState?setCapturing(true):false);
+  return { ok: true,sessionId:dialogue.sessionId };
 });
 ipcMain.on('ask', (_e, payload) => runFeature(payload?.mode, payload?.text));
 ipcMain.on('llm:rendered', (_event, payload) => {
@@ -1611,7 +1826,7 @@ session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
       shortcuts: { ...shortcutState },
       windowAlive: !!(win && !win.isDestroyed()),
     }),
-    setCapturing,
+    setCapturing:queueCaptureState,
     // Looked up rather than captured: the window is recreated on 'activate',
     // so a reference taken at startup goes stale.
     getWindow: () => win,
@@ -1639,6 +1854,9 @@ session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
 // -------- lifecycle --------
 app.whenReady().then(async () => {
   try {
+    // Recover a torn private import before a bundled update can advance the
+    // material generation used to identify ownership of the interrupted write.
+    require('./src/personal-workspace').recoverPersonalWorkspaceImport({materialService,store});
     await require('./src/bundled-materials').installBundledMaterials({bundlePath:path.join(__dirname,'materials/bundle.json'),materialService,store});
     await require('./src/personal-workspace').installPersonalWorkspace({directory:process.env.CUE_PERSONAL_WORKSPACE,materialService,store});
     instantCards.update(store.getSettings());
@@ -1682,6 +1900,8 @@ app.on('will-quit', () => {
   if (whisperModelManager?.activeDownload) {
     whisperModelManager.cancelDownload(whisperModelManager.activeDownload.modelId);
   }
+  desiredCaptureState=false;
+  cancelLocalWhisperStartup();
   if (localWhisperTranscriber) localWhisperTranscriber.forceStop().catch(() => {});
 });
 app.on('window-all-closed', () => app.quit());

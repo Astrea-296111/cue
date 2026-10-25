@@ -61,7 +61,7 @@ require('../src/store').setSettings({ onboarded: true, provider: 'custom',
 dialog.showErrorBox = (title, message) => { console.error('UI_ERROR_DIALOG', title, message); finish(1); };
 const nativeDialog = dialog.showOpenDialog;
 dialog.showOpenDialog = async (...args) => {
-  if (args.at(-1)?.title !== '选择项目材料') return nativeDialog.apply(dialog, args);
+  if (!['选择项目材料','导入个人资料工作区'].includes(args.at(-1)?.title)) return nativeDialog.apply(dialog, args);
   const selection = selections.shift();
   assert.ok(selection, 'Material selection must use an explicit synthetic fixture');
   return { canceled: false, filePaths: [selection] };
@@ -95,8 +95,11 @@ app.on('browser-window-created', (_event, win) => {
       const materialImport = await require('./helpers/material-import-ui-checks.cjs')({
         js, until, data, selectMaterial: file => selections.push(file)
       });
+      const personalImport = await require('./helpers/personal-workspace-ui-checks.cjs')({
+        js, until, data, selectMaterial: file => selections.push(file)
+      });
       const settings = await js('cue.settingsGet()');
-      assert.equal(settings.resumeText, 'PROFILE_RETAINED');
+      assert.equal(settings.resumeText, 'PROFILE_LOCAL_EDIT');
       assert.equal(settings.jobDescription, 'JD_RETAINED');
       if (process.env.CUE_UI_SETTINGS_SCREENSHOT) {
         fs.mkdirSync(path.dirname(process.env.CUE_UI_SETTINGS_SCREENSHOT), { recursive: true });
@@ -113,7 +116,7 @@ app.on('browser-window-created', (_event, win) => {
       await until(() => js("document.querySelector('.response-group:first-child .ai-text')?.textContent.includes('UI_MODEL_FAILURE_FIXTURE')"), 'provider error visible');
       assert.equal(await js("document.getElementById('send-btn').classList.contains('busy')"), false);
       console.log('UI_CORE_OK', JSON.stringify({ boot: true, textReply: true, providerError: true,
-        createdHidden: true, protectionRequested: true, profileAndJdRetained: true, materialImport }));
+        createdHidden: true, protectionRequested: true, profileAndJdRetained: true, materialImport, personalImport }));
       finish(0);
     } catch (error) { console.error('UI_FAILED', error.stack || error); finish(1); }
   });

@@ -50,7 +50,7 @@ function writeIndex(temp, version, chunks, options = {}) {
 }
 
 /**
- * Exercise the package entry, its Module._load hook, bugfix bootstrap, root
+ * Exercise the package entry, explicit bootstrap (or frozen legacy entry), root
  * main, real planning/memory/retrieval/prompts, and the actual LLM adapter.
  * The OS/hardware and model transport are replaced; no planning or retrieval
  * result is mocked. SDK messages and scoped searches are observed unchanged.
@@ -190,6 +190,13 @@ function createInterviewRuntime(t, options = {}) {
     'src/whisper-model-manager.js': {}, 'src/whisper-model-catalog.js': {},
     'src/whisper-runtime.js': {}, 'src/local-whisper-transcriber.js': {}
   };
+  if(options.liveSpeech) { delete mocks['src/stt.js']; delete mocks['src/stt-streaming.js']; }
+  if(options.localWhisperHardware) {
+    for(const [file,exports]of Object.entries(options.localWhisperHardware)) {
+      if(!['src/whisper-model-manager.js','src/whisper-model-catalog.js','src/whisper-runtime.js','src/local-whisper-transcriber.js'].includes(file))throw new Error('Invalid local Whisper hardware replacement');
+      mocks[file]=exports;
+    }
+  }
   if (options.semanticRetriever) mocks['src/project-embeddings.js'] = { getProjectEmbeddings: () => options.semanticRetriever };
   const shim = { _resolveFilename: (id, parent) => createRequire(parent.filename).resolve(id) };
   function load(file) {
@@ -305,6 +312,7 @@ function createInterviewRuntime(t, options = {}) {
     final: (text, meta) => speech('them', text, true, meta),
     interim: (text, meta) => speech('them', text, false, meta),
     candidate: (text, meta) => speech('you', text, true, meta),
+    audio(channel, pcm) { if(!['you','them'].includes(channel))throw new Error('Invalid audio channel');ipc.emit(channel==='you'?'mic:pcm':'system:pcm',null,pcm); },
     advance(ms) { time += ms; },
     ask: (mode = 'say', text = '') => submit(mode, text),
     async shortcut(key) {

@@ -59,6 +59,7 @@
             <div id="messages"></div>
 
             <div id="action-row">
+              <button class="act" id="answer-cancel" type="button" disabled>停止生成</button>
               <button class="act act-primary" data-mode="say">
                 <span>如何回答</span>
                 <span class="shortcut-hint" id="say-shortcut-hint"></span>
@@ -168,6 +169,9 @@
         <div class="s-field"><span>快速模型</span><input id="model-fast" type="text" autocomplete="off" /></div>
         <div class="s-field"><span>深度思考</span><input id="model-smart" type="text" autocomplete="off" /></div>
         <div class="s-field"><span>模型窗口</span><input id="context-window-tokens" type="number" min="1024" max="2000000" step="1024" aria-label="模型窗口 token 数" /></div>
+        <div class="s-field"><span>口述输出上限</span><input id="oral-output-tokens" type="number" min="256" max="4096" step="256" aria-label="口述输出 token 上限" /></div>
+        <div class="s-field"><span>代码输出上限</span><input id="code-output-tokens" type="number" min="1024" max="16384" step="512" aria-label="代码输出 token 上限" /></div>
+        <div class="s-note">代码题保留更大的输出空间，仍需为当前问题和资料预留模型窗口。额度越大不代表每次都会输出更多内容。</div>
         <div class="s-note">填写服务商公布的上下文窗口 token 数；未知时保留 16384。回答会优先保留完整问题与约束。</div>
         <label class="s-label" for="protocol-preset">兼容服务协议预设</label><select id="protocol-preset" class="s-select"><option value="">自动（未知网关不推测）</option value="dashscope">明确使用 Qwen / DashScope 协议</option><option value="deepseek">明确使用 DeepSeek 协议</option></select>
         <label class="s-label" for="instant-thinking">极速思考设置</label>
@@ -314,6 +318,15 @@
       </div>
 
       <div class="s-body s-tab-pane hidden" data-pane="personal">
+        <section class="whisper-card" aria-label="个人资料工作区">
+          <label class="s-label">个人资料工作区</label>
+          <div class="s-note">一次导入简历、两个岗位、项目事实与故事。已内置的项目源码无需重复导入。</div>
+          <div class="whisper-actions"><button id="personal-import" class="s-action" type="button">导入个人资料文件…</button><button id="personal-diagnostics" class="s-action" type="button">导出脱敏诊断…</button></div>
+          <label class="s-label" for="personal-job">当前目标岗位</label>
+          <select id="personal-job" class="s-select" disabled><option value="">尚未导入岗位</option></select>
+          <div id="personal-status" class="s-note" role="status" aria-live="polite">正在读取个人资料状态…</div>
+          <details id="spoken-review"><summary>核对实际发言的角色和文字</summary><div class="s-note">只修改已识别的真人发言。AI 建议不会作为你已经说过的内容。</div><div id="spoken-events"></div></details>
+        </section>
         <label class="s-label">个人简历 <span class="s-hint">粘贴完整简历，或导入 PDF/DOCX</span></label>
         <div class="s-field s-upload"><span class="s-filename" id="resume-filename"></span><button class="s-upload-btn" id="upload-resume-btn">导入 PDF/DOCX</button></div>
         <textarea id="resume-text" rows="7" spellcheck="false" placeholder="在这里粘贴完整简历，Cue 会提取姓名、简介、工作经历、技能、项目和教育背景。"></textarea>
@@ -405,9 +418,18 @@
     </div>
   </div>
 
+  <div id="personal-preview" hidden>
+    <section class="glass personal-dialog" role="dialog" aria-modal="true" aria-labelledby="personal-preview-title" tabindex="-1">
+      <h2 id="personal-preview-title">个人资料导入预览</h2>
+      <p id="personal-preview-summary" role="status" aria-live="polite"></p>
+      <div class="s-note">核对数量和岗位后确认。重复导入相同版本不会覆盖之后在本机编辑的内容。</div>
+      <div class="whisper-actions"><button id="personal-confirm" type="button">确认导入</button><button id="personal-cancel" type="button">取消</button></div>
+    </section>
+  </div>
   <script src="icons.js"></script>
   <script src="capture-safe-select.js"></script>
   <script src="safe-markdown.js"></script>
   <script src="renderer.js"></script>
+  <script src="personal-workspace.js"></script>
 </body>
 </html>
