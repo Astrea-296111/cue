@@ -59,6 +59,10 @@ test('technical recovery answers retain the original state-changing body rather 
     assert.ok(diagnostic.sentSourceIds.includes('queue-claim'));
     assert.ok(!diagnostic.sentSourceIds.includes('queue-header'));
     assert.doesNotMatch(body,/FOREIGN_QUEUE_ONLY/);
+    await app.ask('say','How does CAE Queue handle retries after a timeout?');
+    const english=JSON.stringify(app.calls.at(-1).messages);
+    assert.match(english,/ACQUIRED/);
+    assert.doesNotMatch(english,/FOREIGN_QUEUE_ONLY/);
   }
 });
 

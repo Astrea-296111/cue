@@ -216,7 +216,7 @@ class DialogueStore {
       const recency = index >= all.length - 3;
       const active = this.activeProjectIds.length && overlaps(this.activeProjectIds, claim.projectIds);
       const score = shared * 3 + sharedFamily * 8 + (recency ? 3 : 0) + (claim.correction ? 12 : 0) + (claim.numericClaims.length && (shared || sharedFamily) ? 8 : 0);
-      return { claim, index, score, relevant: metaConversation&&claim.correction || shared > 0 || sharedFamily > 0 || recency && (REF.test(question) || active&&qTerms.size<=2) };
+      return { claim, index, score, relevant: metaConversation&&claim.correction || shared > 0 || sharedFamily > 0 || recency && (claim.correction || REF.test(question) || active&&qTerms.size<=2) };
     }).filter(item => item.relevant).sort((a, b) => b.score - a.score || b.index - a.index);
     const chosen = []; let remaining = maxChars;
     for (const item of ranked.slice(0, maxEvents)) {

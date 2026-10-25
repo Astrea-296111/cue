@@ -69,7 +69,7 @@ function getAnswerPlan(question = '', interviewPlan = null) {
   const questionCount = Math.max(planned.length, countQuestionSignals(planned.length ? planned.map(item => item.text).join('\n') : q));
   // Judge the requested work, not the length of an interviewer's setup.
   const focused = planned.length ? planned.map(item => item.text).join('\n') : q;
-  const complexPattern = /系统设计|架构|完整链路|整体流程|端到端|深入|详细|展开|怎么设计|如何设计|怎么实现|如何实现|排查|定位|优化|权衡|取舍|一致性|高并发|高可用|容灾|性能问题|项目里.+(?:怎么|如何)|为什么.+(?:选择|设计|不用)|从头|完整讲|walk\s+me\s+through|system\s+design|trade-?off|architecture|implement|debug/i;
+  const complexPattern = /系统设计|架构|完整链路|完整流程|整体流程|故障测试|证伪|端到端|深入|详细|展开|怎么设计|如何设计|怎么实现|如何实现|排查|定位|优化|权衡|取舍|一致性|高并发|高可用|容灾|性能问题|项目里.+(?:怎么|如何)|为什么.+(?:选择|设计|不用)|从头|完整讲|walk\s+me\s+through|system\s+design|fault\s+test|trade-?off|architecture|implement|debug/i;
   const briefPattern = /^(?:什么是|是否|能不能|是不是|简单说|简单介绍|简短解释)|一句话|\b(?:what is|define|briefly|in one sentence)\b/i;
   const definition = /^(?:什么是|\s*what is\b|\s*define\b)/i.test(focused) && focused.length < 48 &&
     !/详细|深入|展开|实现|排查|权衡|取舍|\b(?:detail|implement|debug|trade-?off)\b/i.test(focused);
@@ -90,7 +90,7 @@ function answerShapeInstruction(plan) {
     return `这是复杂问题：本轮有${p.questionCount}个子问题（含面试官本轮明确要求补答的问题）：先给方案主干，再按原顺序逐项回应；当前新问优先，每个子问至少覆盖结论和最关键的理由或做法。` +
       `先保证全部覆盖，再展开细节；通常控制在${p.sentenceLimit}句以内，不能为了沿用单点题句数限制而漏答。`;
   }
-  if (p.level === 'complex') return '这是复杂单问：主卡先用2–4句说结论、一处具体机制和取舍或验证；需要深入时再展开，不强制编号。';
+  if (p.level === 'complex') return '这是复杂单问：先说结论，再按题目要求覆盖完整流程、故障窗口或比较维度及验证；可分点，不因普通单问句数省略关键前提和环节，不强制套模板。';
   return p.level === 'brief' ? '这是简要问题：通常1~3句即可，不凑字数。'
     : '这是单点问题：通常2–4句自然口述，只补关键原因或例子，不强制编号。';
 }

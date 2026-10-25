@@ -4,12 +4,12 @@ const {formatEvidenceBlock}=require('./evidence-selector');
 const {inProjectScope}=require('./project-scope');
 const {strictProjectScopes}=require('./project-registry');
 const {projectQuestionParts}=require('./project-question-parts');
-const {tokenize,hasImplementationBody}=require('./project-search');
+const {tokenize,hasImplementationBody,implementationQuery}=require('./project-search');
 const VERSION='project-evidence-v2';
 function resolveEvidenceLimits({question='',answerPlan={},instant=false}={}) {
   const longScenario=answerPlan.questionCount>=3||String(question).length>450;
   return longScenario ? {maxSources:instant?6:9,evidenceTokens:instant?2400:4200,softInputTokens:6500,longScenario:true}
-    : /状态|事务|崩溃|超时|重试|幂等|租约|\b(?:claim|confirm|lease|transaction|retry|crash)\b/i.test(question)
+    : /状态|事务|崩溃|超时|重试|幂等|租约|\b(?:claim|confirm|lease|transaction|retry|retries|timeout|duplicate|execution|crash)\b/i.test(question)
       ? {maxSources:instant?4:7,evidenceTokens:instant?2100:3200,softInputTokens:3800,longScenario:false,mechanismDetail:true}
       : {maxSources:instant?4:7,evidenceTokens:instant?1500:2800,softInputTokens:3000,longScenario:false};
 }
@@ -37,7 +37,7 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
   // "which service is responsible" or timeout questions must keep the order
   // already ranked for the current mechanism by the fact selector.
   const personal=/(?:你|我|本人|个人|候选人)(?:在.{0,20}(?:中|里))?(?:主要|具体|曾经|实际|本人|的)?(?:职责|负责(?:哪些|什么|哪块|哪部分|的部分)|贡献|角色|经历|做了(?:哪些|什么))|几个人|多少人|团队(?:分工|组成)|和谁协作|一个人做|独立开发|(?:项目|开发|实习)(?:开发|实施)?(?:周期|时间线|历时|持续(?:了)?多久|做了多久|何时开始|哪年开始)|(?:开发|实习)(?:了)?多久|开发时间|项目时间线/.test(question);
-  const implementation=/实现|代码|源码|接口|竞态|恢复|状态机|机制/.test(question)||resolution.intent?.includes('implementation');
+  const implementation=/实现|代码|源码|接口|竞态|恢复|状态机|机制/.test(question)||resolution.intent?.includes('implementation')||!personal&&implementationQuery(question)!==null;
   const primary = c=>(resolution.intent||[]).includes(c.docType) || personal&&['ownership','collaboration','overview','performance'].includes(c.docType) || implementation&&c.docType==='implementation';
   const parts=projectQuestionParts(question,resolution),multi=parts.length>1;
   const rankedFacts=multi||!personal?[...allowedFacts]:[...allowedFacts].sort((a,b)=>Number(primary(b))-Number(primary(a))||Number(b.provenance==='USER')-Number(a.provenance==='USER'));
