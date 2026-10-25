@@ -19,6 +19,16 @@ function observedUsage(usage) {
 function retryable(error) {
   return /^(?:role-http-(?:408|409|429|5\d\d)|role-timeout|role-network|judge-invalid-|judge-fabricated-|judge-missing-|judge-incomplete-|judge-unsupported-|judge-unknown-|role-invalid-)/u.test(error?.code || error?.message || '');
 }
+function formatRepair(messages, previous) {
+  if (!previous?.error?.code?.startsWith('judge-')) return [];
+  let original;
+  try { original = JSON.parse(messages.findLast(message => message.role === 'user')?.content || '{}'); } catch { original = {}; }
+  return [{ role: 'user', content: JSON.stringify({ task: 'format-repair-only', validationError: previous.error.code,
+    validationDetails: previous.error.validationDetails || null,
+    requirements: '重新评价同一原输入，保持原评分标准。完整复制outputTemplate的所有字段与六维行后填写实际判断，不能省略字段或保留null占位符。coverage和prohibitedClaims各自从0编号，严格使用下面各组索引，不能接续编号。引用优先填answerSegmentIds，ID必须来自原输入answerSegments；需要多处原文时列多个ID，不拼接为一句。若另给answerQuote，它也必须是answer精确连续原文。不能凭空补评分、不能因为格式重试就改成通过。',
+    ...(original.outputTemplate ? { outputProtocol: original.outputProtocol, outputTemplate: original.outputTemplate,
+      constraintIndices: Object.fromEntries(['coverage', 'prohibitedClaims'].map(field => [field, original.outputTemplate[field]?.map(row => row.constraintIndex) || []])) } : {}) }) }];
+}
 async function callRoleOnce({ config, messages, role = 'judge', timeoutMs = 120000, maxTokens = 8192, fetchImpl = globalThis.fetch }) {
   if (config.error) throw Object.assign(new Error(config.error.code), { code: config.error.code });
   const controller = new AbortController(), started = performance.now();
@@ -60,8 +70,7 @@ async function runRole({ config, messages, role, attempts = [], retryLimit = 2, 
   if (config.error) return { status: 'failed', error: config.error, attempts, model: config.model || null };
   while (attempts.length <= retryLimit) {
     const previous=attempts.at(-1);
-    const repair=previous?.error?.code?.startsWith('judge-') ? [{role:'user',content:JSON.stringify({task:'format-repair-only',validationError:previous.error.code,
-      requirements:'保留原始评分标准，重新评价原输入。citations必须列全六维，每条answerQuote仅取answer中一段连续原文，建议10–40字，不能用省略号拼接或改变空格标点。无需纠正时也保留correctionQuality引用并说明无需纠正。所有constraintIndex逐项列出。不得编造原句。'})}] : [];
+    const repair = formatRepair(messages, previous);
     const requestMessages=[...messages,...repair];
     const attempt = { attempt: attempts.length + 1, role, status: 'running', startedAt: new Date().toISOString(),
       provider: config.id, requestedModel: config.model, model: null, usage: null, finishReason: null,requestMessages };
@@ -79,6 +88,7 @@ async function runRole({ config, messages, role, attempts = [], retryLimit = 2, 
       attempt.status = 'failed'; attempt.finishedAt = new Date().toISOString();
       attempt.durationMs ??= +(performance.now() - started).toFixed(2);
       attempt.error = { code: String(error.code || error.message || 'role-invalid-output') };
+      if (error.validationDetails) attempt.error.validationDetails = error.validationDetails;
       if (attempt.rawOutput) attempt.rawOutput = sanitizeText(attempt.rawOutput, { secrets });
       await onCheckpoint();
       if (!retryable(attempt.error) || attempts.length > retryLimit) break;
@@ -88,4 +98,4 @@ async function runRole({ config, messages, role, attempts = [], retryLimit = 2, 
   return { status: 'failed', attempts, model: config.model, error: attempts.at(-1)?.error || { code: 'role-attempts-exhausted' } };
 }
 
-module.exports = { roleConfig, observedUsage, retryable, callRoleOnce, runRole };
+module.exports = { roleConfig, observedUsage, retryable, formatRepair, callRoleOnce, runRole };
