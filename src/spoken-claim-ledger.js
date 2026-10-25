@@ -10,7 +10,7 @@ const normalizeTerms = value => clean(value).replace(/卡夫卡/g, 'Kafka').repl
 const PROJECTS = [['cae', /\bcae(?:-job-platform)?\b|CAE仿真平台/i], ['arclight', /\barclight\b|\bmewcode\b/i]];
 const NEW_TOPIC = /换个(?:问题|话题)|换一(?:个|道)问题|新话题|先不聊|不(?:结合|涉及|针对).{0,12}项目|(?:单独|只|一般)(?:问|聊|讲|讨论).{0,14}(?:原理|概念|知识)|\b(?:new topic|in general|without (?:the |your )?project)\b/i;
 const REF = /刚才|前面|改口|你说|你提到|那|这个|这里|它|继续|这样|口误|怎么算|\b(?:you said|what about|why that|how does it)\b/i;
-const CORRECTION = /口误|说错|纠正|更正|更准确|准确说|应该(?:说|是)|实际(?:是|用)|不是.{0,80}而是|改口|不对[，,。\s]|我说.{0,20}大概/;
+const CORRECTION = /口误|说错|纠正|更正|更准确|准确说|应该(?:说|是)|实际(?:是|用)|不是.{0,80}而是|改口|不对[，,。\s]|我说.{0,20}大概|\b(?:I\s+(?:meant|mean|misspoke|was\s+(?:wrong|mistaken))|let\s+me\s+(?:correct|rephrase)|more\s+precisely|to\s+be\s+(?:more\s+)?precise)\b/i;
 const FAMILIES = [
   ['broker', /kafka|rabbit\s*mq|卡夫卡|消息队列|派发|分区/i],
   ['delivery', /exactly.?once|at.least.once|恰好一次|至少一次|幂等|重复|去重|重投|任务身份|唯一约束|竞争|故障测试|确认丢|confirm|out\s*box/i],
@@ -45,7 +45,11 @@ function correctionTerms(text) {
 }
 function identifiers(text) {
   return new Set((text.match(/[A-Za-z][A-Za-z0-9_]{1,63}/g)||[]).map(value=>value.toLowerCase())
-    .filter(value=>!['cae','arclight','mewcode','ms','token','tokens','the','and','was','is','we','used'].includes(value)));
+    // Conversational correction words are not topic identities. In particular,
+    // two utterances beginning "I said" need not be about the same subject.
+    .filter(value=>!['cae','arclight','mewcode','ms','token','tokens','the','and','was','is','we','used',
+      'said','say','mean','meant','misspoke','wrong','mistaken','correct','rephrase','precisely','precise','more','let','me',
+      'actually','has','have','had','are','our','this','that','its','it','for','not','but','my','so','now','then','to','be'].includes(value)));
 }
 function correctionTargets(previousClaims, claim) {
   const candidates=previousClaims.filter(previous=>['affirmed','contradicted'].includes(previous.status)&&overlaps(previous.projectIds,claim.projectIds)&&
@@ -235,6 +239,6 @@ class DialogueStore {
   }
 }
 
-const SPOKEN_CONTEXT_RULES = '\n真人发言与建议分开：SPOKEN_STATE 是候选人实际说过或人工修订的内容，不是实现证据。先用它理解当前问题的实体、数字和指代，再按源码/资料校准事实；旧 AI 建议从未自动成为候选人发言。若实际发言与可靠证据冲突，用一句自然的“更准确说/刚才口误”纠正后回答，不顺着编造。若候选人已主动纠正，直接沿用新版本，不反复道歉。正确的近似数补口径即可，角色未确认的发言不能强行归给候选人。';
+const SPOKEN_CONTEXT_RULES = '\n真人发言与建议分开：SPOKEN_STATE 是候选人实际说过或人工修订的内容，不是实现证据。先用它理解当前问题的实体、数字和指代，再按源码/资料校准事实；旧 AI 建议从未自动成为候选人发言。若实际发言与可靠证据冲突，用一句自然的“更准确说/刚才口误”纠正后回答，不顺着编造。纠正后仍须回答当前具体选择及理由；涉及替代设计时标明“如果改用”，给出一个可用方案及边界，不能只说需要重新设计或后续评估。若候选人已主动纠正，直接沿用新版本，不反复道歉。正确的近似数补口径即可，角色未确认的发言不能强行归给候选人。';
 
 module.exports = { DialogueStore, SpokenClaimLedger, SPOKEN_CONTEXT_RULES, projectIds };

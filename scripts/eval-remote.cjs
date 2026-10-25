@@ -27,7 +27,7 @@ function read(file, maximum = cipher.MAX_INPUT_BYTES) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 function parseArgs(args) {
-  const options = {profile:'smoke', provider:'all', shards:1, pollMs:5000, waitMs:8*60*60*1000, discoverModels:false, detach:false};
+  const options = {profile:'smoke', provider:'all', pollMs:5000, waitMs:8*60*60*1000, discoverModels:false, detach:false};
   const names = {'--payload':'payloadFile','--judge-reference':'judgeReferenceFile','--scenarios':'scenarioFile','--profile':'profile','--provider':'provider','--application':'applicationCommit',
     '--output-dir':'outputDir','--resume':'resumeFile','--repository':'repository','--shards':'shards','--repeats':'repeats','--concurrency':'concurrency',
     '--retry-limit':'retryLimit','--poll-ms':'pollMs','--wait-ms':'waitMs','--label':'label','--output-ceiling':'outputCeiling','--timeout-ms':'timeoutMs','--source-snapshot':'sourceSnapshot'};
@@ -52,6 +52,11 @@ function parseArgs(args) {
 }
 function preparePayload(options) {
   const uploaded=read(options.payloadFile);
+  if(uploaded?.schemaVersion===3){
+    options.shards??=1;
+    if(options.shards!==1||options.scenarioFile||options.judgeReferenceFile||options.dynamic||options.applicationCommit||options.sourceSnapshot||options.repeats!==undefined)throw new Error('Judge recovery accepts one prepared partition without generation options.');
+    return require('./lib/judge-recovery.cjs').validateRecoveryPayload(uploaded);
+  }
   if(Object.keys(uploaded).some(key=>!['schemaVersion','facts','profile','revision','sourceManifest','mergeLog','scenarios','evaluation'].includes(key)))throw new Error('Invalid evaluation workspace fields.');
   const {scenarios:embeddedScenarios,evaluation:embeddedEvaluation,...workspaceData}=uploaded;
   const workspace=validateEvaluationWorkspace(workspaceData),sourceProfile=workspace.profile||{};
@@ -64,9 +69,26 @@ function preparePayload(options) {
   for (const name of ['sourceManifest','mergeLog']) if (workspace[name] !== undefined) payload[name]=workspace[name];
   if (options.judgeReferenceFile) payload.judgeReference=projectJudgeReference(read(options.judgeReferenceFile));
   if (!payload.facts || !payload.profile || !payload.scenarios) throw new Error('A workspace payload and multi-turn scenarios are required.');
-  const config={...(payload.evaluation||{}), profile:options.profile, shardCount:options.shards, shardIndex:0};
+  const config={...(payload.evaluation||{}), profile:options.profile, shardCount:options.shards??1, shardIndex:0};
   for (const name of ['applicationCommit','repeats','concurrency','retryLimit','label','judge','outputCeiling','timeoutMs','sourceSnapshot','dynamic']) if (options[name]!==undefined) config[name]=options[name];
   validateScenarios(payload.scenarios); validateEvaluation(config);
+  const providers=options.provider==='all'?['qwen','deepseek']:[options.provider];
+  const allTasks=buildTasks(payload.scenarios.sessions,resolveProfile({...config,shardCount:1,shardIndex:0},providers.length),providers);
+  const answerCount=config.audioFixture?providers.length*2:config.dynamic
+    ? allTasks.length*((typeof config.dynamic==='object'?config.dynamic.turns:6)||6)+allTasks.length
+    : allTasks.reduce((n,task)=>n+task.session.events.filter(event=>event.invoke_cue).length,0);
+  const target=config.judge?60:120;
+  options.shards??=Math.max(1,Math.min(100,allTasks.length,Math.ceil(answerCount/target)));
+  if(config.audioFixture&&options.shards!==1||options.shards>allTasks.length)throw new Error('Selected shards would create empty or unsupported evaluation partitions.');
+  config.shardCount=options.shards;
+  const shardAnswers=Array.from({length:options.shards},(_,shardIndex)=>{
+    const assigned=buildTasks(payload.scenarios.sessions,resolveProfile({...config,shardIndex},providers.length),providers);
+    return config.audioFixture?providers.length*2:config.dynamic?assigned.length*((typeof config.dynamic==='object'?config.dynamic.turns:6)||6)+assigned.length
+      :assigned.reduce((n,task)=>n+task.session.events.filter(event=>event.invoke_cue).length,0);
+  });
+  options.workloadPlan={generationAnswers:answerCount,shards:options.shards,maximumAnswersPerShard:Math.max(...shardAnswers),
+    automaticTargetAnswersPerShard:target,judges:!!config.judge,
+    note:'Finite workload planning; provider slowdowns and retries remain bounded and recoverable.'};
   const evaluationProfile=resolveProfile(config,options.provider==='all'?2:1);
   if (!buildTasks(payload.scenarios.sessions,evaluationProfile,options.provider==='all'?['qwen','deepseek']:[options.provider]).length) throw new Error('The selected shard has no sessions.');
   payload.evaluation=config;
@@ -94,7 +116,16 @@ class Github {
     } finally { if(file) fs.rmSync(file,{force:true}); }
   }
   async artifacts(runId) { return (await this.api(`repos/${this.repository}/actions/runs/${runId}/artifacts?per_page=100`)).artifacts || []; }
-  async download(runId,name,directory) { fs.mkdirSync(directory,{recursive:true,mode:0o700}); await this.command(['run','download',String(runId),'--repo',this.repository,'--name',name,'--dir',directory]); }
+  async download(runId,name,directory) {
+    fs.mkdirSync(path.dirname(directory),{recursive:true,mode:0o700});
+    const staging=fs.mkdtempSync(path.join(path.dirname(directory),'.cue-download-'));
+    try {
+      await this.command(['run','download',String(runId),'--repo',this.repository,'--name',name,'--dir',staging]);
+      // gh refuses existing artifact files. Replace only this cached artifact
+      // after a complete fresh download, so --resume works after decode errors.
+      fs.rmSync(directory,{recursive:true,force:true});fs.renameSync(staging,directory);
+    } finally { fs.rmSync(staging,{recursive:true,force:true}); }
+  }
   async publish(runId,envelope) {
     const endpoint=`repos/${this.repository}/contents/${runId}.json`;
     let sha;
@@ -116,8 +147,8 @@ async function until(check,{deadline,pollMs,pauseImpl=pause}) {
   while(Date.now()<deadline) { const result=await check(); if(result) return result; await pauseImpl(Math.min(pollMs,Math.max(1,deadline-Date.now()))); }
   throw new Error('Remote evaluation wait expired. Run the same command with --resume and the saved manifest.');
 }
-function verifySession(session,state,run) {
-  cipher.validateSession(session);
+function verifySession(session,state,run,{allowExpired=false}={}) {
+  cipher.validateSession(session,{allowExpired});
   if (session.repository!==state.repository || session.runId!==String(run.runId) || session.runAttempt!==String(run.runAttempt) || session.commitSha!==state.trustedSha) throw new Error('Session does not match the dispatched trusted main SHA/run/attempt.');
   return session;
 }
@@ -146,6 +177,7 @@ async function runRemote(options,{github,log=message=>process.stdout.write(messa
   const deadline=Date.now()+options.waitMs;
   const wait=check=>until(check,{deadline,pollMs:options.pollMs,pauseImpl});
   log('Private resume manifest: '+manifest);
+  if(state.options.workloadPlan)log('Evaluation workload: '+JSON.stringify(state.options.workloadPlan));
   // Bind every shard to main before any long-running evaluation. Subsequent
   // production merges cannot change these workflow runs' immutable github.sha.
   for(const run of state.runs) {
@@ -207,7 +239,9 @@ async function runRemote(options,{github,log=message=>process.stdout.write(messa
     const artifact=await wait(async()=>(await github.artifacts(run.runId)).find(item=>item.name===`private-live-${run.runId}-${run.runAttempt}`&&!item.expired));
     const artifactDir=path.join(directory,'encrypted');await github.download(run.runId,artifact.name,artifactDir);
     const session=read(path.join(directory,'session','session.json'),16384),local=read(path.join(directory,'local-key.json'),16384);
-    cipher.validateSession(session,{allowExpired:true});
+    // Input expiry prevents late uploads. An authenticated archived response
+    // can still be opened with its original private key after that window.
+    verifySession(session,state,run,{allowExpired:true});
     if(local.fingerprint!==session.fingerprint || run.fingerprint!==session.fingerprint) throw new Error('Saved response key does not match the session.');
     const key=cipher.bytes64(local.key,32);let reports;
     try {reports=cipher.decryptReports({session,key,envelope:read(path.join(artifactDir,'report.encrypted.json'),cipher.MAX_ENVELOPE_BYTES)});} finally {key.fill(0);}

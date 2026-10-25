@@ -2,7 +2,7 @@
 
 const { performance } = require('node:perf_hooks');
 const { createHash } = require('node:crypto');
-const { tokenize, querySpec } = require('./project-search');
+const { tokenize, querySpec,hasImplementationBody } = require('./project-search');
 const { inProjectScope } = require('./project-scope');
 const { RETRIEVAL_CONFIG_VERSION } = require('./project-prefetch-policy');
 const {projectQuestionParts, boundedRankingText}=require('./project-question-parts');
@@ -59,7 +59,7 @@ function projectSource(source, revision, scopes) {
 
 function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision, modelVersion = 'base',
   retrievalConfigVersion, projectIndexSnapshot, cache, ragSession, retrievalInput,
-  maxCandidates = 8, maxSources = 3, maxChars = 1800, policy = 'ready-only' } = {}) {
+  sourceHints=[],maxCandidates = 8, maxSources = 3, maxChars = 1800, policy = 'ready-only' } = {}) {
   const started = performance.now();
   const sources = [], scopes = (projectPlan.scopes || []).slice(0, 2);
   const stats = { ragPolicy: policy, readyEvidenceHit: false, sourceCount: 0, candidateCount: 0,
@@ -121,11 +121,20 @@ function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision,
         own.score+=(row.navigationMatches?3:1)/(20+rank+1);pooled.set(row.chunk.id,own);
       }
     }
-    const rows=[...pooled.values()].sort((a,b)=>b.score-a.score),files=new Set();
-    for(const row of rows){const file=row.chunk.projectId+':'+row.chunk.path;if(files.has(file))continue;
-      files.add(file);candidates.push(projectSource(row.chunk,projectRevision,scopes));preparedScores.set(row.chunk.id,row.score);if(candidates.length>=candidateLimit)break;}
+    const rows=[...pooled.values()].sort((a,b)=>b.score-a.score),files=new Map();
+    for(const row of rows){const file=row.chunk.projectId+':'+row.chunk.path;if((files.get(file)||0)>=2)continue;
+      files.set(file,(files.get(file)||0)+1);candidates.push(projectSource(row.chunk,projectRevision,scopes));preparedScores.set(row.chunk.id,row.score);if(candidates.length>=candidateLimit)break;}
     stats.preparedLookupMs=performance.now()-lookupStarted;stats.postingsVisited=visited;
     stats.preparedLookupCalls=calls;origin='prepared-postings';
+  }
+  if(sourceHints.length&&typeof projectIndexSnapshot.lookupSourceHints==='function') {
+    const hinted=projectIndexSnapshot.lookupSourceHints(sourceHints,[snapshot.text,retrievalInput?.topicContext||''].join('\n'),scopes,{limit:6});
+    stats.sourceHintCandidates=hinted.rows?.length||0;stats.sourceHintExamined=hinted.examined||0;
+    const extra=(hinted.rows||[]).map(row=>{
+      preparedScores.set(row.chunk.id,Math.max(preparedScores.get(row.chunk.id)||0,.25+Math.log1p(row.score)/20));
+      return {...projectSource(row.chunk,projectRevision,scopes),sourceHint:true};
+    });
+    candidates=[...extra,...candidates].filter((row,i,all)=>all.findIndex(other=>other.id===row.id)===i).slice(0,candidateLimit);
   }
   const ranked = [];
   for (const cached of candidates.slice(0, candidateLimit)) {
@@ -136,19 +145,21 @@ function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision,
     const source = projectIndexSnapshot.resolveSource(cached);
     if (!source || source.text !== cached.text || !inProjectScope(source, scopes) ||
       cached.sourceHash && hash(source.text) !== cached.sourceHash) continue;
+    if(/\.(?:java|py|[cm]?[jt]sx?|go|rs|cs|sql)$/i.test(source.path||'')&&['context','class','interface'].includes(source.kind)&&!hasImplementationBody(source)&&
+      !/字段|声明|类型|签名|构造|初始化|\b(?:fields?|signature|declaration|constructor|schema)\b/i.test(snapshot.text))continue;
     const ownParts=parts.filter(part=>!part.scopes.length||inProjectScope(source,part.scopes));
     const body=`${source.symbol||''}\n${source.path}\n${source.text}`,prepared={body,available:new Set(tokenize(body,true))};
-    const score = Math.max(0,...ownParts.map(part=>relevant(source,part.text,part.terms,projectPlan,prepared)||0));
+    const score = Math.max(cached.sourceHint ? 0.1 : 0,...ownParts.map(part=>relevant(source,part.text,part.terms,projectPlan,prepared)||0));
     if (score) ranked.push({ source, score:preparedScores.get(source.id)||score });
   }
   let used = 0;
-  const files=new Set();
+  const files=new Map();
   for (const { source } of ranked.sort((a, b) => b.score - a.score)) {
     if (sources.length >= sourceLimit) break;
     const file=source.projectId+':'+source.path;
-    if (used + source.text.length > charLimit || files.has(file) || sources.some(row => row.id === source.id)) continue;
+    if (used + source.text.length > charLimit || (files.get(file)||0)>=2 || sources.some(row => row.id === source.id)) continue;
     sources.push(projectSource(source, projectRevision, scopes)); used += source.text.length;
-    files.add(file);
+    files.set(file,(files.get(file)||0)+1);
   }
   stats.readyOrigin = sources.length ? origin : null;
   stats.sourceChars = used;

@@ -122,6 +122,38 @@ test('hypothetical broker design and candidate questions do not contradict an ac
   assert.match(context.text,/问题，不当成实现断言/);
 });
 
+test('an English self-correction observed by live ASR reaches production SDK speech context without repeated correction or unrelated claim retirement',async t=>{
+  const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:'instant'}});await app.ready;
+  app.candidate('I said CI has 17 tests in this synthetic example.');
+  app.candidate('Earlier I said Kafka dispatched the jobs.');
+  // This is the recognized candidate sentence from real ASR run 40164527719.
+  // The regression replays that final text; it does not simulate another ASR run.
+  const recognized='I said Kafka, I meant RabbitMQ.';
+  app.candidate(recognized);
+  await app.ask('say','刚才的消息队列怎样派发任务？');
+  const snapshot=plain(await app.invoke('dialogue:snapshot'));
+  assert.equal(snapshot.claims[0].status,'affirmed');
+  assert.equal(snapshot.claims[1].status,'corrected');
+  assert.equal(snapshot.claims[2].correction,true);
+  assert.equal(snapshot.claims[2].rawText,recognized);
+  assert.deepEqual(snapshot.claims[2].replaces,[snapshot.claims[1].id]);
+  assert.match(currentText(app.calls.at(-1)),/I said Kafka, I meant RabbitMQ\./);
+  assert.match(currentText(app.calls.at(-1)),/候选人已主动纠正，沿用新版本，不重复提醒旧口误/);
+  assert.doesNotMatch(currentText(app.calls.at(-1)),/Earlier I said Kafka dispatched the jobs/);
+  await app.ask('say','那 RabbitMQ 怎样避免消息重复？');
+  assert.match(currentText(app.calls.at(-1)),/I said Kafka, I meant RabbitMQ\./);
+  assert.match(currentText(app.calls.at(-1)),/不重复提醒旧口误/);
+  // "Actually" can introduce an ordinary assertion; it is not a sufficient
+  // signal to silently retire an earlier human claim.
+  const store=new DialogueStore();
+  for(const [index,text]of ['I mean RabbitMQ.','Let me correct that: RabbitMQ.','I was wrong: RabbitMQ.','More precisely, RabbitMQ.','I misspoke: RabbitMQ.'].entries()) {
+    store.ingest({eventId:'english-'+index,channel:'you',text});
+    assert.equal(store.ledger.claims.at(-1).correction,true);
+  }
+  store.ingest({eventId:'ordinary',channel:'you',text:'Actually, CI has 17 tests.'});
+  assert.equal(store.ledger.claims.at(-1).correction,false);
+});
+
 test('production speech keeps an early corrected subject after thirty rounds and an interrupted two-speaker turn',async t=>{
   const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:'instant'}});await app.ready;
   const sessionId=(await app.invoke('dialogue:snapshot')).sessionId;

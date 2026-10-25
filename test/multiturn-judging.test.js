@@ -126,9 +126,19 @@ test('bad segment IDs, foreign text, duplicate dimensions and quotes fabricated 
   const foreign = bad(); delete foreign.citations[0].answerQuote; foreign.citations[0].answerSegmentIds = ['a0'];
   assert.throws(() => parseJudgeOutput(JSON.stringify(foreign), tampered), /invalid-answer-segment-id/);
   const duplicate = bad(); duplicate.citations.push({ ...duplicate.citations[0] });
-  assert.throws(() => parseJudgeOutput(JSON.stringify(duplicate), input), /missing-dimension-citation/);
+  assert.throws(() => parseJudgeOutput(JSON.stringify(duplicate), input), error=>{
+    assert.match(error.message,/missing-dimension-citation/);
+    assert.deepEqual(error.validationDetails.duplicateDimensions,[DIMENSIONS[0]]);return true;
+  });
+  const missing=bad();missing.citations=missing.citations.filter(c=>c.dimension!==DIMENSIONS[3]);
+  assert.throws(()=>parseJudgeOutput(JSON.stringify(missing),input),error=>{
+    assert.deepEqual(error.validationDetails.missingDimensions,[DIMENSIONS[3]]);return true;
+  });
   const noSupport = bad(); noSupport.citations[0] = { dimension: DIMENSIONS[0], answerSegmentIds: [], reason: '没有引用' };
-  assert.throws(() => parseJudgeOutput(JSON.stringify(noSupport), input), /missing-positive-score-citation/);
+  assert.throws(() => parseJudgeOutput(JSON.stringify(noSupport), input),error=>{
+    assert.match(error.message,/missing-positive-score-citation/);
+    assert.deepEqual(error.validationDetails.missingAnswerEvidenceForDimensions,[DIMENSIONS[0]]);return true;
+  });
 });
 
 test('constraint offsets fail with explicit per-group feedback rather than silently renumbering', () => {
@@ -181,14 +191,25 @@ test('two real transport contracts retain failed output usage, retry boundedly, 
   const before = calls;
   await evaluateJudges({ report, payload: {}, env, outputDir, fetchImpl, pauseImpl: async () => {} });
   assert.equal(calls, before);
-  assert.deepEqual(sent[0].messages, sent[2].messages);
-  assert.notEqual(sent[0].model, sent[2].model);
+  assert.deepEqual(sent[0].messages, sent[1].messages);
+  assert.notEqual(sent[0].model, sent[1].model);
   assert.deepEqual(sent[0].response_format,{type:'json_object'});
-  assert.match(sent[1].messages.at(-1).content,/format-repair-only/);
-  const repair = JSON.parse(sent[1].messages.at(-1).content);
+  assert.match(sent[2].messages.at(-1).content,/format-repair-only/);
+  assert.equal(sent[2].model,sent[0].model);
+  const repair = JSON.parse(sent[2].messages.at(-1).content);
   assert.deepEqual(repair.constraintIndices, { coverage: [0], prohibitedClaims: [0] });
   assert.deepEqual(repair.outputTemplate.citations.map(row => row.dimension), DIMENSIONS);
   assert.equal(judged.providers[0].cases[0].judging.judges[0].attempts[1].requestMessages.length,3);
+});
+
+test('a depleted workflow budget pauses judges without new calls and leaves missing results explicitly unverified',async t=>{
+  const report={kind:'live',status:'passed',providers:[{id:'tested',cases:[item()]}]};let calls=0;
+  const judged=await evaluateJudges({report,payload:{},env:{...env,CUE_EVALUATION_DEADLINE_MS:String(Date.now()-1000)},outputDir:directory(t),
+    fetchImpl:async()=>{calls++;throw Error('Must save a resumable checkpoint instead of issuing a late request');}});
+  assert.equal(calls,0);assert.equal(judged.judging.status,'needs-resume');
+  assert.equal(judged.judging.pendingCases,1);assert.equal(judged.judging.unverified,1);
+  assert.equal(judged.judging.crossModelVerifiedCases,0);assert.equal(judged.judging.qualityGates.noCriticalFailure,null);
+  assert.equal(judged.judging.resumable,true);assert.notEqual(judged.status,'passed');
 });
 
 test('segment protocol retries preserve invalid results and usage; exhausted invalid judging never passes', async t => {

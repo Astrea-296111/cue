@@ -24,6 +24,23 @@ function fixture() {
     codePositions: [{ path: 'main.js', line: 900, role: '真实问答入口' }] };
 }
 
+test('progress checkpoints retain complete observations without repeatedly rendering the final Markdown', t => {
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cue-report-progress-'));
+  t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+  const report=fixture();report.status='running';
+  report.providers[0].cases[0].answer='COMPLETE_OBSERVATION_'.repeat(10000);
+  report.providers[0].cases[0].actualMessages=[{messages:[{role:'user',content:'request secret-value'}]}];
+  writeReports(report,{outputDir:directory,sanitize:{secrets:['secret-value']}});
+  const partial=JSON.parse(fs.readFileSync(path.join(directory,'report.json'),'utf8'));
+  assert.equal(partial.providers[0].cases[0].answer,report.providers[0].cases[0].answer);
+  assert.ok(JSON.stringify(partial).includes('request [REDACTED]'));
+  assert.ok(fs.statSync(path.join(directory,'report.md')).size<12000);
+  report.status='failed';writeReports(report,{outputDir:directory,sanitize:{secrets:['secret-value']}});
+  const final=fs.readFileSync(path.join(directory,'report.md'),'utf8');
+  assert.ok(final.includes(report.providers[0].cases[0].answer));
+  assert.ok(!final.includes('secret-value'));
+});
+
 test('report sanitizer removes configured secrets, headers and local paths recursively', () => {
   const value = sanitizeReport({ answer: 'approved answer', error: 'Bearer unknown-header-token\nQWEN_API_KEY=unknown-key\nAuthorization: raw-header\n/workspace/cue/private/data.json\nC:\\Users\\person\\data.json\n/tmp/cue-runtime/a.json\nkey-from-env',
     headers: { authorization: 'private', 'x-api-key': 'private' }, apiKey: 'private', actualInputTokens: 30,

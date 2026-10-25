@@ -157,8 +157,14 @@ function parseJudgeOutput(raw, input) {
   validateQuotes(parsed.citations); validateQuotes(parsed.coverage); validateQuotes(parsed.prohibitedClaims); validateQuotes(parsed.unsupportedClaims);
   if (parsed.citations.length !== DIMENSIONS.length || new Set(parsed.citations.map(c => c.dimension)).size !== DIMENSIONS.length ||
       !DIMENSIONS.every(d => parsed.citations.some(c => c.dimension === d && typeof c.reason === 'string' && c.reason.trim())) ||
-      parsed.citations.some(c => !DIMENSIONS.includes(c.dimension))) throw new Error('judge-missing-dimension-citation');
-  if (DIMENSIONS.some(d => parsed.scores[d] >= 3 && !parsed.citations.some(c => c.dimension === d && c.answerQuote))) throw new Error('judge-missing-positive-score-citation');
+      parsed.citations.some(c => !DIMENSIONS.includes(c.dimension))) throw Object.assign(new Error('judge-missing-dimension-citation'),{
+        validationDetails:{field:'citations',expectedDimensions:DIMENSIONS,receivedDimensions:parsed.citations.map(c=>c.dimension),
+          missingDimensions:DIMENSIONS.filter(d=>!parsed.citations.some(c=>c.dimension===d)),
+          duplicateDimensions:DIMENSIONS.filter(d=>parsed.citations.filter(c=>c.dimension===d).length>1),
+          missingReasons:DIMENSIONS.filter(d=>!parsed.citations.some(c=>c.dimension===d&&typeof c.reason==='string'&&c.reason.trim()))}});
+  const missingPositiveCitations=DIMENSIONS.filter(d => parsed.scores[d] >= 3 && !parsed.citations.some(c => c.dimension === d && c.answerQuote));
+  if (missingPositiveCitations.length) throw Object.assign(new Error('judge-missing-positive-score-citation'),{
+    validationDetails:{field:'citations',missingAnswerEvidenceForDimensions:missingPositiveCitations}});
   function validateConstraints(rows, expected, statuses, field) {
     if (rows.length !== expected.length || new Set(rows.map(r => r.constraintIndex)).size !== expected.length ||
         rows.some(row => !Number.isInteger(row.constraintIndex) || row.constraintIndex < 0 || row.constraintIndex >= expected.length || !statuses.includes(row.status)))

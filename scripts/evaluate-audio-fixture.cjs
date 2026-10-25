@@ -26,6 +26,49 @@ function wavPCM(file) {
   if(!pcm?.length||pcm.length%2||!format||format.encoding!==1||format.channels!==1||format.sampleRate!==16000||format.bits!==16)throw new Error('Fixture must be nonempty mono 16kHz PCM16');
   return {pcm,sha256:crypto.createHash('sha256').update(data).digest('hex'),durationMs:pcm.length/32};
 }
+async function startAudioCapture(runtime) {
+  await runtime.ready;await runtime.invoke('capture:toggle');
+  const deadline=Date.now()+20000;
+  while(!['you','them'].every(channel=>runtime.events.some(e=>e.channel===channel&&e.status==='connected'))) {
+    const error=runtime.events.find(e=>e.channel==='status'&&/异常|已停止/.test(e.message||''));
+    if(error)throw new Error(error.message);
+    if(Date.now()>deadline)throw new Error('Real ASR connections did not become ready');
+    await pause(100);
+  }
+}
+async function feedWavFixture(runtime,{channel,file,expectedText}) {
+  if(!['you','them'].includes(channel))throw new Error('Invalid fixture channel');
+      const fixture=wavPCM(file);
+      const eventStart=runtime.events.length;
+      const before=(await runtime.invoke('dialogue:snapshot')).events.length;
+      const started=performance.now();
+      for(let offset=0;offset<fixture.pcm.length;offset+=3200) {runtime.audio(channel,fixture.pcm.subarray(offset,offset+3200));await pause(100);}
+      const audioEnd=performance.now(),audioEndEpochMs=Date.now();
+      for(let i=0;i<15;i++) {runtime.audio(channel,Buffer.alloc(3200));await pause(100);}
+      let events=[],lastSignature='',lastChange=Date.now();const until=Date.now()+15000;
+      while(Date.now()<until) {
+        events=(await runtime.invoke('dialogue:snapshot')).events.slice(before).filter(e=>e.channel===channel&&e.isFinal);
+        const signature=JSON.stringify(events.map(e=>[e.eventId,e.revision,e.text]));
+        if(signature!==lastSignature) {lastSignature=signature;lastChange=Date.now();}
+        // One WAV can produce multiple final utterances (the candidate fixture
+        // contains a correction). Retain the stable final set, not just its
+        // first sentence, without claiming exact-word accuracy.
+        if(events.length&&Date.now()-lastChange>=800)break;
+        await pause(100);
+      }
+      const vadEvents=runtime.events.slice(eventStart).filter(e=>e.channel===channel&&typeof e.speaking==='boolean');
+      const receivedTimes=events.map(e=>e.receivedAt).filter(Number.isFinite);
+      const lastFinalReceivedAt=receivedTimes.length?Math.max(...receivedTimes):null;
+      const speechEndedAt=vadEvents.findLast(e=>!e.speaking)?.speechEndedAt??null;
+      return {channel,fixture:path.basename(file),fixtureSha256:fixture.sha256,fixtureDurationMs:fixture.durationMs,expectedText,events,
+        vadEvents,
+        finishedObservationMs:Math.round(performance.now()-started),audioEndToObservationMs:events.length?Math.round(performance.now()-audioEnd):null,
+        pcmFeedEndEpochMs:audioEndEpochMs,lastFinalReceivedAt,
+        pcmFeedEndToLastFinalMs:lastFinalReceivedAt==null?null:lastFinalReceivedAt-audioEndEpochMs,
+        vadSpeechEndToLastFinalMs:lastFinalReceivedAt==null||speechEndedAt==null?null:lastFinalReceivedAt-speechEndedAt,
+        timingBoundary:'Final latency uses the production ledger callback receivedAt, independently of polling. Observation latency includes 1500ms injected trailing silence, at least 800ms final-set stability and up to 100ms polling. PCM feed end and the production VAD offset are software timestamps, not a physical acoustic endpoint; negative final deltas are retained.',
+        passed:events.length>0&&events.every(e=>e.speaker===(channel==='you'?'candidate':'interviewer'))&&vadEvents.some(e=>e.speaking)&&vadEvents.some(e=>!e.speaking)};
+}
 async function evaluateAudio({outputDir=path.join(ROOT,'artifacts/audio-fixture'),env=process.env}={}) {
   const cleanups=[],key=env.QWEN_ASR_API_KEY||env.QWEN_API_KEY;
   const report={schemaVersion:1,kind:'live-asr',startedAt:new Date().toISOString(),status:'running',channels:[],usage:null,
@@ -44,45 +87,9 @@ async function evaluateAudio({outputDir=path.join(ROOT,'artifacts/audio-fixture'
     report.endpoint={host:new URL(resolved.websocketUrl).host,protocol:new URL(resolved.websocketUrl).protocol};
     runtime=createInterviewRuntime({after:f=>cleanups.push(f)},{liveSpeech:true,inMemorySettings:true,realTime:true,
       settings:{provider:'custom',baseUrl,apiKeys:{custom:key},sttProvider:'qwen',qwenAsr}});
-    await runtime.ready;await runtime.invoke('capture:toggle');
-    const deadline=Date.now()+20000;
-    while(!['you','them'].every(channel=>runtime.events.some(e=>e.channel===channel&&e.status==='connected'))) {
-      const error=runtime.events.find(e=>e.channel==='status'&&/异常|已停止/.test(e.message||''));
-      if(error)throw new Error(error.message);
-      if(Date.now()>deadline)throw new Error('Real ASR connections did not become ready');
-      await pause(100);
-    }
-    for(const [channel,file,expected] of [['them','interviewer.wav','How do you prevent duplicate task execution?'],['you','candidate.wav','I said Kafka. I meant Rabbit M Q.']]) {
-      const fixture=wavPCM(path.join(ROOT,'test/fixtures/dual-audio',file));
-      const before=(await runtime.invoke('dialogue:snapshot')).events.length;
-      const started=performance.now();
-      for(let offset=0;offset<fixture.pcm.length;offset+=3200) {runtime.audio(channel,fixture.pcm.subarray(offset,offset+3200));await pause(100);}
-      const audioEnd=performance.now(),audioEndEpochMs=Date.now();
-      for(let i=0;i<15;i++) {runtime.audio(channel,Buffer.alloc(3200));await pause(100);}
-      let events=[],lastSignature='',lastChange=Date.now();const until=Date.now()+15000;
-      while(Date.now()<until) {
-        events=(await runtime.invoke('dialogue:snapshot')).events.slice(before).filter(e=>e.channel===channel&&e.isFinal);
-        const signature=JSON.stringify(events.map(e=>[e.eventId,e.revision,e.text]));
-        if(signature!==lastSignature) {lastSignature=signature;lastChange=Date.now();}
-        // One WAV can produce multiple final utterances (the candidate fixture
-        // contains a correction). Retain the stable final set, not just its
-        // first sentence, without claiming exact-word accuracy.
-        if(events.length&&Date.now()-lastChange>=800)break;
-        await pause(100);
-      }
-      const vadEvents=runtime.events.filter(e=>e.channel===channel&&typeof e.speaking==='boolean');
-      const receivedTimes=events.map(e=>e.receivedAt).filter(Number.isFinite);
-      const lastFinalReceivedAt=receivedTimes.length?Math.max(...receivedTimes):null;
-      const speechEndedAt=vadEvents.findLast(e=>!e.speaking)?.speechEndedAt??null;
-      const item={channel,fixture:file,fixtureSha256:fixture.sha256,fixtureDurationMs:fixture.durationMs,expectedText:expected,events,
-        vadEvents,
-        finishedObservationMs:Math.round(performance.now()-started),audioEndToObservationMs:events.length?Math.round(performance.now()-audioEnd):null,
-        pcmFeedEndEpochMs:audioEndEpochMs,lastFinalReceivedAt,
-        pcmFeedEndToLastFinalMs:lastFinalReceivedAt==null?null:lastFinalReceivedAt-audioEndEpochMs,
-        vadSpeechEndToLastFinalMs:lastFinalReceivedAt==null||speechEndedAt==null?null:lastFinalReceivedAt-speechEndedAt,
-        timingBoundary:'Final latency uses the production ledger callback receivedAt, independently of polling. Observation latency includes 1500ms injected trailing silence, at least 800ms final-set stability and up to 100ms polling. PCM feed end and the production VAD offset are software timestamps, not a physical acoustic endpoint; negative final deltas are retained.',
-        passed:events.length>0&&events.every(e=>e.speaker===(channel==='you'?'candidate':'interviewer'))&&vadEvents.some(e=>e.speaking)&&vadEvents.some(e=>!e.speaking)};
-      report.channels.push(item);save();
+    await startAudioCapture(runtime);
+    for(const [channel,file,expectedText] of [['them','interviewer.wav','How do you prevent duplicate task execution?'],['you','candidate.wav','I said Kafka. I meant Rabbit M Q.']]) {
+      report.channels.push(await feedWavFixture(runtime,{channel,file:path.join(ROOT,'test/fixtures/dual-audio',file),expectedText}));save();
     }
     report.status=report.channels.length===2&&report.channels.every(c=>c.passed)?'passed':'failed';
   }catch(error){report.status='failed';report.error=String(error.message);}
@@ -106,5 +113,5 @@ async function evaluateAudio({outputDir=path.join(ROOT,'artifacts/audio-fixture'
   }
   return report;
 }
-module.exports={evaluateAudio,wavPCM};
+module.exports={evaluateAudio,wavPCM,startAudioCapture,feedWavFixture};
 if(require.main===module)evaluateAudio({outputDir:path.resolve(process.argv[2]||'artifacts/audio-fixture')}).then(report=>{console.log(JSON.stringify({status:report.status,model:report.model,channels:report.channels.length,physicalHardwareVerified:false}));process.exitCode=report.status==='passed'?0:1;}).catch(()=>{process.stderr.write('Real ASR evaluation setup failed.\n');process.exitCode=1;});

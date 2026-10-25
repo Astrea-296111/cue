@@ -163,9 +163,9 @@ function overview(report, summary) {
   return lines;
 }
 
-function markdown(report) {
-  const safe = sanitizeReport(report);
-  const lines = overview(safe, summarize(safe));
+function markdown(report, { sanitized = false, summary } = {}) {
+  const safe = sanitized ? report : sanitizeReport(report);
+  const lines = overview(safe, summary || summarize(safe));
   lines.push('', '## 逐题完整回答', '');
   for (const provider of safe.providers || []) {
     if (provider.error) lines.push(`服务 ${cell(provider.id)} 错误：${cell(provider.error.message || provider.error)}`, '');
@@ -197,14 +197,20 @@ function atomicWrite(target, content) {
   }
 }
 
-function writeReports(report, { outputDir, summaryPath, sanitize = {} } = {}) {
+function writeReports(report, { outputDir, summaryPath, sanitize = {},
+  includeMarkdown = report.status !== 'running' && report.judging?.status !== 'running' } = {}) {
   if (!outputDir) throw new Error('Report output directory is required.');
   const safe = sanitizeReport(report, sanitize);
   const summary = summarize(safe);
   const document = { ...safe, summary };
   fs.mkdirSync(outputDir, { recursive: true });
-  atomicWrite(path.join(outputDir, 'report.json'), JSON.stringify(document, null, 2) + '\n');
-  atomicWrite(path.join(outputDir, 'report.md'), markdown(document));
+  // Keep all raw observations in JSON throughout the run. Rebuilding the same
+  // multi-megabyte Markdown after every judge transition doubles serialization
+  // and redaction work; render that full export once at finalization.
+  atomicWrite(path.join(outputDir, 'report.json'), JSON.stringify(document, null, includeMarkdown ? 2 : 0) + '\n');
+  atomicWrite(path.join(outputDir, 'report.md'), includeMarkdown
+    ? markdown(document, { sanitized:true, summary })
+    : overview(document, summary).join('\n') + '\n\n运行中：完整回答、SDK 请求和全部尝试保存在 report.json，结束后生成完整 Markdown。\n');
   if (summaryPath) fs.appendFileSync(summaryPath, overview(document, summary).join('\n') + '\n\n', { encoding: 'utf8', mode: 0o600 });
   return document;
 }

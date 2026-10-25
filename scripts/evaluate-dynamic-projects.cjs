@@ -131,13 +131,15 @@ async function evaluateDynamic({ payload, outputDir, env = process.env, provider
       return [field, values.length ? values.reduce((sum, n) => sum + n, 0) : null];
     })) };
   report.status = report.providers.every(p => p.status === 'passed') && !report.failures.length ? 'passed' : 'failed';
-  report.finishedAt = new Date().toISOString(); let document = save();
+  report.generationFinishedAt = new Date().toISOString();
+  report.finishedAt = evaluation.judge && !mock ? null : report.generationFinishedAt;
+  let document = save();
   if (evaluation.judge && !mock) {
     const update = value => { Object.assign(report, { providers: value.providers, judging: value.judging, manualReview: value.manualReview, status: value.status,inputs:{...report.inputs,...value.inputs} }); save(); };
     try { document = await require('./judge-private-projects.cjs').evaluateJudges({ report: document, payload, env, outputDir,
       concurrency: profile.concurrency, onCheckpoint: update }); update(document); }
     catch (error) { report.status = 'failed'; report.judging = { status: 'failed', error: sanitizeText(error.message, { secrets }) }; }
-    document = save();
+    report.finishedAt = new Date().toISOString(); document = save();
   }
   return document;
 }

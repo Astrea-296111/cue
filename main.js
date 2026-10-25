@@ -1012,21 +1012,36 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const materialIdentity = {generation:generation.materials.generation,factRevision:generation.materials.factRevision,sourceRevision:generation.materials.sourceRevision,registryRevision:generation.materials.registryRevision};
     request.materials=materialIdentity;
     const relatedSpeech=(request.spokenState?.claims||[]).filter(claim=>claim.status!=='uncertain').map(claim=>claim.text).join('\n');
-    const factQuery=relatedSpeech?question+'\n当前相关真人发言（用于检索，不是事实依据）：'+relatedSpeech:question;
-    const factSelection = policy.factsEnabled ? generation.materials.factPacks.select(factQuery, {resolution:request.plan,maxCards:12}) : null;
+    const priorQuestion=conversation.recent.at(-1);
+    const sameTopic=request.plan.canonicalProjectIds?.some(id=>priorQuestion?.plan?.canonicalProjectIds?.includes(id));
+    const topicContext=sameTopic&&/这条|这个|这套|上述|前面|刚才|你(?:的)?方案|该方案|证伪|怎样验证|如何验证|怎么验证/.test(question)
+      ? String(priorQuestion.question||'').slice(-1600) : '';
+    retrieval.topicContext=topicContext;
+    const contextualQuestion=topicContext?question+'\n被指代的上一真人问题（仅用于检索，不作为本轮待答）：'+topicContext:question;
+    const factQuery=relatedSpeech?contextualQuestion+'\n当前相关真人发言（用于检索，不是事实依据）：'+relatedSpeech:contextualQuestion;
+    const factSelection = policy.factsEnabled ? generation.materials.factPacks.select(factQuery, {resolution:request.plan,primaryQuestion:question,maxCards:12}) : null;
+    // Citations guide bounded lookups in the current prepared source index.
+    // The returned original source chunks, rather than the card prose, remain
+    // the implementation evidence for this request's frozen material version.
+    const topicFacts=topicContext?generation.materials.factPacks.select(topicContext,{resolution:request.plan,primaryQuestion:topicContext,maxCards:4}):null;
+    retrieval.sourceHints=[...(factSelection?.evidence||[]),...(topicFacts?.evidence||[])].flatMap(card=>(card.sources||[]).slice(0,3)
+      .map(ref=>({projectId:card.projectId,path:ref.repositoryPath||ref.path,symbol:ref.symbol})))
+      .filter(ref=>ref.path&&!ref.path.startsWith('handoff/')).slice(0,12);
     const evidenceLimits=resolveEvidenceLimits({question,answerPlan,instant:policy.instant});
     const canRetrieveSources = policy.ragPolicy !== 'off' && request.plan.retrieveSources;
     const preparedSources = peekReadyEvidence({ snapshot: frozen,
       projectPlan: request.plan, epoch: conversation.epoch, projectRevision: retrieval.projectRevision,
+      sourceHints:retrieval.sourceHints,
       modelVersion: retrieval.modelVersion, projectIndexSnapshot: readProjectIndexSnapshot({ preparedOnly: true }),
       cache: activeProjectContextCache, ragSession, retrievalInput: retrieval, policy: canRetrieveSources ? 'ready-only' : 'off',
-      maxSources:evidenceLimits.longScenario?4:3,maxChars:evidenceLimits.longScenario?4800:2400 });
+      maxSources:evidenceLimits.longScenario||evidenceLimits.mechanismDetail?4:3,
+      maxChars:evidenceLimits.longScenario?4800:evidenceLimits.mechanismDetail?4200:2400 });
     const ready = policy.ragPolicy !== 'standard' || !canRetrieveSources ? preparedSources : null;
     const contextBundle = policy.instant ? {context:'',evidence:ready?.evidence||[],missing:[],byQuestion:[],stats:ready?.stats||{}}
       : await buildInterviewContextBundleAsync(effectiveSettings, mode, contextTranscript,
       { ...retrieval, skipSourceRetrieval:!!ready,readySources:ready?.evidence||[],readyStats:ready?.stats||{}, requestId: timing.requestId, projectPlan: request.plan, smart: !!settings.smart,
         answerComplexity: answerPlan.level, interviewPlan: effectiveInterviewPlan,
-        contextBudget: contextCharsFor(mode, answerPlan), projectState: request.projectInterviewState,
+        contextBudget: Math.max(contextCharsFor(mode, answerPlan),evidenceLimits.longScenario?8000:evidenceLimits.mechanismDetail?5200:0), projectState: request.projectInterviewState,
         signal: generation.controller.signal, deadlineAt: Date.now() + (fast ? 0 : 100), semanticWaitMs: fast ? 0 : 100,
         execution: fast ? 'fast' : 'deep', realtimeEvidencePrefetch: realtimePrefetchEnabled(settings),
         hashFallback: !fast, semanticRetriever: getSemanticRetriever(),prefetchedRetrieval:ragSession.take(retrieval,{metadata:true}) });

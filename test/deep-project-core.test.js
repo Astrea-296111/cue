@@ -48,6 +48,31 @@ test('fact and source budgets preserve multiple actual asks instead of unrelated
   assert.ok(plan.evidence.length<=6&&plan.estimatedTokens<=2400);
 });
 
+test('a current mechanism question retains its relevant reference through the final budget instead of unrelated USER or inherited intents',()=>{
+  const {migrateFactIndex}=require('../src/project-fact-packs');
+  const index=migrateFactIndex(fixture(8));
+  for(const card of index.cards) {
+    card.docType='decision';card.questions=['上线后怎样做治理？'];card.keywords=['上线治理'];
+    card.text='合成用户资料：我观察部署指标并复核日志。';card.answerShort=card.text;
+  }
+  const mechanism=index.cards[6];
+  Object.assign(mechanism,{provenance:'REFERENCE',implementation:'unverified_reference',docType:'implementation',
+    topic:'可靠投递',questions:['为什么用 DurableRelay，不直接 RPC 调用？','ClaimService 负责什么？'],keywords:['投递设计'],
+    text:'合成设计参考：事务保存投递意图，领取者持有租约，重复投递按业务身份去重。'});
+  const ownership=index.cards[2];
+  Object.assign(ownership,{docType:'ownership',questions:['你负责哪部分？'],keywords:['个人职责'],text:'我负责合成接口模块。'});
+  const packs=new ProjectFactPacks({index});
+  const resolution={kind:'project',canonicalProjectIds:['cae'],scopes:['@project:cae'],retrieveFacts:true,intent:['overview','ownership','decision']};
+  for(const question of ['为什么不直接 RPC 调用？','ClaimService 负责什么？','你负责的 ClaimService 怎样领取消息？']) {
+    const selected=packs.select(question+'\n候选人之前说：我负责团队联调。',{resolution,primaryQuestion:question,maxCards:4});
+    assert.equal(selected.evidence[0].id,mechanism.cardId);
+    const plan=planProjectEvidence({question,resolution,facts:selected.evidence,sourcePolicy:'off',maxSources:1,evidenceTokens:1500});
+    assert.deepEqual(plan.evidence.map(row=>row.id),[mechanism.cardId]);
+    assert.equal(plan.evidence[0].provenance,'REFERENCE');
+  }
+  assert.equal(packs.select('你负责哪部分？',{resolution,maxCards:1}).evidence[0].id,ownership.cardId);
+});
+
 test('a cold conversational cache can attach prepared source to a full >1600-character instant question; source off performs no lookup',async t=>{
   const question=require('../evaluation/deep-projects/cases.json').cases.find(item=>item.id==='deep-cae-uncertain-followup').question;
   assert.ok(question.length>1600);

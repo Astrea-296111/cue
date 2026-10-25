@@ -14,6 +14,9 @@ const ALIASES = [
   ['幂等', 'idempotency', 'idempotent'], ['去重', 'deduplication', 'dedup'],
   ['重复消费', '幂等', 'idempotency', 'idempotent', 'deduplication'],
   ['重试', 'retry', 'retries'], ['一致性', 'consistency'],
+  ['状态', 'status', 'state'], ['领取', '认领', 'claim'], ['租约', 'lease'],
+  ['唯一索引', '唯一约束', 'unique', 'duplicate key'],
+  ['崩溃', '崩了', 'crash'], ['确认', 'confirm'], ['持久化', 'persistent', 'persistence', 'durable'],
   ['检索增强', 'rag'], ['大模型', 'llm'], ['向量', 'vector', 'embedding'],
   ['记忆', 'memory'], ['超时', 'timeout'], ['回调', 'callback'],
   ['事务', 'transaction', 'transactional'], ['并发', 'concurrency', 'concurrent'],
@@ -38,6 +41,11 @@ function implementationQuery(query) {
   return [...new Set(String(query).match(/\b[A-Za-z][A-Za-z0-9_]{2,63}\b/g)||[])].map(normalize)
     .filter(word=>!STOP_WORDS.has(word));
 }
+function hasImplementationBody(chunk) {
+  const text=String(chunk.text||'').replace(/\/\*[\s\S]*?\*\//g,'').replace(/^\s*\/\/.*$/gm,'');
+  return /\b(?:return|throw|if|for|while|try|await|with|yield|update|insert|delete|create\s+table)\b|\b\w+\.\w+\s*\(/i.test(text)||
+    /\binterface\s+\w+(?:<[^>]*>)?\s+extends\s+\w+/.test(text);
+}
 function implementationWeight(identifiers, chunk) {
   if(!identifiers)return 1;
   const code=/\.(?:java|py|[cm]?[jt]sx?|go|rs|c|cpp|h|cs|sql)$/i.test(chunk.path||'');
@@ -48,7 +56,7 @@ function implementationWeight(identifiers, chunk) {
   const names=String(chunk.symbol||'').split('#');
   const constructor=names.length>1&&names[0].split('.').at(-1)===names.at(-1);
   const body=String(chunk.text||'');
-  const executable=/\b(?:return|throw|if|for|while|try|await|with|yield)\b/.test(body);
+  const executable=hasImplementationBody(chunk);
   const behavior=constructor||body.length<65||chunk.kind==='context'&&!executable ? .25 : ['method','function'].includes(chunk.kind)?1.3:1;
   return (1.8+Math.min(3,direct)*.65)*behavior;
 }
@@ -169,6 +177,8 @@ class ProjectSearch {
     this.symbols = [];
     this.symbolParts = [];
     this.paths = [];
+    this.sourceFiles = new Map();
+    this.bodyTerms = [];
     this.embeddings = [];
     this.cache = new Map();
     this.termCache = new Map();
@@ -187,6 +197,10 @@ class ProjectSearch {
     }
     const bodyTokens = tokenize(chunk.retrievalText || chunk.text);
     const body = frequency(bodyTokens);
+    this.bodyTerms[id]=body;
+    const sourcePath=String(chunk.path||'').replace(/\\/g,'/');
+    if(!this.sourceFiles.has(sourcePath))this.sourceFiles.set(sourcePath,[]);
+    this.sourceFiles.get(sourcePath).push(id);
     const fields = [body, frequency(tokenize(chunk.path)), frequency(tokenize(String(chunk.symbol || '').split('#').at(-1)))];
     const terms = new Set(fields.flatMap(f => [...f.keys()]));
     this.lengths[id] = Math.max(1, bodyTokens.length);
@@ -291,6 +305,33 @@ class ProjectSearch {
     if(rows.length<limit)for(const row of ranked){if(!rows.includes(row))rows.push(row);if(rows.length>=limit)break;}
     return {rows,
       postingsVisited:Math.min(visits,maxVisits),navigationVisits,budgetExhausted:visits>=maxVisits};
+  }
+
+  lookupSourceHints(hints=[],query='',scopes=[],{limit=6}={}) {
+    const terms=[...querySpec(query).weights].slice(0,64),found=new Map();let examined=0;
+    const identifiers=[...new Set((String(query).match(/[A-Za-z][A-Za-z0-9_]{2,63}/g)||[]).map(word=>word.toLowerCase()))].filter(word=>!STOP_WORDS.has(word));
+    for(const hint of hints.slice(0,12)) {
+      const sourcePath=String(hint.path||'').replace(/\\/g,'/');
+      if(!sourcePath||sourcePath.includes('..')||sourcePath.startsWith('/'))continue;
+      for(const id of this.sourceFiles.get(sourcePath)||[]) {
+        if(examined++>=128)break;
+        const chunk=this.chunks[id];if(!inProjectScope(chunk,scopes))continue;
+        if(/\.(?:java|py|[cm]?[jt]sx?|go|rs|cs|sql)$/i.test(sourcePath)&&!hasImplementationBody(chunk))continue;
+        const lexical=terms.reduce((n,[term,weight])=>n+(this.bodyTerms[id].has(term)?weight:0),0);
+        const named=hint.symbol&&chunk.symbol&&String(hint.symbol).includes(chunk.symbol)?8:0;
+        const symbolHits=identifiers.filter(word=>String(chunk.symbol||'').toLowerCase().includes(word)).length;
+        if(!lexical&&!named&&!symbolHits)continue;
+        const score=(1+lexical+named+symbolHits*2)*(['method','function'].includes(chunk.kind)?1.5:1);
+        if(!found.has(id)||score>found.get(id).score)found.set(id,{id,chunk,score,sourceHint:true});
+      }
+      if(examined>=128)break;
+    }
+    const ranked=[...found.values()].sort((a,b)=>b.score-a.score||a.id-b.id),rows=[],files=new Map();
+    const add=row=>{const key=row.chunk.projectId+':'+row.chunk.path;if((files.get(key)||0)>=2||rows.includes(row))return;
+      files.set(key,(files.get(key)||0)+1);rows.push(row);};
+    for(const row of ranked){const key=row.chunk.projectId+':'+row.chunk.path;if(files.has(key))continue;add(row);if(rows.length>=Math.min(8,limit))break;}
+    for(const row of ranked){if(rows.length>=Math.min(8,limit))break;add(row);}
+    return {rows,examined};
   }
 
   // Provider contracts (optional, synchronous, source ids only):
@@ -459,4 +500,4 @@ class ProjectSearch {
   }
 }
 
-module.exports = { ProjectSearch, tokenize, querySpec, denseEmbedding, cosineDense };
+module.exports = { ProjectSearch, tokenize, querySpec, denseEmbedding, cosineDense,hasImplementationBody,implementationWeight,implementationQuery };

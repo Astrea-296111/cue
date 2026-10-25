@@ -1,11 +1,20 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const cipher=require('../scripts/lib/private-live-crypto.cjs');
-const {parseArgs,runRemote,verifySession}=require('../scripts/eval-remote.cjs');
+const {Github,parseArgs,preparePayload,runRemote,verifySession}=require('../scripts/eval-remote.cjs');
 const {resolveProfile,buildTasks}=require('../scripts/lib/evaluation-profiles.cjs');
 const {validateEvaluation,validateScenarios}=require('../scripts/evaluate-multiturn-projects.cjs');
 const {fixture}=require('./helpers/material-fixture');
 function suite(){return{schema_version:'cue_multiturn_seed_v1',sessions:Array.from({length:20},(_,i)=>({id:'s'+i,execution_profile:'instant',events:Array.from({length:4},(_,j)=>({event_id:'s'+i+'q'+j,text:'PRIVATE_QUESTION_'+i+'_'+j,speaker:'interviewer',channel:'them',is_final:true,invoke_cue:true}))}))};}
+test('judged deep workloads are automatically divided into bounded jobs and explicit plans remain stable',t=>{
+ const d=fs.mkdtempSync(path.join(os.tmpdir(),'cue-workload-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
+ const file=path.join(d,'workspace.json');fs.writeFileSync(file,JSON.stringify({schemaVersion:1,facts:fixture(),profile:{resumeText:'',jobDescription:''},scenarios:suite()}));
+ const options=parseArgs(['--payload',file,'--profile','deep','--judge']);const payload=preparePayload(options);
+ assert.equal(options.shards,8);assert.equal(payload.evaluation.shardCount,8);
+ assert.equal(options.workloadPlan.generationAnswers,480);assert.equal(options.workloadPlan.maximumAnswersPerShard,60);
+ const explicit=parseArgs(['--payload',file,'--profile','deep','--judge','--shards','4']);preparePayload(explicit);
+ assert.equal(explicit.shards,4);assert.equal(explicit.workloadPlan.maximumAnswersPerShard,120);
+});
 test('deep profile partitions all 480 answers once, preserving sequential sessions and bounded retries',()=>{
  const sessions=suite().sessions;const assignments=[];
  for(let shardIndex=0;shardIndex<6;shardIndex++)assignments.push(...buildTasks(sessions,resolveProfile({profile:'deep',shardCount:6,shardIndex}),['qwen','deepseek']));
@@ -14,6 +23,28 @@ test('deep profile partitions all 480 answers once, preserving sequential sessio
  assert.throws(()=>validateEvaluation({baselineRoot:'/tmp/injected'}));assert.throws(()=>validateEvaluation({sourceSnapshot:'/tmp/injected'}));
  assert.throws(()=>resolveProfile({concurrency:5}));assert.throws(()=>resolveProfile({retryLimit:4}));assert.throws(()=>resolveProfile({timeoutMs:120001}));
  assert.equal(validateScenarios(suite()).sessions.length,20);
+});
+test('archived report recovery preserves session identity while input sessions still expire',()=>{
+ const repository='example/cue',sha='a'.repeat(40),runId='12345';
+ const {session}=cipher.createSession({repository,commitSha:sha,runId,now:Date.now()-3*60*60*1000});
+ const state={repository,trustedSha:sha},run={runId,runAttempt:'1'};
+ assert.throws(()=>verifySession(session,state,run),/authentication/);
+ assert.equal(verifySession(session,state,run,{allowExpired:true}),session);
+ assert.throws(()=>verifySession(session,state,{...run,runAttempt:'2'},{allowExpired:true}),/does not match/);
+ assert.throws(()=>verifySession(session,{...state,trustedSha:'b'.repeat(40)},run,{allowExpired:true}),/does not match/);
+ assert.throws(()=>cipher.encryptPayload({session,payload:{}}),/authentication/);
+});
+test('artifact recovery replaces an existing download only after a fresh download succeeds',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'cue-artifact-recovery-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const destination=path.join(dir,'encrypted');fs.mkdirSync(destination);fs.writeFileSync(path.join(destination,'report.encrypted.json'),'cached');
+ const github=new Github('example/cue');
+ github.command=async args=>{const target=args[args.indexOf('--dir')+1];assert.notEqual(target,destination);fs.writeFileSync(path.join(target,'report.encrypted.json'),'downloaded');};
+ await github.download('1','private-live-1-1',destination);
+ assert.equal(fs.readFileSync(path.join(destination,'report.encrypted.json'),'utf8'),'downloaded');
+ github.command=async()=>{throw new Error('network failed');};
+ await assert.rejects(github.download('1','private-live-1-1',destination),/network failed/);
+ assert.equal(fs.readFileSync(path.join(destination,'report.encrypted.json'),'utf8'),'downloaded');
+ assert.deepEqual(fs.readdirSync(dir),['encrypted']);
 });
 test('remote dispatch uploads ciphertext only, binds session SHA/run/attempt, resumes without duplicate inference, and decrypts locally',async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'cue-remote-test-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));

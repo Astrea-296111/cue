@@ -6,6 +6,7 @@ They contain no personal history or interview recording. Reproduce with:
 ```sh
 ffmpeg -f lavfi -i "flite=text='How do you prevent duplicate task execution?':voice=slt" -ar 16000 -ac 1 -c:a pcm_s16le interviewer.wav
 ffmpeg -f lavfi -i "flite=text='I said Kafka. I meant Rabbit M Q.':voice=awb" -ar 16000 -ac 1 -c:a pcm_s16le candidate.wav
+ffmpeg -f lavfi -i "flite=text='How do you handle retries after a timeout?':voice=slt" -ar 16000 -ac 1 -c:a pcm_s16le followup.wav
 ```
 
 `scripts/evaluate-audio-fixture.cjs` sends the bytes through the actual production
@@ -24,3 +25,13 @@ Absent overrides, the runner uses the production model and the endpoint derived
 from `QWEN_BASE_URL` (the normal China endpoint when that URL is a chat proxy).
 The report retains the requested model; the served model and token usage remain
 unknown because this ASR protocol does not provide them.
+
+The encrypted private evaluation also supports `evaluation.audioFixture: true`.
+It imports the private workspace normally, selects CAE through the normal
+project setting, and sends interviewer/candidate/follow-up WAV bytes through
+production ASR. Each recognized interviewer target invokes the actual Ctrl+Enter
+shortcut and configured text model. The fixed run has two answers per provider,
+no actor calls, and retains complete recognized events and model messages only
+inside the encrypted report. It verifies the software path and does not measure
+physical audio devices or screen pixels. Explicit mock mode uses labelled text
+replay for wiring only and never claims real ASR or semantic quality.
