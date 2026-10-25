@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('cue', {
   dialogueSnapshot: input => ipcRenderer.invoke('dialogue:snapshot', input || {}),
   dialogueEvent: input => ipcRenderer.invoke('dialogue:event', input),
   dialogueCorrect: input => ipcRenderer.invoke('dialogue:correct', input),
+  recordingState: () => ipcRenderer.invoke('dialogue:recording:state'),
+  openRecordingFolder: () => ipcRenderer.invoke('dialogue:recording:folder'),
   exportDiagnostics: () => ipcRenderer.invoke('diagnostics:export'),
   cancelAnswer: () => ipcRenderer.invoke('llm:cancel'),
   providerCapabilities: config => ipcRenderer.invoke('provider:capabilities',config),
@@ -63,7 +65,7 @@ contextBridge.exposeInMainWorld('cue', {
   log: (msg) => ipcRenderer.send('log', msg),
   on: (channel, cb) => {
     const allowed = ['capture:state', 'llm:start', 'llm:token', 'llm:done', 'llm:error', 'llm:evidence', 'llm:materials', 'materials:changed', 'materials:progress', 'llm:local-facts', 'llm:profile', 'llm:metrics', 'question:target', 'project:active', 'project:catalog', 'project:semantic-progress', 'project:semantic-state', 'status', 'transcript', 'stt:interim', 'stt:final', 'stt:status', 'vad:state', 'applink:consent-request', 'hide:toggle', 'shortcut:mode', 'whisper:download-progress', 'whisper:models-changed'];
-    allowed.push('dialogue:changed', 'materials:personal:changed');
+    allowed.push('dialogue:changed', 'materials:personal:changed', 'dialogue:recording');
     if (!allowed.includes(channel)) return;
     ipcRenderer.on(channel, (_e, data) => cb(data));
   }

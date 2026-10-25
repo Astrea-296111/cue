@@ -125,6 +125,16 @@ async function evaluateMultiturn({payload,outputDir,env=process.env,provider='al
      p.cases[p.cases.findIndex(c=>c.id===result.id)]=result;if(result.error)report.failures.push({provider:p.id,caseId:result.id,...result.error});save();
      if(/^provider-http-(?:401|403)$/.test(result.error?.code||'')){fatalProviders.add(p.id);break;}
     }
+    if(runtime.hasHandler('dialogue:recording:flush')){
+     const recording=await runtime.invoke('dialogue:recording:flush');
+     if(recording.error)report.failures.push({provider:p.id,caseId:task.session.id,code:'recording-write-failed'});
+     if(recording.fileName&&path.basename(recording.fileName)===recording.fileName&&recording.fileName.endsWith('.txt')){
+      const file=path.join(runtime.temp,'interview-records',recording.fileName),stat=fs.statSync(file);
+      if(stat.size>8*1024*1024)throw new Error('Private interview recording exceeds the bounded evaluation archive size.');
+      const content=fs.readFileSync(file,'utf8');
+      (p.interviewRecordings||=[]).push({sessionId:task.session.id,repeat:task.repeat+1,fileName:recording.fileName,sha256:crypto.createHash('sha256').update(content,'utf8').digest('hex'),content});
+     }
+    }
    }catch(error){report.failures.push({provider:p.id,caseId:task.session.id,code:'multiturn-runner',message:sanitizeText(error.message,{secrets,workspaceRoot:ROOT,tempRoots})});}
    finally{for(const cleanup of cleanups.reverse())await cleanup();}save();
   }

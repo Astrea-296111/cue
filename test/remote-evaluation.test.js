@@ -14,6 +14,10 @@ test('judged deep workloads are automatically divided into bounded jobs and expl
  assert.equal(options.workloadPlan.generationAnswers,480);assert.equal(options.workloadPlan.maximumAnswersPerShard,60);
  const explicit=parseArgs(['--payload',file,'--profile','deep','--judge','--shards','4']);preparePayload(explicit);
  assert.equal(explicit.shards,4);assert.equal(explicit.workloadPlan.maximumAnswersPerShard,120);
+ const recovery=parseArgs(['--payload',file,'--profile','deep','--judge','--shards','8','--only-shard','0']);
+ const recoveredPayload=preparePayload(recovery);
+ assert.equal(recoveredPayload.evaluation.shardCount,8);assert.equal(recovery.workloadPlan.generationAnswers,60);assert.equal(recovery.workloadPlan.dispatchedShards,1);
+ assert.equal(buildTasks(recoveredPayload.scenarios.sessions,resolveProfile({...recoveredPayload.evaluation,shardIndex:0},2),['qwen','deepseek']).reduce((n,t)=>n+t.session.events.filter(e=>e.invoke_cue).length,0),60);
 });
 test('deep profile partitions all 480 answers once, preserving sequential sessions and bounded retries',()=>{
  const sessions=suite().sessions;const assignments=[];
@@ -87,4 +91,30 @@ test('workflow exposes secrets only in evaluation and never checks out the encry
  for(const match of file.matchAll(/\$\{\{\s*secrets\./g))assert.ok(match.index>evaluation&&match.index<upload);
  assert.ok(file.includes('ref: ${{ github.sha }}'));assert.ok(file.includes('9898a05184a8f860411da8e084cd4b1ed22093a6'));assert.ok(!file.includes('ref: cue-evaluation-inputs'));
  assert.ok(file.includes('persist-credentials: false'));assert.ok(!file.includes('GITHUB_TOKEN:'));assert.ok(file.includes('node scripts/private-live-session.cjs evaluate'));
+});
+
+test('eight shards receive encrypted input during dispatch and collect every zero-inference failure without regenerating',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'cue-feed-early-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const file=path.join(dir,'workspace.json'),repository='example/cue',sha='b'.repeat(40),runs=[],published=[];
+ fs.writeFileSync(file,JSON.stringify({schemaVersion:1,facts:fixture(),profile:{resumeText:'PRIVATE_RESUME',jobDescription:''},scenarios:suite()}));
+ const github={repository,async api(endpoint,method,body){
+   if(endpoint.endsWith('/git/ref/heads/main'))return{object:{sha}};
+   if(endpoint.endsWith('/dispatches')){
+     await new Promise(setImmediate);
+     if(runs.length===7)assert.ok(published.length>0,'the first input must not wait for all eight dispatches');
+     const id=String(20000+runs.length),keys=cipher.createSession({repository,runId:id,commitSha:sha});
+     runs.push({id,tag:body.inputs.request_tag,...keys});return null;
+   }
+   if(endpoint.includes('/workflows/')&&endpoint.includes('/runs?'))return{workflow_runs:runs.map(r=>({id:r.id,run_attempt:1,head_sha:sha,display_title:'Private project evaluation '+r.tag,created_at:new Date().toISOString(),html_url:'https://github.com/'+repository+'/actions/runs/'+r.id}))};
+   if(endpoint.includes('/actions/runs/'))return{status:'completed',run_attempt:1,head_sha:sha,conclusion:'failure'};
+   throw new Error('Unexpected API call');
+ },async artifacts(id){return[{name:'private-session-'+id+'-1'},{name:'private-live-'+id+'-1'}];},
+ async download(id,name,directory){fs.mkdirSync(directory,{recursive:true});const run=runs.find(r=>r.id===id);
+   fs.writeFileSync(path.join(directory,name.startsWith('private-session')?'session.json':'summary.json'),JSON.stringify(name.startsWith('private-session')?run.session:{runId:id,commitSha:sha,attemptedCalls:0,reportEncrypted:false,error:{code:'private-input-timeout'}}));
+ },async publish(id,envelope){const run=runs.find(r=>r.id===id),decoded=cipher.decryptPayload({session:run.session,privateKey:run.privateKey,envelope});assert.equal(decoded.payload.evaluation.shardIndex,Number(id)-20000);decoded.key.fill(0);published.push(id);}};
+ const output=path.join(dir,'out');const first=await runRemote(parseArgs(['--payload',file,'--repository',repository,'--profile','deep','--judge','--output-dir',output,'--detach']),{github,log:()=>{}});
+ assert.equal(runs.length,8);assert.equal(new Set(published).size,8);assert.ok(first.state.runs.every(r=>r.stage==='uploaded'));
+ await assert.rejects(runRemote(parseArgs(['--resume',first.manifest]),{github,log:()=>{}}),/no encrypted report/);
+ const restored=JSON.parse(fs.readFileSync(first.manifest));assert.equal(restored.status,'incomplete');
+ assert.ok(restored.runs.every(r=>r.stage==='no-report'&&r.failure.noInferenceVerified));assert.equal(published.length,8);assert.equal(runs.length,8);
 });
