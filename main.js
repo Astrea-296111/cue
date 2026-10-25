@@ -1116,8 +1116,11 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const codeRequest=!!imageDataUrl||mode==='leetcode'||mode==='technical'||mode==='assist'||/编写|写出|代码实现|实现.{0,20}(?:函数|方法|遍历|算法)|\b(?:implement|write\s+(?:code|a function))\b/i.test(question);
     const boundedBudget=(value,fallback,ceiling)=>Number.isFinite(Number(value))&&Number(value)>=128?Math.min(ceiling,Math.floor(Number(value))):fallback;
     const responseBudgets={oral:boundedBudget(settings.responseBudgets?.oral,1800,4096),code:boundedBudget(settings.responseBudgets?.code,6000,16384)};
-    const maxTokens=codeRequest?responseBudgets.code:Math.min(def.resolveMaxTokens?.(responseContext)||def.maxTokens,responseBudgets.oral);
-    request.responseBudget={kind:codeRequest?'code':'oral',maxTokens};
+    const extensiveScenario=!codeRequest&&question.length>=450&&answerPlan.level==='complex';
+    const maxTokens=codeRequest?responseBudgets.code:extensiveScenario
+      ?Math.min(responseBudgets.code,4096,Math.max(2400,Math.ceil(question.length*2)))
+      :Math.min(def.resolveMaxTokens?.(responseContext)||def.maxTokens,responseBudgets.oral);
+    request.responseBudget={kind:codeRequest?'code':extensiveScenario?'scenario':'oral',maxTokens};
     request.settingsSnapshot={provider:settings.provider,model:llm.model,smart:!!settings.smart,jobProfileId:settings.jobProfileId,
       contextWindowTokens:settings.contextWindowTokens||16384,responseBudgets};
     // A fresh screen task stands on its own; its answer is still available to
