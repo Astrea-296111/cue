@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
-const { prepareJudgeInput, parseJudgeOutput, mergeJudges, DIMENSIONS } = require('../scripts/lib/multiturn-judge.cjs');
+const { prepareJudgeInput, parseJudgeOutput, mergeJudges, DIMENSIONS, answerSegments, OUTPUT_PROTOCOL } = require('../scripts/lib/multiturn-judge.cjs');
 const { createReviewPlan } = require('../scripts/lib/multiturn-quality.cjs');
 const { evaluateJudges } = require('../scripts/judge-private-projects.cjs');
 
@@ -39,6 +39,72 @@ test('a plausible invented citation and missing semantic constraint never become
   assert.throws(() => parseJudgeOutput(JSON.stringify({ ...good, coverage: [] }), prepared.input), /incomplete-constraint/u);
   const accusation = structuredClone(good); accusation.prohibitedClaims[0].status = 'asserted';
   assert.throws(() => parseJudgeOutput(JSON.stringify(accusation), prepared.input), /without-quote/u);
+});
+
+test('the full output contract has six separate dimension rows and independently zero-based constraint groups', () => {
+  const prepared = prepareJudgeInput({ item: { ...item(), jobProfile: 'role-a', scenarioEvaluation: { must_convey: ['one', 'two'], must_not_assert: ['three', 'four'] } },
+    payload: { profile: { resumeText: 'CANDIDATE_ONLY', jobProfiles: [{ id: 'role-a', jobDescription: 'ROLE_ONLY' }] } } });
+  const { input } = prepared;
+  assert.equal(input.outputProtocol, OUTPUT_PROTOCOL);
+  assert.deepEqual(input.outputTemplate.citations.map(row => row.dimension), DIMENSIONS);
+  assert.deepEqual(Object.values(input.outputTemplate.scores), DIMENSIONS.map(() => null));
+  for (const group of ['coverage', 'prohibitedClaims']) {
+    assert.deepEqual(input.outputTemplate[group].map(row => row.constraintIndex), [0, 1]);
+    assert.deepEqual(input.constraintSpec[group].map(row => row.constraintIndex), [0, 1]);
+    assert.ok(input.outputTemplate[group].every(row => row.status === null && row.reason === ''));
+  }
+  assert.throws(() => parseJudgeOutput(JSON.stringify(input.outputTemplate), input), /invalid-scores/);
+  assert.equal(input.candidateResume.text, 'CANDIDATE_ONLY');
+  assert.equal(input.targetRole[0].jobDescription, 'ROLE_ONLY');
+});
+
+test('segment references resolve to exact answer slices without inventing joined quotations', () => {
+  const answer = '第一段陈述受理边界。\n第二段说明失败重试。\n第三段限定没有独立复现实验。';
+  const input = prepareJudgeInput({ item: { ...item(), answer } }).input;
+  // Separate distant segments must stay separate in the recorded evidence.
+  input.answerSegments = answerSegments(answer, 14);
+  assert.equal(input.answerSegments.map(row => row.text).join(''), answer);
+  assert.ok(input.answerSegments.every(row => answer.slice(row.start, row.end) === row.text));
+  const good = result(input), ids = [input.answerSegments[0].id, input.answerSegments.at(-1).id];
+  good.citations = DIMENSIONS.map(dimension => ({ dimension, answerSegmentIds: ids, reason: '引用被测回答，结合资料限定评分。' }));
+  good.coverage[0] = { constraintIndex: 0, status: 'conveyed', answerSegmentIds: [ids[0]], reason: '回答表达该语义。' };
+  good.prohibitedClaims[0] = { constraintIndex: 0, status: 'not_asserted', answerSegmentIds: [], reason: '没有该断言。' };
+  const parsed = parseJudgeOutput(JSON.stringify(good), input);
+  assert.equal(parsed.citations[0].answerQuote, input.answerSegments[0].text);
+  assert.deepEqual(parsed.citations[0].answerQuotes, [input.answerSegments[0].text, input.answerSegments.at(-1).text]);
+  assert.deepEqual(parsed.citations[0].answerSegments.map(row => row.id), ids);
+  assert.equal(parsed.prohibitedClaims[0].answerQuote, '');
+  for (const row of parsed.citations) assert.ok(answer.includes(row.answerQuote));
+});
+
+test('bad segment IDs, foreign text, duplicate dimensions and quotes fabricated alongside valid IDs are rejected', () => {
+  const input = prepareJudgeInput({ item: item() }).input;
+  const bad = () => structuredClone(result(input));
+  for (const ids of [['nonexistent'], [0], ['a0', 'a0'], 'a0']) {
+    const value = bad(); value.citations[0] = { dimension: DIMENSIONS[0], answerSegmentIds: ids, reason: '引用' };
+    assert.throws(() => parseJudgeOutput(JSON.stringify(value), input), /invalid-answer-segment-id/);
+  }
+  const mixed = bad(); mixed.citations[0].answerSegmentIds = ['a0']; mixed.citations[0].answerQuote = '问题或资料中的假引用';
+  assert.throws(() => parseJudgeOutput(JSON.stringify(mixed), input), /fabricated-citation/);
+  const tampered = structuredClone(input); tampered.answerSegments[0].text = '资料里的文字';
+  const foreign = bad(); delete foreign.citations[0].answerQuote; foreign.citations[0].answerSegmentIds = ['a0'];
+  assert.throws(() => parseJudgeOutput(JSON.stringify(foreign), tampered), /invalid-answer-segment-id/);
+  const duplicate = bad(); duplicate.citations.push({ ...duplicate.citations[0] });
+  assert.throws(() => parseJudgeOutput(JSON.stringify(duplicate), input), /missing-dimension-citation/);
+  const noSupport = bad(); noSupport.citations[0] = { dimension: DIMENSIONS[0], answerSegmentIds: [], reason: '没有引用' };
+  assert.throws(() => parseJudgeOutput(JSON.stringify(noSupport), input), /missing-positive-score-citation/);
+});
+
+test('constraint offsets fail with explicit per-group feedback rather than silently renumbering', () => {
+  const input = prepareJudgeInput({ item: { ...item(), scenarioEvaluation: { must_convey: ['one', 'two'], must_not_assert: ['three', 'four'] } } }).input;
+  const value = result(input); value.prohibitedClaims.forEach(row => { row.constraintIndex += 2; });
+  assert.throws(() => parseJudgeOutput(JSON.stringify(value), input), error => {
+    assert.equal(error.message, 'judge-incomplete-constraint-evaluation');
+    assert.equal(error.validationDetails.field, 'prohibitedClaims');
+    assert.deepEqual(error.validationDetails.expectedIndices, [0, 1]);
+    assert.deepEqual(error.validationDetails.receivedIndices, [2, 3]);
+    return true;
+  });
 });
 
 test('independent disagreement, low confidence and critical claims require review; one judge cannot pass', () => {
@@ -83,7 +149,28 @@ test('two real transport contracts retain failed output usage, retry boundedly, 
   assert.notEqual(sent[0].model, sent[2].model);
   assert.deepEqual(sent[0].response_format,{type:'json_object'});
   assert.match(sent[1].messages.at(-1).content,/format-repair-only/);
+  const repair = JSON.parse(sent[1].messages.at(-1).content);
+  assert.deepEqual(repair.constraintIndices, { coverage: [0], prohibitedClaims: [0] });
+  assert.deepEqual(repair.outputTemplate.citations.map(row => row.dimension), DIMENSIONS);
   assert.equal(judged.providers[0].cases[0].judging.judges[0].attempts[1].requestMessages.length,3);
+});
+
+test('segment protocol retries preserve invalid results and usage; exhausted invalid judging never passes', async t => {
+  const report = { kind: 'live', status: 'passed', providers: [{ id: 'tested', cases: [item()] }] };
+  let calls = 0;
+  const fetchImpl = async (_url, options) => {
+    calls++; const request = JSON.parse(options.body), input = JSON.parse(request.messages[1].content), output = result(input);
+    output.citations[0] = { dimension: DIMENSIONS[0], answerSegmentIds: ['not-in-answer'], reason: '无效引用' };
+    return new Response(JSON.stringify({ model: request.model, choices: [{ message: { content: JSON.stringify(output) }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 } }), { status: 200 });
+  };
+  const judged = await evaluateJudges({ report, env, outputDir: directory(t), fetchImpl, pauseImpl: async () => {} });
+  assert.equal(calls, 6);
+  assert.equal(judged.judging.usage.total_tokens, 72);
+  assert.equal(judged.providers[0].cases[0].judging.consensus.status, 'unverified');
+  assert.equal(judged.judging.crossModelVerifiedCases, 0);
+  assert.ok(judged.providers[0].cases[0].judging.judges.every(judge => judge.attempts.every(attempt =>
+    attempt.status === 'failed' && attempt.rawOutput && attempt.error.code === 'judge-invalid-answer-segment-id')));
 });
 
 test('distinct requested aliases that return the same served model cannot establish cross-model agreement', async t => {
