@@ -143,6 +143,10 @@ test('an English self-correction observed by live ASR reaches production SDK spe
   await app.ask('say','那 RabbitMQ 怎样避免消息重复？');
   assert.match(currentText(app.calls.at(-1)),/I said Kafka, I meant RabbitMQ\./);
   assert.match(currentText(app.calls.at(-1)),/不重复提醒旧口误/);
+  // The same recognized correction must survive an immediate follow-up that
+  // has no shared broker word, as observed in the real PCM-to-answer run.
+  await app.ask('say','How do you handle retries after a timeout?');
+  assert.match(currentText(app.calls.at(-1)),/I said Kafka, I meant RabbitMQ\./);
   // "Actually" can introduce an ordinary assertion; it is not a sufficient
   // signal to silently retire an earlier human claim.
   const store=new DialogueStore();

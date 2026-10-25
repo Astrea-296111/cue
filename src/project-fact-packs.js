@@ -4,6 +4,7 @@ const path = require('path');
 const { createHash } = require('crypto');
 const { performance } = require('perf_hooks');
 const {boundedRankingText, projectQuestionParts} = require('./project-question-parts');
+const {normalizeConceptText}=require('./project-search');
 const hash = x => createHash('sha256').update(JSON.stringify(x)).digest('hex').slice(0, 24);
 const validPath = x => typeof x === 'string' && x.length > 0 && !/^(?:[A-Za-z]:|[/\\])/.test(x) && !x.replace(/\\/g,'/').split('/').some(p=>p==='..'||p==='.');
 const types = new Set('overview implementation decision challenge incident performance ownership collaboration limitation'.split(' '));
@@ -75,7 +76,7 @@ const intents = [ ['ownership',/负责|职责|个人贡献|你做|我做|本人/
 const grams = text => {
   // Equivalent database vocabulary should meet the same prepared feature;
   // this affects retrieval only, never rewrites a source or a model question.
-  const s=String(text).normalize('NFKC').toLowerCase()
+  const s=normalizeConceptText(String(text).normalize('NFKC')).toLowerCase()
     .replace(/唯一(?:索引|约束)|\bunique\s+(?:index|constraint|key)\b/g,'唯一键')
     .replace(/介绍一下|这个项目|那个项目|你们|我们|刚才|前面|这里|那里|为什么|为何|如何|怎么|怎样|什么|哪些|具体|一下|解决|问题|能不能|可不可以/g,'')
     .replace(/[^\p{L}\p{N}]/gu,'');

@@ -199,7 +199,8 @@ test('two real transport contracts retain failed output usage, retry boundedly, 
   const repair = JSON.parse(sent[2].messages.at(-1).content);
   assert.deepEqual(repair.constraintIndices, { coverage: [0], prohibitedClaims: [0] });
   assert.deepEqual(repair.outputTemplate.citations.map(row => row.dimension), DIMENSIONS);
-  assert.equal(judged.providers[0].cases[0].judging.judges[0].attempts[1].requestMessages.length,3);
+  assert.equal(judged.providers[0].cases[0].judging.judges[0].attempts[1].requestMessages.length,4);
+  assert.equal(judged.providers[0].cases[0].judging.judges[0].attempts[1].requestMessages[2].role,'assistant');
 });
 
 test('a depleted workflow budget pauses judges without new calls and leaves missing results explicitly unverified',async t=>{

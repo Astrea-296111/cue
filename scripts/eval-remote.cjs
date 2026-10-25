@@ -259,7 +259,7 @@ async function runRemote(options,{github,log=message=>process.stdout.write(messa
     const {writeReports}=require('./lib/live-evaluation-report.cjs');
     const providers=[...new Set(reports.flatMap(report=>(report.providers||[]).map(p=>p.id)))].map(id=>{
       const entries=reports.flatMap(r=>(r.providers||[]).filter(p=>p.id===id)),models=[...new Set(entries.map(p=>p.model).filter(Boolean))];
-      return{id,model:models.length===1?models[0]:models.length?'mixed':null,models,status:entries.every(p=>p.status==='passed')?'passed':'failed',attemptedCalls:entries.reduce((n,p)=>n+(p.attemptedCalls||0),0),expectedCaseCount:entries.reduce((n,p)=>n+(p.expectedCaseCount||p.cases?.length||0),0),cases:entries.flatMap(p=>p.cases||[])};
+      return{...(entries.length===1?entries[0]:{}),id,model:models.length===1?models[0]:models.length?'mixed':null,models,status:entries.every(p=>p.status==='passed')?'passed':'failed',attemptedCalls:entries.reduce((n,p)=>n+(p.attemptedCalls||0),0),expectedCaseCount:entries.reduce((n,p)=>n+(p.expectedCaseCount||p.cases?.length||0),0),cases:entries.flatMap(p=>p.cases||[])};
     });
     const attemptedCalls=reports.reduce((n,r)=>n+(r.budget?.attemptedCalls||0),0);
     const callsByProvider=Object.fromEntries(providers.map(p=>[p.id,reports.reduce((n,r)=>n+(r.budget?.callsByProvider?.[p.id]||0),0)]));

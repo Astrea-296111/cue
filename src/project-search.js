@@ -12,6 +12,7 @@ const ALIASES = [
   ['限流', 'ratelimit', 'rate limit', 'ratelimiter'],
   ['熔断', 'circuitbreaker', 'circuit breaker'],
   ['幂等', 'idempotency', 'idempotent'], ['去重', 'deduplication', 'dedup'],
+  ['重复执行', 'duplicate task execution', 'duplicate execution'],
   ['重复消费', '幂等', 'idempotency', 'idempotent', 'deduplication'],
   ['重试', 'retry', 'retries'], ['一致性', 'consistency'],
   ['状态', 'status', 'state'], ['领取', '认领', 'claim'], ['租约', 'lease'],
@@ -33,11 +34,21 @@ const ALIASES = [
   ['压缩', 'compact', 'compaction', 'summary'], ['替换状态', 'replacement', 'replacement_records']
 ];
 
+// Share the source search vocabulary with fact-card ranking. Translate only
+// recognized whole-word aliases; never rewrite the question or source sent to
+// the model. Longest phrases win over their component words.
+const CONCEPT_NAMES=new Map(ALIASES.flatMap(group=>group.filter(alias=>/^[a-z ]+$/.test(alias)).map(alias=>[alias,group[0]])));
+const CONCEPT_PATTERN=new RegExp('\\b(?:'+[...CONCEPT_NAMES.keys()].sort((a,b)=>b.length-a.length).map(alias=>alias.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')\\b','gi');
+function normalizeConceptText(value) {
+  return String(value||'').replace(CONCEPT_PATTERN,alias=>CONCEPT_NAMES.get(alias.toLowerCase())||alias)
+    .replace(/\b(?:how|do|does|did|you|your|we|our|the|a|an|after|before|when|what|which|why|would|could|should|handle|prevent)\b/gi,' ');
+}
+
 // A project manifest is useful orientation, but cannot replace implementation
 // evidence. Match identifiers to code paths/symbols without project-specific
 // file lists or expected-answer rules.
 function implementationQuery(query) {
-  if(!/实现|源码|代码|接口|执行|取消|报告|权限|幂等|事务|并发|恢复|隔离|持久化|状态|\b(?:code|implementation|Outbox|Inbox|Execution)\b/i.test(query))return null;
+  if(!/实现|源码|代码|接口|执行|取消|报告|权限|幂等|事务|并发|恢复|隔离|持久化|状态|\b(?:code|implementation|Outbox|Inbox|execution|timeout|retries|retry|duplicate|idempotency|transaction)\b/i.test(query))return null;
   return [...new Set(String(query).match(/\b[A-Za-z][A-Za-z0-9_]{2,63}\b/g)||[])].map(normalize)
     .filter(word=>!STOP_WORDS.has(word));
 }
@@ -500,4 +511,4 @@ class ProjectSearch {
   }
 }
 
-module.exports = { ProjectSearch, tokenize, querySpec, denseEmbedding, cosineDense,hasImplementationBody,implementationWeight,implementationQuery };
+module.exports = { ProjectSearch, tokenize, querySpec, denseEmbedding, cosineDense,hasImplementationBody,implementationWeight,implementationQuery,normalizeConceptText };
