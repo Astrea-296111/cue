@@ -29,7 +29,7 @@ function read(file, maximum = cipher.MAX_INPUT_BYTES) {
 function parseArgs(args) {
   const options = {profile:'smoke', provider:'all', pollMs:5000, waitMs:8*60*60*1000, discoverModels:false, detach:false};
   const names = {'--payload':'payloadFile','--judge-reference':'judgeReferenceFile','--scenarios':'scenarioFile','--profile':'profile','--provider':'provider','--application':'applicationCommit',
-    '--output-dir':'outputDir','--resume':'resumeFile','--repository':'repository','--shards':'shards','--repeats':'repeats','--concurrency':'concurrency',
+    '--output-dir':'outputDir','--resume':'resumeFile','--repository':'repository','--shards':'shards','--only-shard':'onlyShard','--repeats':'repeats','--concurrency':'concurrency',
     '--retry-limit':'retryLimit','--poll-ms':'pollMs','--wait-ms':'waitMs','--label':'label','--output-ceiling':'outputCeiling','--timeout-ms':'timeoutMs','--source-snapshot':'sourceSnapshot'};
   for (let index=0; index<args.length; index++) {
     const key=args[index];
@@ -41,13 +41,14 @@ function parseArgs(args) {
     else if (names[key] && args[index+1] && !args[index+1].startsWith('--')) options[names[key]]=args[++index];
     else throw new Error('Unknown remote evaluation argument. Use --help.');
   }
-  for (const [key,min,max] of [['shards',1,100],['repeats',1,20],['concurrency',1,4],['retryLimit',0,3],['pollMs',100,60000],['waitMs',1000,86400000],['outputCeiling',1,16384],['timeoutMs',60000,120000]]) {
+  for (const [key,min,max] of [['shards',1,100],['onlyShard',0,99],['repeats',1,20],['concurrency',1,4],['retryLimit',0,3],['pollMs',100,60000],['waitMs',1000,86400000],['outputCeiling',1,16384],['timeoutMs',60000,120000]]) {
     if (options[key]===undefined) continue;
     options[key]=Number(options[key]);
     if (!Number.isInteger(options[key]) || options[key]<min || options[key]>max) throw new Error('Invalid remote evaluation '+key+'.');
   }
   if (!['smoke','regression','deep','stress'].includes(options.profile) || !['all','qwen','deepseek'].includes(options.provider)) throw new Error('Invalid remote evaluation profile/provider.');
   if (options.repository && !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(options.repository)) throw new Error('Invalid GitHub repository.');
+  if(options.onlyShard!==undefined&&options.shards===undefined)throw new Error('--only-shard requires the explicit original --shards partition count.');
   return options;
 }
 function preparePayload(options) {
@@ -81,6 +82,7 @@ function preparePayload(options) {
   options.shards??=Math.max(1,Math.min(100,allTasks.length,Math.ceil(answerCount/target)));
   if(config.audioFixture&&options.shards!==1||options.shards>allTasks.length)throw new Error('Selected shards would create empty or unsupported evaluation partitions.');
   config.shardCount=options.shards;
+  if(options.onlyShard!==undefined&&(options.onlyShard>=options.shards||config.audioFixture))throw new Error('Selected recovery shard is outside the original partition plan.');
   const shardAnswers=Array.from({length:options.shards},(_,shardIndex)=>{
     const assigned=buildTasks(payload.scenarios.sessions,resolveProfile({...config,shardIndex},providers.length),providers);
     return config.audioFixture?providers.length*2:config.dynamic?assigned.length*((typeof config.dynamic==='object'?config.dynamic.turns:6)||6)+assigned.length
@@ -89,6 +91,8 @@ function preparePayload(options) {
   options.workloadPlan={generationAnswers:answerCount,shards:options.shards,maximumAnswersPerShard:Math.max(...shardAnswers),
     automaticTargetAnswersPerShard:target,judges:!!config.judge,
     note:'Finite workload planning; provider slowdowns and retries remain bounded and recoverable.'};
+  if(options.onlyShard!==undefined)Object.assign(options.workloadPlan,{generationAnswers:shardAnswers[options.onlyShard],dispatchedShards:1,onlyShard:options.onlyShard,
+    note:'One explicit original partition; use only after checking which original calls completed.'});
   const evaluationProfile=resolveProfile(config,options.provider==='all'?2:1);
   if (!buildTasks(payload.scenarios.sessions,evaluationProfile,options.provider==='all'?['qwen','deepseek']:[options.provider]).length) throw new Error('The selected shard has no sessions.');
   payload.evaluation=config;
@@ -170,7 +174,7 @@ async function runRemote(options,{github,log=message=>process.stdout.write(messa
     fs.mkdirSync(directory,{recursive:true,mode:0o700});fs.chmodSync(directory,0o700);
     manifest=path.join(directory,'resume.json');
     const payload=preparePayload(options);save(path.join(directory,'payload.json'),payload);
-    state={schemaVersion:1,kind:'cue-remote-evaluation',repository,trustedSha,tag,directory,createdAt:new Date().toISOString(),options:{...options,payloadFile:undefined,scenarioFile:undefined,judgeReferenceFile:undefined},runs:Array.from({length:options.shards},(_,index)=>({shardIndex:index,tag:tag+'-s'+index,stage:'pending'}))};
+    state={schemaVersion:1,kind:'cue-remote-evaluation',repository,trustedSha,tag,directory,createdAt:new Date().toISOString(),options:{...options,payloadFile:undefined,scenarioFile:undefined,judgeReferenceFile:undefined},runs:Array.from({length:options.shards},(_,index)=>({shardIndex:index,tag:tag+'-s'+index,stage:'pending'})).filter(run=>options.onlyShard===undefined||run.shardIndex===options.onlyShard)};
     save(manifest,state);
   }
   github ||= new Github(state.repository);
@@ -178,8 +182,14 @@ async function runRemote(options,{github,log=message=>process.stdout.write(messa
   const wait=check=>until(check,{deadline,pollMs:options.pollMs,pauseImpl});
   log('Private resume manifest: '+manifest);
   if(state.options.workloadPlan)log('Evaluation workload: '+JSON.stringify(state.options.workloadPlan));
-  // Bind every shard to main before any long-running evaluation. Subsequent
-  // production merges cannot change these workflow runs' immutable github.sha.
+  const pendingFeeds=[],feedWaiters=[];let activeFeeds=0;
+  async function scheduledFeed(run) {
+    if(activeFeeds>=4)await new Promise(resolve=>feedWaiters.push(resolve));
+    activeFeeds++;
+    try {await feed(run);}finally {activeFeeds--;feedWaiters.shift()?.();}
+  }
+  // Every dispatch checks the same trusted SHA. Feed its session immediately:
+  // discovering later shards can outlast the first runner's bounded input wait.
   for(const run of state.runs) {
     if(!run.runId) {
       // Store correlation before dispatch. A crash after dispatch finds the same run.
@@ -198,11 +208,11 @@ async function runRemote(options,{github,log=message=>process.stdout.write(messa
       run.runId=String(found.id);run.runAttempt=String(found.run_attempt||1);run.url=found.html_url;run.stage='dispatched';save(manifest,state);
       log(`Shard ${run.shardIndex+1}/${state.runs.length}: ${run.url}`);
     }
+    pendingFeeds.push(scheduledFeed(run).then(()=>({status:'fulfilled'}),reason=>({status:'rejected',reason})));
   }
-  // Feed all already-started sessions promptly, before waiting for answers.
-  const feed = async run => {
+  async function feed(run) {
     const directory=path.join(state.directory,'shard-'+run.shardIndex);fs.mkdirSync(directory,{recursive:true,mode:0o700});
-    if(run.stage==='decrypted') return;
+    if(['decrypted','no-report'].includes(run.stage)) return;
     if(!['uploaded','completed'].includes(run.stage)) {
       const artifact=await wait(async()=>{
         const artifacts=await github.artifacts(run.runId);const result=artifacts.find(item=>item.name===`private-session-${run.runId}-${run.runAttempt}`&&!item.expired);
@@ -225,9 +235,8 @@ async function runRemote(options,{github,log=message=>process.stdout.write(messa
       }
       await github.publish(run.runId,envelope);run.stage='uploaded';run.fingerprint=session.fingerprint;save(manifest,state);
     }
-  };
-  let feedCursor=0;
-  const fed=await Promise.allSettled(Array.from({length:Math.min(4,state.runs.length)},async()=>{while(feedCursor<state.runs.length)await feed(state.runs[feedCursor++]);}));
+  }
+  const fed=await Promise.all(pendingFeeds);
   const failedFeed=fed.find(value=>value.status==='rejected');if(failedFeed)throw failedFeed.reason;
   if(options.detach) return {state,manifest};
   for(const run of state.runs) {
@@ -238,6 +247,13 @@ async function runRemote(options,{github,log=message=>process.stdout.write(messa
     run.stage='completed';run.conclusion=completed.conclusion;save(manifest,state);
     const artifact=await wait(async()=>(await github.artifacts(run.runId)).find(item=>item.name===`private-live-${run.runId}-${run.runAttempt}`&&!item.expired));
     const artifactDir=path.join(directory,'encrypted');await github.download(run.runId,artifact.name,artifactDir);
+    if(!fs.existsSync(path.join(artifactDir,'report.encrypted.json'))) {
+      const summaryFile=path.join(artifactDir,'summary.json');
+      const summary=fs.existsSync(summaryFile)?read(summaryFile,1024*1024):{};
+      run.stage='no-report';run.failure={code:'no-encrypted-report',reportedError:summary.error?.code||null,
+        noInferenceVerified:summary.runId===run.runId&&summary.commitSha===state.trustedSha&&summary.reportEncrypted===false&&summary.attemptedCalls===0};
+      save(manifest,state);log(`Shard ${run.shardIndex+1}: no encrypted report; input/API status preserved in the private manifest.`);continue;
+    }
     const session=read(path.join(directory,'session','session.json'),16384),local=read(path.join(directory,'local-key.json'),16384);
     // Input expiry prevents late uploads. An authenticated archived response
     // can still be opened with its original private key after that window.
@@ -253,6 +269,10 @@ async function runRemote(options,{github,log=message=>process.stdout.write(messa
     }
     run.stage='decrypted';run.reportPath=path.join(plainDir,'report.json');run.status=reports.report.status;run.summary=reports.report.summary||null;save(manifest,state);
     log(`Shard ${run.shardIndex+1}: ${run.status}; private report ${run.reportPath}`);
+  }
+  if(state.runs.some(run=>!run.reportPath)) {
+    state.status='incomplete';save(manifest,state);
+    throw new Error('Some workflow runs produced no encrypted report. Available artifacts and zero-inference evidence were collected; inspect the saved manifest before retrying.');
   }
   if(state.runs.every(run=>run.stage==='decrypted')) {
     const reports=state.runs.map(run=>read(run.reportPath,cipher.MAX_REPORT_BYTES));

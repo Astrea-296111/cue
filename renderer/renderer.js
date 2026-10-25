@@ -1968,6 +1968,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
     $('#instant-rag-policy').value = settings.sourceRagPolicies?.instant || settings.instantRagPolicy || 'ready-only';
     $('#standard-rag-policy').value=settings.sourceRagPolicies?.standard || 'standard';
     $('#project-facts-enabled').checked=settings.projectFactsEnabled!==false;
+    $('#save-interview-transcript').checked=settings.saveInterviewTranscript!==false;
     $('#manual-project-enabled').checked=settings.manualProjectKnowledgeEnabled!==false;
     $('#materials-migration-note').hidden=!settings.projectMaterialMigrationNotice;
     // Keys tab
@@ -2373,6 +2374,7 @@ cue.on(
     settings.instantRagPolicy = $('#instant-rag-policy').value === 'off' ? 'off' : 'ready-only';
     settings.sourceRagPolicies={instant:settings.instantRagPolicy,standard:$('#standard-rag-policy').value};
     settings.projectFactsEnabled=$('#project-facts-enabled').checked;
+    settings.saveInterviewTranscript=$('#save-interview-transcript').checked;
     settings.manualProjectKnowledgeEnabled=$('#manual-project-enabled').checked;
     if (!$('#instant-thinking').disabled) {
       const value = $('#instant-thinking').value;

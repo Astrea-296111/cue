@@ -12,6 +12,45 @@ const {fixture,sourceFixture} = require('./helpers/material-fixture');
 
 const plain = value => JSON.parse(JSON.stringify(value));
 
+test('whole interview TXT keeps both speakers, corrections and distinct suggestions beyond ledger eviction and session reset',async t=>{
+  const app=createInterviewRuntime(t,{settings:{saveInterviewTranscript:true,apiKeys:{custom:'SYNTHETIC_SETTINGS_SECRET'}}});await app.ready;
+  app.value('dialogue.maxEvents = 3');
+  app.interim('尚未确认的识别草稿');
+  const first=app.final('合成面试问题：为什么要固定输入版本？');
+  app.candidate('我会先保留输入版本，再开始执行。');
+  const snapshot=plain(await app.invoke('dialogue:snapshot')),candidate=snapshot.events.find(e=>e.speaker==='candidate');
+  await app.invoke('dialogue:correct',{sessionId:snapshot.sessionId,eventId:candidate.eventId,text:'我会保存快照并核对内容指纹。',speaker:'candidate'});
+  app.answer('这是单独标注的合成 CUE 建议。');await app.ask('say','手动输入的另一个合成问题？');
+  for(let i=0;i<5;i++)app.candidate('后续合成发言 '+i+'。');
+  const saved=await app.invoke('dialogue:recording:flush'),directory=path.join(app.temp,'interview-records');
+  const original=path.join(directory,saved.fileName),body=fs.readFileSync(original,'utf8');
+  assert.match(body,/面试官/);assert.match(body,/为什么要固定输入版本/);
+  assert.match(body,/我会先保留输入版本/);assert.match(body,/修订 · 本人/);assert.match(body,/保存快照并核对内容指纹/);
+  assert.match(body,/手动输入的问题（非语音记录）/);assert.match(body,/CUE 建议（未确认说出）/);
+  assert.match(body,/后续合成发言 4/);assert.doesNotMatch(body,/尚未确认的识别草稿|SYNTHETIC_SETTINGS_SECRET/);
+  assert.equal((await app.invoke('dialogue:snapshot')).events.length,3);
+  app.clear();app.candidate('新的面试会话。');const next=await app.invoke('dialogue:recording:flush');
+  assert.notEqual(next.fileName,saved.fileName);assert.ok(fs.existsSync(original));
+  await app.invoke('settings:set',{saveInterviewTranscript:false});app.candidate('关闭后不写入的发言。');await app.invoke('dialogue:recording:flush');
+  const all=fs.readdirSync(directory).map(name=>fs.readFileSync(path.join(directory,name),'utf8')).join('\n');
+  assert.doesNotMatch(all,/关闭后不写入的发言/);assert.equal(fs.readdirSync(directory).length,2);
+  await app.invoke('settings:set',{saveInterviewTranscript:true});
+  app.value("transcriptRecorder.io = {mkdir: fs.promises.mkdir.bind(fs.promises), appendFile: async () => {const error = new Error('disk full'); error.code = 'ENOSPC'; throw error;}};");
+  app.candidate('磁盘故障仍保留在当前台账的发言。');const failed=await app.invoke('dialogue:recording:flush');
+  assert.equal(failed.error.code,'ENOSPC');assert.match((await app.invoke('dialogue:snapshot')).events.at(-1).text,/磁盘故障/);
+});
+
+test('both answer modes give experience-based fallbacks and examples through the real SDK when project details are absent',async t=>{
+  for(const mode of ['instant','standard']){
+    const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:mode,projectFactsEnabled:false,manualProjectKnowledgeEnabled:false,sourceRagPolicies:{instant:'off',standard:'off'}}});await app.ready;
+    app.answer('我会先用一个小例子说明，再解释设计取舍。');await app.ask('say','如果用一个冷门协议做数据同步，你会如何处理重复请求？');
+    const actual=app.calls.at(-1).messages.map(m=>m.content||'').join('\n');
+    assert.match(actual,/项目事实卡未覆盖当前细节时，仍直接给出面试答案/);
+    assert.match(actual,/比如.*输入、处理和结果/);assert.doesNotMatch(actual,/资料不足时只简短指出具体缺口/);
+    assert.match(actual,/经验方案和例子不反写成已核实/);
+  }
+});
+
 test('diagnostics preserve the actual deep request identity after configuration changes and retain the latest failed attempt',async t=>{
   const secret='synthetic-transport-secret',app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:'standard',smart:true,models:{custom:{fast:'configured-fast',smart:'actual-deep'}},apiKeys:{custom:secret},activeJobProfileId:'ai_supply_chain',jobDescription:'SYNTHETIC_AI_JD',jobProfiles:[{id:'ai_supply_chain',jobDescription:'SYNTHETIC_AI_JD',priorityTopics:[]},{id:'java_security',jobDescription:'SYNTHETIC_JAVA_JD',priorityTopics:[]}]}});
   app.answer('合成回答 '+secret+'。联系 sample@example.test 或 13800000000。');await app.ask('say','一般解释缓存的取舍。');

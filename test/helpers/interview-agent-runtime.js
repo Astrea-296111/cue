@@ -315,7 +315,9 @@ function createInterviewRuntime(t, options = {}) {
   const dispose = async () => {
     if (disposed) return;
     disposed = true;
-    await ready.catch(() => {}); clear(); for(const timer of ownedTimers) clearOwnedTimer(timer); fs.rmSync(temp, { recursive: true, force: true });
+    await ready.catch(() => {}); clear();
+    if(handlers.has('dialogue:recording:flush'))await handlers.get('dialogue:recording:flush')(null);
+    for(const timer of ownedTimers) clearOwnedTimer(timer); fs.rmSync(temp, { recursive: true, force: true });
   };
   t.after(dispose);
   function speech(channel, text, final, meta = {}) {

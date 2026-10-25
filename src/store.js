@@ -16,6 +16,7 @@ const DEFAULTS = {
   smart: false,
   realtimeEvidencePrefetch: true,
   realtimeAnswerMode: 'instant',
+  saveInterviewTranscript: true,
   responseBudgets: { oral: 1800, code: 6000 },
   instantRagPolicy: 'ready-only',
   projectFactsEnabled: true,

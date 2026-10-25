@@ -30,6 +30,7 @@ const { ConversationMemory } = require('./src/conversation-memory');
 const {buildCandidateRoleContext}=require('./src/candidate-role-context');
 const { ProjectEntityIndex } = require('./src/project-entity-index');
 const { DialogueStore, SPOKEN_CONTEXT_RULES, projectIds: spokenProjectIds } = require('./src/spoken-claim-ledger');
+const {InterviewTranscriptRecorder}=require('./src/interview-transcript-recorder');
 const personalWorkspace = require('./src/personal-workspace');
 const { getProjectIndexRevision: readProjectIndexRevision,
   getProjectIndexSnapshot: readProjectIndexSnapshot, warmProjectIndex, refreshProjectIndex } = require('./src/project-knowledge');
@@ -97,6 +98,9 @@ let sttDisabled = false; // set when the key can't reach any speech model (stops
 const buffers = { you: [], them: [] };
 const conversation = new ConversationMemory();
 const dialogue = new DialogueStore();
+const transcriptRecorder=new InterviewTranscriptRecorder({directory:path.join(app.getPath('userData'),'interview-records'),
+  enabled:store.getSettings().saveInterviewTranscript!==false,onStatus:value=>send('dialogue:recording',value)});
+transcriptRecorder.startSession(dialogue.sessionId);
 const speechDraftIds = new Map();
 let speechEventSequence = 0;
 const questionResolver = new QuestionResolver();
@@ -388,6 +392,8 @@ function ingestSpeechEvent(input={}) {
   dialogue.setActiveProject(dialogue.activeProjectIds,getProjectIndexRevision());
   const result=dialogue.ingest({...input,channel,eventId,text:normalized,rawText:input.rawText??input.text,isFinal});
   if(!result.accepted) return result;
+  transcriptRecorder.recordEvent(result.event);
+  if(result.event.echoOf)transcriptRecorder.recordEvent(dialogue.events.get(result.event.echoOf));
   if(isFinal) speechDraftIds.delete(draftKey);
   const turn=updateSpeechTranscript(result.event);
   if(isFinal) {send('transcript',turn);send('stt:final',turn);}
@@ -978,6 +984,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     generation.diagnostic.evidenceRevision=diagnosticText(request.evidenceRevision,128);
     dialogue.setActiveProject(request.plan.canonicalProjectIds || [], request.evidenceRevision);
     dialogue.recordSuggestion({requestId:generation.id,sessionId:generation.sessionId,status:'generating',question,eventIds:spokenState.eventIds});
+    if(explicit)transcriptRecorder.recordManualQuestion({sessionId:generation.sessionId,requestId:generation.id,question});
     request.plan.preparedOnly = realtimePrefetchEnabled(settings) && !settings.smart;
     if (!request.plan.retrieve) ragSession.pause();
     if (request.plan.projectSwitched) ragSession.retainScopes(request.plan.scopes);
@@ -1100,7 +1107,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       { answerPlan, interviewPlan, projectPlan: request.plan, hasImage: !!imageDataUrl,
         projectContextLimit:Math.min(14000,contextBundle.context.length) }) : (def.system || '');
     const narrativeRule='\nUSER/source-claim 是用户指定的口述资料，可按范围直接回答既有职责，不复述资料编辑历史；没有材料才简短说明缺口。普通单问用2–4句自然第一人称口述：结论、一处具体机制、取舍或验证；多子问按题目分点，代码题保留完整代码。';
-    const resolvedSystem = builtSystem + (instantContext?'':narrativeRule + SPOKEN_CONTEXT_RULES) + (request.plan.kind==='unresolved'?'\n项目不明确：仅简短询问用户指哪个项目，不猜团队或职责。':'');
+    const resolvedSystem = builtSystem + (instantContext?'':narrativeRule + SPOKEN_CONTEXT_RULES) + (request.plan.kind==='unresolved'?'\n当前未定位到对应项目资料，直接给出可落地的通用方案或小例子，不猜测具体项目身份或职责。':'');
     const initialSystem = llm.prepareSystem ? llm.prepareSystem(resolvedSystem) : resolvedSystem;
     const candidateRole=buildCandidateRoleContext(settings,question,{project:request.plan.retrieve});
     const candidateRoleSection={id:'candidate-role',text:candidateRole.text,protected:candidateRole.required,priority:2};
@@ -1286,6 +1293,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       const committed = conversation.commit(request, answer, { completion, evidence: sentEvidence });
       generation.diagnostic.status=committed?'completed':'uncommitted';
       dialogue.recordSuggestion({requestId:generation.id,sessionId:generation.sessionId,status:committed?'completed':'uncommitted',text:answer,question,eventIds:spokenState.eventIds});
+      if(committed)transcriptRecorder.recordAnswer({sessionId:generation.sessionId,requestId:generation.id,question,answer});
       if (committed && frozen) questionResolver.settle(frozen, 'completed');
     } finally {
       streamSettled = true;
@@ -1334,9 +1342,18 @@ ipcMain.handle('llm:cancel',()=>cancelCurrentGeneration());
 ipcMain.on('llm:cancel',()=>cancelCurrentGeneration());
 ipcMain.handle('dialogue:event',(_event,input)=>ingestSpeechEvent(input));
 ipcMain.handle('dialogue:snapshot',(_event,options={})=>dialogue.snapshot(options));
+ipcMain.handle('dialogue:recording:state',()=>transcriptRecorder.status());
+ipcMain.handle('dialogue:recording:flush',()=>transcriptRecorder.flush());
+ipcMain.handle('dialogue:recording:folder',async()=>{
+  await transcriptRecorder.flush();await fs.promises.mkdir(transcriptRecorder.directory,{recursive:true,mode:0o700});
+  const error=await shell.openPath(transcriptRecorder.directory);
+  if(error)throw new Error('无法打开面试记录目录，请检查系统文件管理器。');
+  return {ok:true};
+});
 ipcMain.handle('dialogue:correct',(_event,input={})=>{
   const result=dialogue.correct(input);
   if(result.accepted) {
+    transcriptRecorder.recordEvent(result.event);
     cancelCurrentGeneration('dialogue-corrected');
     const turn=updateSpeechTranscript(result.event);
     send('transcript',turn);
@@ -1451,6 +1468,7 @@ ipcMain.handle('settings:set', (_e, patch) => {
   sttDisabled = false;
   const before = store.getSettings();
   const next = store.setSettings(patch);
+  transcriptRecorder.configure(next.saveInterviewTranscript!==false);
   if (['resumeText', 'projectKnowledge', 'starStories', 'whyCompany', 'whyLeaving', 'workStyle', 'salaryTarget'].some(key => before[key] !== next[key])) instantCards.update(next);
   const identity = settings => JSON.stringify([settings.realtimeAnswerMode, settings.instantRagPolicy, settings.realtimeEvidencePrefetch, settings.smart, settings.provider,
     settings.models, settings.projectFactsEnabled,settings.sourceRagPolicies,settings.manualProjectKnowledgeEnabled, settings.currentProjectId, settings.baseUrl, settings.projectKnowledge, settings.starStories]);
@@ -1594,6 +1612,7 @@ ipcMain.handle('transcript:clear', () => {
   state.busy = false;
   conversation.reset();
   dialogue.reset();
+  transcriptRecorder.startSession(dialogue.sessionId);
   speechDraftIds.clear();
 
   uiReplyTimings.clear();
@@ -1900,6 +1919,12 @@ app.whenReady().then(async () => {
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 
+let recorderClosing=false;
+app.on('before-quit',event=>{
+  if(recorderClosing||!transcriptRecorder.file&&!transcriptRecorder.pendingBytes)return;
+  event.preventDefault();recorderClosing=true;transcriptRecorder.endSession('应用关闭');
+  transcriptRecorder.flush().finally(()=>app.quit());
+});
 app.on('will-quit', () => {
   activeGeneration?.controller.abort();
   activeGeneration = null;
