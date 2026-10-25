@@ -23,3 +23,29 @@ for(const mode of ['instant','standard'])test(`${mode}: imported candidate and s
   assert.ok(!second.includes('SYNTHETIC_AI_REQUIREMENTS'));
   assert.equal(app.snapshot('materialService.snapshot.factRevision'),facts);
 });
+
+test('evaluation imports candidate data through the personal preview/commit path and preserves its revision',async t=>{
+  const app=createInterviewRuntime(t,{inMemorySettings:true,persistProfile:true,settings:{realtimeAnswerMode:'instant',apiKeys:{custom:'EVALUATION_MEMORY_ONLY_KEY'}}});
+  const {validatePersonalWorkspace}=require('../src/personal-workspace');
+  const {importMaterials}=require('../scripts/evaluate-multiturn-projects.cjs');
+  const {loadTrustedSources}=require('../scripts/evaluate-private-projects.cjs');
+  const workspace=validatePersonalWorkspace({schemaVersion:2,facts:migrateFactIndex(fixture(2)),profile:{
+    resumeText:'SYNTHETIC_RESUME',jobDescription:'AI_REFERENCE',
+    candidateProfile:{name:'ENTRY_CANDIDATE',subjectRole:'candidate',education:[],availability:{},employment:[],projects:[],resumeProjectOrder:['cae','arclight'],doNotInfer:[]},
+    jobProfiles:[{id:'ai_supply_chain',label:'AI',priorityTopics:[],jobDescription:'AI_REFERENCE'},{id:'java_security',label:'Java',priorityTopics:[],jobDescription:'JAVA_REFERENCE'}],activeJobProfileId:'ai_supply_chain'},
+    sourceManifest:[{path:'synthetic-source.txt',bytes:1,sha256:'a'.repeat(64)}],mergeLog:[]});
+  const result=await importMaterials(app,{...workspace,judgeReference:{privateOracle:'JUDGE_ONLY_SENTINEL'}},loadTrustedSources());
+  assert.equal(result.importMethod,'production-personal-preview-commit');
+  const settings=app.exports('src/store.js').getSettings();
+  assert.equal(settings.personalWorkspaceRevision,workspace.revision);
+  assert.equal(settings.personalWorkspace.sourceCount,1);
+  assert.equal(settings.candidateProfile.name,'ENTRY_CANDIDATE');
+  const fs=require('node:fs'),path=require('node:path');
+  const persisted=fs.readFileSync(path.join(app.temp,'cue-data.json'),'utf8');
+  assert.equal(JSON.parse(persisted).personalWorkspaceRevision,workspace.revision);
+  assert.ok(!persisted.includes('EVALUATION_MEMORY_ONLY_KEY'));
+  assert.equal(settings.apiKeys.custom,'EVALUATION_MEMORY_ONLY_KEY');
+  await app.ask('say','请介绍一下自己。');
+  assert.match(JSON.stringify(app.calls.at(-1).messages),/ENTRY_CANDIDATE/);
+  assert.doesNotMatch(JSON.stringify(settings)+JSON.stringify(app.calls),/JUDGE_ONLY_SENTINEL/);
+});

@@ -11,6 +11,7 @@ const {setTimeout:pause} = require('node:timers/promises');
 const cipher = require('./lib/private-live-crypto.cjs');
 const {resolveProfile, buildTasks} = require('./lib/evaluation-profiles.cjs');
 const {validateScenarios, validateEvaluation} = require('./evaluate-multiturn-projects.cjs');
+const {validateEvaluationWorkspace, projectJudgeReference} = require('./lib/evaluation-workspace.cjs');
 const execute = promisify(execFile);
 const WORKFLOW = 'project-deep-live.yml', INPUT_BRANCH = 'cue-evaluation-inputs';
 const ROOT = path.resolve(__dirname, '..');
@@ -27,7 +28,7 @@ function read(file, maximum = cipher.MAX_INPUT_BYTES) {
 }
 function parseArgs(args) {
   const options = {profile:'smoke', provider:'all', shards:1, pollMs:5000, waitMs:8*60*60*1000, discoverModels:false, detach:false};
-  const names = {'--payload':'payloadFile','--scenarios':'scenarioFile','--profile':'profile','--provider':'provider','--application':'applicationCommit',
+  const names = {'--payload':'payloadFile','--judge-reference':'judgeReferenceFile','--scenarios':'scenarioFile','--profile':'profile','--provider':'provider','--application':'applicationCommit',
     '--output-dir':'outputDir','--resume':'resumeFile','--repository':'repository','--shards':'shards','--repeats':'repeats','--concurrency':'concurrency',
     '--retry-limit':'retryLimit','--poll-ms':'pollMs','--wait-ms':'waitMs','--label':'label','--output-ceiling':'outputCeiling','--timeout-ms':'timeoutMs','--source-snapshot':'sourceSnapshot'};
   for (let index=0; index<args.length; index++) {
@@ -50,13 +51,18 @@ function parseArgs(args) {
   return options;
 }
 function preparePayload(options) {
-  const workspace=read(options.payloadFile),sourceProfile=workspace.profile||{};
+  const uploaded=read(options.payloadFile);
+  if(Object.keys(uploaded).some(key=>!['schemaVersion','facts','profile','revision','sourceManifest','mergeLog','scenarios','evaluation'].includes(key)))throw new Error('Invalid evaluation workspace fields.');
+  const {scenarios:embeddedScenarios,evaluation:embeddedEvaluation,...workspaceData}=uploaded;
+  const workspace=validateEvaluationWorkspace(workspaceData),sourceProfile=workspace.profile||{};
   if(sourceProfile.activeJobProfileId&&sourceProfile.activeJobProfile&&sourceProfile.activeJobProfileId!==sourceProfile.activeJobProfile)throw new Error('Conflicting active job profiles.');
   const profile=Object.fromEntries(['resumeText','jobDescription','jobProfiles','candidateProfile'].filter(key=>sourceProfile[key]!==undefined).map(key=>[key,sourceProfile[key]]));
   const activeJobProfileId=sourceProfile.activeJobProfileId||sourceProfile.activeJobProfile;
   if(activeJobProfileId!==undefined)profile.activeJobProfileId=activeJobProfileId;
   const payload={schemaVersion:2,facts:workspace.facts,profile,revision:workspace.revision,
-    scenarios:options.scenarioFile?read(options.scenarioFile):workspace.scenarios,evaluation:workspace.evaluation||{}};
+    scenarios:options.scenarioFile?read(options.scenarioFile):embeddedScenarios,evaluation:embeddedEvaluation||{}};
+  for (const name of ['sourceManifest','mergeLog']) if (workspace[name] !== undefined) payload[name]=workspace[name];
+  if (options.judgeReferenceFile) payload.judgeReference=projectJudgeReference(read(options.judgeReferenceFile));
   if (!payload.facts || !payload.profile || !payload.scenarios) throw new Error('A workspace payload and multi-turn scenarios are required.');
   const config={...(payload.evaluation||{}), profile:options.profile, shardCount:options.shards, shardIndex:0};
   for (const name of ['applicationCommit','repeats','concurrency','retryLimit','label','judge','outputCeiling','timeoutMs','sourceSnapshot','dynamic']) if (options[name]!==undefined) config[name]=options[name];
@@ -133,7 +139,7 @@ async function runRemote(options,{github,log=message=>process.stdout.write(messa
     fs.mkdirSync(directory,{recursive:true,mode:0o700});fs.chmodSync(directory,0o700);
     manifest=path.join(directory,'resume.json');
     const payload=preparePayload(options);save(path.join(directory,'payload.json'),payload);
-    state={schemaVersion:1,kind:'cue-remote-evaluation',repository,trustedSha,tag,directory,createdAt:new Date().toISOString(),options:{...options,payloadFile:undefined,scenarioFile:undefined},runs:Array.from({length:options.shards},(_,index)=>({shardIndex:index,tag:tag+'-s'+index,stage:'pending'}))};
+    state={schemaVersion:1,kind:'cue-remote-evaluation',repository,trustedSha,tag,directory,createdAt:new Date().toISOString(),options:{...options,payloadFile:undefined,scenarioFile:undefined,judgeReferenceFile:undefined},runs:Array.from({length:options.shards},(_,index)=>({shardIndex:index,tag:tag+'-s'+index,stage:'pending'}))};
     save(manifest,state);
   }
   github ||= new Github(state.repository);
@@ -241,7 +247,7 @@ async function runRemote(options,{github,log=message=>process.stdout.write(messa
 }
 async function main(args=process.argv.slice(2)) {
   const options=parseArgs(args);
-  if(options.help) {process.stdout.write('npm run eval:remote -- --payload PRIVATE_WORKSPACE --scenarios PRIVATE_SCENARIOS --profile smoke|regression|deep|stress [--application baseline|current|SHA] [--shards N] [--judge] [--discover-models]\nResume: npm run eval:remote -- --resume PRIVATE_RESUME_JSON\n--detach returns after encrypted input upload. Keys and complete reports remain in the private output directory.\n');return 0;}
+  if(options.help) {process.stdout.write('npm run eval:remote -- --payload PRIVATE_WORKSPACE --scenarios PRIVATE_SCENARIOS --profile smoke|regression|deep|stress [--application baseline|current|SHA] [--shards N] [--judge --judge-reference CANONICAL_PRIVATE_WORKSPACE] [--discover-models]\nResume: npm run eval:remote -- --resume PRIVATE_RESUME_JSON\n--detach returns after encrypted input upload. Keys and complete reports remain in the private output directory.\n');return 0;}
   const {state}=await runRemote(options);return state.status==='failed'?1:0;
 }
 if(require.main===module) main().then(code=>process.exit(code)).catch(error=>{process.stderr.write(error.message+'\n');process.exit(1);});

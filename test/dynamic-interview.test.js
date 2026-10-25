@@ -3,6 +3,8 @@ const test = require('node:test'), assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const { BEHAVIORS, validateDynamic, dynamicMaterialPayload, runDynamicSession } = require('../scripts/lib/dynamic-interview.cjs');
 const { observedProductionAttempts } = require('../scripts/evaluate-dynamic-projects.cjs');
+const {fixture}=require('./helpers/material-fixture');
+const {validatePersonalWorkspace}=require('../src/personal-workspace');
 const env = { QWEN_API_KEY: 'actor-key-a', DEEPSEEK_API_KEY: 'actor-key-b', QWEN_MODEL: 'actor-a', DEEPSEEK_MODEL: 'actor-b',
   QWEN_BASE_URL: 'https://a.example/v1', DEEPSEEK_BASE_URL: 'https://b.example/v1' };
 
@@ -21,11 +23,17 @@ test('resumed production accounting retains the failed original request as well 
 });
 
 test('dynamic production materials exclude reference answers and embedded oracle and preserve valid relations', () => {
-  const filtered = dynamicMaterialPayload({ facts: { sourceDocuments: { 'private.json': 'HIDDEN_ORACLE' }, cards: [
+  const filtered = dynamicMaterialPayload({judgeReference:{facts:'HIDDEN_CANONICAL_REFERENCE'},revision:'OLD_WORKSPACE_REVISION',sourceManifest:[{path:'HIDDEN_MANIFEST'}],mergeLog:['HIDDEN_MERGE_LOG'], facts: { sourceDocuments: { 'private.json': 'HIDDEN_ORACLE' }, cards: [
     { cardId: 'authority', related: ['oracle'], text: 'CODE_EVIDENCE' },
     { cardId: 'oracle', seedOrigin: { collection: 'question_answers', id: 'q1' }, text: 'HIDDEN_ANSWER' }] } });
   assert.equal(filtered.facts.cards.length, 1); assert.deepEqual(filtered.facts.cards[0].related, []);
   assert.ok(!JSON.stringify(filtered.facts).includes('HIDDEN'));
+  for(const key of ['judgeReference','revision','sourceManifest','mergeLog'])assert.equal(filtered[key],undefined);
+  const base={schemaVersion:2,facts:fixture(2),profile:{resumeText:'Synthetic speech',jobDescription:'Synthetic JD'}};
+  const first=dynamicMaterialPayload({...base,judgeReference:{sha256:'first'},revision:'stale'});
+  const second=dynamicMaterialPayload({...base,judgeReference:{sha256:'changed'},revision:'stale'});
+  assert.deepEqual(first,second); // Changed judge authority cannot alter actor/generation identity.
+  assert.equal(validatePersonalWorkspace({schemaVersion:1,facts:first.facts,profile:first.profile,revision:first.revision}).revision,first.revision);
 });
 
 test('all six candidate behaviors use actual-speech followups, isolated actor requests and production answer callback', async t => {

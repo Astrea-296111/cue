@@ -160,13 +160,13 @@ Qwen ASR 在“音频与转写”配置，可复用官方 DashScope 的自定义
 已配置 GitHub 凭据和仓库 Secrets 后，一条命令可以触发、上传密文、等待、下载并在本地解密：
 
 ```powershell
-npm run eval:remote -- --payload ".cue-private\workspace.json" --scenarios ".cue-private\task-2026-10-24\data\multiturn_scenarios.json" --profile smoke --judge --output-dir ".cue-private\results\smoke"
+npm run eval:remote -- --payload ".cue-private\workspace.json" --scenarios ".cue-private\task-2026-10-24\data\multiturn_scenarios.json" --profile smoke --judge --judge-reference ".cue-private\workspace.json" --output-dir ".cue-private\results\smoke"
 ```
 
 完整 deep 为 20 会话 × 4 问 × 2 模型 × 3 重复：
 
 ```powershell
-npm run eval:remote -- --payload ".cue-private\workspace.json" --scenarios ".cue-private\task-2026-10-24\data\multiturn_scenarios.json" --profile deep --shards 4 --concurrency 1 --judge --output-dir ".cue-private\results\deep"
+npm run eval:remote -- --payload ".cue-private\workspace.json" --scenarios ".cue-private\task-2026-10-24\data\multiturn_scenarios.json" --profile deep --shards 4 --concurrency 1 --judge --judge-reference ".cue-private\workspace.json" --output-dir ".cue-private\results\deep"
 # 终端意外退出后，复用原响应密钥恢复，避免重复推理：
 npm run eval:remote -- --resume ".cue-private\results\deep\resume.json"
 ```
@@ -174,6 +174,8 @@ npm run eval:remote -- --resume ".cue-private\results\deep\resume.json"
 场景文件来自私人交付包，不在公开仓库重复提供。报告在各分片 `reports` 和合并报告目录；本地 `local-key.json` 仅用于解密，丢失后不能恢复原密文回答，禁止提交或上传该文件。状态含义：`failed` 有阻断/质量问题；`needs-review` 有评分冲突或证据疑点；`unverified` 未完成双模型或必要验证；Mock 只证明链路。
 
 冻结旧版比较使用 `--application baseline --source-snapshot baseline`。评测器源码可以更新，旧应用模块和 Prompt 仍固定到9898a05。不要用修复后的应用冒充旧基线，也不要把原资料/兼容子集/完整新资料混成同条件对照。
+
+对照各组的 `--judge-reference` 必须指向同一份最新权威成品，核对报告中的 `judgeReferenceSha256`。它是独立的裁判输入，不会作为生产资料导入或发送给被测模型；旧资料的USER标签不自动证明新增的历史细节。实际个人导入通过正常预览/确认接口，revision及9份来源清单完整保留。临时评测目录可以持久化私人资料来验证真实存储，API密钥仍只留在内存，清理后不留运行目录；完整报告须私下保存。
 
 ## 窗口捕获保护
 

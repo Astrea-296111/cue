@@ -7,6 +7,9 @@ const path = require('node:path');
 const { evaluatePrivate, validatePrivatePayload, importPrivateMaterials } = require('../scripts/evaluate-private-projects.cjs');
 const { createInterviewRuntime } = require('./helpers/interview-agent-runtime');
 const { fixture, sourceFixture } = require('./helpers/material-fixture');
+const {migrateFactIndex}=require('../src/project-fact-packs');
+const {validatePersonalWorkspace}=require('../src/personal-workspace');
+const {projectJudgeReference}=require('../scripts/lib/evaluation-workspace.cjs');
 const payload = () => ({ schemaVersion: 1, facts: fixture(), profile: { resumeText: '合成测试简历：我负责CAE Java后端。', jobDescription: '合成测试JD：Java与可靠性工程。' } });
 
 test('private payload accepts bounded data only and never allows caller paths, settings, code or oracle regexes', () => {
@@ -15,6 +18,27 @@ test('private payload accepts bounded data only and never allows caller paths, s
   assert.throws(() => validatePrivatePayload({ ...payload(), profile: { ...payload().profile, apiKeys: { custom: 'secret' } } }));
   assert.throws(() => validatePrivatePayload({ ...payload(), caseIds: Array.from({ length: 13 }, (_, index) => 'case-' + index) }));
   assert.throws(() => validatePrivatePayload({ ...payload(), profile: { ...payload().profile, resumeText: 'a'.repeat(256 * 1024 + 1) } }));
+});
+
+test('multi-turn canonical reference validates data and combined size while preserving the real import revision and manifest',()=>{
+  const workspace=validatePersonalWorkspace({schemaVersion:2,facts:migrateFactIndex(fixture(2)),profile:{resumeText:'Synthetic reference',jobDescription:'AI',
+    candidateProfile:{subjectRole:'candidate',education:[],employment:[],projects:[],resumeProjectOrder:['cae','arclight'],doNotInfer:['No team size supplied'],availability:{}},
+    jobProfiles:[{id:'ai_supply_chain',label:'AI',jobDescription:'AI',priorityTopics:[]},{id:'java_security',label:'Java',jobDescription:'Java',priorityTopics:[]}],activeJobProfileId:'ai_supply_chain'},
+    sourceManifest:[{path:'inputs/resume.pdf',sha256:'a'.repeat(64),bytes:10}],mergeLog:[{action:'synthetic migration'}]});
+  const scenarios={schema_version:'cue_multiturn_seed_v1',sessions:[{id:'anonymous',execution_profile:'instant',events:[{event_id:'q1',speaker:'interviewer',channel:'them',text:'Synthetic question',is_final:true,invoke_cue:true}]}]};
+  const input={...workspace,scenarios,judgeReference:projectJudgeReference(workspace)};
+  const validated=validatePrivatePayload(input);
+  assert.equal(validated.revision,workspace.revision);assert.deepEqual(validated.sourceManifest,workspace.sourceManifest);assert.deepEqual(validated.mergeLog,workspace.mergeLog);
+  assert.equal(validated.judgeReference.sha256,input.judgeReference.sha256);
+  assert.throws(()=>validatePrivatePayload({...input,sourceManifest:[]}),/摘要不匹配/);
+  assert.throws(()=>validatePrivatePayload({...input,judgeReference:{...input.judgeReference,code:'execute this'}}),/judge-only reference/);
+  const changed=structuredClone(input.judgeReference);changed.profile.resumeText='Unbound changed source';
+  assert.throws(()=>validatePrivatePayload({...input,judgeReference:changed}),/digest mismatch/);
+  const badProfile=structuredClone(input.judgeReference);badProfile.profile.apiKeys={provider:'secret'};
+  assert.throws(()=>validatePrivatePayload({...input,judgeReference:badProfile}),/字段无效/);
+  const large=structuredClone(workspace);delete large.revision;large.facts.sourceDocuments={'synthetic/large-reference.txt':'x'.repeat(Math.ceil(4.1*1024*1024))};
+  const largeWorkspace=validatePersonalWorkspace(large),largeReference=projectJudgeReference(largeWorkspace);
+  assert.throws(()=>validatePrivatePayload({...largeWorkspace,scenarios,judgeReference:largeReference}),/Invalid multi-turn private payload/);
 });
 
 test('missing private live configuration fails with zero external calls and never writes private data to Actions Summary', async t => {

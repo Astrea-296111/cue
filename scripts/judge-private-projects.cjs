@@ -7,6 +7,7 @@ const { prepareJudgeInput, parseJudgeOutput, mergeJudges, DIMENSIONS } = require
 const { createReviewPlan, stableCaseKey } = require('./lib/multiturn-quality.cjs');
 const { roleConfig, runRole } = require('./lib/evaluation-role-client.cjs');
 const { sanitizeReport } = require('./lib/live-evaluation-report.cjs');
+const {validateJudgeReference} = require('./lib/evaluation-workspace.cjs');
 const POLICY = 'cue-independent-judges-v2';
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
@@ -78,6 +79,7 @@ function summarizeJudging(report) {
       rate: coverageRate },
     ...usageSummary(all), byJudge: ['qwen', 'deepseek'].map(id => ({ id, ...usageSummary(all.filter(a => a.provider === id)) })),
     blinded: true, independentMessages: true, humanReview: 'pending',
+    authorityReference:report.inputs?.judgeReferenceSha256?{sha256:report.inputs.judgeReferenceSha256,workspaceRevision:report.inputs.judgeReferenceRevision}:null,
     limitations: ['Automated scores are observations. Required human source review remains pending until recorded.',
       'Missing API usage is null. Every retry and interrupted unknown outcome remains in attempts.'] };
 }
@@ -90,6 +92,11 @@ async function evaluateJudges({ report, payload = {}, env = process.env, outputD
   const configurations = ['qwen', 'deepseek'].map(id => roleConfig(id, env, 'judge'));
   if (!configurations.some(c => c.error) && configurations[0].model === configurations[1].model) throw new Error('Two different actual configured judge models are required.');
   const secrets = configurations.map(c => c.apiKey).filter(Boolean);
+  if(payload.judgeReference){
+    const reference=validateJudgeReference(payload.judgeReference);
+    payload={...payload,judgeReference:reference};
+    report.inputs={...(report.inputs||{}),judgeReferenceSha256:reference.sha256,judgeReferenceRevision:reference.revision};
+  }
   const checkpointPath = path.join(outputDir, 'judge-checkpoint.json');
   const identity = hash({ policy: POLICY, application: report.application, build: report.build?.commit, inputs: report.inputs,
     judges: configurations.map(c => ({ id: c.id, model: c.model, endpoint: c.hostname })) });

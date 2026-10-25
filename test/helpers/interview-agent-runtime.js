@@ -70,7 +70,7 @@ function createInterviewRuntime(t, options = {}) {
   // Live credentials are injected only after the real store module loads.
   // Neither the temporary store nor material snapshots ever contain keys.
   fs.writeFileSync(path.join(temp, 'cue-data.json'), JSON.stringify(memorySettings
-    ? { ...initialSettings, apiKeys: {} } : initialSettings));
+    ? { ...initialSettings, apiKeys: {} } : initialSettings),{mode:0o600});
 
   let time = options.startedAt || 1_800_000_000_000;
   class ClockDate extends Date {
@@ -213,6 +213,20 @@ function createInterviewRuntime(t, options = {}) {
     vm.runInContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
     module.context = context;
     if (relative === 'src/store.js' && memorySettings) {
+      if(options.persistProfile) {
+        // Keep the real settings persistence/verification used by personal
+        // import transactions. Only provider credentials cross a memory-only
+        // boundary; temporary profile files are private and removed at cleanup.
+        const getPersisted=module.exports.getSettings,setPersisted=module.exports.setSettings;
+        let apiKeys={...(initialSettings.apiKeys||{})};
+        const withKeys=stored=>({...stored,apiKeys:{...(stored.apiKeys||{}),...apiKeys}});
+        module.exports.getSettings=()=>withKeys(getPersisted());
+        module.exports.setSettings=(patch,settingsOptions)=>{
+          const {apiKeys:updateKeys,...ordinary}=patch||{};
+          if(updateKeys)apiKeys={...apiKeys,...updateKeys};
+          return withKeys(setPersisted(ordinary,settingsOptions));
+        };
+      } else {
       const merge = (base, patch) => {
         const result = { ...base };
         for (const [key, value] of Object.entries(patch || {})) result[key] = value && typeof value === 'object' && !Array.isArray(value)
@@ -228,6 +242,7 @@ function createInterviewRuntime(t, options = {}) {
         settings = merge(settings, update);
         return settings;
       };
+      }
     }
     if (relative === 'src/conversation-memory.js') {
       const originalBegin = module.exports.ConversationMemory.prototype.begin;
