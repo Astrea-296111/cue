@@ -81,8 +81,16 @@ for(let variant=0;variant<12;variant++)test(`speech boundary ${variant+1}: revis
   assert.ok(!claims.some(c=>c.text==='我做过所有实验。'));
 });
 test('frozen replay never feeds old AI suggestions to the tested model; semantic judge is distinct',()=>{
-  const {cases,judgeMessages,automatic}=require('../scripts/eval-public.cjs');const suite=cases();assert.equal(suite.length,65);
+  const {cases,judgeMessages,automatic}=require('../scripts/eval-public.cjs');const suite=cases();assert.equal(suite.length,67);
   const result={answer:'1. 做法：正确示例。',transportStatus:'passed',completion:{complete:true}};
-  assert.equal(JSON.parse(judgeMessages(suite[0],result,[]).at(-1).content).oldSuggestionForComparisonOnly,suite[0].oldCueSuggestion);
+  assert.equal(JSON.parse(judgeMessages(suite[0],result,[]).at(-1).content).oldSuggestionForComparisonOnly,undefined);
   assert.equal(automatic({...result,completion:{complete:false}},'怎么做？').complete,false);
+});
+
+test('smoke regression: introductory CAE and dual experiment metrics select their own complete cards',()=>{
+  const {ProjectFactPacks}=require('../src/project-fact-packs');const packs=new ProjectFactPacks({index:workspace().facts});
+  const intro=packs.select('介绍一下cae',{resolution:{canonicalProjectIds:['cae'],retrieveFacts:true},maxCards:3});
+  assert.ok(intro.evidence.some(c=>c.cardId==='cae-01'));
+  const metrics=packs.select('300道修复题和60项长会话分别测什么？',{resolution:{canonicalProjectIds:['arclight'],retrieveFacts:true},maxCards:3});
+  assert.deepEqual(metrics.evidence.filter(c=>c.protectedMetric).map(c=>c.cardId).sort(),['metric.arc.context','metric.arc.swe']);
 });

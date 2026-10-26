@@ -9,7 +9,7 @@ const SUBJECTS = [
   ['metric.arc.context', /31\.57|60项|累计输入|长会话|(?:压缩|上下文).*(?:Token|成本|实验)/i],
   ['metric.arc.mcp', /50.*MCP|18\.6|4\.2|初始.*(?:工具|注入)|MCP.*(?:初始|注入|Token)/i],
   ['metric.arc.parallel', /独立探索|多代理.*(?:耗时|并行|实验)|探索.*(?:对照|并行)/i],
-  ['metric.arc.swe', /SWE|Sweetie.?Bench|benchmark|31\.33|43\.67|解决率|消融|骁龙实验|跑过.*(?:基准|评测)|分数多少/i]
+  ['metric.arc.swe', /300.{0,10}(?:道|题|修复)|修复题|评测成绩|SWE|Sweetie.?Bench|benchmark|31\.33|43\.67|解决率|消融|骁龙实验|跑过.*(?:基准|评测)|分数多少/i]
 ];
 function matches(question, projectIds) { return SUBJECTS.filter(([id,re]) => re.test(question) && projectIds.includes(id.includes('.cae.') ? 'cae' : 'arclight')).map(([id])=>id); }
 function build(cards) { return new Map(SUBJECTS.map(([id])=>[id,cards.find(c=>c.cardId===id)]).filter(([,card])=>card)); }

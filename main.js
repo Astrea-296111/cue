@@ -1113,7 +1113,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       { answerPlan, interviewPlan, projectPlan: request.plan, hasImage: !!imageDataUrl,
         projectContextLimit:Math.min(14000,contextBundle.context.length) }) : (def.system || '');
     const narrativeRule='\nUSER/source-claim 是用户指定的口述资料，可按范围直接回答既有职责，不复述资料编辑历史；没有材料才简短说明缺口。';
-    const oralRule=require('./src/oral-answer-policy').instruction(answerPlan);
+    const oralRule=require('./src/oral-answer-policy').instruction({...answerPlan,code:answerPlan.code||!!imageDataUrl||mode==='leetcode'});
     const legacyNarrative='不要编造项目结果。';
     const resolvedSystem = builtSystem + '\n' + oralRule + (instantContext?'':narrativeRule + SPOKEN_CONTEXT_RULES) + (request.plan.kind==='unresolved'?'\n当前未定位到对应项目资料，直接给出可落地的通用方案或小例子，不猜测具体项目身份或职责。':'');
     const initialSystem = llm.prepareSystem ? llm.prepareSystem(resolvedSystem) : resolvedSystem;
