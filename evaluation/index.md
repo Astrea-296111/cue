@@ -18,3 +18,5 @@
 - [oct26-smoke-01 / smoke](runs/oct26-smoke-01/smoke/report.md)
 
 - [oct26-smoke-02 / smoke](runs/oct26-smoke-02/smoke/report.md)
+
+- [oct26-smoke02-judge-v3 / rejudge](runs/oct26-smoke02-judge-v3/rejudge/report.md)
