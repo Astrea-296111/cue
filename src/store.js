@@ -17,7 +17,7 @@ const DEFAULTS = {
   realtimeEvidencePrefetch: true,
   realtimeAnswerMode: 'instant',
   saveInterviewTranscript: true,
-  responseBudgets: { oral: 1800, code: 6000 },
+  responseBudgets: { oral: 600, code: 6000 },
   instantRagPolicy: 'ready-only',
   projectFactsEnabled: true,
   sourceRagPolicies: { instant: 'ready-only', standard: 'standard' },
@@ -37,6 +37,7 @@ const DEFAULTS = {
   // 候选人资料
   resumeText: '',
   projectKnowledge: '', // 简历项目知识文档：架构、链路、难点、指标、故障、取舍、复盘等
+  answerDomain: 'general',
   currentProjectId: '', // 空值表示自动；只作为无显式项目时的默认选择。
   contextWindowTokens: 16384,
   jobDescription: '',
@@ -91,7 +92,7 @@ function deepMerge(base, over) {
 }
 
 function migrateMaterialSettings(raw = {}) {
-  const next = { ...raw };
+  const next = { ...raw, ...require('./answer-domain').migrate(raw) };
   if (!Object.hasOwn(raw, 'projectFactsEnabled')) next.projectFactsEnabled = true;
   next.sourceRagPolicies = { ...(raw.sourceRagPolicies || {}) };
   if (!Object.hasOwn(next.sourceRagPolicies, 'instant')) next.sourceRagPolicies.instant = raw.instantRagPolicy === 'off' ? 'off' : 'ready-only';

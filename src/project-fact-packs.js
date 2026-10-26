@@ -94,6 +94,7 @@ class ProjectFactPacks {
       return {card:c,terms:grams(keywords.join(' ')+c.text),keywords,
         subjects:grams([...keywords,...questions,c.topic||''].join(' ')),questions:questions.map(grams)};
     });
+    this.metricIndex=require('./metric-index').build(next.cards);
     this.featuresByProject=new Map(next.projects.map(p=>[p.id,this.features.filter(f=>f.card.projectId===p.id)]));
     this.evidenceById=new Map(next.cards.map(c=>[c.cardId,{...c,id:c.cardId,projectName:next.projects.find(p=>p.id===c.projectId).name,sourceType:'project-pack',revision:next.revision,startLine:1,endLine:c.text.split('\n').length,text:`[${c.provenance} / ${c.status}${c.implementation?' / '+c.implementation:''}] ${c.text}\n来源：${c.sources.map(s=>`${s.path}#${s.symbol}@${s.commit||s.contentSha256}`).join('; ')}`} ]));
     return this.getIndex(); }
@@ -151,6 +152,7 @@ class ProjectFactPacks {
     const order=(a,b)=>b.score-a.score||a.c.cardId.localeCompare(b.c.cardId);
     const ranked=scoped.map(f=>scoreFor(f,rankText,terms,requested)).sort(order);
     const chosen=[]; const add=c=>{if(c&&!chosen.includes(c)&&chosen.length<Math.min(12,maxCards)) chosen.push(c);};
+    for(const id of require('./metric-index').matches(q,mentioned.map(p=>p.id))) add(this.metricIndex.get(id));
     // Each actual ask gets a relevant card before global intent preferences.
     // A long scenario mentioning latency must not spend its first slots on
     // unrelated benchmark cards while dropping the final recovery/cancel ask.
@@ -168,7 +170,8 @@ class ProjectFactPacks {
     }
     for(const x of ranked) if(x.relevant&&x.score>.04) add(x.c);
     if(chosen.length<Math.min(4,maxCards)&&chosen.length) { const first=chosen[0];add(scoped.find(f=>first.related.includes(f.card.cardId))?.card); }
-    const evidence=chosen.map(c=>this.evidenceById.get(c.cardId));
+    const metricIds=require('./metric-index').matches(q,mentioned.map(p=>p.id));
+    const evidence=chosen.map(c=>({...this.evidenceById.get(c.cardId),protectedMetric:metricIds.includes(c.cardId)}));
     const localFacts=evidence.filter(c=>c.status==='verified'&&c.provenance==='CODE').slice(0,2).map(c=>({cardId:c.cardId,text:c.text,projectName:c.projectName}));
     return {evidence,localFacts,anchor:{projectId:mentioned.length===1?mentioned[0].id:null,cardIds:chosen.map(c=>c.cardId),revision:this.index.revision},projectIds:mentioned.map(p=>p.id),gaps:chosen.filter(c=>c.status==='missing').map(c=>c.cardId),stats:{selectedCardCount:chosen.length,selectionMs:performance.now()-at,packRevision:this.index.revision,cacheKey:hash([mentioned.map(p=>p.id),this.index.revision,q,resolution?.sourceScopes||[],resolution?.intent||[]])}};
   }

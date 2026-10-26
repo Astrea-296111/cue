@@ -148,7 +148,7 @@ const ragSession = new ProjectRagSession({
 function retrievalInput(question, projectPlan, interviewPlan, contextBudget, sourceKey = '', snapshot = null, mode='say') {
   const policy=resolveInstantPolicy(store.getSettings(),mode,question);
   return { question, questionId: snapshot?.questionId || undefined, questionRevision: snapshot?.questionId ? snapshot.revision : undefined,
-    materialIdentity:[materialService.snapshot.generation,projectPlan.canonicalProjectIds||[],policy.instant?'instant':'standard',policy.ragPolicy,require('./src/project-evidence-policy').VERSION],
+    materialIdentity:[store.getSettings().answerDomain, store.getSettings().activeJobProfileId, store.getSettings().provider, store.getSettings().models, require('./src/oral-answer-policy').VERSION, materialService.snapshot.generation,projectPlan.canonicalProjectIds||[],policy.instant?'instant':'standard',policy.ragPolicy,require('./src/project-evidence-policy').VERSION],
     projectPlan, interviewPlan, contextBudget, sourceKey, hashFallback: !!store.getSettings().smart,
     realtimeEvidencePrefetch: realtimePrefetchEnabled(store.getSettings()),
     questionVersion: interviewPlan?.questionVersion || stableId(question),
@@ -327,6 +327,7 @@ function normalizeSpeechText(text, settings = store.getSettings(), recentText = 
   let normalized = normalizeTranscript(text, settings);
   if (!normalized) return '';
   normalized = normalizeTechnicalVocabulary(normalized, { settings, recentText });
+  normalized = require('./src/contextual-asr').normalize(normalized, recentText).normalizedText;
   return normalizeTranscript(normalized, settings);
 }
 
@@ -894,6 +895,10 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
   const voiceAnswer = ['say', 'answerThis', 'ask', 'assist', 'technical'].includes(mode);
   let resolved = explicit ? questionResolver.manualSnapshot(explicit, { epoch: conversation.epoch })
     : retrySnapshot || (voiceAnswer ? questionResolver.resolveForSubmit({ allowPartial: true, epoch: conversation.epoch }) : null);
+  if (resolved && /这些|这个参数|怎么融合|这两路|这些参数/.test(resolved.text)) {
+    const prior=transcript.filter(t=>t.channel==='them'&&t.text!==resolved.text).slice(-2).map(t=>t.text).join('\n');
+    resolved={...resolved,referenceContext:prior||resolved.referenceContext};
+  }
   if (mode === 'assist' && !explicit && !resolved?.text) {
     const requirement = lastScreenSnapshot?.epoch === conversation.epoch && !resolved?.awaitingNewQuestion
       ? lastScreenSnapshot.text : '请解决当前屏幕上的技术题';
@@ -944,6 +949,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
   const generation = { id: timing.requestId, sessionId:dialogue.sessionId, spokenRevision:spokenState.revision, entityIndex:projectEntityIndex, controller: new AbortController(), epoch: conversation.epoch, snapshot: frozen, mode, policy, timing, materials:materialService.snapshot };
   generation.diagnostic={requestId:generation.id,sessionId:generation.sessionId,epoch:generation.epoch,mode,
     executionProfile:policy.executionProfile,startedAt:new Date().toISOString(),status:'preparing',dispatched:false,
+    answerDomain:settings.answerDomain,styleVersion:require('./src/oral-answer-policy').VERSION,questionRevision:frozen?.revision,
     provider:null,model:null,modelIdentitySource:'not-created',servedModel:null,build:{...getBuildIdentity()},
     materials:{generation:generation.materials.generation,factRevision:generation.materials.factRevision,sourceRevision:generation.materials.sourceRevision,registryRevision:generation.materials.registryRevision},
     evidenceRevision:null,jobProfileId:diagnosticText(settings.jobProfileId||settings.activeJobProfileId||'',80)};
@@ -989,7 +995,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     if (!request.plan.retrieve) ragSession.pause();
     if (request.plan.projectSwitched) ragSession.retainScopes(request.plan.scopes);
     formalProjectPlan = request.plan;
-    emit('project:active', { projectId: request.plan.projectIds?.length === 1 ? request.plan.projectIds[0] : '',
+    emit('project:active', { answerDomain: settings.answerDomain, switchHint: request.plan.switchHint, projectId: request.plan.projectIds?.length === 1 ? request.plan.projectIds[0] : '',
       label: request.plan.projectLabel || '', reason: request.plan.reason, retrieve: request.plan.retrieve });
     const checklistText = !policy.instant && interviewPlan ? formatInterviewChecklist(request.checklist, { maxChars: 2600, includeCurrent: !!settings.smart }) : '';
     // Only spend prompt/retrieval/output budgets on old pending items that are
@@ -1106,21 +1112,20 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const builtSystem = instantContext ? instantContext.system : def.buildSystem ? def.buildSystem(contextBundle.context, settings.aiRules || '',
       { answerPlan, interviewPlan, projectPlan: request.plan, hasImage: !!imageDataUrl,
         projectContextLimit:Math.min(14000,contextBundle.context.length) }) : (def.system || '');
-    const narrativeRule='\nUSER/source-claim 是用户指定的口述资料，可按范围直接回答既有职责，不复述资料编辑历史；没有材料才简短说明缺口。普通单问用2–4句自然第一人称口述：结论、一处具体机制、取舍或验证；多子问按题目分点，代码题保留完整代码。';
-    const resolvedSystem = builtSystem + (instantContext?'':narrativeRule + SPOKEN_CONTEXT_RULES) + (request.plan.kind==='unresolved'?'\n当前未定位到对应项目资料，直接给出可落地的通用方案或小例子，不猜测具体项目身份或职责。':'');
+    const narrativeRule='\nUSER/source-claim 是用户指定的口述资料，可按范围直接回答既有职责，不复述资料编辑历史；没有材料才简短说明缺口。';
+    const oralRule=require('./src/oral-answer-policy').instruction(answerPlan);
+    const legacyNarrative='不要编造项目结果。';
+    const resolvedSystem = builtSystem + '\n' + oralRule + (instantContext?'':narrativeRule + SPOKEN_CONTEXT_RULES) + (request.plan.kind==='unresolved'?'\n当前未定位到对应项目资料，直接给出可落地的通用方案或小例子，不猜测具体项目身份或职责。':'');
     const initialSystem = llm.prepareSystem ? llm.prepareSystem(resolvedSystem) : resolvedSystem;
     const candidateRole=buildCandidateRoleContext(settings,question,{project:request.plan.retrieve});
+    const questionReferenceSection={id:'question-reference',text:frozen?.referenceContext ? '最近真人提问实体（仅消解当前指代）：\n'+frozen.referenceContext:'',protected:true};
     const candidateRoleSection={id:'candidate-role',text:candidateRole.text,protected:candidateRole.required,priority:2};
     const responseContext = { transcript: contextTranscript, userText: question, answerPlan, partial, hasImage: !!imageDataUrl };
     const built = def.build(responseContext);
-    const codeRequest=!!imageDataUrl||mode==='leetcode'||mode==='technical'||mode==='assist'||/编写|写出|代码实现|实现.{0,20}(?:函数|方法|遍历|算法)|\b(?:implement|write\s+(?:code|a function))\b/i.test(question);
-    const boundedBudget=(value,fallback,ceiling)=>Number.isFinite(Number(value))&&Number(value)>=128?Math.min(ceiling,Math.floor(Number(value))):fallback;
-    const responseBudgets={oral:boundedBudget(settings.responseBudgets?.oral,1800,4096),code:boundedBudget(settings.responseBudgets?.code,6000,16384)};
-    const extensiveScenario=!codeRequest&&question.length>=450&&answerPlan.level==='complex';
-    const maxTokens=codeRequest?responseBudgets.code:extensiveScenario
-      ?Math.min(responseBudgets.code,4096,Math.max(2400,Math.ceil(question.length*2)))
-      :Math.min(def.resolveMaxTokens?.(responseContext)||def.maxTokens,responseBudgets.oral);
-    request.responseBudget={kind:codeRequest?'code':extensiveScenario?'scenario':'oral',maxTokens};
+    const codeRequest=!!imageDataUrl||mode==='leetcode'||require('./src/oral-answer-policy').isCode(question);
+    const responseBudgets={oral:600,code:Math.min(16384,Number(settings.responseBudgets?.code)||6000)};
+    const maxTokens=codeRequest?responseBudgets.code:answerPlan.maxTokens;
+    request.responseBudget={kind:codeRequest?'code':'oral',maxTokens,maxVisibleCharacters:answerPlan.maxVisibleCharacters,styleVersion:answerPlan.version};
     request.settingsSnapshot={provider:settings.provider,model:llm.model,smart:!!settings.smart,jobProfileId:settings.jobProfileId,
       contextWindowTokens:settings.contextWindowTokens||16384,responseBudgets};
     // A fresh screen task stands on its own; its answer is still available to
@@ -1139,8 +1144,9 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const prepared = prepareFinalRequest({ system: initialSystem, history: instantContext ? instantContext.history : history, maxTokens,
       contextWindow: settings.contextWindowTokens || 16384, imageDataUrl, evidence: contextBundle.evidence,
       evidenceGapNote: policy.instant ? '资料仅供参考；未附全时仍按当前条件给可采用方案，不编造实际经历或指标。' : undefined,
-      currentSections: instantContext ? [...instantContext.currentSections,candidateRoleSection] : [
-        candidateRoleSection,
+      currentSections: instantContext ? [...instantContext.currentSections,candidateRoleSection,questionReferenceSection,...evidencePlan.evidence.filter(c=>c.protectedMetric).map(c=>({id:'metric:'+c.id,text:require('./src/evidence-selector').formatEvidenceBlock(c),protected:true}))] : [
+        ...evidencePlan.evidence.filter(c=>c.protectedMetric).map(c=>({id:'metric:'+c.id,text:require('./src/evidence-selector').formatEvidenceBlock(c),protected:true})),
+        candidateRoleSection,questionReferenceSection,
         { id: 'topic', text: topic, priority: 1 }, { id: 'memory', text: memory, priority: 0 },
         { id: 'spoken-state', text: request.spokenContext ? 'SPOKEN_STATE（真人实际发言，仅用于承接和纠正）\n'+request.spokenContext : '', protected:true },
         { id: 'question', text: built, protected: true }, { id: 'scenario', text: scenario, protected: true },
@@ -1157,6 +1163,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       contextBundle.stats.finalBudgetDroppedSources = prepared.stats.droppedEvidence;
     }
     let sentEvidence = prepared.evidence;
+    if ((evidencePlan.evidence || []).some(item => item.protectedMetric && !sentEvidence.some(e => e.id === item.id))) throw new Error('模型窗口不足以保留完整指标卡，请增加上下文窗口。');
     if (policy.instant) contextBundle.stats.readyEvidenceHit = sentEvidence.length > 0;
     const localFacts = sentEvidence.filter(item=>item.sourceType==='project-pack'&&item.provenance==='CODE'&&item.status==='verified').slice(0,2).map(item=>({cardId:item.cardId,projectName:item.projectName,text:item.text}));
     if (localFacts.length) { timing.configure({ timeToLocalFacts: +(performance.now()-timing.started).toFixed(2) }); emit('llm:local-facts', {facts:localFacts}); }
@@ -1293,6 +1300,9 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       }
       Object.assign(generation.diagnostic,{status:'completed',finishReason:diagnosticText(completion.finishReason,80),truncated:!!completion.truncated,metrics:actualRequestMetrics(timing)});
       request.actualRequest=JSON.parse(JSON.stringify(generation.diagnostic));
+      generation.diagnostic.rawAnswer=answer;
+      generation.diagnostic.presentation=require('./src/oral-answer-policy').presentation(answer,answerPlan);
+      emit('llm:presentation', generation.diagnostic.presentation);
       const committed = conversation.commit(request, answer, { completion, evidence: sentEvidence });
       generation.diagnostic.status=committed?'completed':'uncommitted';
       dialogue.recordSuggestion({requestId:generation.id,sessionId:generation.sessionId,status:committed?'completed':'uncommitted',text:answer,question,eventIds:spokenState.eventIds});
@@ -1474,7 +1484,7 @@ ipcMain.handle('settings:set', (_e, patch) => {
   transcriptRecorder.configure(next.saveInterviewTranscript!==false);
   if (['resumeText', 'projectKnowledge', 'starStories', 'whyCompany', 'whyLeaving', 'workStyle', 'salaryTarget'].some(key => before[key] !== next[key])) instantCards.update(next);
   const identity = settings => JSON.stringify([settings.realtimeAnswerMode, settings.instantRagPolicy, settings.realtimeEvidencePrefetch, settings.smart, settings.provider,
-    settings.models, settings.projectFactsEnabled,settings.sourceRagPolicies,settings.manualProjectKnowledgeEnabled, settings.currentProjectId, settings.baseUrl, settings.projectKnowledge, settings.starStories]);
+    settings.models, settings.answerDomain, settings.activeJobProfileId, settings.personalWorkspaceRevision, settings.aiRules, settings.projectFactsEnabled,settings.sourceRagPolicies,settings.manualProjectKnowledgeEnabled, settings.currentProjectId, settings.baseUrl, settings.projectKnowledge, settings.starStories]);
   if (identity(before) !== identity(next)) {
     ragSession.reset(); semanticRetriever?.resetSession?.();
     if (activeGeneration?.policy.instant && !activeGeneration.firstContent) ragSession.suspend(activeGeneration.id);
@@ -1501,13 +1511,20 @@ ipcMain.handle('project:semantic-prepare', async (_event, payload = {}) => {
   send('project:semantic-state', semantic.status());
   return { canceled: false, state: semantic.status() };
 });
+ipcMain.handle('answer:domain', (_event, domain) => {
+  if (!require('./src/answer-domain').DOMAINS.includes(domain)) throw new Error('无效的回答范围');
+  stopGenerationForSources(); formalProjectPlan = null;
+  dialogue.setActiveProject(domain === 'general' ? [] : [domain], getProjectIndexRevision());
+  const next=store.setSettings({answerDomain:domain,currentProjectId:domain==='general'?'':domain});
+  send('settings:changed',next); return next;
+});
 ipcMain.handle('project:current', (_event, projectId) => {
   const id = String(projectId || '');
   if (id && !getProjectCatalog().some(project => (project.id || project.projectId) === id)) throw new Error('此项目已不在当前索引中，请重新选择。');
   stopGenerationForSources();
   formalProjectPlan = null;
   dialogue.setActiveProject(id?[id]:[],getProjectIndexRevision());
-  return store.setSettings({ currentProjectId: id });
+  return store.setSettings({ currentProjectId: id, answerDomain: ['cae','arclight'].includes(id)?id:id?null:'general' });
 });
 ipcMain.handle('capture:toggle', () => {
   return queueCaptureState(!desiredCaptureState);

@@ -142,6 +142,7 @@ class ConversationMemory {
       }
     }
     if (instant && !plan.kind) plan = require('./instant-answer-policy').isolateUnknownProject(current, plan, catalog);
+    plan = require('./answer-domain').constrain(plan, settings.answerDomain, current, catalog);
     const policy = contextPolicy(mode, current, this.recent.length + this.archive.length > 0, plan);
     const configured = Number(settings.conversationContextChars);
     const isolated = policy === 'independent' || policy === 'project-switch';
@@ -164,7 +165,7 @@ class ConversationMemory {
       : excerpt(transcript.filter(t => t.channel === 'you').slice(-8).map(t => clean(t.text)).filter(Boolean).join('\n'), 3600);
     const request = { epoch: this.epoch, id: ++this.sequence, startedAt, mode, question: current,
       plan, policy, spokenContext, spokenState: spokenState ? {...spokenState, text: spokenContext, claims: scopedClaims} : null, ...snapshot,
-      executionProfile, questionSnapshot,
+      executionProfile, questionSnapshot, answerDomain: settings.answerDomain, styleVersion: require('./oral-answer-policy').VERSION,
       interviewPlan: interviewPlan || planInterviewQuestion({ text: current, mode }),
       evidenceRevision, manualFingerprint: instant ? manualFingerprint : stableId(settings.projectKnowledge || '') };
     if (INTERVIEW_MODES.has(mode) && current) {
@@ -328,6 +329,8 @@ class ConversationMemory {
     // from an older import snapshot can be committed into the new snapshot.
     this.epoch++;
     this.projectInterviewStates.clear();
+    this.checklist = new InterviewChecklist();
+    this.lastPlan = null; this.activeProjectPlan = null;
   }
 }
 

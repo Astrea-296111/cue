@@ -61,7 +61,7 @@ function createInterviewRuntime(t, options = {}) {
   const root = path.resolve(options.targetRoot || path.resolve(__dirname, '../..'));
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'cue-interview-agent-'));
   writeIndex(temp, options.indexVersion || 2, options.chunks || defaultChunks, options);
-  const initialSettings = { provider: 'custom',
+  const initialSettings = { answerDomain: 'auto', provider: 'custom',
     baseUrl: 'https://example.invalid/v1', apiKeys: { custom: 'test-transport-only' },
     // Existing retrieval suites deliberately exercise the standard RAG flow.
     // Instant-mode suites opt in explicitly; production store defaults instant.

@@ -36,7 +36,7 @@ test('live harness passes the production request to SDK, uses real clock and kee
   assert.equal(sdk.configurations[0].maxRetries, 0);
   assert.equal(sdk.requests[0].options.maxRetries, 0);
   assert.deepEqual(JSON.parse(JSON.stringify(sdk.requests[0].body)), r.calls[0]);
-  assert.equal(sdk.requests[0].body.max_tokens, 400);
+  assert.equal(sdk.requests[0].body.max_tokens, 600);
   assert.ok(r.loaded.includes('src/custom-main.js') && r.loaded.includes('main.js') && r.loaded.includes('src/llm.js'));
   assert.equal(r.commits.at(-1).answer, '真实适配器测试正文。');
   await r.invoke('settings:set', { apiKeys: { custom: 'another-memory-only-secret' }, realtimeAnswerMode: 'instant' });

@@ -88,6 +88,13 @@ app.on('browser-window-created', (_event, win) => {
     const js = code => win.webContents.executeJavaScript(code);
     try {
       await until(() => js("document.getElementById('code-shortcut-hint')?.textContent.includes('H')"), 'renderer ready');
+      assert.deepEqual(await js("[...document.querySelectorAll('#answer-domains button')].map(b=>b.textContent)"),['Arclight','cae','八股']);
+      for (const domain of ['arclight','cae','general']) {
+        await js(`document.querySelector('[data-domain="${domain}"]').click()`);
+        await until(()=>js(`document.querySelector('[data-domain="${domain}"]').getAttribute('aria-pressed')==='true'`),'domain '+domain);
+        assert.equal(require('../src/store').getSettings().answerDomain,domain);
+        assert.equal(JSON.parse(fs.readFileSync(path.join(data,'cue-data.json'),'utf8')).answerDomain,domain);
+      }
       assert.equal(win.createdHidden, true);
       assert.equal(win.protectionRequested, true);
       await js("document.getElementById('more-btn').click()");

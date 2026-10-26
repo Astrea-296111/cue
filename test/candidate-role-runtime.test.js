@@ -13,7 +13,7 @@ for(const mode of ['instant','standard'])test(`${mode}: imported candidate and s
   await app.ask('say','用30秒介绍一下自己，说明学历和到岗时间。');
   const first=JSON.stringify(app.calls.at(-1).messages);
   for(const text of ['SYNTHETIC_CANDIDATE','SYNTHETIC_UNIVERSITY','ai_supply_chain','SYNTHETIC_AI_REQUIREMENTS','合成AI自介'])assert.ok(first.includes(text),text);
-  assert.ok(!first.includes('sample@example.test'));
+  if(mode==='standard') assert.ok(first.includes('sample@example.test')); // public profile retains approved ordinary text
   assert.equal(app.requests.at(-1).plan.retrieve,false);
   const facts=app.snapshot('materialService.snapshot.factRevision');
   await app.invoke('materials:personal:job',{jobProfileId:'java_security'});

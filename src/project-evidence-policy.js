@@ -43,6 +43,7 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
   const parts=projectQuestionParts(question,resolution),multi=parts.length>1;
   const rankedFacts=multi||!personal?[...allowedFacts]:[...allowedFacts].sort((a,b)=>Number(primary(b))-Number(primary(a))||Number(b.provenance==='USER')-Number(a.provenance==='USER'));
   const candidates=[];const queue=c=>{if(c&&!candidates.includes(c))candidates.push(c);};
+  for(const c of rankedFacts.filter(c=>c.protectedMetric))queue(c);
   const sourceTerms=new Map(),partTerms=new Map();
   const score=(item,part)=>{
     if(!partTerms.has(part))partTerms.set(part,[...new Set(tokenize(part.text,true))]);
@@ -110,7 +111,7 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
   for(const c of candidates.slice(0,32)) {
     if(seen.has(c.id))continue;seen.add(c.id);
     const size=estimateTokens(formatEvidenceBlock(c));
-    if(selected.length>=maxSources||tokens+size>evidenceTokens){dropped.push({id:c.id,reason:'budget-pruned'});continue;}
+    if(!c.protectedMetric&&(selected.length>=maxSources||tokens+size>evidenceTokens)){dropped.push({id:c.id,reason:'budget-pruned'});continue;}
     selected.push(c);tokens+=size;
   }
   return {evidence:selected,dropped,reasons,estimatedTokens:tokens,policyVersion:VERSION,
