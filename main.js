@@ -1126,7 +1126,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const responseBudgets={oral:600,code:Math.min(16384,Number(settings.responseBudgets?.code)||6000)};
     const maxTokens=codeRequest?responseBudgets.code:answerPlan.maxTokens;
     request.responseBudget={kind:codeRequest?'code':'oral',maxTokens,maxVisibleCharacters:answerPlan.maxVisibleCharacters,styleVersion:answerPlan.version};
-    request.settingsSnapshot={provider:settings.provider,model:llm.model,smart:!!settings.smart,jobProfileId:settings.jobProfileId,
+    request.settingsSnapshot={answerDomain:settings.answerDomain,workspaceRevision:settings.personalWorkspaceRevision,sourceRevision:generation.materials.sourceRevision,styleVersion:answerPlan.version,questionRevision:frozen?.revision,provider:settings.provider,model:llm.model,smart:!!settings.smart,jobProfileId:settings.jobProfileId,
       contextWindowTokens:settings.contextWindowTokens||16384,responseBudgets};
     // A fresh screen task stands on its own; its answer is still available to
     // subsequent manual follow-ups. No previous screenshot bytes are retained.

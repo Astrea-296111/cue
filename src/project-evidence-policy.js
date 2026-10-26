@@ -118,7 +118,7 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
     selectedFactIds:facts.map(c=>c.id),selectedSourceIds:sources.map(c=>c.id),contextFactIds:selected.filter(c=>c.sourceType==='project-pack').map(c=>c.id),contextSourceIds:selected.filter(c=>c.sourceType!=='project-pack').map(c=>c.id)};
 }
 function sentEvidenceDiagnostics(plan,sent) {
-  const ids=new Set(sent.map(c=>c.id));return {...plan,evidence:undefined,sentFactIds:sent.filter(c=>c.sourceType==='project-pack').map(c=>c.id),sentSourceIds:sent.filter(c=>c.sourceType!=='project-pack').map(c=>c.id),
+  const ids=new Set(sent.map(c=>c.id));return {...plan,selectedCardIds:plan.selectedFactIds||[],sentCardIds:sent.filter(c=>c.sourceType==='project-pack').map(c=>c.id),evidence:undefined,sentFactIds:sent.filter(c=>c.sourceType==='project-pack').map(c=>c.id),sentSourceIds:sent.filter(c=>c.sourceType!=='project-pack').map(c=>c.id),
     dropped:[...plan.dropped,...(plan.contextFactIds||[]).concat(plan.contextSourceIds||[]).filter(id=>!ids.has(id)).map(id=>({id,reason:'budget-pruned'}))]};
 }
 function applyFactCoverage(bundle,resolution) {

@@ -82,7 +82,7 @@ async function evaluate({phase='smoke',provider='all',outputDir,runId,targetRoot
           try {
             runtime=createProviderRuntime({id,config,options,budget,provider:providerState,cleanups});
             await runtime.importMaterialSnapshot({facts:workspace.facts,sources});
-            await runtime.invoke('settings:set',{...workspace.profile,manualProjectKnowledgeEnabled:false,projectKnowledge:'',answerDomain:c.suggestedDomain,currentProjectId:c.suggestedDomain==='general'?'':c.suggestedDomain});
+            await runtime.invoke('settings:set',{...workspace.profile,manualProjectKnowledgeEnabled:false,projectKnowledge:'',personalWorkspaceRevision:workspace.revision,answerDomain:c.suggestedDomain,currentProjectId:c.suggestedDomain==='general'?'':c.suggestedDomain});
             if(runtime.hasHandler('answer:domain'))await runtime.invoke('answer:domain',c.suggestedDomain);
             const human=(c.contextBefore||[]).filter(e=>!['CUE建议','CUE 建议（未确认说出）'].includes(e.role));
             for(const [i,event] of human.slice(-12).entries()) {
@@ -99,7 +99,7 @@ async function evaluate({phase='smoke',provider='all',outputDir,runId,targetRoot
             record={...result,repeat,domain:c.suggestedDomain,caseSha256:sha(c),materialSha256:summary.materialSha256,applicationCommit:summary.applicationCommit,
               model:config.model,configurationSource:'GitHub Actions secrets/vars or explicitly bound process environment',cacheState:'cold-case-session; warmed immutable source snapshot',
               automatic:automatic(result,c.rawQuestion),humanContext:human,oldCueSuggestion:c.oldCueSuggestion||null,
-              sourceEvidence:runtime.commits.at(-1)?.config?.evidence||[],rawModelResponse:result.completion,
+              sourceEvidence:runtime.commits.at(-1)?.config?.evidence||[],rawModelResponse:{completion:result.completion,chunks:runtime.providerChunks||[]},
               requestIdentity:runtime.requests.at(-1)?.settingsSnapshot,retries:0};
             write(path.join(caseDir,'request.json'),{caseId:c.caseId,question:c.rawQuestion,domain:c.suggestedDomain,messages:request,materialSha256:summary.materialSha256,build:summary.build});
             write(path.join(caseDir,'answer.txt'),record.answer);

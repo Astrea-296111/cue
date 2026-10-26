@@ -88,7 +88,7 @@ function createInterviewRuntime(t, options = {}) {
   app.getVersion = () => '0.2.2';
   app.commandLine = { appendSwitch() {} };
 
-  const calls = [], requestOptions = [], requests = [], commits = [], searches = [], events = [], loaded = [], logs = [], transportEvents = [], observedTimes = [];
+  const calls = [], requestOptions = [], requests = [], commits = [], searches = [], events = [], loaded = [], logs = [], transportEvents = [], observedTimes = [], providerChunks = [];
   let requestObservedAt = null, bodyText = '';
   const observeBody = text => {
     if (typeof text !== 'string' || !text.trim()) return;
@@ -141,6 +141,7 @@ function createInterviewRuntime(t, options = {}) {
             return (async function* () {
               try {
                 for await (const part of stream) {
+                  providerChunks.push(copy(part));
                   if (!firstContent && String(part.choices?.[0]?.delta?.content || '').trim()) {
                     firstContent = true;
                     clearTimeout(first);
@@ -327,7 +328,7 @@ function createInterviewRuntime(t, options = {}) {
     return value(`${final ? 'publishTranscript' : 'publishInterim'}(__channel, __text, __meta)`);
   }
   return {
-    temp, ready, calls, requestOptions, requests, commits, searches, events, loaded, logs, transportEvents, observedTimes, value, dispose,
+    temp, ready, calls, requestOptions, requests, commits, searches, events, loaded, logs, transportEvents, observedTimes, providerChunks, value, dispose,
     snapshot: expression => copy(value(expression)),
     exports: relative => load(path.join(root, relative)),
     answer(text, config = {}) { if (options.liveTransport) throw new Error('Live transport cannot be replaced.'); transport = null; response = { text, finishReason: 'stop', ...config }; },
