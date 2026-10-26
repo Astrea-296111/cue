@@ -119,7 +119,8 @@ function createReplyLatency({ now = () => performance.now(), log = value => cons
           sentenceBuffer = (sentenceBuffer + body).slice(-2048);
           const clauses = sentenceBuffer.match(/[^。！？!?\n]+[。！？!?\n]/g) || [];
           if (clauses.some(clause => {
-            const visible = clause.trim();
+            const visible = clause.trim().replace(/^\s*(?:\d+[.)、]|[-•*])\s*/u,'').replace(/\[(?:来源|source|\d+)[^\]]*\]/gi,'').replace(/【(?:来源|source|\d+)[^】]*】/gi,'').trim();
+            if (!visible || /^[\p{L}\s*]{1,12}[：:]\s*[。\n]?$/u.test(visible)) return false;
             if (/^(?:`{3,}|~{3,}|#{1,6}(?:\s|$))/.test(visible) || !/[\p{L}\p{N}]/u.test(visible)) return false;
             return !/^(?:[，,。！!])*?(?:我来想一想|让我想一想|正在检索|正在思考|请稍等|稍等一下)/.test(visible);
           })) {

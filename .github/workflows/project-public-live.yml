@@ -5,7 +5,7 @@ on:
     inputs:
       phase:
         type: choice
-        options: [smoke, full, baseline, material-control, multiturn]
+        options: [smoke, full, baseline, material-control, multiturn, rejudge]
         default: smoke
       provider:
         type: choice
@@ -15,6 +15,10 @@ on:
         description: Existing run ID resumes checkpoints; leave empty for a new run
         type: string
         default: ''
+      source_run_id:
+        description: Existing plaintext smoke run for judge-only continuation
+        type: string
+        default: oct26-smoke-02
 permissions:
   contents: write
 concurrency:
@@ -53,6 +57,7 @@ jobs:
         env:
           PHASE: ${{ inputs.phase }}
           PROVIDER: ${{ inputs.provider }}
+          SOURCE_RUN: ${{ inputs.source_run_id }}
           QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           QWEN_MODEL: ${{ vars.QWEN_MODEL || vars.QWEN_MODEL_ID }}
@@ -62,6 +67,10 @@ jobs:
         run: |
           args=(--phase "$PHASE" --provider "$PROVIDER" --run-id "$PUBLIC_RUN_ID")
           if [ "$PHASE" = baseline ]; then args+=(--target-root "$RUNNER_TEMP/cue-public-baseline"); fi
+          if [ "$PHASE" = rejudge ]; then
+            [[ "$SOURCE_RUN" =~ ^[a-zA-Z0-9_-]{1,80}$ ]]
+            args+=(--source-dir "evaluation/runs/$SOURCE_RUN/smoke")
+          fi
           node scripts/eval-public.cjs "${args[@]}"
       - name: Preserve plaintext successes and failures as an artifact
         if: always()
