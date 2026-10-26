@@ -54,7 +54,7 @@ function normalizeConceptText(value) {
 // evidence. Match identifiers to code paths/symbols without project-specific
 // file lists or expected-answer rules.
 function implementationQuery(query) {
-  if(!/实现|源码|代码|接口|执行|取消|报告|权限|幂等|事务|并发|恢复|隔离|持久化|状态|规则|匹配|暂停|接入|排队|\b(?:code|implementation|Outbox|Inbox|execution|timeout|retries|retry|duplicate|idempotency|transaction)\b/i.test(query))return null;
+  if(!/实现|源码|代码|接口|执行|取消|报告|权限|幂等|事务|并发|恢复|隔离|持久化|状态|规则|匹配|暂停|接入|排队|计算|阈值|预算|压缩|函数|\b(?:code|implementation|function|threshold|budget|compact|Outbox|Inbox|execution|timeout|retries|retry|duplicate|idempotency|transaction)\b/i.test(query))return null;
   return [...new Set(String(query).match(/\b[A-Za-z][A-Za-z0-9_]{2,63}\b/g)||[])].map(normalize)
     .filter(word=>!STOP_WORDS.has(word));
 }
@@ -65,7 +65,7 @@ function hasImplementationBody(chunk) {
   const text=require('./project-chunks').maskCode(String(chunk.text||''),/\.py$/i.test(chunk.path||''));
   const result=/\b(?:return|throw|if|for|while|try|await|with|yield|update|insert|delete|create\s+table)\b|\b\w+\.\w+\s*\(/i.test(text)||
     /\binterface\s+\w+(?:<[^>]*>)?\s+extends\s+\w+/.test(text) ||
-    /\.py$/i.test(chunk.path || '') && /^[A-Z_][A-Z0-9_]*\s*(?::[^=\n]+)?\s*=\s*[\[{]/m.test(text);
+    /\.py$/i.test(chunk.path || '') && /^[A-Z_][A-Z0-9_]*\s*(?::[^=\n]+)?\s*=\s*(?:[\[{]|[+-]?\d[\d_]*(?:\.\d+)?(?:\s|$))/m.test(text);
   implementationBodyCache.set(chunk,{text:input,result});return result;
 }
 function implementationWeight(identifiers, chunk) {
@@ -81,6 +81,12 @@ function implementationWeight(identifiers, chunk) {
   const executable=hasImplementationBody(chunk);
   const behavior=constructor||body.length<65||chunk.kind==='context'&&!executable ? .25 : ['method','function'].includes(chunk.kind)?1.3:1;
   return (1.8+Math.min(3,direct)*.65)*behavior;
+}
+
+function explicitDefinition(query, chunk) {
+  if (!['method', 'function'].includes(chunk.kind)) return false;
+  const name = String(chunk.symbol || '').split(/[.#]/).at(-1).toLowerCase();
+  return name.length >= 4 && (String(query).match(/[A-Za-z_$][A-Za-z0-9_$]*/g) || []).some(word => word.toLowerCase() === name);
 }
 
 
@@ -310,7 +316,7 @@ class ProjectSearch {
       if (visits >= maxVisits) break;
     }
     const implementationIdentifiers=implementationQuery(query);
-    for(const row of candidates.values())row.score*=implementationWeight(implementationIdentifiers,row.chunk);
+    for(const row of candidates.values())row.score*=implementationWeight(implementationIdentifiers,row.chunk)*(explicitDefinition(query,row.chunk)?4:1);
     // Version-checked navigation supplies aliases for code symbols, never
     // answer text. The metadata is compiled once; source bodies stay verbatim.
     const folded=normalize(query);let navigationVisits=0;
@@ -478,6 +484,7 @@ class ProjectSearch {
       const vectorSimilarity = item.vectorSimilarity || 0;
       const confidence = Math.min(1, 0.36 * coverage + 0.31 * termCoverage + (item.fieldMatch ? 0.14 : 0) + (exactSymbol ? 0.32 : 0) + (aliasMatch ? 0.13 : 0) + Math.min(0.48, similarity * 0.68) + vectorSimilarity * 0.45);
       let score = item.rrfScore * 1000 * implementationWeight(implementationIdentifiers,chunk);
+      if (explicitDefinition(query, chunk)) score *= 2;
       if (exactSymbol) score *= 1.18;
       if (!/测试|test\b/i.test(query) && /(?:^|\/)(?:tests?|__tests__)(?:\/|$)|\.(?:test|spec)\./i.test(chunk.path)) score *= 0.85;
       if (/架构|概览|overview|architecture/i.test(query) && /readme|docs?\/|architecture/i.test(chunk.path)) score *= 1.2;
@@ -526,4 +533,4 @@ class ProjectSearch {
   }
 }
 
-module.exports = { ProjectSearch, tokenize, querySpec, denseEmbedding, cosineDense,hasImplementationBody,implementationWeight,implementationQuery,normalizeConceptText };
+module.exports = { ProjectSearch, tokenize, querySpec, denseEmbedding, cosineDense,hasImplementationBody,implementationWeight,implementationQuery,normalizeConceptText,explicitDefinition };

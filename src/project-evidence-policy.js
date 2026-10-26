@@ -4,7 +4,7 @@ const {formatEvidenceBlock}=require('./evidence-selector');
 const {inProjectScope}=require('./project-scope');
 const {strictProjectScopes}=require('./project-registry');
 const {projectQuestionParts}=require('./project-question-parts');
-const {tokenize,hasImplementationBody,implementationQuery,querySpec}=require('./project-search');
+const {tokenize,hasImplementationBody,implementationQuery,querySpec,explicitDefinition}=require('./project-search');
 const {maskCode}=require('./project-chunks');
 const VERSION='project-evidence-v2';
 function resolveEvidenceLimits({question='',answerPlan={},instant=false}={}) {
@@ -54,6 +54,18 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
   // summaries fill the budget. Keep each project's evidence in comparisons.
   const projectIds=resolution.canonicalProjectIds||resolution.projectIds||[];
   if(implementation&&!personal){
+    // A named formula needs its definition and referenced module values, not
+    // merely a caller that mentions its name. All candidates already passed
+    // the same revision, project, count and budget checks.
+    const definitions=allowedSources.filter(item=>item.sourceType!=='manual'&&explicitDefinition(question,item)).slice(0,2);
+    for(const definition of definitions){
+      queue(definition);
+      if(!/\.py$/i.test(definition.path||''))continue;
+      const references=new Set(maskCode(definition.text||'',true).match(/\b[A-Z_][A-Z0-9_]+\b/g)||[]);
+      const values=allowedSources.filter(item=>item.projectId===definition.projectId&&item.path===definition.path&&item.kind==='context'&&
+        [...maskCode(item.text||'',true).matchAll(/^([A-Z_][A-Z0-9_]*)\s*(?::[^=\n]+)?\s*=/gm)].some(match=>references.has(match[1])));
+      for(const value of values.slice(0,2))queue(value);
+    }
     const weights=querySpec(question).weights,identity=new Set(projectIds.map(id=>String(id).toLowerCase()));
     const identifiers=[...(question.match(/\b[A-Za-z][A-Za-z0-9_]{2,63}\b/g)||[]),
       ...[...weights.keys()].filter(word=>word.includes('_'))]
@@ -63,8 +75,8 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
       const available=new Set(tokenize(`${item.symbol||''}\n${maskCode(item.text||'',/\.py$/i.test(item.path||''))}`));
       const hits=identifiers.filter(word=>available.has(word.key)||word.parts.length>1&&word.parts.every(part=>available.has(part)));
       return {item,hits};
-    }).filter(row=>row.hits.length>=2||row.hits.some(word=>word.key.includes('_')))
-      .sort((a,b)=>b.hits.length-a.hits.length);
+    }).filter(row=>explicitDefinition(question,row.item)||row.hits.length>=2||row.hits.some(word=>word.key.includes('_')))
+      .sort((a,b)=>Number(explicitDefinition(question,b.item))-Number(explicitDefinition(question,a.item))||b.hits.length-a.hits.length);
     // An imported policy table or a split method can supply the actual values
     // for several named asks. Keep that proof before optional fact summaries.
     for(const row of matches.slice(0,3))queue(row.item);
