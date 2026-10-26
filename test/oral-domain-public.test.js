@@ -11,6 +11,8 @@ test('oral policy distinguishes explicit detail and complete code from ordinary 
   assert.equal(oral.visibleCharacters('1. 做法：**甲😀**。\n2. 例子：乙。'),11);
   const raw='完整短句。'+'过长内容'.repeat(100)+'。';assert.equal(oral.presentation(raw).text,'完整短句。');
   assert.equal(oral.presentation(raw).displayTruncated,true);
+  assert.equal(oral.plan('先问Agent方面，你了解吧？').confirmation,true);
+  assert.equal(oral.plan('直接调用API是吧？你有对RAG这些了解吗？').confirmation,false);
 });
 for(const mode of ['instant','standard'])test(`${mode}: selected domain and complete metric reach the actual SDK; general excludes project facts`,async t=>{
   const app=createInterviewRuntime(t,{settings:{answerDomain:'arclight',realtimeAnswerMode:mode}});

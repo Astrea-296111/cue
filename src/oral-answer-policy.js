@@ -7,7 +7,7 @@ function plan(question = '', interviewPlan) {
   const q = String(question);
   const code = isCode(q);
   const detailed = /(?:请|要求|需要|逐项|详细|完整).{0,6}(?:展开|详解|解释|比较|列出)|详细(?:说明|讲|回答)|展开(?:讲|说|一下)|逐项比较|in detail|elaborate/i.test(q);
-  const confirmation=/了解|熟悉/.test(q)&&/吧|先问|方面/.test(q)&&!/怎么|如何|为什么|区别|是什么|原理|范式|有哪些/.test(q);
+  const confirmation=/了解|熟悉/.test(q)&&/吧|先问|方面/.test(q)&&!/怎么|如何|为什么|区别|是什么|原理|范式|有哪些|检索|采样|工具调用|上下文|温度|向量|后训练|\b(?:RAG|MCP|Schema|SQL|Transformer|ReAct|PNE|Skill|Memory|Token)\b|temperature|top[- _]?p/i.test(q);
   const brief = /^(?:什么是|是否|是不是|简单|一句话|what is|define)/i.test(q);
   return { version: VERSION, level: code ? 'code' : detailed ? 'detailed' : brief ? 'brief' : 'standard',
     confirmation,questionCount: Math.max(1, interviewPlan?.subQuestions?.length || 1), code, detailed,
