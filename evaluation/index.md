@@ -26,3 +26,5 @@
 - [oct26-full-final / full](runs/oct26-full-final/full/report.md)
 
 - [oct26-baseline-final / baseline](runs/oct26-baseline-final/baseline/report.md)
+
+- [oct26-smoke-source-final / smoke](runs/oct26-smoke-source-final/smoke/report.md)
