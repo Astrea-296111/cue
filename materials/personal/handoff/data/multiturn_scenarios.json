@@ -1,0 +1,3527 @@
+{
+  "schema_version": "cue_multiturn_seed_v1",
+  "importable_by_current_cue": false,
+  "runner_contract": {
+    "entry": "生产应用编排，不能绕开 main 的实际会话/材料/预算/provider路径",
+    "candidate_speech": "每轮先评价CUE，再按fixture写入候选人实际发言；不能默认照读CUE",
+    "session_isolation": "同session顺序执行；各provider/repetition用全新状态",
+    "dual_modes": "先按指定instant/standard跑；关键纠正场景再交叉两种模式",
+    "failure_policy": "任何遗漏或中断保留原始失败，不只计成功重试",
+    "reference_answers": "gold仅裁判可见，被测模型只得到正常业务资料与对话"
+  },
+  "evaluation_profiles": {
+    "deep": {
+      "providers": [
+        "qwen",
+        "deepseek"
+      ],
+      "repetitions": 3,
+      "sessions": 20,
+      "answer_questions_per_session": 4,
+      "expected_generation_calls_per_version": 480,
+      "baseline_and_final_generation_calls": 960,
+      "judge_and_retry_calls": "另计且全部记录",
+      "concurrency": "仅不同会话可并发，按供应商实际限流自适应"
+    }
+  },
+  "sessions": [
+    {
+      "id": "s01",
+      "title": "CAE 背景到 Kafka 口误",
+      "job_profile": "java_security",
+      "execution_profile": "instant",
+      "reset_before": true,
+      "tags": [
+        "project",
+        "spoken-error",
+        "no-followup-keyword",
+        "correction"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s01-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "介绍一下简历上的第一个项目，你具体负责哪些部分？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "按简历顺序命中CAE",
+              "职责与求解器算法分开"
+            ],
+            "must_not_assert": [
+              "把Arclight当第一个项目",
+              "编真人团队人数"
+            ],
+            "supporting_card_ids": [
+              "cae-01"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s01-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "我主要做后端任务链路，提交之后用 Kafka 派发，求解不是我写的。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s01-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "Kafka 的分区键怎么选，为什么这么选？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "承接候选人Kafka口误",
+              "先短句纠正实际RabbitMQ",
+              "Kafka分区键仅作为替代方案"
+            ],
+            "must_not_assert": [
+              "声称CAE已用Kafka",
+              "编Kafka分区数"
+            ],
+            "supporting_card_ids": [
+              "cae-04",
+              "gen-10"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s01-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "对，我说错了，实际是 RabbitMQ，想表达的是把提交和执行解耦。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s01-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "那你这里为什么不直接发 HTTP 到计算节点？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "沿用已纠正RabbitMQ",
+              "区分可靠受理与实际远程调用",
+              "不重复无必要纠错"
+            ],
+            "must_not_assert": [
+              "完全没有HTTP",
+              "再次机械道歉纠正已修正内容"
+            ],
+            "supporting_card_ids": [
+              "cae-04",
+              "cae-06"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s01-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "远程节点还是有 HTTP 交互，但入口不应该一直等求解结束。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s01-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "如果 HTTP 超时，但对面已经启动了怎么办？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "稳定执行身份",
+              "超时不等于未执行",
+              "核验远端事实与重投幂等"
+            ],
+            "must_not_assert": [
+              "超时立即创建新进程",
+              "全链路恰好一次"
+            ],
+            "supporting_card_ids": [
+              "cae-07",
+              "cae-09"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s02",
+      "title": "Outbox 不能推出全链路 exactly once",
+      "job_profile": "java_security",
+      "execution_profile": "standard",
+      "reset_before": true,
+      "tags": [
+        "project",
+        "wrong-guarantee",
+        "database",
+        "validation"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s02-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "Outbox 的事务边界在哪？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "业务与Outbox同事务",
+              "发布不应把长外部等待塞在业务事务内"
+            ],
+            "must_not_assert": [
+              "Outbox彻底消除重投"
+            ],
+            "supporting_card_ids": [
+              "cae-05"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s02-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "我把业务和Outbox放一起，因此整条链路就exactly-once了。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s02-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "broker confirm 到了，写 SENT 前进程挂了呢？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "纠正exactly-once表述",
+              "说明confirm到落库的重投窗口",
+              "消费及远端幂等仍需要"
+            ],
+            "must_not_assert": [
+              "confirm证明最终业务完成"
+            ],
+            "supporting_card_ids": [
+              "cae-05",
+              "cae-06",
+              "gen-10"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s02-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "那应该会重新发布，但同身份受理不会重复创建。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s02-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "唯一索引在这里解决什么，事务隔离级别能代替它吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "解释并发先查后插竞争",
+              "持久唯一性与事务边界",
+              "不臆造实际隔离级别"
+            ],
+            "must_not_assert": [
+              "隔离级别天然消灭所有重复副作用"
+            ],
+            "supporting_card_ids": [
+              "sec-08",
+              "cae-07"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s02-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "唯一约束是落库兜底，单纯先查有没有还会有竞争。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s02-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "请给一套能证伪你方案的故障测试。",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "提交后断网",
+              "confirm与SENT之间崩溃",
+              "消费提交与ACK之间崩溃",
+              "进程数与账本核验"
+            ],
+            "must_not_assert": [
+              "只看HTTP200",
+              "声称本轮已经执行这些故障"
+            ],
+            "supporting_card_ids": [
+              "cae-18"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s03",
+      "title": "UNKNOWN 资源释放与不确定性",
+      "job_profile": "java_security",
+      "execution_profile": "instant",
+      "reset_before": true,
+      "tags": [
+        "project",
+        "resources",
+        "contradiction",
+        "limitations"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s03-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "节点一分钟没心跳，你怎么处理 CAE 任务？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "不可达与执行终态分开",
+              "保留UNKNOWN与核验策略"
+            ],
+            "must_not_assert": [
+              "心跳失败必然进程死亡"
+            ],
+            "supporting_card_ids": [
+              "cae-09"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s03-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "我先把它标失败释放License，让后面的任务先跑。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s03-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "原来的 Solver 其实还在跑，不就超卖了吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "自然收窄候选人说法",
+              "解释不能先释放",
+              "主动查询或权威终态"
+            ],
+            "must_not_assert": [
+              "继续支持超时直接释放"
+            ],
+            "supporting_card_ids": [
+              "cae-09",
+              "cae-10"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s03-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "对，我刚才释放说得太早了，要确认执行已经结束。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s03-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "你们有 fencing token 吗，PID 校验算不算？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "区分进程身份核验和fencing",
+              "没有证据不声称已实现"
+            ],
+            "must_not_assert": [
+              "PID就是fencing",
+              "虚构单调token方案已上线"
+            ],
+            "supporting_card_ids": [
+              "cae-09"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s03-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "PID只用于检查是不是目标进程，我不把它等同于栅栏。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s03-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "一直无法确认，系统怎样避免永久卡住？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "可观察UNKNOWN与超时升级",
+              "保留人工/运维处置路径",
+              "提出增强是方案不是已有事实"
+            ],
+            "must_not_assert": [
+              "无条件杀所有进程",
+              "凭空保证自动百分百恢复"
+            ],
+            "supporting_card_ids": [
+              "cae-09",
+              "cae-18"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s04",
+      "title": "输入预检穿插文件系统边界",
+      "job_profile": "java_security",
+      "execution_profile": "standard",
+      "reset_before": true,
+      "tags": [
+        "project",
+        "filesystem",
+        "test-data",
+        "metrics"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s04-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "你们为什么要做 INCLUDE 预检？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "依赖缺失与路径约束",
+              "执行前失败前移"
+            ],
+            "must_not_assert": [
+              "检查主文件就足够"
+            ],
+            "supporting_card_ids": [
+              "cae-12"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s04-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "主文件能找到也不代表依赖能找到，我校验了依赖和路径。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s04-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "软链接指向根目录外，字符串前缀检查能挡吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "解析真实路径与授权根边界",
+              "指出TOCTOU风险",
+              "不猜当前每条实现细节"
+            ],
+            "must_not_assert": [
+              "字符串startswith完整解决路径安全"
+            ],
+            "supporting_card_ids": [
+              "cae-12"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s04-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "要看实际解析后的路径，不能只拼字符串；还得考虑执行前变化。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s04-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "执行前文件被改了，上一轮预检还有用吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "校验与执行间变化",
+              "快照和版本",
+              "产物可追溯"
+            ],
+            "must_not_assert": [
+              "存在性检查证明内容一致"
+            ],
+            "supporting_card_ids": [
+              "cae-12",
+              "cae-13"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s04-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "所以我用输入快照和版本核对，确保一次任务对应确定输入。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s04-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "120 组样本怎么设计，46 组都拦下能说明什么？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "区分缺陷与合规分布",
+              "有限回归证据",
+              "设计边界扩展但不伪造原始明细"
+            ],
+            "must_not_assert": [
+              "所有输入永不误判",
+              "编出未提供逐条测试记录"
+            ],
+            "supporting_card_ids": [
+              "cae-12",
+              "gen-04"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s05",
+      "title": "报告重试与 76.3 百分比",
+      "job_profile": "java_security",
+      "execution_profile": "instant",
+      "reset_before": true,
+      "tags": [
+        "project",
+        "metric-scope",
+        "versioning"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s05-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "CAE 自动报告为什么需要阶段重试？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "区分求解解析后处理渲染",
+              "复用已确认上游产物"
+            ],
+            "must_not_assert": [
+              "任意错误都全流程重跑"
+            ],
+            "supporting_card_ids": [
+              "cae-14"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s05-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "求解结果已经好了，渲染失败不该重新跑Solver。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s05-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "模板改了，还能复用旧报告吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "版本与输入指纹",
+              "结果复用不等于报告复用"
+            ],
+            "must_not_assert": [
+              "仅按文件名判断"
+            ],
+            "supporting_card_ids": [
+              "cae-14"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s05-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "旧结果可以核验后复用，旧报告要看模板版本。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s05-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "你说省了 76.3%，是不是仿真快了四倍？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "限定人工整理",
+              "不转成Solver加速",
+              "30组同内容同审核要求"
+            ],
+            "must_not_assert": [
+              "说求解加速四倍",
+              "取消所有人工审核"
+            ],
+            "supporting_card_ids": [
+              "cae-15"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s05-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "不是，我这里是人工整理报告的耗时，还是保留人工审核的。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s05-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "如果自动流程额外要人工纠错，这部分时间算不算？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "同审核要求完整计时",
+              "异常与返工纳入口径",
+              "说明复现实验而不编样本"
+            ],
+            "must_not_assert": [
+              "只统计自动生成不计审核返工"
+            ],
+            "supporting_card_ids": [
+              "cae-15",
+              "gen-04"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s06",
+      "title": "受理指标 监控和线程传播",
+      "job_profile": "java_security",
+      "execution_profile": "standard",
+      "reset_before": true,
+      "tags": [
+        "project",
+        "monitoring",
+        "threading",
+        "metrics"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s06-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "281 ms 的 P95 是怎样测的？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "保留全部限定",
+              "区分受理和完成",
+              "声明与公开bench分开"
+            ],
+            "must_not_assert": [
+              "将公开单样本165.782ms合并作前后对照"
+            ],
+            "supporting_card_ids": [
+              "cae-02"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s06-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "这是300批次、5并发每批50个Case的持久受理，不是求解。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s06-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "为什么 281 ms 还值得优化，真正瓶颈不是求解吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "用户反馈与可靠受理价值",
+              "分别找瓶颈",
+              "不承诺优化受理提升求解性能"
+            ],
+            "must_not_assert": [
+              "以一个接口数值代表整个系统"
+            ],
+            "supporting_card_ids": [
+              "cae-16",
+              "cae-02"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s06-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "入口要有稳定反馈，但不能只盯着入口；我也看排队和积压。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s06-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "Prometheus 怎么接，哪些指标不能用 rate？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "实际监控链路",
+              "按指标真实类型",
+              "不按名称total盲目rate"
+            ],
+            "must_not_assert": [
+              "所有total都用rate"
+            ],
+            "supporting_card_ids": [
+              "cae-16"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s06-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "Actuator暴露抓取端点，状态快照用Gauge，累计事件才用Counter。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s06-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "线程池与 MQ 里 traceId 会自动继承吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "明确不自动保证",
+              "捕获恢复清理上下文",
+              "跨消息显式传播",
+              "当前实现与增强分开"
+            ],
+            "must_not_assert": [
+              "已全链路接入OTel且自动传播全部线程"
+            ],
+            "supporting_card_ids": [
+              "cae-17"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s07",
+      "title": "Agent Loop 和工具语义校验",
+      "job_profile": "ai_supply_chain",
+      "execution_profile": "instant",
+      "reset_before": true,
+      "tags": [
+        "project",
+        "tool-calling",
+        "ai-coding",
+        "workflow"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s07-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "讲一下 Arclight 从用户任务到代码修改的完整流程。",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "Loop与执行结果回注",
+              "完成要有外部验证"
+            ],
+            "must_not_assert": [
+              "模型说完成就判通过"
+            ],
+            "supporting_card_ids": [
+              "arc-01",
+              "arc-02"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s07-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "先让模型选工具，执行结果再回到模型，最后跑测试。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s07-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "Pydantic 校验通过，是不是就能直接执行任意命令？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "类型与业务/权限分开",
+              "路径副作用约束"
+            ],
+            "must_not_assert": [
+              "Schema保证工具调用安全"
+            ],
+            "supporting_card_ids": [
+              "arc-09"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s07-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "类型没问题不代表语义安全，还要看权限和目录。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s07-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "参数一直错，你会无限重试直到成功吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "错误回注",
+              "有限且有理由重试",
+              "记录失败并终止循环"
+            ],
+            "must_not_assert": [
+              "无限重试保证成功"
+            ],
+            "supporting_card_ids": [
+              "arc-02",
+              "gen-06"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s07-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "不会，需要返回可修复的错误，也要有循环退出条件。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s07-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "为什么不用固定 Workflow，这样不是更容易测试？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "固定流程与动态Loop适用范围",
+              "自研成本",
+              "可保留确定性工具步骤"
+            ],
+            "must_not_assert": [
+              "Agent一定优于工作流"
+            ],
+            "supporting_card_ids": [
+              "arc-03"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s08",
+      "title": "上下文压缩与自由发挥数字",
+      "job_profile": "ai_supply_chain",
+      "execution_profile": "standard",
+      "reset_before": true,
+      "tags": [
+        "project",
+        "metric-correction",
+        "compression"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s08-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "Arclight 为什么做长上下文管理？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "输出落盘与近期原文/较早摘要",
+              "首答不把近似三成当错误"
+            ],
+            "must_not_assert": [
+              "每轮必省三成"
+            ],
+            "supporting_card_ids": [
+              "arc-04",
+              "arc-06"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s08-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "日志太多会挤掉任务，我把结果落盘，整体Token大概省三成。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s08-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "整体 Token 还是输入 Token，摘要调用算进去没有？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "温和补充准确口径",
+              "区分输入输出摘要成本",
+              "原始日志未核验则不装作核验"
+            ],
+            "must_not_assert": [
+              "声称全部成本都减少31.57%"
+            ],
+            "supporting_card_ids": [
+              "arc-06"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s08-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "更准确是60项长会话累计输入Token降低31.57%，不是所有成本。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s08-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "只保留摘要，源代码细节丢了怎么办？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "承接已经说明的结构",
+              "有损摘要与读回定位"
+            ],
+            "must_not_assert": [
+              "压缩完全无损"
+            ],
+            "supporting_card_ids": [
+              "arc-04",
+              "arc-05"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s08-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "近期原文保留，结果文件能再读，不是只有一段摘要。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s08-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "如果近期窗口刚好切在工具调用和结果中间呢？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "消息结构完整性",
+              "配对与中断状态",
+              "持久化边界验证"
+            ],
+            "must_not_assert": [
+              "按任意字符裁剪即可"
+            ],
+            "supporting_card_ids": [
+              "arc-05"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s09",
+      "title": "MCP 初始上下文和 Skill",
+      "job_profile": "ai_supply_chain",
+      "execution_profile": "instant",
+      "reset_before": true,
+      "tags": [
+        "project",
+        "mcp",
+        "skills",
+        "budget"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s09-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "50 个 MCP 工具从 18.6k 到 4.2k 是怎么做的？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "按需发现与加载",
+              "初始上下文口径"
+            ],
+            "must_not_assert": [
+              "裁掉参数校验换token"
+            ],
+            "supporting_card_ids": [
+              "arc-07"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s09-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "先搜索相关工具，需要时再加载详细Schema。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s09-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "所以完整任务成本也降低 77%？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "保持候选人正确限定",
+              "完整任务累计另测"
+            ],
+            "must_not_assert": [
+              "全部成本降低77%"
+            ],
+            "supporting_card_ids": [
+              "arc-07",
+              "arc-06"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s09-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "这只能说明初始部分，后面发现和调用还有开销。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s09-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "MCP、Function Calling 和 Skill 到底哪一个负责权限？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "三者职责清楚",
+              "授权由应用控制"
+            ],
+            "must_not_assert": [
+              "MCP协议自动授权",
+              "Skill文本自动授权"
+            ],
+            "supporting_card_ids": [
+              "arc-08",
+              "arc-09"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s09-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "协议与提示都不能替运行时授权，真正执行前还得检查。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s09-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "工具描述变了，旧 Schema 缓存在会话里怎么办？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "目录/Schema版本与失效",
+              "运行时校验",
+              "给更新方案并核对现有实现"
+            ],
+            "must_not_assert": [
+              "模型猜测新参数直接执行"
+            ],
+            "supporting_card_ids": [
+              "arc-07",
+              "arc-09"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s10",
+      "title": "fork 异步取消与恢复",
+      "job_profile": "ai_supply_chain",
+      "execution_profile": "standard",
+      "reset_before": true,
+      "tags": [
+        "project",
+        "asyncio",
+        "cancel",
+        "resume"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s10-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "Arclight fork 子代理时继承什么上下文？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "任务范围与完整消息结构",
+              "未完成调用需处理"
+            ],
+            "must_not_assert": [
+              "所有父状态天然隔离"
+            ],
+            "supporting_card_ids": [
+              "arc-05",
+              "arc-11"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s10-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "继承必要任务和上下文，但不能把进行中的工具对话随意切断。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s10-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "asyncio 里 cancel 了，是不是 shell 子进程肯定停了？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "取消传播与进程生命周期分开",
+              "核验与清理"
+            ],
+            "must_not_assert": [
+              "cancel自动终止任何外部进程"
+            ],
+            "supporting_card_ids": [
+              "arc-10"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s10-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "协程取消不等于进程一定结束，需要工具执行层处理。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s10-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "JSONL 恢复后会重新执行历史的写文件工具吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "恢复上下文与副作用重放分开",
+              "区分已完成未完成"
+            ],
+            "must_not_assert": [
+              "自动重放所有工具"
+            ],
+            "supporting_card_ids": [
+              "arc-16"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s10-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "不该无条件重放副作用，先判断记录和文件当前状态。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s10-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "恢复记录最后一行写坏了，你怎么测试？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "半行与中断故障fixture",
+              "恢复边界与诊断",
+              "不把建议说成已实现"
+            ],
+            "must_not_assert": [
+              "静默丢掉全部会话"
+            ],
+            "supporting_card_ids": [
+              "arc-16",
+              "gen-04"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s11",
+      "title": "worktree 与共享任务口误",
+      "job_profile": "ai_supply_chain",
+      "execution_profile": "instant",
+      "reset_before": true,
+      "tags": [
+        "project",
+        "wrong-guarantee",
+        "worktree",
+        "concurrency"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s11-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "worktree 在多 Agent 协作里解决什么？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "文件目录分离",
+              "整合仍需检查"
+            ],
+            "must_not_assert": [
+              "隔离所有外部状态"
+            ],
+            "supporting_card_ids": [
+              "arc-13"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s11-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "它把目录分开，所以共享任务和Mailbox也就事务安全了。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s11-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "SharedTaskStore 的 CAS 在哪里实现？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "纠正错误前提",
+              "当前文件实现边界",
+              "不编符号或SQL"
+            ],
+            "must_not_assert": [
+              "存在跨进程CAS",
+              "编造源码位置"
+            ],
+            "supporting_card_ids": [
+              "arc-14",
+              "gen-10"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s11-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "我刚才把目录隔离和共享状态说混了，当前文件存储不是跨进程CAS。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s11-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "Mailbox 读完删掉文件，处理到一半崩了怎么办？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "当前consume边界",
+              "未来协议与实现分开"
+            ],
+            "must_not_assert": [
+              "目前是事务ACK",
+              "删除等于业务完成"
+            ],
+            "supporting_card_ids": [
+              "arc-15"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s11-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "那不是事务ACK，需要再设计领取、确认与重投，并保证处理幂等。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s11-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "换原子 rename 能把问题都解决吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "原子可见性不等于读改写互斥",
+              "不等于副作用确认",
+              "可比较单写者/锁/事务存储"
+            ],
+            "must_not_assert": [
+              "rename解决所有丢更新和消息处理"
+            ],
+            "supporting_card_ids": [
+              "arc-14",
+              "arc-15"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s12",
+      "title": "SWE-bench 指标与消融",
+      "job_profile": "ai_supply_chain",
+      "execution_profile": "standard",
+      "reset_before": true,
+      "tags": [
+        "project",
+        "evaluation",
+        "unit-correction",
+        "holdout"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s12-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "SWE-bench Lite 300 上 31.33% 到 43.67%，你怎么解释？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "样本与同模型口径",
+              "修复及回归测试"
+            ],
+            "must_not_assert": [
+              "官方榜单已认证"
+            ],
+            "supporting_card_ids": [
+              "arc-18",
+              "arc-19"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s12-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "是同模型下不同框架对照，我想表达成功率提高了12.34%。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s12-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "12.34% 是相对提升还是百分点？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "纠正单位",
+              "算术推导与真实原始清单分开"
+            ],
+            "must_not_assert": [
+              "相对提升仍为12.34%",
+              "声称看过逐题结果"
+            ],
+            "supporting_card_ids": [
+              "arc-18",
+              "arc-19"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s12-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "对，是约12.34个百分点，按300题大概94题到131题。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s12-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "这些题放进提示词反复调了，还能证明泛化吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "家族留出",
+              "防数据泄漏",
+              "重复与失败全记录"
+            ],
+            "must_not_assert": [
+              "公开题反复调优自动等于泛化"
+            ],
+            "supporting_card_ids": [
+              "arc-19",
+              "gen-04"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s12-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "需要按任务或问题家族留出，不能把参考答案给被测模型。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s12-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "怎样证明收益来自上下文管理，不是多调用几次模型？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "同模型同任务可比预算",
+              "逐组件消融",
+              "成功率成本时间共同看"
+            ],
+            "must_not_assert": [
+              "全部收益归因多Agent"
+            ],
+            "supporting_card_ids": [
+              "arc-19"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s13",
+      "title": "两项目切换和专业知识插问",
+      "job_profile": "java_security",
+      "execution_profile": "instant",
+      "reset_before": true,
+      "tags": [
+        "project-switch",
+        "generic-interlude",
+        "resume-order"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s13-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "CAE 的 Outbox 为什么仍可能重复发布？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "确认与落库窗口",
+              "至少一次与幂等"
+            ],
+            "must_not_assert": [
+              "Arclight Mailbox是CAE的MQ"
+            ],
+            "supporting_card_ids": [
+              "cae-05"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s13-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "确认成功后还没写回数据库就挂了会重发。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s13-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "先插一句，Java volatile 能保证 i++ 原子吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "general",
+            "must_convey": [
+              "直接回答通用并发",
+              "不强行套CAE源码"
+            ],
+            "must_not_assert": [
+              "继续回答Outbox而忽略volatile"
+            ],
+            "supporting_card_ids": [
+              "sec-06",
+              "sec-08"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s13-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "不能，复合读改写不是一个原子操作。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s13-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "回到刚才那个任务，重复消息怎样不新增进程？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "回到CAE线程",
+              "结合之前真实发言",
+              "区分消息与执行身份"
+            ],
+            "must_not_assert": [
+              "误指Arclight共享任务"
+            ],
+            "supporting_card_ids": [
+              "cae-07"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s13-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "需要稳定执行身份，并核验远端受理情况。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s13-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "再说简历第二个项目，它的 Mailbox 与前面 MQ 有什么区别？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "comparison",
+            "must_convey": [
+              "第二项目是Arclight",
+              "跨项目明确比较",
+              "Mailbox非事务ACK"
+            ],
+            "must_not_assert": [
+              "把两个项目事实混用"
+            ],
+            "supporting_card_ids": [
+              "arc-15",
+              "cae-06"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s14",
+      "title": "个人贡献与没有的经历",
+      "job_profile": "ai_supply_chain",
+      "execution_profile": "standard",
+      "reset_before": true,
+      "tags": [
+        "ownership",
+        "open-source",
+        "negative-premise"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s14-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "Arclight 是个人项目，你说的探索和验证角色是人吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "个人项目",
+              "角色不是团队人数"
+            ],
+            "must_not_assert": [
+              "编同事或团队规模"
+            ],
+            "supporting_card_ids": [
+              "arc-01",
+              "arc-11",
+              "gen-02"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s14-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "不是，是软件里的Agent角色，真人开发主要是我自己。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s14-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "哪些是开源现成的，哪些是你自己组织起来的？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "依赖和编排贡献区分",
+              "引用许可证需实际查"
+            ],
+            "must_not_assert": [
+              "声称独立实现所有SDK"
+            ],
+            "supporting_card_ids": [
+              "gen-07",
+              "arc-01"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s14-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "Textual、模型SDK、MCP SDK这些我直接用，运行闭环和预算是项目里的编排。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s14-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "你说熟悉 LangGraph，Arclight 就是基于 LangGraph 吧？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "纠正JD或技能推导",
+              "自建与设计参考区分"
+            ],
+            "must_not_assert": [
+              "Arclight依赖LangGraph"
+            ],
+            "supporting_card_ids": [
+              "arc-03"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s14-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "这个项目不是，熟悉它不代表项目依赖它。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s14-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "你给 Aider 提过什么 PR，为什么借了它的设计？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "无证据不认领PR",
+              "可对照设计但不虚构历史借鉴",
+              "自然说明实际贡献边界"
+            ],
+            "must_not_assert": [
+              "编PR编号",
+              "编作者交流"
+            ],
+            "supporting_card_ids": [
+              "gen-07"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s15",
+      "title": "AI 岗供应链场景迁移",
+      "job_profile": "ai_supply_chain",
+      "execution_profile": "instant",
+      "reset_before": true,
+      "tags": [
+        "jd-ai",
+        "nl2sql",
+        "scope",
+        "training-boundary"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s15-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "把你的 Agent 经验迁移到供应链，怎样设计自然语言查库存？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "general",
+            "must_convey": [
+              "对象规则权限先明确",
+              "Schema Linking与受控工具"
+            ],
+            "must_not_assert": [
+              "声称已经上线供应链世界模型"
+            ],
+            "supporting_card_ids": [
+              "ai-01",
+              "ai-02"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s15-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "先定义对象、字段和业务口径，再让模型调用受控查询工具。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s15-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "用户说华东仓上周缺货最多的 SKU，你要确认什么？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "general",
+            "must_convey": [
+              "保留候选人四项约束",
+              "歧义与别名归一",
+              "SQL核对"
+            ],
+            "must_not_assert": [
+              "直接瞎编库表和结果数字"
+            ],
+            "supporting_card_ids": [
+              "ai-02",
+              "sec-02"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s15-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "华东仓范围、上周时区区间、缺货口径和可见租户都要确定。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s15-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "SQL 能执行就算正确吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "general",
+            "must_convey": [
+              "结果语义与执行成功分开",
+              "核对路径"
+            ],
+            "must_not_assert": [
+              "执行无错等于业务正确"
+            ],
+            "supporting_card_ids": [
+              "ai-02"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s15-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "不能，还要核对join、粒度、重复计数和权限。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s15-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "如果要做 Agentic RL，你已经做过哪些训练？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "general",
+            "must_convey": [
+              "当前资料无训练实操证据",
+              "说明可迁移评测能力与训练知识",
+              "不把上下文工程叫训练"
+            ],
+            "must_not_assert": [
+              "声称完成SFT DPO RL生产训练"
+            ],
+            "supporting_card_ids": [
+              "ai-04"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s16",
+      "title": "安全岗从项目鉴权到 KMS",
+      "job_profile": "java_security",
+      "execution_profile": "standard",
+      "reset_before": true,
+      "tags": [
+        "jd-security",
+        "kms",
+        "rbac",
+        "cache"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s16-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "CAE 有什么权限控制，能直接叫权限中台吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "当前ProjectAccess边界",
+              "权限中台扩展是方案"
+            ],
+            "must_not_assert": [
+              "已完成生产RBAC KMS中台"
+            ],
+            "supporting_card_ids": [
+              "cae-19",
+              "sec-01"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s16-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "项目里有角色和项目成员检查，但和完整权限中台还差不少。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s16-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "tenantId 我放在请求头，让 SDK 透传够吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "general",
+            "must_convey": [
+              "可信租户范围",
+              "查询缓存任务文件都隔离"
+            ],
+            "must_not_assert": [
+              "只信前端tenantId"
+            ],
+            "supporting_card_ids": [
+              "sec-02"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s16-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "还要从认证授权上下文校验，不能前端说什么就信什么。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s16-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "信封加密怎么设计，主密钥是不是每次都下发业务服务？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "general",
+            "must_convey": [
+              "数据密钥与KMS密钥分开",
+              "加密数据密钥随密文保存",
+              "权限与清理"
+            ],
+            "must_not_assert": [
+              "主密钥明文到处传"
+            ],
+            "supporting_card_ids": [
+              "sec-03"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s16-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "数据密钥用于数据，KMS保护数据密钥，主密钥不应该随便暴露。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s16-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "权限缓存提高了速度，撤权多久生效和故障时怎么处理？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "general",
+            "must_convey": [
+              "版本失效与陈旧上限",
+              "风险定义失败策略",
+              "冷启动撤权与故障测试"
+            ],
+            "must_not_assert": [
+              "无限期使用旧授权",
+              "默认所有故障放行"
+            ],
+            "supporting_card_ids": [
+              "sec-05"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s17",
+      "title": "AI Coding 质量闭环",
+      "job_profile": "ai_supply_chain",
+      "execution_profile": "instant",
+      "reset_before": true,
+      "tags": [
+        "ai-coding",
+        "testing",
+        "regression"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s17-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "你怎么用 AI Coding 从需求做到可验收？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "general",
+            "must_convey": [
+              "验收与上下文",
+              "实际diff测试",
+              "人工边界核验"
+            ],
+            "must_not_assert": [
+              "模型总结即证明"
+            ],
+            "supporting_card_ids": [
+              "gen-05"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s17-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "先明确约束和验收，再让它看代码，小步改，最后看真实输出。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s17-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "模型改了实现，又把失败测试删了，CI 全绿算结束吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "general",
+            "must_convey": [
+              "不能删测试掩盖问题",
+              "验证真实行为与历史回归"
+            ],
+            "must_not_assert": [
+              "CI绿就足够"
+            ],
+            "supporting_card_ids": [
+              "gen-06"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s17-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "不算，要看断言是否被削弱以及测试是否还是生产路径。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s17-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "怎么选择给它哪些文件，不能整个仓库都塞进去吧？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "general",
+            "must_convey": [
+              "任务导向上下文",
+              "代码导航与预算",
+              "不必全仓输入"
+            ],
+            "must_not_assert": [
+              "只能完整仓库输入"
+            ],
+            "supporting_card_ids": [
+              "gen-05",
+              "arc-04"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s17-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "先给入口、相关领域和失败证据，再按问题扩展，保留修改边界。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s17-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "如果连续几轮修改都没有提升，你下一步做什么？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "general",
+            "must_convey": [
+              "固定失败复现",
+              "检查实际输入和根因分类",
+              "回退无效改动再提出可证伪假设"
+            ],
+            "must_not_assert": [
+              "无限随机改Prompt",
+              "全怪模型"
+            ],
+            "supporting_card_ids": [
+              "gen-06",
+              "gen-08"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s18",
+      "title": "候选人自由发挥而未照读",
+      "job_profile": "java_security",
+      "execution_profile": "standard",
+      "reset_before": true,
+      "tags": [
+        "actual-speech",
+        "free-response",
+        "reference"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s18-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "你最想讲的 CAE 技术难点是什么？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "回答项目难点可用已知资料",
+              "不假设候选人会照读推荐"
+            ],
+            "must_not_assert": [
+              "强制继续Outbox唯一故事"
+            ],
+            "supporting_card_ids": [
+              "cae-12",
+              "gen-01"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s18-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "我更想讲输入依赖。任务有时失败不是服务器慢，而是模型引用的文件目录变了。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s18-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "你刚说目录变了，具体怎么定位的？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "锚定实际说的输入依赖",
+              "不沿旧AI建议讲其他故障",
+              "按场景说明排查"
+            ],
+            "must_not_assert": [
+              "把候选人没说的Outbox当已说"
+            ],
+            "supporting_card_ids": [
+              "cae-12",
+              "story-cae-03"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s18-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "我会先复现依赖解析，再把输入版本固定下来。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s18-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "那为什么不直接让使用者自己保证文件齐全？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "前移校验成本收益",
+              "具体输入责任和边界"
+            ],
+            "must_not_assert": [
+              "把输入安全全交给用户"
+            ],
+            "supporting_card_ids": [
+              "cae-12"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s18-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "让使用者负责不能替代入口校验，错误到求解后才发现成本更高。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s18-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "换成对象存储就完全没有这个问题了吗？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "存储迁移不消除引用版本和完整性",
+              "说明协议变化和权衡"
+            ],
+            "must_not_assert": [
+              "对象存储自动解决所有依赖问题"
+            ],
+            "supporting_card_ids": [
+              "cae-13"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s19",
+      "title": "长会话后保留已纠正的口径",
+      "job_profile": "java_security",
+      "execution_profile": "instant",
+      "reset_before": true,
+      "tags": [
+        "long-context",
+        "corrected-claim",
+        "project-switch"
+      ],
+      "context_prelude": [
+        {
+          "event_id": "s19-history-i0",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "text": "刚才讨论的是CAE任务受理。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-c0",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "text": "我刚开始把281ms说成求解耗时，后来已纠正为批次持久受理。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-i1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "text": "这里先确认求解不是受理。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "text": "案例里不能把公开仓库另一次本地测试混进来。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-i2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "text": "我们记住5并发每批50Case这个条件。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "text": "这是简历的300批次P95口径。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-i3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "text": "刚才讨论的是CAE任务受理。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "text": "我刚开始把281ms说成求解耗时，后来已纠正为批次持久受理。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-i4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "text": "这里先确认求解不是受理。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-c4",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "text": "案例里不能把公开仓库另一次本地测试混进来。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-i5",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "text": "我们记住5并发每批50Case这个条件。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-c5",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "text": "这是简历的300批次P95口径。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-i6",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "text": "刚才讨论的是CAE任务受理。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-c6",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "text": "我刚开始把281ms说成求解耗时，后来已纠正为批次持久受理。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-i7",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "text": "这里先确认求解不是受理。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-c7",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "text": "案例里不能把公开仓库另一次本地测试混进来。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-i8",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "text": "我们记住5并发每批50Case这个条件。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-c8",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "text": "这是简历的300批次P95口径。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-i9",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "text": "刚才讨论的是CAE任务受理。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-c9",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "text": "我刚开始把281ms说成求解耗时，后来已纠正为批次持久受理。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-i10",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "text": "这里先确认求解不是受理。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-c10",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "text": "案例里不能把公开仓库另一次本地测试混进来。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-i11",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "text": "我们记住5并发每批50Case这个条件。",
+          "invoke_cue": false,
+          "context_only": true
+        },
+        {
+          "event_id": "s19-history-c11",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "text": "这是简历的300批次P95口径。",
+          "invoke_cue": false,
+          "context_only": true
+        }
+      ],
+      "events": [
+        {
+          "event_id": "s19-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "回到最开始那个 281 ms，是什么边界？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "使用已纠正版本",
+              "保留计时边界",
+              "不重复说候选人仍然说错"
+            ],
+            "must_not_assert": [
+              "重新传播旧求解耗时错误"
+            ],
+            "supporting_card_ids": [
+              "cae-02",
+              "gen-10"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s19-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "是持久受理，不是Solver完成，之前已经说清楚了。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s19-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "再展开你提到的恢复 12.6 s，计时起点呢？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "不同指标分开",
+              "12.6秒条件和样本"
+            ],
+            "must_not_assert": [
+              "从故障发生开始算",
+              "任何故障都12.6秒恢复"
+            ],
+            "supporting_card_ids": [
+              "cae-18"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s19-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "恢复条件就绪以后才计时，是30轮限定故障。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s19-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "换到 Arclight，那个省三成是哪个指标？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "arclight",
+            "must_convey": [
+              "明确项目切换",
+              "输入Token与CAE指标隔离"
+            ],
+            "must_not_assert": [
+              "将31.57%用于CAE或所有费用"
+            ],
+            "supporting_card_ids": [
+              "arc-06"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s19-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "60项长会话累计输入Token，不是全部费用。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s19-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "如果只保留最近两句话，前面改口的信息怎样保留？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "general",
+            "must_convey": [
+              "讨论会话记忆设计时保留原始事件和纠正关系",
+              "不把AI建议当实际发言",
+              "明确CUE与Arclight不同实现"
+            ],
+            "must_not_assert": [
+              "声称当前所有记忆都已无损"
+            ],
+            "supporting_card_ids": [
+              "arc-17",
+              "gen-10"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "s20",
+      "title": "长复合题与假设边界",
+      "job_profile": "java_security",
+      "execution_profile": "standard",
+      "reset_before": true,
+      "tags": [
+        "long-question",
+        "multi-part",
+        "hypothetical",
+        "pressure"
+      ],
+      "context_prelude": [],
+      "events": [
+        {
+          "event_id": "s20-q1",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 0,
+          "text": "我们做一个有明确约束的设计讨论，先别把假设说成你在公司已经做过。假设 CAE 平台接收一个批次，其中有五十个 Case，用户在浏览器看到提交超时后连续点了两次重试。第一次请求实际上已经在数据库保存了批次意图，其中一部分子任务已接入，但浏览器没有拿到确认。此时我们不能根据前端超时判断任务失败，也不能让再次点击生成整批重复工作。请先说清楚你如何区分用户请求身份、消息身份、Job 和 Execution，哪些身份在重试时保持不变，哪些情况下应该创建新的执行尝试。\n\n继续补充故障条件：Outbox 发布器已拿到 broker 的 confirm，但写回 SENT 之前进程退出。消费者已经可靠受理某条任务命令，但 ACK 在网络中丢失，随后 broker 重新投递。远程 Worker 也可能已启动求解进程，只有受理响应没有返回。请分别描述这些窗口，不要笼统说“我们有幂等所以没有问题”，要指出每一层怎样识别已有结果以及哪个组件掌握权威事实。数据库业务意图、队列投递状态与远端进程状态不同步时，你选择等待、重试、主动查询还是创建新尝试，判断条件分别是什么。\n\n再考虑资源约束：CPU、内存和 License 是多个同时生效的维度，不能只检查其中一个。两个调度者可能同时看见剩余一个 License。节点心跳中断也可能只是网络分区，旧进程仍然在运行。租约过期、PID 不匹配、节点恢复与回调迟到分别意味着什么，哪些信号可以支持资源释放，哪些只能说明当前无法确认？你需要说明 UNKNOWN 为什么存在，以及长期无法确认时如何升级处理。不要把 PID 检查自动解释成 fencing，也不要默认当前实现拥有某种没有代码证据的分布式栅栏机制。\n\n输入也有一个变化：用户提交后移动了共享目录，一条 INCLUDE 相对路径失效；另一个文件在预检完成到真正执行之间被覆盖。这里主文件依然存在。请说明依赖预检、路径授权、快照和版本核对各解决什么问题。共享存储上的文件能读到，不代表它已经写完或者就是当时校验过的内容；如果你建议引入原子发布或其他协议，请明确哪些属于当前代码、哪些属于增强方案，不要求你现场编造未读过的源码符号。\n\n结果阶段还有两类失败：一个 Case 的求解完成但解析失败，另一个报告模板在生成前升级，导致旧指纹对应的缓存产物不再适用。用户点击重新生成报告时，不应该默认重新运行整个 Solver，也不应该只检查同名 PDF 已存在就返回成功。请讲清楚阶段重试怎样选择起点，产物如何关联 Execution、输入版本和模板版本，重复事件与迟到回调如何不把新状态覆盖成旧状态。\n\n观测上我希望从用户体验开始：浏览器受理耗时、子任务接入等待、资源排队、远程提交 RPC、求解和报告生成分别看什么；平均值、P95、错误率和最老积压年龄各有什么作用；哪些标签可以放在指标里，哪些高基数标识更适合留在日志。线程池、MQ 与 Python Worker 之间如果没有自动传播 trace 上下文，你会怎样关联同一个业务任务，又怎样避免线程复用造成串号。不要把现有业务 ID 日志关联夸大成已经完整部署的分布式 tracing。\n\n最后请设计验证而不是给漂亮结论。我需要看到故障注入点、样本范围、并发设置、恢复计时起点、判定收敛的账本，以及失败时保存什么证据。这里可以设计新的实验，但是没有运行就不能报新的 P95 或百分之百成功率。简历里的 281 ms 是受理口径，12.6 s 是恢复条件就绪后的限定故障收敛，76.3% 是人工整理报告的配对比较，它们不能互相替代，更不能与公开仓库另一环境的本地基准拼成一条前后优化曲线。\n\n请按受理身份与消息、远端执行与资源、输入与产物版本、监控与验证这四块回答。每块给机制、一个会失效的边界和可执行的验证方式。可以分段展开，但必须保留上述限制。如果某一块只能给建议，就用建议口吻；不要为了听起来完整而声称项目已经具备所有这些能力。",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "四块问题全部覆盖",
+              "当前与增强区分",
+              "保留假设",
+              "指标不串口径"
+            ],
+            "must_not_assert": [
+              "截断尾部问题",
+              "编执行过的测试数字",
+              "全链路exactly-once"
+            ],
+            "supporting_card_ids": [
+              "cae-05",
+              "cae-09",
+              "cae-12",
+              "cae-14",
+              "cae-16",
+              "cae-18"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s20-c1",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 15000,
+          "text": "我会先把身份、远端事实和资源账本分开，不能单靠MQ是否确认来推执行是否结束。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s20-q2",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 30000,
+          "text": "你刚才的判断依据里，哪个信号可以证明远端已经停止？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "依实际发言接续",
+              "核验动作明确",
+              "保留不能确认分支"
+            ],
+            "must_not_assert": [
+              "仅心跳超时就证明停止"
+            ],
+            "supporting_card_ids": [
+              "cae-09"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s20-c2",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 45000,
+          "text": "要核验对应Execution的权威终态或进程情况，心跳失联本身不够。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s20-q3",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 60000,
+          "text": "我问的是你会怎样增强，不是让你说已经全部实现，怎么组织答案？",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "明确当前实现与设计建议",
+              "不无必要拒答"
+            ],
+            "must_not_assert": [
+              "未来能力混成实际"
+            ],
+            "supporting_card_ids": [
+              "gen-01",
+              "arc-20"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        },
+        {
+          "event_id": "s20-c3",
+          "speaker": "candidate",
+          "channel": "you",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 75000,
+          "text": "我先说当前代码能证明的能力，再讲增强协议和验证。",
+          "invoke_cue": false,
+          "delivery": "固定真实发言回放，不自动替换为上一条 CUE 建议"
+        },
+        {
+          "event_id": "s20-q4",
+          "speaker": "interviewer",
+          "channel": "them",
+          "is_final": true,
+          "revision": 1,
+          "at_ms": 90000,
+          "text": "给我最小验证清单，不用重复讲一遍整个架构。",
+          "invoke_cue": true,
+          "evaluation": {
+            "expected_route": "cae",
+            "must_convey": [
+              "精炼给故障点与断言",
+              "包含资源和版本",
+              "不长篇重讲",
+              "不编新数据"
+            ],
+            "must_not_assert": [
+              "重复全部架构",
+              "只说跑单测"
+            ],
+            "supporting_card_ids": [
+              "cae-18",
+              "gen-04"
+            ],
+            "assertion_mode": "语义判断；允许同义表达；禁止断言须区分否定、引用与模型真正主张，不做简单字符串禁词。"
+          }
+        }
+      ]
+    }
+  ],
+  "deterministic_event_fixtures": [
+    {
+      "id": "asr-final-revision",
+      "events": [
+        {
+          "speaker": "candidate",
+          "event_id": "c1",
+          "revision": 1,
+          "is_final": false,
+          "text": "我们用卡夫卡"
+        },
+        {
+          "speaker": "candidate",
+          "event_id": "c1",
+          "revision": 2,
+          "is_final": true,
+          "text": "我刚才口误，实际是RabbitMQ"
+        }
+      ],
+      "expected": [
+        "同event修订一次提交",
+        "归一化保留原文",
+        "只保留有效纠正断言"
+      ]
+    },
+    {
+      "id": "asr-final-duplicate",
+      "events": [
+        {
+          "speaker": "candidate",
+          "event_id": "c1",
+          "revision": 1,
+          "is_final": true,
+          "text": "281ms是受理"
+        },
+        {
+          "speaker": "candidate",
+          "event_id": "c1",
+          "revision": 1,
+          "is_final": true,
+          "text": "281ms是受理"
+        }
+      ],
+      "expected": [
+        "幂等提交",
+        "不重复扩大已说信息"
+      ]
+    },
+    {
+      "id": "asr-out-of-order",
+      "events": [
+        {
+          "speaker": "candidate",
+          "event_id": "c1",
+          "revision": 2,
+          "is_final": true,
+          "text": "实际RabbitMQ"
+        },
+        {
+          "speaker": "candidate",
+          "event_id": "c1",
+          "revision": 1,
+          "is_final": false,
+          "text": "Kafka"
+        }
+      ],
+      "expected": [
+        "迟到interim不覆盖final"
+      ]
+    },
+    {
+      "id": "speaker-uncertain",
+      "events": [
+        {
+          "speaker": "unknown",
+          "channel": "you",
+          "confidence": null,
+          "event_id": "u1",
+          "text": "我负责全部求解器开发",
+          "is_final": true,
+          "revision": 1
+        }
+      ],
+      "expected": [
+        "不把未知角色断言升级为个人资料",
+        "不伪造ASR置信度"
+      ]
+    },
+    {
+      "id": "echo-cross-channel",
+      "events": [
+        {
+          "speaker": "interviewer",
+          "channel": "them",
+          "event_id": "t1",
+          "text": "为什么不用Kafka",
+          "is_final": true,
+          "revision": 1
+        },
+        {
+          "speaker": "candidate",
+          "channel": "you",
+          "event_id": "echo1",
+          "text": "为什么不用Kafka",
+          "is_final": true,
+          "revision": 1,
+          "possible_echo_of": "t1"
+        }
+      ],
+      "expected": [
+        "防回声误判候选人断言",
+        "不把问句当技术选择事实"
+      ]
+    },
+    {
+      "id": "request-cancel",
+      "events": [
+        {
+          "type": "request_start",
+          "request_id": "r1"
+        },
+        {
+          "type": "request_cancel",
+          "request_id": "r1"
+        },
+        {
+          "type": "candidate_final",
+          "event_id": "c1",
+          "text": "我想改讲输入校验"
+        },
+        {
+          "type": "request_start",
+          "request_id": "r2"
+        },
+        {
+          "type": "llm_token",
+          "request_id": "r1",
+          "text": "旧回答"
+        }
+      ],
+      "expected": [
+        "旧token不进UI",
+        "真实候选人发言保留",
+        "旧请求不提交会话建议"
+      ]
+    },
+    {
+      "id": "new-session",
+      "events": [
+        {
+          "type": "candidate_final",
+          "text": "CAE用RabbitMQ",
+          "session_id": "a"
+        },
+        {
+          "type": "session_reset",
+          "session_id": "b"
+        },
+        {
+          "type": "interviewer_final",
+          "text": "我现在想聊另一个项目",
+          "session_id": "b"
+        }
+      ],
+      "expected": [
+        "旧会话已说断言不隐式进入新会话",
+        "新会话可复用资料但不复用说话历史"
+      ]
+    },
+    {
+      "id": "material-revision",
+      "events": [
+        {
+          "type": "request_start",
+          "revision": "old"
+        },
+        {
+          "type": "materials_commit",
+          "revision": "new"
+        },
+        {
+          "type": "background_summary",
+          "revision": "old"
+        }
+      ],
+      "expected": [
+        "旧版本后台摘要不污染新材料",
+        "保留真实历史及其旧来源标签"
+      ]
+    },
+    {
+      "id": "candidate-self-correction",
+      "events": [
+        {
+          "speaker": "candidate",
+          "event_id": "c1",
+          "revision": 1,
+          "is_final": true,
+          "text": "是31.57%总费用。不是，我更正，是累计输入Token。"
+        }
+      ],
+      "expected": [
+        "同一final内识别改口",
+        "不重复纠正已改口内容"
+      ]
+    },
+    {
+      "id": "hypothesis-not-fact",
+      "events": [
+        {
+          "speaker": "candidate",
+          "event_id": "c1",
+          "revision": 1,
+          "is_final": true,
+          "text": "如果换成Kafka，我会评估分区键。"
+        }
+      ],
+      "expected": [
+        "条件句不是项目已用Kafka",
+        "场景设计不回写项目事实"
+      ]
+    }
+  ],
+  "judge_rubric": {
+    "dimensions": [
+      "技术正确性",
+      "证据支持",
+      "上下文承接",
+      "纠正质量",
+      "问题覆盖",
+      "口述自然度"
+    ],
+    "scale": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "required_output": [
+      "scores",
+      "evidence_quote_or_span",
+      "unsupported_claims",
+      "missing_constraints",
+      "needs_review",
+      "brief_reason"
+    ],
+    "independence": "裁判不可读取版本新旧标签；两个provider互评；争议回到证据与源码",
+    "critical_failure": "实现反事实、跨项目污染、谎称实际实验、错误断言写入永久事实"
+  }
+}

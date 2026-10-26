@@ -57,13 +57,27 @@ for(let variant=0;variant<12;variant++)test(`speech boundary ${variant+1}: revis
   assert.equal(d.ingest({eventId:'ai',speaker:'assistant',text:'我做过所有实验。'}).accepted,false);
   const repeated=d.ingest({eventId:'benchmark',channel:'you',text:'我做过SWE-bench Lite的300题评测。',revision:1,isFinal:true,startMs:300});
   assert.equal(repeated.reason,'duplicate');
-  if(variant%3===0)d.ingest({eventId:'benchmark',channel:'you',speaker:'unknown',text:'我做过SWE-bench Lite的300题评测。',revision:2,isFinal:true,startMs:300});
-  else if(variant%3===1)d.ingest({eventId:'denial',channel:'you',text:'我说的是没有测过同模型P&E消融。',revision:2,isFinal:true,startMs:200});
-  else assert.equal(d.ingest({eventId:'benchmark',channel:'you',text:'早期迟到片段',revision:0,isFinal:false,startMs:300}).accepted,false);
+  const text='我做过SWE-bench Lite的300题评测。';
+  switch(variant) {
+    case 0: d.correct({eventId:'benchmark',speaker:'unknown'}); break;
+    case 1: d.correct({eventId:'denial',text:'我说的是没有测过同模型P&E消融。'}); break;
+    case 2: assert.equal(d.ingest({eventId:'benchmark',channel:'you',text:'早期迟到片段',revision:0,isFinal:false}).accepted,false);break;
+    case 3: d.ingest({eventId:'echo',channel:'them',text,isFinal:true,startMs:300});break;
+    case 4: d.ingest({eventId:'short',channel:'you',text:'是的。',isFinal:true,startMs:6000});break;
+    case 5: d.ingest({eventId:'overlap',channel:'them',text:'你说做过SWE-bench Lite的300题评测？',isFinal:true,startMs:301});break;
+    case 6: assert.equal(d.ingest({sessionId:'previous-session',eventId:'late',channel:'you',text:'没跑任何评测'}).reason,'stale-session');break;
+    case 7: d.correct({eventId:'benchmark',speaker:'unknown'});d.correct({eventId:'benchmark',speaker:'candidate'});break;
+    case 8: d.correct({eventId:'denial',speaker:'interviewer'});break;
+    case 9: assert.equal(d.ingest({eventId:'benchmark',channel:'you',text:'不同内容但同revision',revision:1,isFinal:true}).reason,'revision-conflict');break;
+    case 10: d.recordSuggestion({requestId:'suggestion',text:'全部消融已经跑过',status:'completed'});break;
+    case 11: d.ingest({eventId:'repetition',channel:'you',text,isFinal:true,startMs:10000});break;
+  }
   const claims=d.ledger.snapshot();
   const benchmark=claims.find(c=>c.eventIds.includes('benchmark'));
-  assert.equal(benchmark.experimentId,'metric.arc.swe');
-  assert.equal(benchmark.status,variant%3===0?'uncertain':'affirmed');
+  if(variant!==3) {
+    assert.equal(benchmark.experimentId,'metric.arc.swe');
+    assert.equal(benchmark.status,variant===0?'uncertain':'affirmed');
+  } else assert.ok(!claims.some(c=>c.eventIds.includes('benchmark')&&c.status==='affirmed'));
   assert.ok(!claims.some(c=>c.text==='我做过所有实验。'));
 });
 test('frozen replay never feeds old AI suggestions to the tested model; semantic judge is distinct',()=>{
