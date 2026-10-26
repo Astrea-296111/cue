@@ -9,6 +9,17 @@ const {redact}=require('./lib/public-text.cjs');
 const oral=require('../src/oral-answer-policy');
 const ROOT=path.resolve(__dirname,'..'),read=p=>JSON.parse(fs.readFileSync(p,'utf8'));
 const sha=value=>crypto.createHash('sha256').update(typeof value==='string'?value:JSON.stringify(value)).digest('hex');
+function sourceIdentity(root=ROOT) {
+  const files=[];
+  function visit(relative) {
+    const full=path.join(root,relative),stat=fs.lstatSync(full);
+    if(stat.isSymbolicLink())throw new Error('Unexpected source symlink');
+    if(stat.isDirectory())for(const entry of fs.readdirSync(full).sort())visit(path.join(relative,entry));
+    else files.push([relative,sha(fs.readFileSync(full,'utf8'))]);
+  }
+  for(const relative of ['main.js','preload.js','src','renderer','package.json','package-lock.json'])visit(relative);
+  return sha(files);
+}
 function cases() {
   const replay=read(path.join(ROOT,'evaluation/cases/interview-2026-10-26.json')).cases;
   const novel=read(path.join(ROOT,'evaluation/cases/unseen-2026-10-26.json')).cases;
@@ -70,7 +81,7 @@ async function evaluate({phase='smoke',provider='all',outputDir,runId,targetRoot
     const safe=redact(value,secrets,changes),temp=file+'.tmp';fs.writeFileSync(temp,typeof safe==='string'?safe:JSON.stringify(safe,null,2)+'\n');fs.renameSync(temp,file);
   };
   const summary={schemaVersion:1,kind:mock?'mock':'live',phase,build:buildIdentity(env),applicationCommit:phase==='baseline'?'da883000469bfb2cbf16582a3d802a2e65fe2f43':buildIdentity(env).commit,
-    materialSha256:sha(workspace),caseSha256:sha(phase==='multiturn'?selected:suite),discovery:configured.discovery,results:[],providerErrors:[],startedAt:new Date().toISOString()};
+    codeSha256:sourceIdentity(targetRoot||ROOT),materialSha256:sha(workspace),caseSha256:sha(phase==='multiturn'?selected:suite),discovery:configured.discovery,results:[],providerErrors:[],startedAt:new Date().toISOString()};
   const repeats=phase==='full'?2:1;
   for(const id of providers) {
     const config=providerConfig(id,configured.env,mock);
@@ -84,9 +95,9 @@ async function evaluate({phase='smoke',provider='all',outputDir,runId,targetRoot
         const {c,repeat}=tasks.shift(),caseDir=path.join(directory,id,c.caseId+'-r'+repeat);
         const traceFile=path.join(caseDir,'trace.json'),judgeFile=path.join(caseDir,'judge.json');
         let record=fs.existsSync(traceFile)?read(traceFile):null;
-        if(record&&(record.materialSha256!==summary.materialSha256||record.caseSha256!==sha(c)||record.applicationCommit!==summary.applicationCommit))throw new Error('Checkpoint identity differs; use a new run directory');
+        if(record&&(record.materialSha256!==summary.materialSha256||record.caseSha256!==sha(c)||record.codeSha256!==summary.codeSha256))throw new Error('Checkpoint identity differs; use a new run directory');
         if(!record && fs.existsSync(path.join(caseDir,'started.json'))) {
-          record={id:c.caseId,repeat,domain:c.suggestedDomain,materialSha256:summary.materialSha256,caseSha256:sha(c),applicationCommit:summary.applicationCommit,status:'interrupted',transportStatus:'unknown',attempted:false,answer:'',automatic:{complete:false,lengthPassed:false,formatPassed:false},error:{code:'interrupted-outcome-unknown'}};
+          record={id:c.caseId,repeat,domain:c.suggestedDomain,materialSha256:summary.materialSha256,caseSha256:sha(c),codeSha256:summary.codeSha256,applicationCommit:summary.applicationCommit,status:'interrupted',transportStatus:'unknown',attempted:false,answer:'',automatic:{complete:false,lengthPassed:false,formatPassed:false},error:{code:'interrupted-outcome-unknown'}};
           write(traceFile,record);write(path.join(caseDir,'answer.txt'),'');
         }
         if(!record) {
@@ -114,7 +125,7 @@ async function evaluate({phase='smoke',provider='all',outputDir,runId,targetRoot
             const result=await runCase(runtime,item,providerState,options,budget,()=>({passed:true,scored:false,reason:'Semantics scored separately, never inferred from keywords.'}));
             result.metrics.firstSentenceMs=result.metrics.triggerToFirstUsefulSentenceMs??null;
             const request=runtime.calls.slice(callStart).map(call=>({model:call.model,messages:call.messages,max_tokens:call.max_tokens,max_completion_tokens:call.max_completion_tokens,enable_thinking:call.enable_thinking,thinking:call.thinking}));
-            record={...result,repeat,domain:c.suggestedDomain,caseSha256:sha(c),materialSha256:summary.materialSha256,applicationCommit:summary.applicationCommit,
+            record={...result,repeat,domain:c.suggestedDomain,caseSha256:sha(c),materialSha256:summary.materialSha256,codeSha256:summary.codeSha256,applicationCommit:summary.applicationCommit,
               model:config.model,configurationSource:'GitHub Actions secrets/vars or explicitly bound process environment',cacheState:phase==='multiturn'&&c.turn===1?'warm-conversation; warmed immutable source snapshot':'cold-case-session; warmed immutable source snapshot',
               automatic:automatic(result,c.rawQuestion),humanContext:human,oldCueSuggestion:c.oldCueSuggestion||null,
               sourceEvidence:runtime.commits.slice(commitStart).at(-1)?.config?.evidence||[],rawModelResponse:{completion:result.completion,chunks:(runtime.providerChunks||[]).slice(chunkStart)},
@@ -123,7 +134,7 @@ async function evaluate({phase='smoke',provider='all',outputDir,runId,targetRoot
             write(path.join(caseDir,'answer.txt'),record.answer);
             write(traceFile,record);
           } catch(error) {
-            record={id:c.caseId,repeat,domain:c.suggestedDomain,status:'failed',transportStatus:'failed',materialSha256:summary.materialSha256,caseSha256:sha(c),applicationCommit:summary.applicationCommit,error:{code:error.code||error.name,message:error.message},answer:'',automatic:{complete:false,lengthPassed:false,formatPassed:false}};
+            record={id:c.caseId,repeat,domain:c.suggestedDomain,status:'failed',transportStatus:'failed',materialSha256:summary.materialSha256,caseSha256:sha(c),codeSha256:summary.codeSha256,applicationCommit:summary.applicationCommit,error:{code:error.code||error.name,message:error.message},answer:'',automatic:{complete:false,lengthPassed:false,formatPassed:false}};
             write(traceFile,record);write(path.join(caseDir,'answer.txt'),'');
           } finally {if(phase!=='multiturn')for(const cleanup of cleanups.reverse())await cleanup();}
         }
@@ -171,4 +182,4 @@ if(require.main===module) {
   options.mock=options.mock==='true';
   evaluate(options).then(summary=>{console.log(JSON.stringify({status:summary.status,phase:summary.phase,generations:summary.generations,judgeCalls:summary.judgeCalls,providerErrors:summary.providerErrors}));if(summary.status==='needs-review')process.exitCode=2;}).catch(error=>{console.error(error.code||error.name);process.exitCode=1;});
 }
-module.exports={evaluate,cases,automatic,judgeMessages,validateJudge,distribution};
+module.exports={sourceIdentity,evaluate,cases,automatic,judgeMessages,validateJudge,distribution};
