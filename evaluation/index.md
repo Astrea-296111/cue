@@ -14,3 +14,5 @@
 每个`runs/<run-id>/<phase>/<provider>/<case-id>-rN/`包含`request.json`、`answer.txt`、`trace.json`、`judge.json`。逐条检查点即时保存。恢复只补未完成裁判；已发出而结果未知的生成标记interrupted，不重生成筛选。重新生成必须换run-id，失败原件保留。
 
 默认公开工作流仅允许可信main手工调度。生成和裁判的调用分别记账。离线Mock只证明链路，不能证明质量；两轮重复不代表置信区间。Windows麦克风、声卡和真实音频延迟未由文本回放验证。旧密文工具仅用于历史兼容，不是本轮公开入口。
+
+- [oct26-smoke-01 / smoke](runs/oct26-smoke-01/smoke/report.md)
