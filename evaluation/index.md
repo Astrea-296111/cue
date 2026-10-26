@@ -37,3 +37,5 @@
 - [oct26-latest-final / latest](runs/oct26-latest-final/latest/report.md)
 
 - [oct26-replay-canonical / replay](runs/oct26-replay-canonical/replay/report.md)
+
+- [oct26-smoke-v2 / smoke](runs/oct26-smoke-v2/smoke/report.md)
