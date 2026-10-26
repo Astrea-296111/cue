@@ -43,3 +43,5 @@
 - [oct26-latest-v2 / latest](runs/oct26-latest-v2/latest/report.md)
 
 - [oct26-latest-v3 / latest](runs/oct26-latest-v3/latest/report.md)
+
+- [oct26-smoke-v3 / smoke](runs/oct26-smoke-v3/smoke/report.md)
