@@ -116,3 +116,9 @@ test('screen code output never enters oral sentence clipping',async t=>{
   const presentation=app.events.findLast(e=>e.channel==='llm:presentation');
   assert.equal(presentation.displayTruncated,false);assert.ok(presentation.text.includes('```java'));
 });
+test('useful-sentence timing ignores isolated numbering, source markers and empty labels',()=>{
+  let at=0;const {createReplyLatency}=require('../src/reply-latency');
+  const tracker=createReplyLatency({now:()=>at,wallNow:()=>at,log:()=>{}}).start('say','怎么做？');
+  for(const text of ['1.\n','[来源 1]\n','做法：\n']){at+=10;tracker.content(text);assert.equal(tracker.metrics().triggerToFirstUsefulSentenceMs,null);}
+  at+=10;tracker.content('先校验输入，再执行。');assert.equal(tracker.metrics().triggerToFirstUsefulSentenceMs,40);
+});
