@@ -158,6 +158,8 @@ test('referential question freezes complete parameter and sparse/dense entities,
   assert.match(text,/temperature和top-p/);assert.doesNotMatch(text,/Transformer/);
   const fusion=reference('怎么融合这些？',[{channel:'them',text:'Agentic RAG是否需要路由？'},{channel:'them',text:'稀疏召回和稠密召回分别怎么做？'},{channel:'them',text:'你有了解过吗？'}]);
   assert.match(fusion,/稀疏召回和稠密召回/);assert.doesNotMatch(fusion,/Agentic/);
+  const comparison=reference('你跟其他Agent对比过吗？',[{channel:'them',text:'50个MCP工具为什么按需加载？'},{channel:'them',text:'你的Coding Agent有没有跑过benchmark，大概成绩怎么样？'}]);
+  assert.match(comparison,/benchmark/);assert.doesNotMatch(comparison,/MCP/);
 });
 test('benchmark follow-up reference protects SWE rather than inheriting the MCP experiment',()=>{
   const {ProjectFactPacks}=require('../src/project-fact-packs');

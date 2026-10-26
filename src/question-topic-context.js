@@ -13,7 +13,7 @@ const GROUPS=[
 ];
 function reference(question,transcript=[]) {
   const q=stripAuditMarker(question);
-  if(!/这些|他们是什么|它们|(?:它|这个|这一层|你这个|他这个)|怎么融合|这两路|对照组|消融|骁龙实验|什么样的结构化|刚才|那个实验|哪些角色|哪些环节|关键词|(?:哪一个|复杂度).*(?:强|最高|多少)/.test(q))return '';
+  if(!/这些|他们是什么|它们|(?:它|这个|这一层|你这个|他这个)|怎么融合|这两路|对照组|对比过|消融|骁龙实验|什么样的结构化|刚才|那个实验|哪些角色|哪些环节|关键词|(?:哪一个|复杂度).*(?:强|最高|多少)/.test(q))return '';
   const prior=transcript.filter(t=>t.channel==='them').map(t=>stripAuditMarker(t.text)).filter(t=>t&&t!==q);
   const unique=[...new Set(prior.slice(-24))];
   const group=GROUPS.find(([,re])=>re.test(q)) || unique.slice().reverse().map(text=>GROUPS.find(([,re])=>re.test(text))).find(Boolean);
