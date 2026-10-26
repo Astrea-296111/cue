@@ -31,3 +31,5 @@
 
 - [同材料代码基线逐题对照](before-after-code.md)
 - [首轮268条中的152条逐条审阅](runs/oct26-full-final/full/codex-review.md)
+
+- [oct26-smoke-acceptance / smoke](runs/oct26-smoke-acceptance/smoke/report.md)
