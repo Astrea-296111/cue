@@ -35,3 +35,5 @@
 - [oct26-smoke-acceptance / smoke](runs/oct26-smoke-acceptance/smoke/report.md)
 
 - [oct26-latest-final / latest](runs/oct26-latest-final/latest/report.md)
+
+- [oct26-replay-canonical / replay](runs/oct26-replay-canonical/replay/report.md)
