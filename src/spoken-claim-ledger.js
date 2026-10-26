@@ -84,6 +84,8 @@ class SpokenClaimLedger {
       const unitCorrection = /百分点/.test(event.normalizedText) && claims.some(previous => previous.status==='affirmed'&&/%/.test(previous.text)&&overlaps(previous.projectIds,event.projectIds)&&previous.concepts.some(group=>groups.includes(group)));
       const explicitCorrection = CORRECTION.test(event.normalizedText) || unitCorrection || event.source==='user-correction';
       const claim = { id: 'spoken:' + event.eventId, eventIds: echo?[event.eventId,echo.eventId]:[event.eventId], revision: event.revision,
+        subject:event.projectIds.join(',')||'conversation', predicate:/没(?:有)?(?:测|跑)|未(?:测|跑)/.test(event.normalizedText)?'denied-local-experiment':'spoken-claim',
+        experimentId:require('./metric-index').matches(event.normalizedText,event.projectIds)[0]||groups.join(':'), topic:groups, timeRange:{startMs:event.startMs,endMs:event.endMs},
         projectIds: [...event.projectIds], text: event.normalizedText, rawText: event.rawText,
         numericClaims: numericClaims(event.normalizedText), concepts: groups,
         modality:speechModality, status: event.speaker === 'unknown' ? 'uncertain' : speechModality==='assertion'?'affirmed':speechModality,
@@ -157,7 +159,7 @@ class DialogueStore {
     if(Number.isFinite(input.at_ms)&&this.relativeOrigin===null) this.relativeOrigin=this.events.size?Math.max(...[...this.events.values()].map(event=>event.orderMs??event.startMs))+1-input.at_ms:0;
     const orderMs=previous?.orderMs ?? (Number.isFinite(input.at_ms)?this.relativeOrigin+input.at_ms:startMs);
     const event = { sessionId, eventId, speaker, channel: channel || (speaker === 'candidate' ? 'you' : speaker === 'interviewer' ? 'them' : null),
-      text, rawText, normalizedText: text, revision, isFinal, startMs, endMs, receivedAt,
+      text, rawText, normalizedText: text, normalization:require('./contextual-asr').normalize(rawText,input.contextText||this.ordered().slice(-4).map(e=>e.text).join('\n')), revision, isFinal, startMs, endMs, receivedAt,
       ingestOrder: previous?.ingestOrder ?? ++this.ingestOrder, orderMs,
       confidence: Number.isFinite(input.confidence) ? Math.max(0, Math.min(1, input.confidence)) : null,
       source: clean(input.source || input.sourceId) || 'manual',

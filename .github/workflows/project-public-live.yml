@@ -1,0 +1,86 @@
+name: Public project live evaluation
+run-name: Public CUE ${{ inputs.phase }} ${{ inputs.provider }}
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        type: choice
+        options: [smoke, full, baseline]
+        default: smoke
+      provider:
+        type: choice
+        options: [all, qwen, deepseek]
+        default: all
+      run_id:
+        description: Existing run ID resumes checkpoints; leave empty for a new run
+        type: string
+        default: ''
+permissions:
+  contents: write
+concurrency:
+  group: cue-public-evaluation
+  cancel-in-progress: false
+jobs:
+  public-live:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies without provider credentials
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
+        run: npm ci --registry=https://registry.npmjs.org --no-audit --no-fund
+      - name: Prepare frozen baseline for same-material comparison
+        if: inputs.phase == 'baseline'
+        run: |
+          git fetch --depth=1 origin da883000469bfb2cbf16582a3d802a2e65fe2f43
+          mkdir -p "$RUNNER_TEMP/cue-public-baseline"
+          git archive da883000469bfb2cbf16582a3d802a2e65fe2f43 | tar -x -C "$RUNNER_TEMP/cue-public-baseline"
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/cue-public-baseline/node_modules"
+      - name: Select bounded output directory
+        env:
+          REQUESTED_ID: ${{ inputs.run_id }}
+        run: |
+          test -z "$REQUESTED_ID" || [[ "$REQUESTED_ID" =~ ^[a-zA-Z0-9_-]{1,80}$ ]]
+          echo "PUBLIC_RUN_ID=${REQUESTED_ID:-public-$GITHUB_RUN_ID}" >> "$GITHUB_ENV"
+      - name: Run production generation and separate semantic judges
+        env:
+          PHASE: ${{ inputs.phase }}
+          PROVIDER: ${{ inputs.provider }}
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          QWEN_MODEL: ${{ vars.QWEN_MODEL || vars.QWEN_MODEL_ID }}
+          DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL || vars.DEEPSEEK_MODEL_ID }}
+          QWEN_BASE_URL: ${{ vars.QWEN_BASE_URL }}
+          DEEPSEEK_BASE_URL: ${{ vars.DEEPSEEK_BASE_URL }}
+        run: |
+          args=(--phase "$PHASE" --provider "$PROVIDER" --run-id "$PUBLIC_RUN_ID")
+          if [ "$PHASE" = baseline ]; then args+=(--target-root "$RUNNER_TEMP/cue-public-baseline"); fi
+          node scripts/eval-public.cjs "${args[@]}"
+      - name: Preserve plaintext successes and failures as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-evaluation-${{ github.run_id }}
+          path: evaluation/runs/
+          if-no-files-found: warn
+      - name: Commit small readable records to the public repository
+        if: always()
+        env:
+          PHASE: ${{ inputs.phase }}
+        run: |
+          if [ ! -d "evaluation/runs/$PUBLIC_RUN_ID" ]; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          printf '\n- [%s / %s](runs/%s/%s/report.md)\n' "$PUBLIC_RUN_ID" "$PHASE" "$PUBLIC_RUN_ID" "$PHASE" >> evaluation/index.md
+          git add "evaluation/runs/$PUBLIC_RUN_ID" evaluation/index.md
+          git diff --cached --quiet && exit 0
+          git commit -m "eval: publish plaintext $PUBLIC_RUN_ID $PHASE outcomes"
+          git pull --rebase origin main
+          git push origin HEAD:main

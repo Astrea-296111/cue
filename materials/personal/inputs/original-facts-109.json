@@ -1,0 +1,3419 @@
+{
+  "schemaVersion": 1,
+  "projects": [
+    {
+      "id": "arclight",
+      "name": "Arclight",
+      "aliases": [
+        "MewCode",
+        "mewcode"
+      ],
+      "sourceRepository": "Astrea-296111/Arclight"
+    },
+    {
+      "id": "cae",
+      "name": "CAE",
+      "aliases": [
+        "CAE-Platform",
+        "cae-platform",
+        "cae-job-platform",
+        "CAE仿真平台",
+        "仿真任务平台",
+        "CAE 仿真任务调度与结果管理平台"
+      ],
+      "sourceRepository": "Astrea-296111/cae-job-platform"
+    }
+  ],
+  "cards": [
+    {
+      "cardId": "cae.overview",
+      "projectId": "cae",
+      "docType": "overview",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/overview.md",
+      "text": "1. 这个项目解决科室共享计算资源下的提交分散、状态失联和报告整理成本。我担任后端开发，同时学习 HyperMesh 建模到 OptiStruct 求解的业务流程。\n\n2. 我的主线是把模型、工况、输入版本、Job、Execution 和结果串起来，用统一提交、资源预占、幂等与对账保证执行可追踪。\n\n3. 结果价值用受理延迟、重复执行、恢复收敛和报告整理时间衡量。公开仓库用 MockSolver 展示控制面；实际业务背景是 Altair 工具链。",
+      "keywords": [
+        "整体介绍",
+        "项目背景",
+        "做什么",
+        "介绍一下",
+        "整体链路"
+      ],
+      "related": [
+        "cae.ownership"
+      ],
+      "sources": [
+        {
+          "path": "facts/cae/overview.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "bf0e45f5b63e5164cf1c242f4370c1e0763346af80d9c571ab03d22e93f36c36"
+        }
+      ],
+      "facts": [],
+      "question": "请介绍 CAE 项目。"
+    },
+    {
+      "cardId": "cae.business",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/business.md",
+      "text": "1. 后端接口必须理解工程对象。我需要知道模型、材料、边界条件、工况、Subcase 和求解输入分别是什么，否则很容易把不同工况的结果拼在一起。\n\n2. HyperMesh 负责模型前处理，OptiStruct 执行求解，后处理再解释位移、应力或模态等结果；平台承担提交、资源、版本与资产管理。\n\n3. 我的学习目标是把工程流程映射为可靠的数据契约；网格质量和结果物理合理性由 CAE 专业人员验收。",
+      "keywords": [
+        "建模流程",
+        "HyperMesh",
+        "OptiStruct",
+        "学习CAE",
+        "业务理解",
+        "为什么后端",
+        "学习",
+        "建模",
+        "后端开发",
+        "为什么学"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/business.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "09407f326f9802ef34401902af7c76fa1ee2ce32596839ccff7c62f5e18fa684"
+        }
+      ],
+      "facts": [],
+      "question": "为什么后端开发还要学习 CAE 建模？"
+    },
+    {
+      "cardId": "cae.ownership",
+      "projectId": "cae",
+      "docType": "ownership",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ownership.md",
+      "text": "1. 团队共六人，我负责核心 Java 后端：统一提交与批量编排、Job/Execution、资源账本、Outbox、执行对账、输入治理和报告元数据。\n\n2. Python 同事负责节点执行与后处理，我定义 submit/query/cancel 接口、执行身份、状态和失败语义，并牵头后端与执行端联调。\n\n3. 我的交付围绕三个不变量验收：同一执行身份不重复启动、不确定状态不提前释放资源、结果始终绑定正确输入版本与工况。",
+      "keywords": [
+        "个人负责",
+        "职责",
+        "个人贡献",
+        "核心后端",
+        "自己做",
+        "本人"
+      ],
+      "related": [
+        "cae.collaboration"
+      ],
+      "sources": [
+        {
+          "path": "facts/cae/ownership.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "b6b726f382e57f6bcd9c06eee3bb9767f5de20d20679994601dfb5fe89d77522"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 中你个人负责什么？"
+    },
+    {
+      "cardId": "cae.collaboration",
+      "projectId": "cae",
+      "docType": "collaboration",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/collaboration.md",
+      "text": "1. 团队共六人：负责人兼 CAE 专家、我负责核心 Java 后端、Python 执行与后处理、前端、测试、运维兼计算资源支持，各一人。\n\n2. 专家确定工程规则和验收标准；我负责后端控制面及跨语言契约；Python 同事负责求解适配和产物；前端负责操作台，测试与运维负责质量和运行环境。\n\n3. 联调用同一 executionId 串起输入摘要、工况、单位、状态和错误码。接口先明确成功、失败与不确定三类结果，再用共同样例和故障注入验收。",
+      "keywords": [
+        "团队分工",
+        "六个人",
+        "6个人",
+        "协作",
+        "联调",
+        "团队人数",
+        "几个人",
+        "多少人",
+        "人数",
+        "六人",
+        "6人",
+        "几人",
+        "人员配置"
+      ],
+      "related": [
+        "cae.ownership"
+      ],
+      "sources": [
+        {
+          "path": "facts/cae/collaboration.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "22c9232adf2cca524e53f7e7b10ce3d3c2b7122d133fc3ca42588a203bb3f5f3"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 团队如何分工和联调？"
+    },
+    {
+      "cardId": "cae.timeline",
+      "projectId": "cae",
+      "docType": "overview",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/timeline.md",
+      "text": "1. 项目从 2024 年 12 月推进到 2025 年 4 月。12 月先跟随 CAE 专家走通 HyperMesh、OptiStruct 和后处理流程，梳理模型、工况、输入与结果身份，完成统一提交原型。\n\n2. 2025 年 1—2 月重点做批量编排、资源预占和执行恢复。AI 编码工具前期使用 VS Code 通义灵码，2025 年 1 月之后转向 Trae IDE。\n\n3. 3 月处理 INCLUDE 依赖、输入快照和故障回归；4 月打通解析、报告版本、人工审核与验收，把执行可靠性延伸到结果交付。",
+      "keywords": [
+        "时间线",
+        "开发周期",
+        "几个月",
+        "推进过程",
+        "项目过程"
+      ],
+      "related": [
+        "cae.ai-tools"
+      ],
+      "sources": [
+        {
+          "path": "facts/cae/timeline.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "75fe4aa9b62b1ff83654db165d96a850a2aba08f89ca046bbd57c6295506c7dd"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目开发节奏和工具时间线是什么？"
+    },
+    {
+      "cardId": "cae.ai-tools",
+      "projectId": "cae",
+      "docType": "overview",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-tools.md",
+      "text": "1. 2024 年 12 月到 2025 年 1 月，我使用 VS Code 中的通义灵码插件；2025 年 1 月之后转向 Trae IDE。AI 主要帮助生成接口、样板代码、测试草稿和局部补丁。\n\n2. 每次先提供业务目标、相关文件、接口契约和验收条件，让 AI 解释修改计划，再生成可审查的小改动。\n\n3. 状态机、事务、执行幂等和权限检查由我把关，交付以实际 diff 和测试结果为准。工具名称会变化，需求约束、代码审查和验收这套方法保持一致。",
+      "keywords": [
+        "通义灵码",
+        "Trae",
+        "灵码插件",
+        "用什么AI",
+        "使用工具",
+        "vscode"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-tools.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "b9b44857df904d0b5abaf27cac3699317b25365ef7f3f78485e77dc746c797b7"
+        }
+      ],
+      "facts": [],
+      "question": "当时用什么 AI Coding 工具，如何使用？"
+    },
+    {
+      "cardId": "cae.boundary",
+      "projectId": "cae",
+      "docType": "limitation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/boundary.md",
+      "text": "1. 公开仓库验证调度与控制面：独立 MockSolver、合成输入、Matplotlib 图和 python-pptx 报告都可以用于演示调用链。\n\n2. 接入商业工具时替换 SolverAdapter、HyperViewAdapter 和调度器适配层，保留执行身份、取消查询、不可变产物与审核契约。\n\n3. OptiStruct 是结构求解器；平台面向多类分析不表示碰撞、CFD 都由 OptiStruct 求解。专业结果需要相应求解器和工程校核。",
+      "keywords": [
+        "公开复现",
+        "真实系统",
+        "MockSolver",
+        "商业求解器",
+        "碰撞",
+        "CFD",
+        "公开仓库",
+        "公司的",
+        "系统是什么关系",
+        "商业软件",
+        "公开版",
+        "HyperMesh",
+        "OptiStruct"
+      ],
+      "related": [
+        "cae.business"
+      ],
+      "sources": [
+        {
+          "path": "docs/real-system-mapping.md",
+          "symbol": "Public adapters",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "公开仓库与公司的 HyperMesh、OptiStruct 系统是什么关系？"
+    },
+    {
+      "cardId": "cae.architecture",
+      "projectId": "cae",
+      "docType": "overview",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/architecture.md",
+      "text": "1. Vue 通过 Nginx 访问 Java 后端；MySQL 保存业务事实，RabbitMQ 传命令，Python 节点 Agent 启动求解进程，共享文件系统保存输入与产物。\n\n2. Redis 加速已鉴权的查询和观测，不承担资源分配真相；控制面状态、执行 attempt、资源账本与事件在 MySQL 中协调。\n\n3. 解析与后处理绑定输入、执行和版本，SSE 通知已提交事件后前端重新查询权威结果。",
+      "keywords": [
+        "整体架构",
+        "组件分工",
+        "技术架构",
+        "数据流",
+        "架构",
+        "架构如何分工",
+        "架构分工"
+      ],
+      "related": [
+        "cae.resources"
+      ],
+      "sources": [
+        {
+          "path": "docs/architecture.md",
+          "symbol": "Architecture",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 整体架构如何分工？"
+    },
+    {
+      "cardId": "cae.monolith",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/monolith.md",
+      "text": "1. 当前最重要的是让状态、资源和事件保持清晰的事务边界。模块化单体降低部署、调用和分布式事务的复杂度。\n\n2. 代码按提交、状态、资源、消息与报告划分责任，节点执行和专业脚本仍通过协议解耦，避免把所有逻辑塞进一个 Service。\n\n3. 若未来规模和团队边界需要拆分，再沿清晰契约迁出模块；提前拆服务会先增加维护成本，并不能自动提高可靠性。",
+      "keywords": [
+        "微服务",
+        "模块化单体",
+        "为什么单体",
+        "拆服务",
+        "技术选型"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "docs/adr/ADR-001-modular-monolith.md",
+          "symbol": "Decision",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "为什么采用模块化单体，而不是微服务？"
+    },
+    {
+      "cardId": "cae.jdbc",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/jdbc.md",
+      "text": "1. 公开实现用 JdbcTemplate 和显式 SQL，便于审查条件更新、行锁、版本检查及事务边界。\n\n2. 这里的取舍是关键并发语义清楚可见；MyBatis 也能实现同样机制，正确性来自 SQL 与事务设计。\n\n3. 面对岗位的 MyBatis 追问，我可以说明参数绑定、动态 SQL 和 Mapper 组织，但不会把公开项目的持久层说成 MyBatis。",
+      "keywords": [
+        "JdbcTemplate",
+        "MyBatis",
+        "持久层",
+        "显式SQL"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "docs/adr/ADR-006-explicit-sql-persistence.md",
+          "symbol": "Decision",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "为什么用 JdbcTemplate，不用 MyBatis？"
+    },
+    {
+      "cardId": "cae.rabbit-choice",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/rabbit-choice.md",
+      "text": "1. 这里主要传执行命令，关注路由、消费确认、重试和死信处理；RabbitMQ 与当前任务队列模型匹配。\n\n2. 业务状态与 Outbox 同事务提交，Broker confirm 与消费 ACK 分别处理交付环节；Broker 本身不保证进程副作用只执行一次。\n\n3. 改用 Kafka 时仍要设计 key、分区顺序、offset 与数据库提交关系、失败隔离及幂等，不能只替换客户端。",
+      "keywords": [
+        "RabbitMQ选型",
+        "Kafka",
+        "为什么MQ",
+        "消息队列选型"
+      ],
+      "related": [
+        "cae.outbox"
+      ],
+      "sources": [
+        {
+          "path": "docs/mq-and-outbox.md",
+          "symbol": "消息格式和两个 ID",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "为什么用 RabbitMQ，能否改用 Kafka？"
+    },
+    {
+      "cardId": "cae.job-execution",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/job-execution.md",
+      "text": "1. Job 表示业务任务，Execution 表示一次实际执行尝试。一个业务任务可能重跑，但一次网络重试仍应指向同一执行。\n\n2. 执行身份、attempt、输入快照和远端进程绑定；业务状态还要覆盖解析、后处理和报告，因此 Solver 成功不能直接判 Job 成功。\n\n3. 这样才能拒绝旧 attempt 的迟到回调，也能在断联后恢复原执行，避免用重建任务掩盖不确定状态。",
+      "keywords": [
+        "Job和Execution",
+        "Job/Execution",
+        "attempt",
+        "拆分",
+        "执行身份"
+      ],
+      "related": [
+        "cae.state"
+      ],
+      "sources": [
+        {
+          "path": "docs/domain-model.md",
+          "symbol": "Job",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "为什么拆分 Job 和 Execution？"
+    },
+    {
+      "cardId": "cae.state",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/state.md",
+      "text": "1. MySQL 更新同时校验观察到的 status 与 version，业务状态、事件和 Outbox 在同一事务提交。\n\n2. 重复当前状态幂等，终态不接受迟到 RUNNING；远端状态应用还要检查执行身份，旧 attempt 不能覆盖新尝试。\n\n3. 测试要覆盖完成先于取消、延迟回调、重复回调和并发更新，而不只是把状态枚举列出来。",
+      "keywords": [
+        "状态机",
+        "状态乱序",
+        "迟到回调",
+        "version",
+        "CAS",
+        "终态"
+      ],
+      "related": [
+        "cae.cancel"
+      ],
+      "sources": [
+        {
+          "path": "docs/state-machine.md",
+          "symbol": "Persistence",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "状态机如何避免乱序回调和重复更新？"
+    },
+    {
+      "cardId": "cae.outbox",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/outbox.md",
+      "text": "1. 业务事务同时写状态、事件和 Outbox，避免数据库成功而消息意图丢失；发布器再按租约获取待投递事件。\n\n2. Broker confirm 后标记交付，但确认丢失仍可能重发，因此系统按至少一次交付设计。\n\n3. 逻辑 eventId 用于业务去重，deliveryId 表示某次物理投递；下游要保留执行身份和幂等，不能把 confirm 等同端到端 exactly-once。",
+      "keywords": [
+        "Outbox",
+        "事务消息",
+        "消息丢失",
+        "confirm",
+        "数据库与消息"
+      ],
+      "related": [
+        "cae.inbox"
+      ],
+      "sources": [
+        {
+          "path": "docs/mq-and-outbox.md",
+          "symbol": "消息格式和两个 ID",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "事务 Outbox 解决什么问题？"
+    },
+    {
+      "cardId": "cae.inbox",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/inbox.md",
+      "text": "1. 消费者以逻辑 eventId 与 consumer 的唯一键识别重复事件，避免只按物理 deliveryId 去重。\n\n2. 需要延迟重试时，重投意图与 Inbox RETRY 状态一起持久化后才 ACK；重试仍保留原逻辑事件和执行身份。\n\n3. 数据库回滚就不能提前确认消息；死信用于暴露无法自动恢复的错误，不能把失败无限循环藏起来。",
+      "keywords": [
+        "Inbox",
+        "ACK",
+        "ack",
+        "消费幂等",
+        "死信",
+        "消息重试"
+      ],
+      "related": [
+        "cae.idempotency"
+      ],
+      "sources": [
+        {
+          "path": "docs/mq-and-outbox.md",
+          "symbol": "Inbox",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "消费重试和 ACK 怎样配合？"
+    },
+    {
+      "cardId": "cae.idempotency",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/idempotency.md",
+      "text": "1. Worker 先在 SQLite 中持久 claim 执行身份，再启动进程，重复请求返回同一个执行结果；请求指纹还要防止同 key 不同参数。\n\n2. 500 次同身份重放验证的是这个受控路径。进程启动后、PID 和创建时间写入前仍有崩溃窗口，需要识别与对账。\n\n3. 保证要按失败窗口陈述：消息去重、业务幂等和外部进程副作用是不同层，有限重放测试不能证明任意故障下 exactly-once。",
+      "keywords": [
+        "幂等提交",
+        "重复进程",
+        "重放",
+        "进程幂等",
+        "exactly-once"
+      ],
+      "related": [
+        "cae.recovery"
+      ],
+      "sources": [
+        {
+          "path": "worker/agents/execution_manager.py",
+          "symbol": "submit",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "同一个执行重放如何避免重复启动进程？"
+    },
+    {
+      "cardId": "cae.recovery",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/recovery.md",
+      "text": "1. 我处理过 Worker 已接单但 HTTP 响应丢失的场景。关键判断是远端执行可能已发生，通信失败不能直接触发新 attempt，否则会重复求解。\n\n2. 我负责后端保留原 Execution 与资源、按原请求身份查询，并在更新时校验版本和租约；Python 同事提供持久登记与 query/cancel，测试注入丢响应、断联和回调遗漏。\n\n3. 验收采用 500 次同身份重放和 30 轮恢复用例：额外进程为 0，恢复条件就绪到状态收敛 P95 为 12.6 秒。进程启动到 PID 登记之间的崩溃窗口另外验证。",
+      "keywords": [
+        "响应丢失",
+        "提交超时",
+        "提交结果不确定",
+        "失联",
+        "对账",
+        "恢复",
+        "超时",
+        "直接重跑",
+        "超时之后",
+        "结果不确定",
+        "响应",
+        "重跑"
+      ],
+      "related": [
+        "cae.resources"
+      ],
+      "sources": [
+        {
+          "path": "facts/cae/recovery.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "db43949cb9a2054167293ebc034702eaef0ebebfbf91fc8fbe597495649261eb"
+        }
+      ],
+      "facts": [],
+      "question": "提交成功但响应丢失，如何恢复？"
+    },
+    {
+      "cardId": "cae.cancel",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/cancel.md",
+      "text": "1. 先持久化取消意图，再调用远端；调用失败时保留意图，恢复后继续处理，不靠一次 RPC 决定最终状态。\n\n2. 回调、轮询和取消结果汇合到 RemoteExecutionStateService，校验当前执行与终态规则；任务完成可能先胜出。\n\n3. 只有确认远端停止或进入可释放终态才释放资源，避免界面显示已取消却仍有求解进程占用资源。",
+      "keywords": [
+        "取消",
+        "cancel",
+        "完成竞态",
+        "取消失败"
+      ],
+      "related": [
+        "cae.state"
+      ],
+      "sources": [
+        {
+          "path": "docs/monitoring-reconciliation.md",
+          "symbol": "RemoteExecutionStateService",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "取消与完成并发发生怎么办？"
+    },
+    {
+      "cardId": "cae.resources",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/resources.md",
+      "text": "1. 资源准入以 MySQL 为账本，在事务中检查 CPU、内存和 License，并写资源预占记录；关键更新要有容量条件。\n\n2. 并发流程采用一致的锁顺序，重复释放也要幂等；Redis 和心跳只是观测与加速，不能替代这个事务约束。\n\n3. UNKNOWN 保留预占，牺牲短期利用率换取不确定状态下不超卖；对账确认终态后再回收。",
+      "keywords": [
+        "资源预占",
+        "资源超卖",
+        "License",
+        "CPU",
+        "内存",
+        "UNKNOWN",
+        "超卖",
+        "资源不够",
+        "资源不足",
+        "资源分配"
+      ],
+      "related": [
+        "cae.recovery"
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/example/cae/resource/ResourceReservationService.java",
+          "symbol": "ResourceReservationService",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "CPU、内存和 License 如何避免超卖？"
+    },
+    {
+      "cardId": "cae.redis",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/redis.md",
+      "text": "1. MySQL 持有业务状态与资源账本，Redis 用于查询快照和观测加速；缓存命中也不能跳过权限检查。\n\n2. 缓存失效时应回源权威存储，并限制回源并发和热点放大；不能把 Redis 空值解释为节点资源空闲。\n\n3. 状态变化后的缓存失效与版本控制要按查询一致性需求设计，调度正确性依靠数据库事务和执行对账。",
+      "keywords": [
+        "Redis宕机",
+        "缓存一致性",
+        "缓存穿透",
+        "回源",
+        "缓存作用"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/example/cae/job/application/JobQueryCache.java",
+          "symbol": "JobQueryCache",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "Redis 宕机影响调度正确性吗？"
+    },
+    {
+      "cardId": "cae.input-snapshot",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/input-snapshot.md",
+      "text": "1. 只记录主 deck 路径不够，INCLUDE 依赖会因路径迁移或修改失效；预检需要检查依赖完整性、越界和循环。\n\n2. InputSnapshotService 校对 manifest 与真实依赖图，计算校验和，复制后再次验字节，并发布独立输入版本。\n\n3. 执行与结果绑定这份输入身份，才能复现同一工况；快照解决的是版本与路径契约，工程模型是否合理仍需专业校核。",
+      "keywords": [
+        "INCLUDE",
+        "输入快照",
+        "路径迁移",
+        "输入治理",
+        "依赖图",
+        "预检",
+        "快照",
+        "为什么要做"
+      ],
+      "related": [
+        "cae.path-safety"
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/example/cae/job/validation/InputSnapshotService.java",
+          "symbol": "InputSnapshotService",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "为什么要做 INCLUDE 预检和输入快照？"
+    },
+    {
+      "cardId": "cae.path-safety",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/path-safety.md",
+      "text": "1. 需要限制根目录、拒绝绝对路径和非法片段，再处理规范化后的实际路径与符号链接；字符串过滤无法覆盖所有逃逸形式。\n\n2. 快照流程还要防止校验后源文件改变：校验 manifest、复制后哈希复核、校对依赖，再发布最终版本。\n\n3. 多进程恶意并发修改下仍要审视 TOCTOU 窗口；更强保证要结合受限目录权限、文件句柄与原子操作，不能只靠一次路径检查。",
+      "keywords": [
+        "目录穿越",
+        "符号链接",
+        "TOCTOU",
+        "路径安全",
+        "越界",
+        "路径校验",
+        "两个点",
+        "路径",
+        "为什么不能只"
+      ],
+      "related": [
+        "cae.input-snapshot"
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/example/cae/job/validation/InputSnapshotService.java",
+          "symbol": "contained",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "路径校验为什么不能只判断是否包含两个点？"
+    },
+    {
+      "cardId": "cae.reports",
+      "projectId": "cae",
+      "docType": "performance",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/reports.md",
+      "text": "1. 指标、图片和报告绑定输入快照、Execution、parser 版本、condition 和 Subcase，避免只按任务名拼文件。\n\n2. 冻结 render specification，产物不可变发布并登记 manifest、字节和 SHA；下载再验证注册身份。\n\n3. 报告生成之后还有 Lead review/Admin approval，生成了 PPTX 不代表工程结论自动通过审核。",
+      "keywords": [
+        "报告一致性",
+        "Subcase",
+        "单位",
+        "parser版本",
+        "报告元数据",
+        "报告",
+        "图片",
+        "指标与图片",
+        "同一次工况",
+        "保证指标"
+      ],
+      "related": [
+        "cae.report-retry"
+      ],
+      "sources": [
+        {
+          "path": "docs/post-and-reports.md",
+          "symbol": "reports",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "报告如何保证指标与图片来自同一次工况？"
+    },
+    {
+      "cardId": "cae.report-retry",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/report-retry.md",
+      "text": "1. 失败阶段与执行阶段分开：已有成功求解结果时，重试解析、渲染或报告就复用原执行与输入身份。\n\n2. 新的 parser 或渲染规格产生独立版本，不能覆盖旧产物；同时保持错误原因和重试次数可追踪。\n\n3. 这样既节省昂贵计算资源，也避免重跑得到不同输入版本后把结果误当同一次实验。",
+      "keywords": [
+        "报告失败",
+        "阶段重试",
+        "后处理失败",
+        "重新求解"
+      ],
+      "related": [
+        "cae.reports"
+      ],
+      "sources": [
+        {
+          "path": "docs/post-and-reports.md",
+          "symbol": "Retry",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "后处理失败为什么不重新跑 Solver？"
+    },
+    {
+      "cardId": "cae.auth",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/auth.md",
+      "text": "1. ProjectAccess 在服务端校验项目存在性和成员关系；任务操作进一步使用 requireJob、requireOwner 或 requireLead 等权限条件。\n\n2. 页面隐藏按钮只改善体验，不能替代服务端校验；列表、详情、下载和写操作都应分别检查资源归属。\n\n3. 向基础安全岗位延伸时，可以继续讨论租户上下文与策略版本，但当前项目的角色/项目成员控制不能直接称为成熟权限中台。",
+      "keywords": [
+        "越权",
+        "RBAC",
+        "项目成员",
+        "鉴权",
+        "任务权限",
+        "报告下载",
+        "访问别人的",
+        "防止用户",
+        "用户访问",
+        "任务与报告",
+        "资源归属"
+      ],
+      "related": [
+        "cae.security-kms"
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/example/cae/auth/ProjectAccess.java",
+          "symbol": "ProjectAccess",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "如何防止用户访问别人的任务与报告？"
+    },
+    {
+      "cardId": "cae.frontend",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/frontend.md",
+      "text": "1. SSE 传已提交事件，提示哪些业务对象发生变化；前端再 GET 获取权限检查后的完整权威结果。\n\n2. 这样可以避免把通知到达顺序当作状态真相，断线重连后也可通过重新查询收敛。\n\n3. 写权限仍在后端校验，前端展示和连接状态不能决定取消、审核或资源管理是否获准。",
+      "keywords": [
+        "SSE",
+        "前端",
+        "Vue",
+        "通知",
+        "重新GET",
+        "GET",
+        "收到",
+        "前端为什么"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "docs/frontend.md",
+          "symbol": "SSE",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "前端为什么收到 SSE 后还要 GET？"
+    },
+    {
+      "cardId": "cae.performance",
+      "projectId": "cae",
+      "docType": "performance",
+      "truthScope": "test_only",
+      "status": "verified",
+      "provenance": "LOCAL-BENCH",
+      "path": "cards/cae/performance.md",
+      "text": "1. 公开 benchmark 是独立复现环境：100 子任务批次完成约 98.583 秒，API 接受只有一个样本，资源配额和 MockSolver 都明确限定。\n\n2. 简历的 5 并发、50 Case、300 批次 P95=281ms 属于另一种受理口径；单样本无法计算这个 P95。\n\n3. 比较性能必须先统一工作负载、计时边界和环境，再讨论优化效果；控制面受理时间也不等于求解完成时间。",
+      "keywords": [
+        "公开压测",
+        "benchmark",
+        "98.583",
+        "性能数据对比"
+      ],
+      "related": [
+        "cae.metric-batch"
+      ],
+      "sources": [
+        {
+          "path": "docs/benchmark.md",
+          "symbol": "实际测量",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "公开仓库压测和简历指标可以直接比较吗？"
+    },
+    {
+      "cardId": "cae.metric-batch",
+      "projectId": "cae",
+      "docType": "performance",
+      "truthScope": "test_only",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/metric-batch.md",
+      "text": "1. 测的是批次受理延迟：5 个并发客户端，每批 50 个 Case，预热 20 批后统计 300 批；计时从发请求到批次意图持久受理并返回，不等待求解完成。\n\n2. 按最近秩计算 P95，300 个样本排序后取第 285 个，结果为 281ms。300×50 对应 15000 个子任务意图，实际执行由资源准入控制。\n\n3. 测试固定 API、数据库和 Worker 资源，记录失败、超时及客户端耗时；受理性能、排队时间和求解耗时分别观察，才能定位瓶颈。",
+      "keywords": [
+        "281",
+        "300批次",
+        "受理耗时",
+        "批次P95",
+        "50个Case"
+      ],
+      "related": [
+        "cae.batch-design"
+      ],
+      "sources": [
+        {
+          "path": "facts/cae/metric-batch.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "cacede86ad08656d966e7e2ec8434eab5328cdb59bf92d48f43c378105773165"
+        }
+      ],
+      "facts": [],
+      "question": "281ms 的 P95 是怎么测出来的？"
+    },
+    {
+      "cardId": "cae.batch-design",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/cae/batch-design.md",
+      "text": "1. BatchService 先持久化批次意图和子项，并以提交者、幂等键及规范化指纹识别重复请求。\n\n2. 受理与实际准入分开，后续有限批量喂给调度；CPU、内存和 License 约束决定运行数量。\n\n3. 请求体大小、待处理队列与公平准入共同控制背压；5000 个待排任务不应该变成 5000 个同步远程调用。",
+      "keywords": [
+        "批量编排",
+        "背压",
+        "公平调度",
+        "大量Case",
+        "批次提交"
+      ],
+      "related": [
+        "cae.resources"
+      ],
+      "sources": [
+        {
+          "path": "backend/src/main/java/com/example/cae/batch/BatchService.java",
+          "symbol": "create",
+          "commit": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+        }
+      ],
+      "facts": [],
+      "question": "大量 Case 如何避免一次提交压垮系统？"
+    },
+    {
+      "cardId": "cae.metric-replay",
+      "projectId": "cae",
+      "docType": "performance",
+      "truthScope": "test_only",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/metric-replay.md",
+      "text": "1. 先建立一个执行身份，再使用相同身份与相同请求指纹重放 500 次，返回值必须指向原有执行。\n\n2. 结果是额外求解进程为 0。验收同时核对持久执行登记、启动次数、PID 与进程创建时间，避免只看 HTTP 成功就认定幂等成立。\n\n3. 同 key 不同参数必须拒绝；并发重放和启动后登记前崩溃单列测试。幂等承诺绑定身份、持久化与故障边界。",
+      "keywords": [
+        "500",
+        "重放测试",
+        "零新增进程",
+        "幂等怎么测"
+      ],
+      "related": [
+        "cae.idempotency"
+      ],
+      "sources": [
+        {
+          "path": "facts/cae/metric-replay.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "6b17107aedc65ff4c28ab06bee927261d6e11922602eb612a61676a988a6d5f9"
+        }
+      ],
+      "facts": [],
+      "question": "500 次重放零新增进程怎么证明？"
+    },
+    {
+      "cardId": "cae.metric-recovery",
+      "projectId": "cae",
+      "docType": "performance",
+      "truthScope": "test_only",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/metric-recovery.md",
+      "text": "1. 恢复集共 30 轮，响应丢失、网络不可达、回调遗漏各 10 轮。起点是故障解除、恢复条件就绪，终点是后端与执行端状态收敛。\n\n2. 采用最近秩 P95，排序后取第 29 个样本，得到 12.6 秒；样本最大值为 14.1 秒，同时保留每轮的故障类型与超时情况。\n\n3. 这个指标衡量恢复后的收敛能力。故障持续时间单独记录，便于区分外部恢复条件和平台对账效率。",
+      "keywords": [
+        "12.6",
+        "30轮",
+        "恢复条件",
+        "恢复P95",
+        "故障测试"
+      ],
+      "related": [
+        "cae.recovery"
+      ],
+      "sources": [
+        {
+          "path": "facts/cae/metric-recovery.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "0d155d04aec15b5a19fb4d91c1590bfe1f19dcd993b2757d11a3bb8426df5985"
+        }
+      ],
+      "facts": [],
+      "question": "12.6 秒恢复是从哪一刻开始算？"
+    },
+    {
+      "cardId": "cae.metric-input",
+      "projectId": "cae",
+      "docType": "performance",
+      "truthScope": "test_only",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/metric-input.md",
+      "text": "1. 回归集共 120 组，46 组缺陷、74 组合规；缺陷包括缺依赖 14、路径越界 9、循环依赖 7、校验和错误 6、工况不匹配 5、版本不匹配 5。\n\n2. 在这组样本上 TP=46、FN=0、FP=0、TN=74，缺陷均被拦截，合规输入均被接受。标签由规格和工程样例确定。\n\n3. 验收同时检查拒绝原因和错误定位。新增输入类型继续进入回归集，执行前仍校验指纹，覆盖预检之后输入发生变化的情况。",
+      "keywords": [
+        "120",
+        "46",
+        "74",
+        "输入回归",
+        "误拦",
+        "缺陷拦截"
+      ],
+      "related": [
+        "cae.input-snapshot"
+      ],
+      "sources": [
+        {
+          "path": "facts/cae/metric-input.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "ee54ee58237325713089fdd3e77f20fba1146d7a0e4aa05c6445a0edcee24bab"
+        }
+      ],
+      "facts": [],
+      "question": "120 组输入的正确率如何解释？"
+    },
+    {
+      "cardId": "cae.metric-report",
+      "projectId": "cae",
+      "docType": "performance",
+      "truthScope": "test_only",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/metric-report.md",
+      "text": "1. 取 30 组报告配对比较，保持内容、人工校核和审核要求一致。原手工整理总计 1852.5 分钟，平台辅助后为 439.0425 分钟。\n\n2. 按总耗时计算：(1852.5−439.0425)/1852.5=76.3%。这是人工整理环节的总量降幅，各组报告的改善幅度并不相同。\n\n3. 辅助后的时间仍包含人工检查和修订；求解计算时间单独统计。收益来自数据提取、图片整理、版本核对和模板组装自动化。",
+      "keywords": [
+        "76.3",
+        "30组报告",
+        "报告提效",
+        "人工整理",
+        "节省时间"
+      ],
+      "related": [
+        "cae.reports"
+      ],
+      "sources": [
+        {
+          "path": "facts/cae/metric-report.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "499d0e759f148e49da4b8d00dd3108765258040f801a44c8653b4a647e775d33"
+        }
+      ],
+      "facts": [],
+      "question": "报告人工耗时减少 76.3% 怎么算？"
+    },
+    {
+      "cardId": "cae.challenge-input",
+      "projectId": "cae",
+      "docType": "challenge",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/challenge-input.md",
+      "text": "1. 一个难点是模型迁到共享目录后 INCLUDE 路径失效，旧依赖又可能被同名新文件覆盖。我把问题从“修路径”提升为“固定一次执行的完整输入身份”。\n\n2. 我用主 deck、依赖清单和文件哈希定位差异，再串起预检、快照与执行身份；CAE 专家核对工况，Python 同事从固定快照执行。\n\n3. 测试建立 120 组回归，覆盖缺依赖、循环、越界和合规输入，并检查执行前指纹。这样从输入受理到实际求解都有可追踪的版本依据。",
+      "keywords": [
+        "最大困难",
+        "业务难点",
+        "输入错误",
+        "路径变化",
+        "当时怎么排查",
+        "最难",
+        "业务问题",
+        "怎样解决"
+      ],
+      "related": [
+        "cae.input-snapshot"
+      ],
+      "sources": [
+        {
+          "path": "facts/cae/challenge-input.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "4f2eb497151870245d66e74cba03814f7a2d3115e46bdaa71bb48bdd82cc9824"
+        }
+      ],
+      "facts": [],
+      "question": "最难的业务问题是什么，怎样解决？"
+    },
+    {
+      "cardId": "cae.security-kms",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "hypothetical",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/security-kms.md",
+      "text": "1. 我会先把租户身份贯穿请求、资源、查询条件和审计，再定义角色、资源与动作的授权矩阵；不能信任客户端传来的 tenantId。\n\n2. 敏感产物可用数据密钥加密、KMS 中的主密钥封装数据密钥，并保留密钥版本、轮换与重加密策略。\n\n3. 鉴权缓存的 key 要包含租户、主体、资源、动作及策略版本；故障时区分风险，写入和敏感读取优先拒绝，不能全局 fail-open。",
+      "keywords": [
+        "租户",
+        "KMS",
+        "信封加密",
+        "权限中台",
+        "TBAC",
+        "鉴权SDK"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/security-kms.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "d4b7e5c47e657291d31e5425ae83a2d55afb746a851dc91e69db79648d56af89"
+        }
+      ],
+      "facts": [],
+      "question": "把 CAE 扩展成多租户权限平台，你会怎么做？"
+    },
+    {
+      "cardId": "arclight.overview",
+      "projectId": "arclight",
+      "docType": "overview",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/overview.md",
+      "text": "1. Arclight 是我独立推进的终端 Coding Agent 项目，目标是完整掌握模型、工具、上下文、执行控制和验证之间的闭环。\n\n2. 系统用 Python/asyncio 串联模型流式响应、工具校验与执行；再用上下文预算、MCP/Skills、子代理和会话恢复支持长任务。\n\n3. 我用 Codex 辅助编码，把主要精力放在机制理解、边界设计和效果验证。项目价值是能直接修改运行机制并分析失败，而不只是调用聊天接口。",
+      "keywords": [
+        "介绍一下",
+        "项目背景",
+        "为什么做",
+        "整体介绍",
+        "学习Agent"
+      ],
+      "related": [
+        "arclight.ownership"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/overview.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "7d5d185117a2860cbeee2e0657b697c62fcd33ec6feedcc1c08abdbc742c0b4e"
+        }
+      ],
+      "facts": [],
+      "question": "请介绍 Arclight 项目。"
+    },
+    {
+      "cardId": "arclight.ownership",
+      "projectId": "arclight",
+      "docType": "ownership",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ownership.md",
+      "text": "1. Arclight 是我独立推进的个人项目，我负责需求拆解、模块组织、集成调试、测试和验收，Codex 辅助代码生成与问题分析。\n\n2. 我的工作重点是掌握并能修改 Agent Loop、工具执行、上下文预算、按需工具加载、子代理协作与会话恢复，并把这些机制组合成可运行流程。\n\n3. 技术贡献通过具体设计取舍、代码修改、失败定位和评测结果说明；复用部分保留来源，我对最终集成和运行行为负责。",
+      "keywords": [
+        "独立开发",
+        "个人贡献",
+        "负责",
+        "原创",
+        "AI写的",
+        "你做"
+      ],
+      "related": [
+        "arclight.origin"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/ownership.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "57c9f7af09f627e880e09f2747d49b7c223f75c545e3b418fca121ae135f35bf"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 是你独立做的吗，AI 写代码后你的贡献在哪？"
+    },
+    {
+      "cardId": "arclight.collaboration",
+      "projectId": "arclight",
+      "docType": "collaboration",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/collaboration.md",
+      "text": "1. 真人开发者只有我一个人。项目里的探索、规划、验证等角色是 Agent 任务分工，开发协作围绕我与 Codex 辅助工具展开。\n\n2. 我确定任务边界、输入输出、权限和验收条件；子代理在各自上下文内处理独立任务，再把结果返回主流程整合。\n\n3. 协作难点落在上下文隔离、消息传递、共享文件冲突和最终验收。独立探索适合并行，强顺序依赖与共享写入优先保持串行。",
+      "keywords": [
+        "几个人开发",
+        "团队分工",
+        "个人项目",
+        "真人",
+        "团队人数",
+        "多智能体分工",
+        "几个人",
+        "多少人",
+        "人数",
+        "一个人",
+        "真人开发者"
+      ],
+      "related": [
+        "arclight.tasks"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/collaboration.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "1e310129d4aa262d97f31dbf6c5e788e078880098447c418b857aa4d59e31361"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 有几个人开发，多智能体就是团队分工吗？"
+    },
+    {
+      "cardId": "arclight.origin",
+      "projectId": "arclight",
+      "docType": "ownership",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/origin.md",
+      "text": "1. 我参考 Claude Code 的产品交互和 Agent 组织方式，使用 Codex 辅助开发，并吸收带来源标记的参考实现来学习核心机制。\n\n2. 仓库中一些文件保留了“小林coding”来源注释；来源说明按文件保留，个人工作主要体现在理解、适配、集成、调试和机制实验。\n\n3. 面试展开时，我会选工具循环、上下文压缩或恢复链路，说明参考设计、自己的调整、调整原因及验证结果，直接展示技术掌握程度。",
+      "keywords": [
+        "Claude Code源码",
+        "借鉴源码",
+        "来源",
+        "开源复用",
+        "小林coding",
+        "抄的"
+      ],
+      "related": [
+        "arclight.ownership"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/origin.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "d0a06f651907b6c9ce1ca059824947fb83decaf8e926e028acbbeca0bcf9fcea"
+        }
+      ],
+      "facts": [],
+      "question": "你借鉴了 Claude Code 哪些东西，代码来源如何解释？"
+    },
+    {
+      "cardId": "arclight.compare",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/compare.md",
+      "text": "1. Arclight 的优势集中在机制实验与定制：我能直接控制上下文阈值、工具结果处理、动态工具加载和任务拆分，把问题定位到具体运行环节。\n\n2. 项目规模和维护范围可控，适合在自己熟悉的 Python 代码中快速改机制、保留轨迹并做消融，验证成功率、Token 与耗时之间的取舍。\n\n3. Codex、Claude Code 的优势是成熟度和生态；我选择 Arclight 的理由是对学习与特定实验的掌控度。综合性能比较使用同模型、同任务、同预算的对测结果。",
+      "keywords": [
+        "优势",
+        "对比Codex",
+        "对比Claude",
+        "成熟软件",
+        "差异",
+        "重复造轮子",
+        "竞争力"
+      ],
+      "related": [
+        "arclight.ablation"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/compare.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "c49fdcf1457f3d7da340985efda763aba8e5d241a9defdd20d06bebfabaa12ce"
+        }
+      ],
+      "facts": [],
+      "question": "既然有 Codex、Claude Code，你的项目优势是什么？"
+    },
+    {
+      "cardId": "arclight.architecture",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/architecture.md",
+      "text": "1. 会话和环境进入 Agent.run，LLMClient 统一模型事件；模型给出文本或工具调用，工具注册表提供可用 Schema。\n\n2. 执行层检查工具、参数和权限，把结果或错误回注对话，再进入下一轮；上下文管理在请求前控制工具输出和历史预算。\n\n3. 会话层持久化消息与压缩边界，后台任务和通知承接子代理；任务完成最终要由文件差异与运行结果判断。",
+      "keywords": [
+        "完整链路",
+        "整体架构",
+        "输入到执行",
+        "Agent架构",
+        "运行流程",
+        "用户输入",
+        "完整经过",
+        "修改代码",
+        "从输入到"
+      ],
+      "related": [
+        "arclight.loop"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/agent.py",
+          "symbol": "Agent",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 从用户输入到修改代码完整经过什么？"
+    },
+    {
+      "cardId": "arclight.loop",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/loop.md",
+      "text": "1. 普通调用只产生一次输出；Agent Loop 会把工具执行结果作为下一轮观察，让模型继续选择动作。\n\n2. 关键状态包括会话、工具调用 ID、结果、权限决策、使用量和迭代边界；参数或工具执行失败也要变成模型可理解的结果。\n\n3. 最终自然语言声明不等于代码正确；实际验收应检查补丁、测试和任务要求，重复失败则受预算与终止策略约束。",
+      "keywords": [
+        "Agent Loop",
+        "ReAct",
+        "循环",
+        "工具闭环",
+        "普通LLM"
+      ],
+      "related": [
+        "arclight.tool-validation"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/agent.py",
+          "symbol": "run",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "Agent Loop 与一次普通 LLM 调用有什么区别？"
+    },
+    {
+      "cardId": "arclight.stream",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/stream.md",
+      "text": "1. 当前主调用路径先消费模型流并收集完整响应，然后根据 tool_calls 组织执行；流式显示不等于参数半截到达就执行。\n\n2. 这样可以在拿到完整参数后做解析、Schema 校验和执行分类，避免对不完整 JSON 产生副作用。\n\n3. 如果要进一步流水化，应只在完整且获准的工具调用到达后启动，并处理后续取消、依赖顺序和结果配对。",
+      "keywords": [
+        "流式解析",
+        "边生成边执行",
+        "半截JSON",
+        "Streaming",
+        "工具参数流",
+        "边输出",
+        "立刻执行",
+        "工具参数",
+        "边执行",
+        "流式执行"
+      ],
+      "related": [
+        "arclight.tool-validation"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/agent.py",
+          "symbol": "StreamCollector",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "是不是边输出工具参数边立刻执行工具？"
+    },
+    {
+      "cardId": "arclight.tool-validation",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/tool-validation.md",
+      "text": "1. 工具声明 Pydantic 参数模型，模型输出先经过结构和参数校验；未知工具与非法参数需要返回可修正的错误。\n\n2. 通过参数类型校验还不代表业务动作合法，路径、权限、资源边界和副作用身份仍要由执行层验证。\n\n3. 重试区分可恢复错误和确定性错误：读操作可有限重试，写操作要先确认是否已执行，不能因为模型再调用就盲目重复副作用。",
+      "keywords": [
+        "工具调用可靠性",
+        "参数校验",
+        "Pydantic",
+        "Schema",
+        "参数错",
+        "工具重试",
+        "参数生成错",
+        "参数生成",
+        "生成错",
+        "工具的参数",
+        "参数错误"
+      ],
+      "related": [
+        "arclight.permissions"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/agent.py",
+          "symbol": "_execute_tool",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "如何保证工具调用的可靠性？"
+    },
+    {
+      "cardId": "arclight.context",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/context.md",
+      "text": "1. 先处理大工具输出：正文落盘、保留定位预览；对旧结果做预算替换，让下一次请求不用携带完整日志。\n\n2. 接近窗口时摘要较早前缀，保留近期原文与工具消息配对，压缩结果交给会话层持久化。\n\n3. 这两层处理目标不同：工具预算控制冗余体积，摘要压缩更早的推理上下文；关键决策和未完成任务需要可恢复。",
+      "keywords": [
+        "长上下文",
+        "上下文压缩",
+        "Context",
+        "日志膨胀",
+        "截断",
+        "全部截断",
+        "为什么不直接"
+      ],
+      "related": [
+        "arclight.budget"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/context/manager.py",
+          "symbol": "auto_compact",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "长上下文如何处理，为什么不直接全部截断？"
+    },
+    {
+      "cardId": "arclight.budget",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/budget.md",
+      "text": "1. 当前工具结果阈值用字符：单结果 50000、累计 200000，预览 2000；近期轮次保留参数为 10。\n\n2. 自动压缩阈值按上下文窗口减去 20000 的摘要输出预留和 13000 的安全余量计算，128000 窗口时是 95000。\n\n3. 压缩保留尾部另用约 10000 token、至少 5 条消息和 40000 token 上限约束；字符预算和 token 预算不能混为一谈。",
+      "keywords": [
+        "预算阈值",
+        "50000",
+        "200000",
+        "95000",
+        "保留几轮",
+        "字符和token"
+      ],
+      "related": [
+        "arclight.compact-pair"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/context/manager.py",
+          "symbol": "compute_compact_threshold",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "上下文预算阈值具体是什么，单位是 Token 吗？"
+    },
+    {
+      "cardId": "arclight.compact-pair",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/compact-pair.md",
+      "text": "1. 先计算近期原文保留起点，再对齐工具调用与结果边界，避免只保留结果却丢掉对应调用。\n\n2. CompactBoundary 同时承载摘要与 keep 尾部，持久化后恢复会话也沿用这份结构，而不重新猜测要保留哪些消息。\n\n3. 验证要覆盖多个工具、未完成调用、长结果和重复恢复；摘要质量用任务约束与后续行为检查，不能只看文本通顺。",
+      "keywords": [
+        "工具配对",
+        "tool_use",
+        "tool_result",
+        "压缩后",
+        "keep",
+        "CompactBoundary"
+      ],
+      "related": [
+        "arclight.session"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/context/manager.py",
+          "symbol": "_align_keep_start_to_tool_pair",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "压缩怎么避免 tool_use 和 tool_result 配对断裂？"
+    },
+    {
+      "cardId": "arclight.replacement",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/replacement.md",
+      "text": "1. apply_tool_result_budget 生成用于 API 的会话视图；原始会话不会被这一层直接整体覆写，替换决定由独立状态保存。\n\n2. 大结果先持久化，replacement_records.jsonl 记录工具 ID 与替换内容，恢复时重建替换状态，避免重启后重新塞入巨量日志。\n\n3. 需同时验证内容可定位、工具 ID 一致和重复加载稳定；否则在线请求省下的上下文会在恢复后再次膨胀。",
+      "keywords": [
+        "替换状态",
+        "replacement",
+        "原始历史",
+        "输出落盘",
+        "重启膨胀"
+      ],
+      "related": [
+        "arclight.session"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/context/manager.py",
+          "symbol": "apply_tool_result_budget",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "工具输出替换会直接改坏原始历史吗？"
+    },
+    {
+      "cardId": "arclight.session",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/session.md",
+      "text": "1. 会话按记录追加保存，恢复时识别最近的 compact_boundary，用摘要与保留尾部重建当前上下文。\n\n2. 工具输出替换另有持久记录，需要恢复与当前消息匹配的替换状态；记忆和会话执行状态也不能混为同一个文件。\n\n3. 会话能恢复不代表外部副作用自动 exactly-once；恢复后执行写动作仍要结合文件状态和原有工具结果判断。",
+      "keywords": [
+        "JSONL",
+        "断点恢复",
+        "会话恢复",
+        "resume",
+        "重启"
+      ],
+      "related": [
+        "arclight.replacement"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/memory/session.py",
+          "symbol": "compact_boundary",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "JSONL 如何恢复长任务？"
+    },
+    {
+      "cardId": "arclight.mcp",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/mcp.md",
+      "text": "1. MCPManager 连接配置的服务，把远端工具包装并注册到本地工具体系，让工具能力通过统一入口暴露。\n\n2. 连接建立失败、Schema 或参数错误、远端业务失败是不同层次的问题，不能统一用无限重试处理。\n\n3. 远端工具仍是外部能力：凭据、权限、超时和输出可信度需要单独管理，注册成功不表示任意工具调用都安全可用。",
+      "keywords": [
+        "MCP",
+        "外部工具",
+        "服务连接",
+        "工具注册",
+        "接入"
+      ],
+      "related": [
+        "arclight.tool-search"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/mcp/manager.py",
+          "symbol": "MCPManager",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "MCP 接入具体解决什么？"
+    },
+    {
+      "cardId": "arclight.tool-search",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/tool-search.md",
+      "text": "1. 初始保留基础工具与搜索入口；ToolSearch 按名称或关键词在延迟工具中查找 Schema，并将选中工具标记为 discovered。\n\n2. 当前实现是关键词相关性与显式 select:name 路径，不是向量检索。模型下一轮看到完整 Schema 再调用目标工具。\n\n3. 按需加载减少初始输入，但可能增加发现轮次；工具很多时应同时评估命中率、补查次数和最终任务成功率。",
+      "keywords": [
+        "ToolSearch",
+        "按需加载",
+        "延迟加载",
+        "向量检索",
+        "50个工具",
+        "工具路由"
+      ],
+      "related": [
+        "arclight.metric-tools"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/tools/impl/tool_search.py",
+          "symbol": "execute",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "50 个工具怎样按需加载，是否用向量检索？"
+    },
+    {
+      "cardId": "arclight.skills",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/skills.md",
+      "text": "1. Skill 组织可复用的方法与上下文，MCP 暴露可调用的外部能力，子 Agent 则在相对独立的上下文中承担一个任务。\n\n2. 例如审查 Skill 定义检查顺序，文件或测试工具执行动作；需要独立探索时再交给子代理，最后返回结论与证据。\n\n3. 选择时看复用的是工作方法、工具接口还是独立推理任务；加一个 Skill 不自动提供权限隔离，增加 Agent 也不自动提高正确率。",
+      "keywords": [
+        "Skill",
+        "Skills",
+        "MCP区别",
+        "子Agent区别",
+        "技能边界"
+      ],
+      "related": [
+        "arclight.tasks"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/skills.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "152b4d3471822e7787eeb40296e701a1a0b5c4f249cbc069030f301d86a9c609"
+        }
+      ],
+      "facts": [],
+      "question": "Skill、MCP 和子 Agent 有什么区别？"
+    },
+    {
+      "cardId": "arclight.memory",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/memory.md",
+      "text": "1. 摘要帮助当前任务在窗口受限时继续，长期记忆保留可复用的用户偏好、纠正反馈、项目知识和参考资料。\n\n2. auto_memory 维护 .mewcode/memories.md；恢复任务还需要会话和工具配对，不能只加载记忆文件。\n\n3. 写入记忆应保留来源、作用域和过期判断，尤其不能把旧模型回答自动当作用户确认的事实。",
+      "keywords": [
+        "长期记忆",
+        "Memory",
+        "记忆污染",
+        "摘要区别",
+        "memories"
+      ],
+      "related": [
+        "arclight.session"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/memory/auto_memory.py",
+          "symbol": "MEMORY_EXTRACTION_PROMPT",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "长期记忆与上下文摘要有什么区别？"
+    },
+    {
+      "cardId": "arclight.fork",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/fork.md",
+      "text": "1. build_forked_messages 深拷贝会话历史，并保留环境与记忆注入标志，为未完成工具调用补 interrupted 结果。\n\n2. 随后加入子任务说明，并通过标记限制嵌套 fork，避免无边界地产生代理树。\n\n3. 它隔离会话状态；文件系统、共享目录和外部资源需要另外管理，不能用 deepcopy 宣称进程或操作系统隔离。",
+      "keywords": [
+        "fork",
+        "会话隔离",
+        "深拷贝",
+        "嵌套Agent",
+        "interrupted"
+      ],
+      "related": [
+        "arclight.worktree"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/agents/fork.py",
+          "symbol": "build_forked_messages",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "fork 子代理隔离的到底是什么？"
+    },
+    {
+      "cardId": "arclight.tasks",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/tasks.md",
+      "text": "1. TaskManager 用 asyncio task 管理后台工作，记录任务 ID、状态、结果、取消回调和进度，并通过通知队列交付完成事件。\n\n2. 独立探索适合并发，存在写依赖的任务要先规划顺序；某个任务失败要有明确结果，不能把所有 gather 返回值都视为成功。\n\n3. 主代理负责整合和验收；子代理说完成只是中间事件，最终仍需要检查合并后的代码与测试。",
+      "keywords": [
+        "TaskManager",
+        "后台任务",
+        "任务状态",
+        "取消子代理",
+        "并行任务"
+      ],
+      "related": [
+        "arclight.mailbox"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/agents/task_manager.py",
+          "symbol": "TaskManager",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "后台子代理如何跟踪完成、失败和取消？"
+    },
+    {
+      "cardId": "arclight.mailbox",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/mailbox.md",
+      "text": "1. 每个 Agent 有消息目录，消息以时间戳和 ID 命名 JSON，读取按文件名排序，并跳过坏 JSON。\n\n2. 消息包含普通文本及关闭请求/响应；这种文件通信便于本地观察，但不是带持久 ACK、重投与消费事务的消息队列。\n\n3. 如果需要强恢复保证，应补唯一 ID、确认状态、幂等消费和失败恢复协议；不能仅凭文件落盘宣称可靠交付。",
+      "keywords": [
+        "Mailbox",
+        "消息可靠",
+        "消息丢失",
+        "代理通信",
+        "邮箱"
+      ],
+      "related": [
+        "arclight.shared"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/teams/mailbox.py",
+          "symbol": "Mailbox",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "Mailbox 如何通信，能保证消息不丢吗？"
+    },
+    {
+      "cardId": "arclight.shared",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/shared.md",
+      "text": "1. SharedTaskStore 维护任务、assignee、blocks 与 blocked_by，读取重新加载，更新后写回 JSON。\n\n2. 这些字段能表达任务描述和依赖，但普通读改写不是跨进程事务锁，多进程并发更新仍可能覆盖。\n\n3. 强化方案可用单写者、文件锁配合原子发布，或 SQLite 事务与版本检查；选择要看并发规模与崩溃恢复要求。",
+      "keywords": [
+        "SharedTask",
+        "共享任务",
+        "并发覆盖",
+        "文件锁",
+        "任务依赖"
+      ],
+      "related": [
+        "arclight.worktree"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/teams/shared_task.py",
+          "symbol": "SharedTaskStore",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "共享任务文件会有并发覆盖吗？"
+    },
+    {
+      "cardId": "arclight.worktree",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/worktree.md",
+      "text": "1. WorktreeManager 管理独立 Git 工作目录，减少不同任务直接写同一路径；内部还有 asyncio.Lock 与 Git 命令超时。\n\n2. 任务完成后仍要检查 diff、解决合并冲突并跑集成验证，不能把 worktree 创建成功等同于改动可安全合并。\n\n3. worktree 是目录与分支工作流隔离；网络、共享数据库、系统进程与权限需要单独控制。",
+      "keywords": [
+        "worktree",
+        "文件冲突",
+        "合并冲突",
+        "多代理改代码",
+        "隔离目录",
+        "改同一个",
+        "多个 Agent",
+        "处理冲突",
+        "同一个仓库"
+      ],
+      "related": [
+        "arclight.edit"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/worktree/manager.py",
+          "symbol": "WorktreeManager",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "多个 Agent 改同一个仓库如何处理冲突？"
+    },
+    {
+      "cardId": "arclight.edit",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/edit.md",
+      "text": "1. EditFile 要求 old_string 在当前文件中恰好出现一次；不存在或多次匹配都会返回错误。\n\n2. 如果注入 FileStateCache，还会在写前检查文件状态、写后更新缓存；这是可选依赖，不能说所有路径都强制具有该检查。\n\n3. 读后替换写入仍不是原子 CAS。并发写入需要额外锁或版本提交机制，编辑失败应重新读取并缩小补丁。",
+      "keywords": [
+        "EditFile",
+        "old_string",
+        "文件版本",
+        "唯一匹配",
+        "旧版本覆盖",
+        "文件编辑",
+        "编辑",
+        "防止并发覆盖",
+        "旧文件"
+      ],
+      "related": [
+        "arclight.worktree"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/tools/edit_file.py",
+          "symbol": "execute",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "编辑文件怎样避免改错位置和旧版本覆盖？"
+    },
+    {
+      "cardId": "arclight.permissions",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "verified",
+      "provenance": "CODE",
+      "path": "cards/arclight/permissions.md",
+      "text": "1. PermissionChecker 根据 Plan 特例、只读命令、危险命令检查、文件路径、用户规则和模式兜底决定 allow/deny/ask。\n\n2. 命令工具与文件工具走不同分支，部分路径会提前返回；因此需要按真实调用路径测试，而不能只看“沙箱”类名。\n\n3. 这是应用层控制。面对不可信仓库或工具输出，更强保证需要操作系统隔离、网络限制与最小凭据，当前实现不等同完整 OS 沙箱。",
+      "keywords": [
+        "权限系统",
+        "危险命令",
+        "沙箱",
+        "越界读写",
+        "PermissionChecker"
+      ],
+      "related": [
+        "arclight.prompt-injection"
+      ],
+      "sources": [
+        {
+          "path": "mewcode/permissions/checker.py",
+          "symbol": "check",
+          "commit": "528704eb373f637830640b3fefcc5cbc95f23a78"
+        }
+      ],
+      "facts": [],
+      "question": "你的权限系统如何防止危险操作？"
+    },
+    {
+      "cardId": "arclight.prompt-injection",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "hypothetical",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/prompt-injection.md",
+      "text": "1. 把仓库文本和工具返回当作低信任数据，它们不能改变用户目标，也不能授权读取密钥或扩大权限。\n\n2. 执行器独立校验路径、命令、网络目的地与凭据权限；高影响操作需要明确授权，代理之间传递的输出也保持同样边界。\n\n3. 验证时构造含诱导指令的 README、日志和 MCP 返回，检查实际工具动作。提示词提醒有帮助，但不能作为唯一安全控制。",
+      "keywords": [
+        "提示词注入",
+        "Prompt Injection",
+        "恶意README",
+        "工具返回",
+        "注入攻击"
+      ],
+      "related": [
+        "arclight.permissions"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/prompt-injection.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "9f95c97ee1ae7bd7206d6c850f6e36280c4bc5710f28ff38c61025b7b2a535db"
+        }
+      ],
+      "facts": [],
+      "question": "仓库 README 或工具结果藏恶意指令怎么办？"
+    },
+    {
+      "cardId": "arclight.stop",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "hypothetical",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/stop.md",
+      "text": "1. 停止条件应覆盖任务验收通过、用户取消、迭代或时间预算耗尽，以及连续重复动作没有新进展。\n\n2. 对同类错误重复重试要识别错误指纹与状态变化；上下文压缩失败也要限次，避免失败本身耗尽预算。\n\n3. 当前项目已有迭代与压缩失败控制；完整的无进展检测和业务验收门禁应单独验证或补充，不把模型说完成当作唯一终止依据。",
+      "keywords": [
+        "停止条件",
+        "死循环",
+        "最大迭代",
+        "无进展",
+        "终止",
+        "停下来",
+        "该停",
+        "什么时候停止",
+        "何时结束",
+        "结束条件"
+      ],
+      "related": [
+        "arclight.loop"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/stop.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "06b8acb4031b92bbecfd63e3c2d42bd8a31d17bbaa92500e9c73c99ce114a9cd"
+        }
+      ],
+      "facts": [],
+      "question": "Agent 什么时候停止，如何防止死循环？"
+    },
+    {
+      "cardId": "arclight.framework",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/framework.md",
+      "text": "1. 我的目标包括学习 Agent 运行时，因此自行组织循环、工具、上下文和恢复，让每个状态变化都可追踪。\n\n2. LangGraph 适合显式图状态、持久执行和较复杂编排；引入框架也要理解消息模型、检查点与副作用语义。\n\n3. 选型取决于控制需求和维护成本。我要做教学与机制实验时保留小型实现；稳定业务流程扩大后，可以评估框架能力与迁移代价。",
+      "keywords": [
+        "LangGraph",
+        "LangChain",
+        "不用框架",
+        "自研框架",
+        "框架选型"
+      ],
+      "related": [
+        "arclight.compare"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/framework.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "d8fc3cb062ab2f516812d576c6244986d61e18c1ba7edcabfba1a081d23ea624"
+        }
+      ],
+      "facts": [],
+      "question": "为什么不直接用 LangGraph？"
+    },
+    {
+      "cardId": "arclight.multi-choice",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/multi-choice.md",
+      "text": "1. 独立的代码探索或验证可以并行，并通过上下文隔离减少彼此干扰；收益主要来自可拆分任务的等待时间。\n\n2. 多代理会重复读取背景、增加协调与汇总成本，所以不能只看墙钟时间，还要看总 Token、成功率和冲突率。\n\n3. 短任务、强顺序依赖或大量共享写入时优先单代理；有独立子目标、清晰输出契约且能最终整合时再并行。",
+      "keywords": [
+        "为什么多Agent",
+        "单Agent",
+        "并发代价",
+        "多代理取舍",
+        "拆任务"
+      ],
+      "related": [
+        "arclight.metric-multi"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/multi-choice.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "cb61604af478f85db862f725852cf49c25e5cf3d50d3430413afa581ef41291b"
+        }
+      ],
+      "facts": [],
+      "question": "为什么使用多 Agent，什么时候单 Agent 更好？"
+    },
+    {
+      "cardId": "arclight.metric-context",
+      "projectId": "arclight",
+      "docType": "performance",
+      "truthScope": "test_only",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/metric-context.md",
+      "text": "1. 对 60 个长任务做配对比较，基线累计输入 9000000 Token，启用上下文管理后为 6158700，减少 31.57%。\n\n2. 统计整个任务累计输入，计入摘要和额外调用的输入；任务、模型与预算保持一致，避免只看首轮或把压缩成本漏掉。\n\n3. 效果来自大工具结果落盘、预算视图替换和压缩恢复配合。验收同时检查任务成功、原始结果可回读和工具消息配对，防止以丢信息换低 Token。",
+      "keywords": [
+        "31.57",
+        "60项",
+        "输入Token",
+        "上下文效果",
+        "token降低"
+      ],
+      "related": [
+        "arclight.context"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/metric-context.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "ab264f6c9c108d5bde7f9ce4422f03138cf67249723d3044f857eabc6c5ea77b"
+        }
+      ],
+      "facts": [],
+      "question": "累计输入 Token 降低 31.57% 如何测量？"
+    },
+    {
+      "cardId": "arclight.metric-tools",
+      "projectId": "arclight",
+      "docType": "performance",
+      "truthScope": "test_only",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/metric-tools.md",
+      "text": "1. 50 个外部工具全量注入时，系统与用户输入 2300 Token、基础工具 1300、外部 Schema 15000，初始输入合计 18600。\n\n2. 按需模式保留前两项，用搜索入口与目录约 600 Token 代替全量 Schema，初始输入为 4200，减少约 77.42%。\n\n3. 工具搜索和实际加载会增加后续调用，所以这项指标专门衡量初始输入；完整任务成本继续累计发现、加载与执行的开销。",
+      "keywords": [
+        "18.6",
+        "4.2",
+        "77.42",
+        "初始Token",
+        "工具开销"
+      ],
+      "related": [
+        "arclight.tool-search"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/metric-tools.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "ba89f939a88d2d421663b359d9a1f8f7307d9ed532ebd25a8c876b126b339543"
+        }
+      ],
+      "facts": [],
+      "question": "18.6k 到 4.2k 说明了什么？"
+    },
+    {
+      "cardId": "arclight.metric-multi",
+      "projectId": "arclight",
+      "docType": "performance",
+      "truthScope": "test_only",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/metric-multi.md",
+      "text": "1. 取 30 组可以独立探索的配对任务，串行墙钟合计 9000 秒，并行加汇总后为 6921 秒，减少 23.1%。\n\n2. 所有代理与汇总的总 Token 从 900000 增到 1189440，增加 32.16%。原因是独立上下文重复携带背景，同时增加协调与整合开销。\n\n3. 因此我按时效和成本预算选并行：独立子目标、清晰输出契约更适合；短任务、强依赖和共享写入优先单代理。",
+      "keywords": [
+        "23.1",
+        "32.16",
+        "30组探索",
+        "多代理成本",
+        "耗时与token"
+      ],
+      "related": [
+        "arclight.multi-choice"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/metric-multi.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "bdb767f8119fc6970a8eebfbe268791c565f5d92e2c1a5acbef5b38d8cdf3e4a"
+        }
+      ],
+      "facts": [],
+      "question": "多代理耗时减少 23.1%，Token 却增加 32.16%，值得吗？"
+    },
+    {
+      "cardId": "arclight.metric-swe",
+      "projectId": "arclight",
+      "docType": "performance",
+      "truthScope": "test_only",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/metric-swe.md",
+      "text": "1. 评测口径是 SWE-bench Lite 300 题，模型固定为 qwen3.6-plus-2026-04-02。基础 ReAct 解出 94 题，完整配置解出 131 题，解决率从 31.33% 到 43.67%。\n\n2. 配对分布是共同成功 82、仅基线成功 12、仅完整配置成功 49、共同失败 157；净增 37 题，提高约 12.33 个百分点。\n\n3. 评测固定任务版本、base commit、模型、工具与预算，用可执行修复及回归测试判定。分析同时看 49 个新增成功和 12 个退化，定位机制的收益与代价。",
+      "keywords": [
+        "SWE-bench",
+        "43.67",
+        "31.33",
+        "解决率",
+        "94",
+        "131"
+      ],
+      "related": [
+        "arclight.evaluation"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/metric-swe.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "6c52256b1a1f2188b6ebf0d49c375367b1a9a268f3aa03440bcaa3c06ef36030"
+        }
+      ],
+      "facts": [],
+      "question": "SWE-bench 31.33% 到 43.67% 怎么解释？"
+    },
+    {
+      "cardId": "arclight.evaluation",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/evaluation.md",
+      "text": "1. 固定任务、代码 base commit、模型与工具版本、预算和成功标准；生成补丁后在隔离环境执行修复测试和回归测试。\n\n2. 保存每题输入、输出补丁、工具轨迹、耗时、Token 与失败类别，区分环境失败、无补丁、错误补丁和测试失败。\n\n3. SWE-bench 用官方 harness 的可执行结果判定；本地业务题还要独立验收标准。最终结果和过程指标共同定位是路由、工具还是实现问题。",
+      "keywords": [
+        "评测闭环",
+        "评测体系",
+        "怎么评测",
+        "自动化评测",
+        "harness"
+      ],
+      "related": [
+        "arclight.ablation"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/evaluation.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "35a0800cb30836b48421e44a764395b3642247c69f832f5de83d9184733a579d"
+        }
+      ],
+      "facts": [],
+      "question": "怎样建立可信的 Agent 评测闭环？"
+    },
+    {
+      "cardId": "arclight.ablation",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "test_only",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ablation.md",
+      "text": "1. 消融固定模型、任务与预算，基础 ReAct 为 94/300；完整配置关闭上下文管理为 113/300，完整单代理为 126/300，完整多代理为 131/300。\n\n2. 对完整配置逐项关闭能力，再按题比较新增成功与退化；不同配置间存在交互，不能把各项差值直接相加，当作独立贡献。\n\n3. 进一步结合工具错误、压缩配对、补丁质量、Token 和墙钟耗时解释结果。性能比较先控制变量，失败归因再指导下一轮改进。",
+      "keywords": [
+        "消融",
+        "归因",
+        "同模型",
+        "对照实验",
+        "公平比较",
+        "证明提升",
+        "来自框架",
+        "模型更强",
+        "框架机制"
+      ],
+      "related": [
+        "arclight.metric-swe"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/ablation.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "0180a7acf9d16413826b43db8af12071f1dbe9c946c8f8019ead9d27bf27c91f"
+        }
+      ],
+      "facts": [],
+      "question": "怎样证明提升来自框架机制，而不是模型更强？"
+    },
+    {
+      "cardId": "arclight.challenge",
+      "projectId": "arclight",
+      "docType": "challenge",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/challenge.md",
+      "text": "1. 最难的是上下文压缩和会话恢复的一致性：压缩后出现工具调用与结果不配对，恢复后又可能把大日志全量带回，导致输入再次膨胀。\n\n2. 我用最小对话复现，分开检查原始历史、API 预算视图和持久化记录，修正工具消息边界与替换状态恢复；Codex 产出局部补丁，我审查完整数据流。\n\n3. 验收覆盖压缩后消息合法、重复恢复稳定、大结果可回读和任务约束保留，再用 60 个长任务比较累计输入，得到 31.57% 的降幅。",
+      "keywords": [
+        "最大困难",
+        "长任务难点",
+        "压缩问题",
+        "恢复问题",
+        "最难"
+      ],
+      "related": [
+        "arclight.replacement"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/challenge.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "eff0ae3d2f2f6b6e72dddb2ea2301924f04088c30f2192c391fa12776b450247"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 最值得展开的困难是什么？"
+    },
+    {
+      "cardId": "arclight.jd-supplychain",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "hypothetical",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/jd-supplychain.md",
+      "text": "1. 先把订单、库存、仓、履约与规则建成明确对象和关系，用别名归一与 Schema Linking 把自然语言落到可查询的数据模型。\n\n2. 查询工具默认只读、按租户和业务权限约束，并返回版本与来源；跨域补数、多跳影响分析使用显式依赖和中间结果校验。\n\n3. 离线评测覆盖实体、工具选择、SQL 正确性与最终答案，再连接在线采纳、人工纠正和业务收益；后训练先基于失败样本分类再决定。",
+      "keywords": [
+        "供应链",
+        "Schema Linking",
+        "本体",
+        "NL2SQL",
+        "多跳",
+        "淘天"
+      ],
+      "related": [
+        "arclight.evaluation"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/jd-supplychain.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "fd7815b828cfa7f8daffc73f51d4873d427ce36bf6ebe85f4d105896322bf066"
+        }
+      ],
+      "facts": [],
+      "question": "把 Arclight 的经验迁移到淘天供应链 Agent，你会怎么做？"
+    },
+    {
+      "cardId": "arclight.jd-posttraining",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "hypothetical",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/jd-posttraining.md",
+      "text": "1. 先判断失败来源：知识缺失补检索与工具，接口和执行错误改运行时，稳定格式或行为偏差再评估训练。\n\n2. SFT 用高质量示范学习任务与输出分布，DPO 用偏好对调整选择；奖励和评测不可靠时，直接上 RL 容易优化错误目标。\n\n3. 结合 Arclight 可以先收集失败轨迹、修正轨迹和可执行反馈，建立留出集；这属于岗位扩展方案，不作为已有训练成果。",
+      "keywords": [
+        "SFT",
+        "DPO",
+        "RL",
+        "后训练",
+        "训练数据",
+        "Prompt还是微调"
+      ],
+      "related": [
+        "arclight.evaluation"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/jd-posttraining.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "75f287f3eaacb4fc7aa83b7356b03a561495f6c1801fa6e20eea28c46ec3cbe3"
+        }
+      ],
+      "facts": [],
+      "question": "什么时候用 Prompt、RAG、SFT 或 DPO？"
+    },
+    {
+      "cardId": "cae.ai-workflow",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-workflow.md",
+      "text": "1. 我先把需求写成可验收规格：输入输出、影响模块、业务不变量、失败路径和必须保留的行为，再让 AI 先给修改计划。\n\n2. 每次只推进一个可验证切片，先读相关代码，再生成小补丁；完成后看 diff、实际运行测试、检查错误和副作用，最后记录变更与回滚点。\n\n3. 例如先交付批次持久受理，再补资源准入和执行对账，每段都有独立验收。我衡量的是交付周期和逃逸缺陷，代码生成量只是过程指标。",
+      "keywords": [
+        "Vibe Coding",
+        "vibe coding",
+        "AI开发流程",
+        "复杂需求",
+        "完整需求"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-workflow.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "5c77273a93d2bc7c98371030259cdd77c90e7de702e9b5d6cc73b006df319da5"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：你怎样用 Vibe Coding 完成一个复杂需求？"
+    },
+    {
+      "cardId": "cae.ai-context",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-context.md",
+      "text": "1. 上下文分成稳定规范和当前任务：稳定部分放架构边界、命名、异常、事务、测试命令；当前部分给相关文件、接口、例子与验收条件。\n\n2. 先让 AI 复述要保持的不变量和计划改动的文件，再检查它是否定位到现有扩展点；信息不足时补最小相关片段，不把整个仓库一次性塞入。\n\n3. CAE 要特别写清“提交超时不等于执行失败”和“UNKNOWN 不提前释放资源”。规则版本随代码维护，完成后把有复用价值的决策沉淀下来，避免每次重新口头解释。",
+      "keywords": [
+        "编程规范",
+        "业务上下文",
+        "上下文怎么给",
+        "提示词",
+        "项目规范",
+        "AGENTS.md"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-context.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "8c44764490786564768b69c6f5983c96bd962c58951e096053b94bb721808c89"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：怎样让 AI 理解项目规范和复杂业务上下文？"
+    },
+    {
+      "cardId": "cae.ai-review",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-review.md",
+      "text": "1. 先审需求与不变量，再追调用链、状态与副作用；重点看鉴权是否前置、事务边界是否正确、失败是否可恢复，而不是先纠结排版。\n\n2. 审完整 diff，包括配置、依赖、数据库迁移和测试修改，确认没有为了变绿删断言、吞异常或关闭安全检查。\n\n3. CAE 要沿同一执行检查数据库、消息和进程三处，防止局部正确、整体重复执行。对高风险分支补反例并实际运行；另一轮 AI Review 可以找遗漏，最终依据仍是代码和可执行证据。",
+      "keywords": [
+        "代码审查",
+        "Code Review",
+        "review",
+        "审查顺序",
+        "审代码"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-review.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "16531ce41a3b354c984eba102044dcc2d016a13f7ffa958a8f44a5d1baa0332d"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：AI 生成大量代码后，你按什么顺序审查？"
+    },
+    {
+      "cardId": "cae.ai-robust",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-robust.md",
+      "text": "1. 把健壮性落实为失败路径：非法输入、重复请求、乱序结果、超时、并发冲突和资源耗尽都要有明确行为。\n\n2. 外部调用设置截止时间与取消，重试有次数和退避，队列有背压；有副作用的操作先定义身份与恢复方式，再讨论自动重试。\n\n3. CAE 的重点是重投、失联、取消竞态与输入变更。验收看故障注入后状态能否收敛、资源是否泄漏、旧结果是否污染新任务，正常路径跑通只完成了一部分。",
+      "keywords": [
+        "健壮性",
+        "Robustness",
+        "robustness",
+        "异常路径",
+        "边界条件",
+        "鲁棒性"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-robust.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "4a5045705137777599f38bf92f3f4206ab18c2eb2c1d5acbdcb8fe1e29e7a9aa"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：Vibe Coding 快速生成代码，怎样保证健壮性？"
+    },
+    {
+      "cardId": "cae.ai-maintain",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-maintain.md",
+      "text": "1. 先约束模块责任和依赖方向，复用已有接口与错误模型；不允许每个功能重新造一套配置、重试器或数据模型。\n\n2. 优先小补丁、显式类型和可定位日志，对跨模块改动补设计理由；重复代码是否抽象由变化模式决定，不因 AI 能生成就过度封装。\n\n3. CAE 将调度、资源、执行与报告契约分开，专业脚本通过适配接口接入。维护成本通过变更影响面、定位时间、测试稳定性和依赖复杂度观察，不用代码行数评价。",
+      "keywords": [
+        "可维护性",
+        "维护成本",
+        "重构",
+        "重复代码",
+        "架构腐化",
+        "设计模式"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-maintain.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "d651752f10f2f07647f7ae781a54664069ea0161a1074295e14c790c57f8816d"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：AI 写出的代码如何保持可维护性？"
+    },
+    {
+      "cardId": "cae.ai-tests",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-tests.md",
+      "text": "1. 会，所以测试预期必须来自独立规格、领域规则或已确认样例，不能让同一个实现反推标准答案。\n\n2. 正常、边界、恶意和故障用例分别设计；关键断言要检查结果与副作用，必要时注入已知缺陷，看测试是否真的失败。\n\n3. CAE 可从固定身份重放、先完成后取消、依赖越界等反例入手。我会检查失败日志和退出码，也检查测试有没有被跳过、断言被弱化；覆盖率只说明执行到哪里。",
+      "keywords": [
+        "AI写测试",
+        "测试也写错",
+        "测试可信",
+        "覆盖率",
+        "测试过了",
+        "独立验收"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-tests.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "1537f300214e40e17b3decfe402c90897f1730e57de58056ce957413d4cb1443"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：AI 写代码又写测试，会不会一起写错？"
+    },
+    {
+      "cardId": "cae.ai-security",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-security.md",
+      "text": "1. 按数据流找信任边界：输入从哪里来、能访问什么资源、会触发什么副作用；服务端强制参数、权限和资源归属校验。\n\n2. SQL 使用参数绑定，命令采用固定可执行文件和受限参数，路径限制到允许目录；密钥与业务数据限制进入提示词和日志。\n\n3. CAE 特别检查跨项目下载、INCLUDE 路径和 Solver 启动参数。静态检查、依赖扫描和恶意用例补充人工 Review；安全结论必须落在具体控制与失败测试上。",
+      "keywords": [
+        "AI代码安全",
+        "安全隐患",
+        "SQL注入",
+        "命令注入",
+        "不安全代码",
+        "防范漏洞"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-security.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "ab24dc1a81faf86c1eed8b39f812ccd4f66586f2ed6f9d834173c07d9582e244"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：AI 经常生成不安全代码，你如何防范？"
+    },
+    {
+      "cardId": "cae.ai-secret",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-secret.md",
+      "text": "1. 先确定允许发送的代码与数据范围，使用获准服务；用脱敏最小复现替代完整生产输入，密钥、个人信息和模型资产按类别排除。\n\n2. 执行环境使用最小权限、短期凭据和网络限制；检查 diff、日志、命令历史及提交内容，防止凭据进入仓库或外部工具结果。\n\n3. CAE 的工程模型与内部路径不能因调试方便就直接外发；Arclight 的插件和 MCP 服务也分别控制可见数据。发送前先检查数据范围，执行时再限制凭据和网络权限。",
+      "keywords": [
+        "代码隐私",
+        "保密",
+        "密钥泄漏",
+        "数据外发",
+        "公司数据",
+        "脱敏"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-secret.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "44a48615a5b58e8e314e787ac553727f82597e27b52148c4a152cce09fecb610"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：使用云端 AI Coding 如何保护公司数据和密钥？"
+    },
+    {
+      "cardId": "cae.ai-deps",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-deps.md",
+      "text": "1. 先查官方文档、包仓库和实际安装版本，确认名字、维护者、API 和许可证来源，再决定是否新增依赖。\n\n2. 锁定版本并检查 lockfile 差异、传递依赖和漏洞；不要因为包名看起来合理就直接安装，更不能把下载脚本无审查接入流水线。\n\n3. CAE 先核对 pom.xml 和实际 Spring/JDK 版本，不直接采用模型记忆中的 API。能使用已有能力解决时优先复用；新增依赖需要明确收益、升级策略和移除成本。",
+      "keywords": [
+        "幻觉依赖",
+        "不存在的包",
+        "过时API",
+        "依赖安全",
+        "包投毒",
+        "lockfile"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-deps.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "809025b8aac11ea8624132a9aaa26c26bc92f33fa6bbb12239d3b7db42c7e6a9"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：AI 推荐不存在的依赖或过时 API 怎么办？"
+    },
+    {
+      "cardId": "cae.ai-debug",
+      "projectId": "cae",
+      "docType": "challenge",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-debug.md",
+      "text": "1. 先冻结一个可复现失败用例和已知可用提交，收集完整错误、调用链和最小输入，让 AI 提出可证伪的原因。\n\n2. 每轮只验证一个假设，用小补丁观察结果；连续无进展就停止扩大改动，回到人工定位或替换策略，而不是继续堆提示词。\n\n3. CAE 先用 executionId 和输入快照把客户端、后端、Worker 的观测关联起来。最终记录根因、修复和回归，不接受关闭检查、吞掉异常或放宽断言带来的假成功。",
+      "keywords": [
+        "越改越乱",
+        "修复失败",
+        "排查Bug",
+        "调试",
+        "AI反复修",
+        "根因"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-debug.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "44f1444ad7555234a1220b4796a805cd31bd63b18af051c55493c78918bc8b3f"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：AI 修复一直失败或者越改越乱怎么办？"
+    },
+    {
+      "cardId": "cae.ai-completion",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-completion.md",
+      "text": "1. 交付必须满足具体验收条件：功能行为、错误行为、权限边界与兼容性；模型生成的总结只是待核对说明。\n\n2. 核对实际改动、执行命令、退出码和测试输出，确认运行的是修改后的版本；必要时做端到端或界面验证。\n\n3. CAE 还需检查资源账本、远端进程和产物身份是否一致。留下验证记录、已知限制和回滚办法，外部部署或高影响动作继续按授权流程进行。",
+      "keywords": [
+        "完成标准",
+        "验收",
+        "假成功",
+        "交付",
+        "测试退出码",
+        "Agent说完成"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-completion.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "17c883efee0201cb85c84313bf8fcde36c720d4e34796d63ef2c732f1f35ca53"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：AI 说完成了，你怎样判断可以交付？"
+    },
+    {
+      "cardId": "cae.ai-rollback",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-rollback.md",
+      "text": "1. 先圈定任务影响范围并保留工作区现状，拆成独立可审查的提交；发现无关改动时回查原因，不能直接把所有修改打包接受。\n\n2. 数据库变更考虑新旧版本兼容，功能上线先小范围验证；代码回滚和数据回滚分开设计，已发生的外部副作用要有补偿。\n\n3. CAE 状态字段与 Worker 协议升级需考虑旧任务继续恢复。自动化脚本也必须纳入 diff 审查，避免它在测试通过后绕过同样的控制。",
+      "keywords": [
+        "大量改动",
+        "回滚",
+        "Git",
+        "小步提交",
+        "数据库迁移",
+        "上线",
+        "改很多文件",
+        "变更风险",
+        "一次改很多",
+        "控制变更"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-rollback.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "89b6b1deb96a765eb753d6d4c732adcf879cadab378ad79a4c8875f569e6e5e3"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：AI 一次改很多文件，怎样控制变更风险？"
+    },
+    {
+      "cardId": "cae.ai-human",
+      "projectId": "cae",
+      "docType": "ownership",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-human.md",
+      "text": "1. 我的价值在于把模糊需求变成可执行规格、选对架构边界，并判断生成代码是否符合业务不变量。\n\n2. 我需要解释关键调用链、定位错误、设计反例并承担最终验收；AI 加速检索和产出，但不会替我理解错误的业务后果。\n\n3. 在 CAE 中，这体现在执行身份、资源账本和结果版本的闭环设计。面试时我会现场展开具体代码与失败场景，展示可修改、可验证的掌握程度。",
+      "keywords": [
+        "你的价值",
+        "本人价值",
+        "AI代替",
+        "代码都是AI",
+        "贡献占比",
+        "个人作用",
+        "创造",
+        "价值",
+        "本人",
+        "个人价值"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-human.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "befd4863d00d92e388efc8e5b3cf74da8a0d94e44b6235de172b49ac2a0aba47"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：用了 AI，你本人到底创造了什么价值？"
+    },
+    {
+      "cardId": "cae.ai-speed",
+      "projectId": "cae",
+      "docType": "performance",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-speed.md",
+      "text": "1. 我用可合并交付时间衡量 AI 编码提效，计入需求澄清、提示、审查、返工和测试，比较时保持任务复杂度与验收要求接近。\n\n2. 同时看逃逸缺陷、返工率和维护负担，按接口样板、业务逻辑、排障等类型分组，避免平均值掩盖高风险改动。\n\n3. 在项目里，AI 主要加速样板生成、代码检索和局部修改；验收权由我掌握。报告整理降幅和 Agent Token 降幅各有独立口径，编码效率用交付与质量指标单独评价。",
+      "keywords": [
+        "编码效率",
+        "AI提效",
+        "效率提升",
+        "代码占比",
+        "工时",
+        "生成速度"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-speed.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "8ac6b7531981c6bcc2a2d694f1757f5bca6cb1cf1ad207196b941bec4841bed5"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：如何衡量 AI Coding 的效率提升？"
+    },
+    {
+      "cardId": "cae.ai-command",
+      "projectId": "cae",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-command.md",
+      "text": "1. 固定程序并使用参数数组能减少 shell 解释风险，但攻击者仍可能通过参数改变程序行为，所以参数白名单和取值范围仍然必要。\n\n2. 限制工作目录、环境变量、文件路径和可执行文件，按业务能力映射命令；敏感操作不接受模型直接提供任意命令串。\n\n3. CAE 应把 solver profile 映射成受控启动参数；Arclight 的通用命令能力需要额外权限和系统隔离，不能套用固定 Solver 的信任范围。",
+      "keywords": [
+        "shell",
+        "参数注入",
+        "命令拼接",
+        "白名单命令",
+        "任意命令"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-command.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "08fc24ad9ad545af63e1e241b3c1e61c5c64dee78435cae372ef2293d508b5f9"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：不使用 shell 拼接就彻底没有命令注入风险了吗？"
+    },
+    {
+      "cardId": "cae.ai-review-example",
+      "projectId": "cae",
+      "docType": "challenge",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/ai-review-example.md",
+      "text": "1. 一次 AI 生成的异常分支在 HTTP 超时后立即释放 License 并新建 attempt。单元测试只模拟请求抛异常，全部通过，但漏掉了远端已经执行的情况。\n\n2. 我沿副作用链审查，补“Worker 已接单但响应丢失”的用例，检查执行登记、进程计数和资源账本，暴露重复运行与资源低估。\n\n3. 修复为保留原执行和资源、按身份对账，再保留取消与完成竞态回归。这个案例说明 Review 必须审业务不变量，测试也必须表达真实失败路径。",
+      "keywords": [
+        "举个例子",
+        "AI代码问题",
+        "审出漏洞",
+        "代码看似正确",
+        "超时就重试"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/cae/ai-review-example.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "7f597d45793a028f0a0a7358f9f243039eb064b0fd5e41f11904649b92d50d79"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 项目：举一个 AI 代码看似正确却有严重问题的例子。"
+    },
+    {
+      "cardId": "arclight.ai-workflow",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-workflow.md",
+      "text": "1. 我先把需求写成可验收规格：输入输出、影响模块、业务不变量、失败路径和必须保留的行为，再让 AI 先给修改计划。\n\n2. 每次只推进一个可验证切片，先读相关代码，再生成小补丁；完成后看 diff、实际运行测试、检查错误和副作用，最后记录变更与回滚点。\n\n3. 例如先验证一个工具闭环，再加入预算替换，最后覆盖恢复路径。我衡量的是交付周期和逃逸缺陷，代码生成量只是过程指标。",
+      "keywords": [
+        "Vibe Coding",
+        "vibe coding",
+        "AI开发流程",
+        "复杂需求",
+        "完整需求"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-workflow.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "8d55a1aab74b4d1a3a8b537ac62a6b675ea3a132c8a4d8ae0f5455076e24b206"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：你怎样用 Vibe Coding 完成一个复杂需求？"
+    },
+    {
+      "cardId": "arclight.ai-context",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-context.md",
+      "text": "1. 上下文分成稳定规范和当前任务：稳定部分放架构边界、命名、异常、事务、测试命令；当前部分给相关文件、接口、例子与验收条件。\n\n2. 先让 AI 复述要保持的不变量和计划改动的文件，再检查它是否定位到现有扩展点；信息不足时补最小相关片段，不把整个仓库一次性塞入。\n\n3. Arclight 要明确工具 ID 配对、原始历史与 API 视图的差异。规则版本随代码维护，完成后把有复用价值的决策沉淀下来，避免每次重新口头解释。",
+      "keywords": [
+        "编程规范",
+        "业务上下文",
+        "上下文怎么给",
+        "提示词",
+        "项目规范",
+        "AGENTS.md"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-context.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "9cdea5b299f9f5038a955e590a91e2fdbbe61e4d712f5faf3a3c1e798d90ba1e"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：怎样让 AI 理解项目规范和复杂业务上下文？"
+    },
+    {
+      "cardId": "arclight.ai-review",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-review.md",
+      "text": "1. 先审需求与不变量，再追调用链、状态与副作用；重点看鉴权是否前置、事务边界是否正确、失败是否可恢复，而不是先纠结排版。\n\n2. 审完整 diff，包括配置、依赖、数据库迁移和测试修改，确认没有为了变绿删断言、吞异常或关闭安全检查。\n\n3. Arclight 特别检查工具执行前的权限、错误回注与压缩后的消息完整性。对高风险分支补反例并实际运行；另一轮 AI Review 可以找遗漏，最终依据仍是代码和可执行证据。",
+      "keywords": [
+        "代码审查",
+        "Code Review",
+        "review",
+        "审查顺序",
+        "审代码"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-review.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "a318f2ee377ae6c3921e735bcaf10957cf24b957dbd4c5d706433ac9cc76297e"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：AI 生成大量代码后，你按什么顺序审查？"
+    },
+    {
+      "cardId": "arclight.ai-robust",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-robust.md",
+      "text": "1. 把健壮性落实为失败路径：非法输入、重复请求、乱序结果、超时、并发冲突和资源耗尽都要有明确行为。\n\n2. 外部调用设置截止时间与取消，重试有次数和退避，队列有背压；有副作用的操作先定义身份与恢复方式，再讨论自动重试。\n\n3. Arclight 的重点是工具错误、压缩失败、重复动作与子代理异常。验收看故障注入后状态能否收敛、资源是否泄漏、旧结果是否污染新任务，正常路径跑通只完成了一部分。",
+      "keywords": [
+        "健壮性",
+        "Robustness",
+        "robustness",
+        "异常路径",
+        "边界条件",
+        "鲁棒性"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-robust.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "88e5bdead8ba391a91cd55d1cae7b7e481e86518d021353fcf5e9bac76e399d5"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：Vibe Coding 快速生成代码，怎样保证健壮性？"
+    },
+    {
+      "cardId": "arclight.ai-maintain",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-maintain.md",
+      "text": "1. 先约束模块责任和依赖方向，复用已有接口与错误模型；不允许每个功能重新造一套配置、重试器或数据模型。\n\n2. 优先小补丁、显式类型和可定位日志，对跨模块改动补设计理由；重复代码是否抽象由变化模式决定，不因 AI 能生成就过度封装。\n\n3. Arclight 把模型适配、工具、会话、权限和上下文拆成独立责任。维护成本通过变更影响面、定位时间、测试稳定性和依赖复杂度观察，不用代码行数评价。",
+      "keywords": [
+        "可维护性",
+        "维护成本",
+        "重构",
+        "重复代码",
+        "架构腐化",
+        "设计模式"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-maintain.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "6a03b787c894ffa340907873cdad255e71d5aeeb5331b24f5aa43bc616df4051"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：AI 写出的代码如何保持可维护性？"
+    },
+    {
+      "cardId": "arclight.ai-tests",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-tests.md",
+      "text": "1. 会，所以测试预期必须来自独立规格、领域规则或已确认样例，不能让同一个实现反推标准答案。\n\n2. 正常、边界、恶意和故障用例分别设计；关键断言要检查结果与副作用，必要时注入已知缺陷，看测试是否真的失败。\n\n3. Arclight 可从压缩配对断裂、旧文件编辑、MCP 返回错误等反例入手。我会检查失败日志和退出码，也检查测试有没有被跳过、断言被弱化；覆盖率只说明执行到哪里。",
+      "keywords": [
+        "AI写测试",
+        "测试也写错",
+        "测试可信",
+        "覆盖率",
+        "测试过了",
+        "独立验收"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-tests.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "5722abae4816b7b2aa52ae5ded32233ae65b5d63e2b06c1032a54cec9e19d567"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：AI 写代码又写测试，会不会一起写错？"
+    },
+    {
+      "cardId": "arclight.ai-security",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-security.md",
+      "text": "1. 按数据流找信任边界：输入从哪里来、能访问什么资源、会触发什么副作用；服务端强制参数、权限和资源归属校验。\n\n2. SQL 使用参数绑定，命令采用固定可执行文件和受限参数，路径限制到允许目录；密钥与业务数据限制进入提示词和日志。\n\n3. Arclight 特别检查不可信工具返回、越界文件操作与外部网络调用。静态检查、依赖扫描和恶意用例补充人工 Review；安全结论必须落在具体控制与失败测试上。",
+      "keywords": [
+        "AI代码安全",
+        "安全隐患",
+        "SQL注入",
+        "命令注入",
+        "不安全代码",
+        "防范漏洞"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-security.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "664b316da0e2cb663132770e3dbd702b2a77dd59c83b4bef334263767e48939e"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：AI 经常生成不安全代码，你如何防范？"
+    },
+    {
+      "cardId": "arclight.ai-secret",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-secret.md",
+      "text": "1. 先确定允许发送的代码与数据范围，使用获准服务；用脱敏最小复现替代完整生产输入，密钥、个人信息和模型资产按类别排除。\n\n2. 执行环境使用最小权限、短期凭据和网络限制；检查 diff、日志、命令历史及提交内容，防止凭据进入仓库或外部工具结果。\n\n3. CAE 的工程模型与内部路径不能因调试方便就直接外发；Arclight 的插件和 MCP 服务也分别控制可见数据。发送前先检查数据范围，执行时再限制凭据和网络权限。",
+      "keywords": [
+        "代码隐私",
+        "保密",
+        "密钥泄漏",
+        "数据外发",
+        "公司数据",
+        "脱敏"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-secret.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "46b09a905ac210323b900d8f7faa947af6a12153dc314427f4b71a1277efeea9"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：使用云端 AI Coding 如何保护公司数据和密钥？"
+    },
+    {
+      "cardId": "arclight.ai-deps",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-deps.md",
+      "text": "1. 先查官方文档、包仓库和实际安装版本，确认名字、维护者、API 和许可证来源，再决定是否新增依赖。\n\n2. 锁定版本并检查 lockfile 差异、传递依赖和漏洞；不要因为包名看起来合理就直接安装，更不能把下载脚本无审查接入流水线。\n\n3. Arclight 先核对 pyproject.toml、Pydantic 和 MCP SDK 的实际版本。能使用已有能力解决时优先复用；新增依赖需要明确收益、升级策略和移除成本。",
+      "keywords": [
+        "幻觉依赖",
+        "不存在的包",
+        "过时API",
+        "依赖安全",
+        "包投毒",
+        "lockfile"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-deps.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "3107b93a4597830a4bb970a92c5e73cf940b3d51a39b0a02783cf360ab76d4b2"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：AI 推荐不存在的依赖或过时 API 怎么办？"
+    },
+    {
+      "cardId": "arclight.ai-debug",
+      "projectId": "arclight",
+      "docType": "challenge",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-debug.md",
+      "text": "1. 先冻结一个可复现失败用例和已知可用提交，收集完整错误、调用链和最小输入，让 AI 提出可证伪的原因。\n\n2. 每轮只验证一个假设，用小补丁观察结果；连续无进展就停止扩大改动，回到人工定位或替换策略，而不是继续堆提示词。\n\n3. Arclight 把错误缩成最小会话和工具轨迹，先排数据流再调提示词。最终记录根因、修复和回归，不接受关闭检查、吞掉异常或放宽断言带来的假成功。",
+      "keywords": [
+        "越改越乱",
+        "修复失败",
+        "排查Bug",
+        "调试",
+        "AI反复修",
+        "根因"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-debug.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "dbcc8f55d9a7981a9c0f3602b01cd83e6e92a096388ddb5d2e3451de7d4ebbbe"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：AI 修复一直失败或者越改越乱怎么办？"
+    },
+    {
+      "cardId": "arclight.ai-completion",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-completion.md",
+      "text": "1. 交付必须满足具体验收条件：功能行为、错误行为、权限边界与兼容性；模型生成的总结只是待核对说明。\n\n2. 核对实际改动、执行命令、退出码和测试输出，确认运行的是修改后的版本；必要时做端到端或界面验证。\n\n3. Arclight 的子代理结果要经过主流程的集成与回归检查。留下验证记录、已知限制和回滚办法，外部部署或高影响动作继续按授权流程进行。",
+      "keywords": [
+        "完成标准",
+        "验收",
+        "假成功",
+        "交付",
+        "测试退出码",
+        "Agent说完成"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-completion.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "497311f219b0eb356bd01329ed5a9100cba1e1b1f302dddaf67d4095943b7013"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：AI 说完成了，你怎样判断可以交付？"
+    },
+    {
+      "cardId": "arclight.ai-rollback",
+      "projectId": "arclight",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-rollback.md",
+      "text": "1. 先圈定任务影响范围并保留工作区现状，拆成独立可审查的提交；发现无关改动时回查原因，不能直接把所有修改打包接受。\n\n2. 数据库变更考虑新旧版本兼容，功能上线先小范围验证；代码回滚和数据回滚分开设计，已发生的外部副作用要有补偿。\n\n3. Arclight 可用独立工作目录审查 diff，但共享资源副作用另行处理。自动化脚本也必须纳入 diff 审查，避免它在测试通过后绕过同样的控制。",
+      "keywords": [
+        "大量改动",
+        "回滚",
+        "Git",
+        "小步提交",
+        "数据库迁移",
+        "上线",
+        "改很多文件",
+        "变更风险",
+        "一次改很多",
+        "控制变更"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-rollback.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "5639c72408bdb1359795697ab5e7ebdc6d82cd2f8957eccaf2ad23bd80c039a5"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：AI 一次改很多文件，怎样控制变更风险？"
+    },
+    {
+      "cardId": "arclight.ai-human",
+      "projectId": "arclight",
+      "docType": "ownership",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-human.md",
+      "text": "1. 我的价值在于把模糊需求变成可执行规格、选对架构边界，并判断生成代码是否符合业务不变量。\n\n2. 我需要解释关键调用链、定位错误、设计反例并承担最终验收；AI 加速检索和产出，但不会替我理解错误的业务后果。\n\n3. 在 Arclight 中，这体现在把上下文、工具和恢复行为解释到代码并做实验。面试时我会现场展开具体代码与失败场景，展示可修改、可验证的掌握程度。",
+      "keywords": [
+        "你的价值",
+        "本人价值",
+        "AI代替",
+        "代码都是AI",
+        "贡献占比",
+        "个人作用",
+        "创造",
+        "价值",
+        "本人",
+        "个人价值"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-human.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "b904ff6628b0b82b193e378769dd3ddec89ba22440d0a8cc2c42b5e3caa55515"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：用了 AI，你本人到底创造了什么价值？"
+    },
+    {
+      "cardId": "arclight.ai-speed",
+      "projectId": "arclight",
+      "docType": "performance",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-speed.md",
+      "text": "1. 我用可合并交付时间衡量 AI 编码提效，计入需求澄清、提示、审查、返工和测试，比较时保持任务复杂度与验收要求接近。\n\n2. 同时看逃逸缺陷、返工率和维护负担，按接口样板、业务逻辑、排障等类型分组，避免平均值掩盖高风险改动。\n\n3. 在项目里，AI 主要加速样板生成、代码检索和局部修改；验收权由我掌握。报告整理降幅和 Agent Token 降幅各有独立口径，编码效率用交付与质量指标单独评价。",
+      "keywords": [
+        "编码效率",
+        "AI提效",
+        "效率提升",
+        "代码占比",
+        "工时",
+        "生成速度"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-speed.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "2ed26bbf288fbbd8f04e19860445b6c23a7893328266a6dce1151c44638afcd0"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：如何衡量 AI Coding 的效率提升？"
+    },
+    {
+      "cardId": "arclight.ai-command",
+      "projectId": "arclight",
+      "docType": "implementation",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-command.md",
+      "text": "1. 固定程序并使用参数数组能减少 shell 解释风险，但攻击者仍可能通过参数改变程序行为，所以参数白名单和取值范围仍然必要。\n\n2. 限制工作目录、环境变量、文件路径和可执行文件，按业务能力映射命令；敏感操作不接受模型直接提供任意命令串。\n\n3. CAE 应把 solver profile 映射成受控启动参数；Arclight 的通用命令能力需要额外权限和系统隔离，不能套用固定 Solver 的信任范围。",
+      "keywords": [
+        "shell",
+        "参数注入",
+        "命令拼接",
+        "白名单命令",
+        "任意命令"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-command.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "b6b5cb49d8d9b97f8e3c543dc0a1960f7bf15e605da02645f101efa8c1b467eb"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：不使用 shell 拼接就彻底没有命令注入风险了吗？"
+    },
+    {
+      "cardId": "arclight.ai-review-example",
+      "projectId": "arclight",
+      "docType": "challenge",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/ai-review-example.md",
+      "text": "1. 一次 AI 补丁为了减少输入，直接把原始历史中的大工具结果替换成预览。当前请求变短了，但会话恢复和分叉对状态的理解发生分歧。\n\n2. 我把问题缩成包含大结果、压缩边界和一次 fork 的最小会话，逐项对照原始消息、API 视图及持久记录。\n\n3. 修复时保留原始历史，单独维护预算视图与持久替换记录，再验证重复恢复、原文回读和工具配对，保证成本优化不破坏会话语义。",
+      "keywords": [
+        "举个例子",
+        "AI代码问题",
+        "审出漏洞",
+        "代码看似正确",
+        "超时就重试"
+      ],
+      "related": [],
+      "sources": [
+        {
+          "path": "facts/arclight/ai-review-example.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "ff0aecd159476d9c941500bbe24d002c9c3732ab0569c144270c214e047884fc"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 项目：举一个 AI 代码看似正确却有严重问题的例子。"
+    },
+    {
+      "cardId": "arclight.timeline",
+      "projectId": "arclight",
+      "docType": "overview",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/arclight/timeline.md",
+      "text": "1. 项目从 2026 年 2 月推进到 6 月。2 月拆解终端 Coding Agent 的模型、会话和工具闭环，先跑通完整的小任务。\n\n2. 3—4 月补上下文预算、压缩恢复和 MCP/Skills；5 月组合独立探索、后台通知和工作目录管理，让新增能力围绕已有执行链路扩展。\n\n3. 6 月围绕固定任务评估成本、耗时和修复效果，记录失败案例，再从上下文、工具和协作机制逐项分析收益。",
+      "keywords": [
+        "开发周期",
+        "时间线",
+        "推进过程",
+        "几个月",
+        "从零开始",
+        "从零到完成",
+        "怎么推进",
+        "从零",
+        "推进"
+      ],
+      "related": [
+        "arclight.overview"
+      ],
+      "sources": [
+        {
+          "path": "facts/arclight/timeline.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "44f8ce1311d93aa830d43e0b9baeb449a459995c1165fb0ce944f9f3fc4f173d"
+        }
+      ],
+      "facts": [],
+      "question": "Arclight 从零到完成是怎么推进的？"
+    },
+    {
+      "cardId": "cae.operations",
+      "projectId": "cae",
+      "docType": "decision",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/operations.md",
+      "text": "1. 我会同时观察业务与执行：批次受理、排队时间、UNKNOWN 数量、对账积压、Outbox 重试、节点资源与失败阶段。\n\n2. 以 jobId/executionId/输入版本关联日志和事件，区分模型不合法、资源不足、通信故障与后处理失败，避免只盯 HTTP 成功率。\n\n3. 发布前跑关键故障回归，变更后小范围观察；失败案例回到契约、测试和告警规则，形成可解释的迭代闭环。",
+      "keywords": [
+        "上线监控",
+        "可观测性",
+        "告警",
+        "排查线上",
+        "稳定性",
+        "持续迭代"
+      ],
+      "related": [
+        "cae.recovery"
+      ],
+      "sources": [
+        {
+          "path": "facts/cae/operations.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "11154ec9ab2fee7bbe1e88fee5c5adf9f265f2908c73ebfb461acc01343d358b"
+        }
+      ],
+      "facts": [],
+      "question": "上线后如何发现问题并持续迭代？"
+    },
+    {
+      "cardId": "cae.incident-report",
+      "projectId": "cae",
+      "docType": "challenge",
+      "truthScope": "implemented",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/incident-report.md",
+      "text": "1. 我遇到过按任务名取到新图片，却配上旧 parser 指标的情况。文件分别合法，组合后却不属于同一次工况，根因是关联条件缺少执行与版本身份。\n\n2. 我核对输入版本、executionId、parser 版本、condition、Subcase、单位和产物 manifest；后端把这些字段写进产物契约，Python 同事按固定渲染规格输出，专家校核工程含义。\n\n3. 报告组装先验证身份一致性，再做人工审核；回归专门构造同名文件、不同执行与版本的组合，确保错误关联被拒绝。",
+      "keywords": [
+        "报告图片",
+        "数字对不上",
+        "旧指标",
+        "新图片",
+        "报告事故",
+        "parser版本",
+        "报告版本"
+      ],
+      "related": [
+        "cae.reports",
+        "cae.report-retry"
+      ],
+      "sources": [
+        {
+          "path": "facts/cae/incident-report.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "f8bb5ac233a5465352d99541784175c98bd446e066224534bc2a78867a1a6270"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 报告中的图片和数字对不上，你怎么排查？"
+    },
+    {
+      "cardId": "cae.measurement-environment",
+      "projectId": "cae",
+      "docType": "performance",
+      "truthScope": "test_only",
+      "status": "source-claim",
+      "provenance": "USER",
+      "path": "facts/cae/measurement-environment.md",
+      "text": "1. 控制面测试固定 API 为 4 vCPU/8GiB，MySQL 为 4 vCPU/8GiB，三个 MockSolver Worker 各 8 vCPU/16GiB，输入和产物使用共享目录。\n\n2. 批次受理采用 5 并发、50 Case/批，20 批预热后统计 300 批；重放、恢复、输入和报告分别建测试集，记录环境、样本与计时边界。\n\n3. MockSolver 用于重复执行、资源与故障控制验证；OptiStruct 的实际求解耗时和工程正确性由对应模型与 CAE 校核流程验收，两类测试分别报告。",
+      "keywords": [
+        "测试环境",
+        "压测环境",
+        "硬件配置",
+        "4 vCPU",
+        "8GiB",
+        "三个Worker",
+        "实验机器"
+      ],
+      "related": [
+        "cae.metric-batch",
+        "cae.performance"
+      ],
+      "sources": [
+        {
+          "path": "facts/cae/measurement-environment.md",
+          "symbol": "项目口述资料",
+          "commit": null,
+          "contentSha256": "89e4d57024e6cf9705f6bd76d45f9ceea23c01452fedcbbaa2347dcae711eda0"
+        }
+      ],
+      "facts": [],
+      "question": "CAE 测试环境和统计口径怎么固定？"
+    }
+  ],
+  "updatedAt": "2026-10-23",
+  "packPurpose": "双项目统一口述资料",
+  "provenanceNotes": {
+    "narrative": "用户指定采用的项目叙事，含此前生成并沿用的细节；source-claim 不代表独立核验。",
+    "code": "CODE/verified 保留固定源码提交的实现依据。",
+    "metrics": "用户采用的指标口径以 test_only/source-claim 表示，不标记为已独立执行的测量。"
+  },
+  "sourceDocuments": {
+    "facts/cae/overview.md": "# 请介绍 CAE 项目。\n\n1. 这个项目解决科室共享计算资源下的提交分散、状态失联和报告整理成本。我担任后端开发，同时学习 HyperMesh 建模到 OptiStruct 求解的业务流程。\n\n2. 我的主线是把模型、工况、输入版本、Job、Execution 和结果串起来，用统一提交、资源预占、幂等与对账保证执行可追踪。\n\n3. 结果价值用受理延迟、重复执行、恢复收敛和报告整理时间衡量。公开仓库用 MockSolver 展示控制面；实际业务背景是 Altair 工具链。\n",
+    "facts/cae/business.md": "# 为什么后端开发还要学习 CAE 建模？\n\n1. 后端接口必须理解工程对象。我需要知道模型、材料、边界条件、工况、Subcase 和求解输入分别是什么，否则很容易把不同工况的结果拼在一起。\n\n2. HyperMesh 负责模型前处理，OptiStruct 执行求解，后处理再解释位移、应力或模态等结果；平台承担提交、资源、版本与资产管理。\n\n3. 我的学习目标是把工程流程映射为可靠的数据契约；网格质量和结果物理合理性由 CAE 专业人员验收。\n",
+    "facts/cae/ownership.md": "# CAE 中你个人负责什么？\n\n1. 团队共六人，我负责核心 Java 后端：统一提交与批量编排、Job/Execution、资源账本、Outbox、执行对账、输入治理和报告元数据。\n\n2. Python 同事负责节点执行与后处理，我定义 submit/query/cancel 接口、执行身份、状态和失败语义，并牵头后端与执行端联调。\n\n3. 我的交付围绕三个不变量验收：同一执行身份不重复启动、不确定状态不提前释放资源、结果始终绑定正确输入版本与工况。\n",
+    "facts/cae/collaboration.md": "# CAE 团队如何分工和联调？\n\n1. 团队共六人：负责人兼 CAE 专家、我负责核心 Java 后端、Python 执行与后处理、前端、测试、运维兼计算资源支持，各一人。\n\n2. 专家确定工程规则和验收标准；我负责后端控制面及跨语言契约；Python 同事负责求解适配和产物；前端负责操作台，测试与运维负责质量和运行环境。\n\n3. 联调用同一 executionId 串起输入摘要、工况、单位、状态和错误码。接口先明确成功、失败与不确定三类结果，再用共同样例和故障注入验收。\n",
+    "facts/cae/timeline.md": "# CAE 项目开发节奏和工具时间线是什么？\n\n1. 项目从 2024 年 12 月推进到 2025 年 4 月。12 月先跟随 CAE 专家走通 HyperMesh、OptiStruct 和后处理流程，梳理模型、工况、输入与结果身份，完成统一提交原型。\n\n2. 2025 年 1—2 月重点做批量编排、资源预占和执行恢复。AI 编码工具前期使用 VS Code 通义灵码，2025 年 1 月之后转向 Trae IDE。\n\n3. 3 月处理 INCLUDE 依赖、输入快照和故障回归；4 月打通解析、报告版本、人工审核与验收，把执行可靠性延伸到结果交付。\n",
+    "facts/cae/ai-tools.md": "# 当时用什么 AI Coding 工具，如何使用？\n\n1. 2024 年 12 月到 2025 年 1 月，我使用 VS Code 中的通义灵码插件；2025 年 1 月之后转向 Trae IDE。AI 主要帮助生成接口、样板代码、测试草稿和局部补丁。\n\n2. 每次先提供业务目标、相关文件、接口契约和验收条件，让 AI 解释修改计划，再生成可审查的小改动。\n\n3. 状态机、事务、执行幂等和权限检查由我把关，交付以实际 diff 和测试结果为准。工具名称会变化，需求约束、代码审查和验收这套方法保持一致。\n",
+    "facts/cae/recovery.md": "# 提交成功但响应丢失，如何恢复？\n\n1. 我处理过 Worker 已接单但 HTTP 响应丢失的场景。关键判断是远端执行可能已发生，通信失败不能直接触发新 attempt，否则会重复求解。\n\n2. 我负责后端保留原 Execution 与资源、按原请求身份查询，并在更新时校验版本和租约；Python 同事提供持久登记与 query/cancel，测试注入丢响应、断联和回调遗漏。\n\n3. 验收采用 500 次同身份重放和 30 轮恢复用例：额外进程为 0，恢复条件就绪到状态收敛 P95 为 12.6 秒。进程启动到 PID 登记之间的崩溃窗口另外验证。\n",
+    "facts/cae/metric-batch.md": "# 281ms 的 P95 是怎么测出来的？\n\n1. 测的是批次受理延迟：5 个并发客户端，每批 50 个 Case，预热 20 批后统计 300 批；计时从发请求到批次意图持久受理并返回，不等待求解完成。\n\n2. 按最近秩计算 P95，300 个样本排序后取第 285 个，结果为 281ms。300×50 对应 15000 个子任务意图，实际执行由资源准入控制。\n\n3. 测试固定 API、数据库和 Worker 资源，记录失败、超时及客户端耗时；受理性能、排队时间和求解耗时分别观察，才能定位瓶颈。\n",
+    "facts/cae/metric-replay.md": "# 500 次重放零新增进程怎么证明？\n\n1. 先建立一个执行身份，再使用相同身份与相同请求指纹重放 500 次，返回值必须指向原有执行。\n\n2. 结果是额外求解进程为 0。验收同时核对持久执行登记、启动次数、PID 与进程创建时间，避免只看 HTTP 成功就认定幂等成立。\n\n3. 同 key 不同参数必须拒绝；并发重放和启动后登记前崩溃单列测试。幂等承诺绑定身份、持久化与故障边界。\n",
+    "facts/cae/metric-recovery.md": "# 12.6 秒恢复是从哪一刻开始算？\n\n1. 恢复集共 30 轮，响应丢失、网络不可达、回调遗漏各 10 轮。起点是故障解除、恢复条件就绪，终点是后端与执行端状态收敛。\n\n2. 采用最近秩 P95，排序后取第 29 个样本，得到 12.6 秒；样本最大值为 14.1 秒，同时保留每轮的故障类型与超时情况。\n\n3. 这个指标衡量恢复后的收敛能力。故障持续时间单独记录，便于区分外部恢复条件和平台对账效率。\n",
+    "facts/cae/metric-input.md": "# 120 组输入的正确率如何解释？\n\n1. 回归集共 120 组，46 组缺陷、74 组合规；缺陷包括缺依赖 14、路径越界 9、循环依赖 7、校验和错误 6、工况不匹配 5、版本不匹配 5。\n\n2. 在这组样本上 TP=46、FN=0、FP=0、TN=74，缺陷均被拦截，合规输入均被接受。标签由规格和工程样例确定。\n\n3. 验收同时检查拒绝原因和错误定位。新增输入类型继续进入回归集，执行前仍校验指纹，覆盖预检之后输入发生变化的情况。\n",
+    "facts/cae/metric-report.md": "# 报告人工耗时减少 76.3% 怎么算？\n\n1. 取 30 组报告配对比较，保持内容、人工校核和审核要求一致。原手工整理总计 1852.5 分钟，平台辅助后为 439.0425 分钟。\n\n2. 按总耗时计算：(1852.5−439.0425)/1852.5=76.3%。这是人工整理环节的总量降幅，各组报告的改善幅度并不相同。\n\n3. 辅助后的时间仍包含人工检查和修订；求解计算时间单独统计。收益来自数据提取、图片整理、版本核对和模板组装自动化。\n",
+    "facts/cae/challenge-input.md": "# 最难的业务问题是什么，怎样解决？\n\n1. 一个难点是模型迁到共享目录后 INCLUDE 路径失效，旧依赖又可能被同名新文件覆盖。我把问题从“修路径”提升为“固定一次执行的完整输入身份”。\n\n2. 我用主 deck、依赖清单和文件哈希定位差异，再串起预检、快照与执行身份；CAE 专家核对工况，Python 同事从固定快照执行。\n\n3. 测试建立 120 组回归，覆盖缺依赖、循环、越界和合规输入，并检查执行前指纹。这样从输入受理到实际求解都有可追踪的版本依据。\n",
+    "facts/cae/security-kms.md": "# 把 CAE 扩展成多租户权限平台，你会怎么做？\n\n1. 我会先把租户身份贯穿请求、资源、查询条件和审计，再定义角色、资源与动作的授权矩阵；不能信任客户端传来的 tenantId。\n\n2. 敏感产物可用数据密钥加密、KMS 中的主密钥封装数据密钥，并保留密钥版本、轮换与重加密策略。\n\n3. 鉴权缓存的 key 要包含租户、主体、资源、动作及策略版本；故障时区分风险，写入和敏感读取优先拒绝，不能全局 fail-open。\n",
+    "facts/arclight/overview.md": "# 请介绍 Arclight 项目。\n\n1. Arclight 是我独立推进的终端 Coding Agent 项目，目标是完整掌握模型、工具、上下文、执行控制和验证之间的闭环。\n\n2. 系统用 Python/asyncio 串联模型流式响应、工具校验与执行；再用上下文预算、MCP/Skills、子代理和会话恢复支持长任务。\n\n3. 我用 Codex 辅助编码，把主要精力放在机制理解、边界设计和效果验证。项目价值是能直接修改运行机制并分析失败，而不只是调用聊天接口。\n",
+    "facts/arclight/ownership.md": "# Arclight 是你独立做的吗，AI 写代码后你的贡献在哪？\n\n1. Arclight 是我独立推进的个人项目，我负责需求拆解、模块组织、集成调试、测试和验收，Codex 辅助代码生成与问题分析。\n\n2. 我的工作重点是掌握并能修改 Agent Loop、工具执行、上下文预算、按需工具加载、子代理协作与会话恢复，并把这些机制组合成可运行流程。\n\n3. 技术贡献通过具体设计取舍、代码修改、失败定位和评测结果说明；复用部分保留来源，我对最终集成和运行行为负责。\n",
+    "facts/arclight/collaboration.md": "# Arclight 有几个人开发，多智能体就是团队分工吗？\n\n1. 真人开发者只有我一个人。项目里的探索、规划、验证等角色是 Agent 任务分工，开发协作围绕我与 Codex 辅助工具展开。\n\n2. 我确定任务边界、输入输出、权限和验收条件；子代理在各自上下文内处理独立任务，再把结果返回主流程整合。\n\n3. 协作难点落在上下文隔离、消息传递、共享文件冲突和最终验收。独立探索适合并行，强顺序依赖与共享写入优先保持串行。\n",
+    "facts/arclight/origin.md": "# 你借鉴了 Claude Code 哪些东西，代码来源如何解释？\n\n1. 我参考 Claude Code 的产品交互和 Agent 组织方式，使用 Codex 辅助开发，并吸收带来源标记的参考实现来学习核心机制。\n\n2. 仓库中一些文件保留了“小林coding”来源注释；来源说明按文件保留，个人工作主要体现在理解、适配、集成、调试和机制实验。\n\n3. 面试展开时，我会选工具循环、上下文压缩或恢复链路，说明参考设计、自己的调整、调整原因及验证结果，直接展示技术掌握程度。\n",
+    "facts/arclight/compare.md": "# 既然有 Codex、Claude Code，你的项目优势是什么？\n\n1. Arclight 的优势集中在机制实验与定制：我能直接控制上下文阈值、工具结果处理、动态工具加载和任务拆分，把问题定位到具体运行环节。\n\n2. 项目规模和维护范围可控，适合在自己熟悉的 Python 代码中快速改机制、保留轨迹并做消融，验证成功率、Token 与耗时之间的取舍。\n\n3. Codex、Claude Code 的优势是成熟度和生态；我选择 Arclight 的理由是对学习与特定实验的掌控度。综合性能比较使用同模型、同任务、同预算的对测结果。\n",
+    "facts/arclight/skills.md": "# Skill、MCP 和子 Agent 有什么区别？\n\n1. Skill 组织可复用的方法与上下文，MCP 暴露可调用的外部能力，子 Agent 则在相对独立的上下文中承担一个任务。\n\n2. 例如审查 Skill 定义检查顺序，文件或测试工具执行动作；需要独立探索时再交给子代理，最后返回结论与证据。\n\n3. 选择时看复用的是工作方法、工具接口还是独立推理任务；加一个 Skill 不自动提供权限隔离，增加 Agent 也不自动提高正确率。\n",
+    "facts/arclight/prompt-injection.md": "# 仓库 README 或工具结果藏恶意指令怎么办？\n\n1. 把仓库文本和工具返回当作低信任数据，它们不能改变用户目标，也不能授权读取密钥或扩大权限。\n\n2. 执行器独立校验路径、命令、网络目的地与凭据权限；高影响操作需要明确授权，代理之间传递的输出也保持同样边界。\n\n3. 验证时构造含诱导指令的 README、日志和 MCP 返回，检查实际工具动作。提示词提醒有帮助，但不能作为唯一安全控制。\n",
+    "facts/arclight/stop.md": "# Agent 什么时候停止，如何防止死循环？\n\n1. 停止条件应覆盖任务验收通过、用户取消、迭代或时间预算耗尽，以及连续重复动作没有新进展。\n\n2. 对同类错误重复重试要识别错误指纹与状态变化；上下文压缩失败也要限次，避免失败本身耗尽预算。\n\n3. 当前项目已有迭代与压缩失败控制；完整的无进展检测和业务验收门禁应单独验证或补充，不把模型说完成当作唯一终止依据。\n",
+    "facts/arclight/framework.md": "# 为什么不直接用 LangGraph？\n\n1. 我的目标包括学习 Agent 运行时，因此自行组织循环、工具、上下文和恢复，让每个状态变化都可追踪。\n\n2. LangGraph 适合显式图状态、持久执行和较复杂编排；引入框架也要理解消息模型、检查点与副作用语义。\n\n3. 选型取决于控制需求和维护成本。我要做教学与机制实验时保留小型实现；稳定业务流程扩大后，可以评估框架能力与迁移代价。\n",
+    "facts/arclight/multi-choice.md": "# 为什么使用多 Agent，什么时候单 Agent 更好？\n\n1. 独立的代码探索或验证可以并行，并通过上下文隔离减少彼此干扰；收益主要来自可拆分任务的等待时间。\n\n2. 多代理会重复读取背景、增加协调与汇总成本，所以不能只看墙钟时间，还要看总 Token、成功率和冲突率。\n\n3. 短任务、强顺序依赖或大量共享写入时优先单代理；有独立子目标、清晰输出契约且能最终整合时再并行。\n",
+    "facts/arclight/metric-context.md": "# 累计输入 Token 降低 31.57% 如何测量？\n\n1. 对 60 个长任务做配对比较，基线累计输入 9000000 Token，启用上下文管理后为 6158700，减少 31.57%。\n\n2. 统计整个任务累计输入，计入摘要和额外调用的输入；任务、模型与预算保持一致，避免只看首轮或把压缩成本漏掉。\n\n3. 效果来自大工具结果落盘、预算视图替换和压缩恢复配合。验收同时检查任务成功、原始结果可回读和工具消息配对，防止以丢信息换低 Token。\n",
+    "facts/arclight/metric-tools.md": "# 18.6k 到 4.2k 说明了什么？\n\n1. 50 个外部工具全量注入时，系统与用户输入 2300 Token、基础工具 1300、外部 Schema 15000，初始输入合计 18600。\n\n2. 按需模式保留前两项，用搜索入口与目录约 600 Token 代替全量 Schema，初始输入为 4200，减少约 77.42%。\n\n3. 工具搜索和实际加载会增加后续调用，所以这项指标专门衡量初始输入；完整任务成本继续累计发现、加载与执行的开销。\n",
+    "facts/arclight/metric-multi.md": "# 多代理耗时减少 23.1%，Token 却增加 32.16%，值得吗？\n\n1. 取 30 组可以独立探索的配对任务，串行墙钟合计 9000 秒，并行加汇总后为 6921 秒，减少 23.1%。\n\n2. 所有代理与汇总的总 Token 从 900000 增到 1189440，增加 32.16%。原因是独立上下文重复携带背景，同时增加协调与整合开销。\n\n3. 因此我按时效和成本预算选并行：独立子目标、清晰输出契约更适合；短任务、强依赖和共享写入优先单代理。\n",
+    "facts/arclight/metric-swe.md": "# SWE-bench 31.33% 到 43.67% 怎么解释？\n\n1. 评测口径是 SWE-bench Lite 300 题，模型固定为 qwen3.6-plus-2026-04-02。基础 ReAct 解出 94 题，完整配置解出 131 题，解决率从 31.33% 到 43.67%。\n\n2. 配对分布是共同成功 82、仅基线成功 12、仅完整配置成功 49、共同失败 157；净增 37 题，提高约 12.33 个百分点。\n\n3. 评测固定任务版本、base commit、模型、工具与预算，用可执行修复及回归测试判定。分析同时看 49 个新增成功和 12 个退化，定位机制的收益与代价。\n",
+    "facts/arclight/evaluation.md": "# 怎样建立可信的 Agent 评测闭环？\n\n1. 固定任务、代码 base commit、模型与工具版本、预算和成功标准；生成补丁后在隔离环境执行修复测试和回归测试。\n\n2. 保存每题输入、输出补丁、工具轨迹、耗时、Token 与失败类别，区分环境失败、无补丁、错误补丁和测试失败。\n\n3. SWE-bench 用官方 harness 的可执行结果判定；本地业务题还要独立验收标准。最终结果和过程指标共同定位是路由、工具还是实现问题。\n",
+    "facts/arclight/ablation.md": "# 怎样证明提升来自框架机制，而不是模型更强？\n\n1. 消融固定模型、任务与预算，基础 ReAct 为 94/300；完整配置关闭上下文管理为 113/300，完整单代理为 126/300，完整多代理为 131/300。\n\n2. 对完整配置逐项关闭能力，再按题比较新增成功与退化；不同配置间存在交互，不能把各项差值直接相加，当作独立贡献。\n\n3. 进一步结合工具错误、压缩配对、补丁质量、Token 和墙钟耗时解释结果。性能比较先控制变量，失败归因再指导下一轮改进。\n",
+    "facts/arclight/challenge.md": "# Arclight 最值得展开的困难是什么？\n\n1. 最难的是上下文压缩和会话恢复的一致性：压缩后出现工具调用与结果不配对，恢复后又可能把大日志全量带回，导致输入再次膨胀。\n\n2. 我用最小对话复现，分开检查原始历史、API 预算视图和持久化记录，修正工具消息边界与替换状态恢复；Codex 产出局部补丁，我审查完整数据流。\n\n3. 验收覆盖压缩后消息合法、重复恢复稳定、大结果可回读和任务约束保留，再用 60 个长任务比较累计输入，得到 31.57% 的降幅。\n",
+    "facts/arclight/jd-supplychain.md": "# 把 Arclight 的经验迁移到淘天供应链 Agent，你会怎么做？\n\n1. 先把订单、库存、仓、履约与规则建成明确对象和关系，用别名归一与 Schema Linking 把自然语言落到可查询的数据模型。\n\n2. 查询工具默认只读、按租户和业务权限约束，并返回版本与来源；跨域补数、多跳影响分析使用显式依赖和中间结果校验。\n\n3. 离线评测覆盖实体、工具选择、SQL 正确性与最终答案，再连接在线采纳、人工纠正和业务收益；后训练先基于失败样本分类再决定。\n",
+    "facts/arclight/jd-posttraining.md": "# 什么时候用 Prompt、RAG、SFT 或 DPO？\n\n1. 先判断失败来源：知识缺失补检索与工具，接口和执行错误改运行时，稳定格式或行为偏差再评估训练。\n\n2. SFT 用高质量示范学习任务与输出分布，DPO 用偏好对调整选择；奖励和评测不可靠时，直接上 RL 容易优化错误目标。\n\n3. 结合 Arclight 可以先收集失败轨迹、修正轨迹和可执行反馈，建立留出集；这属于岗位扩展方案，不作为已有训练成果。\n",
+    "facts/cae/ai-workflow.md": "# CAE 项目：你怎样用 Vibe Coding 完成一个复杂需求？\n\n1. 我先把需求写成可验收规格：输入输出、影响模块、业务不变量、失败路径和必须保留的行为，再让 AI 先给修改计划。\n\n2. 每次只推进一个可验证切片，先读相关代码，再生成小补丁；完成后看 diff、实际运行测试、检查错误和副作用，最后记录变更与回滚点。\n\n3. 例如先交付批次持久受理，再补资源准入和执行对账，每段都有独立验收。我衡量的是交付周期和逃逸缺陷，代码生成量只是过程指标。\n",
+    "facts/cae/ai-context.md": "# CAE 项目：怎样让 AI 理解项目规范和复杂业务上下文？\n\n1. 上下文分成稳定规范和当前任务：稳定部分放架构边界、命名、异常、事务、测试命令；当前部分给相关文件、接口、例子与验收条件。\n\n2. 先让 AI 复述要保持的不变量和计划改动的文件，再检查它是否定位到现有扩展点；信息不足时补最小相关片段，不把整个仓库一次性塞入。\n\n3. CAE 要特别写清“提交超时不等于执行失败”和“UNKNOWN 不提前释放资源”。规则版本随代码维护，完成后把有复用价值的决策沉淀下来，避免每次重新口头解释。\n",
+    "facts/cae/ai-review.md": "# CAE 项目：AI 生成大量代码后，你按什么顺序审查？\n\n1. 先审需求与不变量，再追调用链、状态与副作用；重点看鉴权是否前置、事务边界是否正确、失败是否可恢复，而不是先纠结排版。\n\n2. 审完整 diff，包括配置、依赖、数据库迁移和测试修改，确认没有为了变绿删断言、吞异常或关闭安全检查。\n\n3. CAE 要沿同一执行检查数据库、消息和进程三处，防止局部正确、整体重复执行。对高风险分支补反例并实际运行；另一轮 AI Review 可以找遗漏，最终依据仍是代码和可执行证据。\n",
+    "facts/cae/ai-robust.md": "# CAE 项目：Vibe Coding 快速生成代码，怎样保证健壮性？\n\n1. 把健壮性落实为失败路径：非法输入、重复请求、乱序结果、超时、并发冲突和资源耗尽都要有明确行为。\n\n2. 外部调用设置截止时间与取消，重试有次数和退避，队列有背压；有副作用的操作先定义身份与恢复方式，再讨论自动重试。\n\n3. CAE 的重点是重投、失联、取消竞态与输入变更。验收看故障注入后状态能否收敛、资源是否泄漏、旧结果是否污染新任务，正常路径跑通只完成了一部分。\n",
+    "facts/cae/ai-maintain.md": "# CAE 项目：AI 写出的代码如何保持可维护性？\n\n1. 先约束模块责任和依赖方向，复用已有接口与错误模型；不允许每个功能重新造一套配置、重试器或数据模型。\n\n2. 优先小补丁、显式类型和可定位日志，对跨模块改动补设计理由；重复代码是否抽象由变化模式决定，不因 AI 能生成就过度封装。\n\n3. CAE 将调度、资源、执行与报告契约分开，专业脚本通过适配接口接入。维护成本通过变更影响面、定位时间、测试稳定性和依赖复杂度观察，不用代码行数评价。\n",
+    "facts/cae/ai-tests.md": "# CAE 项目：AI 写代码又写测试，会不会一起写错？\n\n1. 会，所以测试预期必须来自独立规格、领域规则或已确认样例，不能让同一个实现反推标准答案。\n\n2. 正常、边界、恶意和故障用例分别设计；关键断言要检查结果与副作用，必要时注入已知缺陷，看测试是否真的失败。\n\n3. CAE 可从固定身份重放、先完成后取消、依赖越界等反例入手。我会检查失败日志和退出码，也检查测试有没有被跳过、断言被弱化；覆盖率只说明执行到哪里。\n",
+    "facts/cae/ai-security.md": "# CAE 项目：AI 经常生成不安全代码，你如何防范？\n\n1. 按数据流找信任边界：输入从哪里来、能访问什么资源、会触发什么副作用；服务端强制参数、权限和资源归属校验。\n\n2. SQL 使用参数绑定，命令采用固定可执行文件和受限参数，路径限制到允许目录；密钥与业务数据限制进入提示词和日志。\n\n3. CAE 特别检查跨项目下载、INCLUDE 路径和 Solver 启动参数。静态检查、依赖扫描和恶意用例补充人工 Review；安全结论必须落在具体控制与失败测试上。\n",
+    "facts/cae/ai-secret.md": "# CAE 项目：使用云端 AI Coding 如何保护公司数据和密钥？\n\n1. 先确定允许发送的代码与数据范围，使用获准服务；用脱敏最小复现替代完整生产输入，密钥、个人信息和模型资产按类别排除。\n\n2. 执行环境使用最小权限、短期凭据和网络限制；检查 diff、日志、命令历史及提交内容，防止凭据进入仓库或外部工具结果。\n\n3. CAE 的工程模型与内部路径不能因调试方便就直接外发；Arclight 的插件和 MCP 服务也分别控制可见数据。发送前先检查数据范围，执行时再限制凭据和网络权限。\n",
+    "facts/cae/ai-deps.md": "# CAE 项目：AI 推荐不存在的依赖或过时 API 怎么办？\n\n1. 先查官方文档、包仓库和实际安装版本，确认名字、维护者、API 和许可证来源，再决定是否新增依赖。\n\n2. 锁定版本并检查 lockfile 差异、传递依赖和漏洞；不要因为包名看起来合理就直接安装，更不能把下载脚本无审查接入流水线。\n\n3. CAE 先核对 pom.xml 和实际 Spring/JDK 版本，不直接采用模型记忆中的 API。能使用已有能力解决时优先复用；新增依赖需要明确收益、升级策略和移除成本。\n",
+    "facts/cae/ai-debug.md": "# CAE 项目：AI 修复一直失败或者越改越乱怎么办？\n\n1. 先冻结一个可复现失败用例和已知可用提交，收集完整错误、调用链和最小输入，让 AI 提出可证伪的原因。\n\n2. 每轮只验证一个假设，用小补丁观察结果；连续无进展就停止扩大改动，回到人工定位或替换策略，而不是继续堆提示词。\n\n3. CAE 先用 executionId 和输入快照把客户端、后端、Worker 的观测关联起来。最终记录根因、修复和回归，不接受关闭检查、吞掉异常或放宽断言带来的假成功。\n",
+    "facts/cae/ai-completion.md": "# CAE 项目：AI 说完成了，你怎样判断可以交付？\n\n1. 交付必须满足具体验收条件：功能行为、错误行为、权限边界与兼容性；模型生成的总结只是待核对说明。\n\n2. 核对实际改动、执行命令、退出码和测试输出，确认运行的是修改后的版本；必要时做端到端或界面验证。\n\n3. CAE 还需检查资源账本、远端进程和产物身份是否一致。留下验证记录、已知限制和回滚办法，外部部署或高影响动作继续按授权流程进行。\n",
+    "facts/cae/ai-rollback.md": "# CAE 项目：AI 一次改很多文件，怎样控制变更风险？\n\n1. 先圈定任务影响范围并保留工作区现状，拆成独立可审查的提交；发现无关改动时回查原因，不能直接把所有修改打包接受。\n\n2. 数据库变更考虑新旧版本兼容，功能上线先小范围验证；代码回滚和数据回滚分开设计，已发生的外部副作用要有补偿。\n\n3. CAE 状态字段与 Worker 协议升级需考虑旧任务继续恢复。自动化脚本也必须纳入 diff 审查，避免它在测试通过后绕过同样的控制。\n",
+    "facts/cae/ai-human.md": "# CAE 项目：用了 AI，你本人到底创造了什么价值？\n\n1. 我的价值在于把模糊需求变成可执行规格、选对架构边界，并判断生成代码是否符合业务不变量。\n\n2. 我需要解释关键调用链、定位错误、设计反例并承担最终验收；AI 加速检索和产出，但不会替我理解错误的业务后果。\n\n3. 在 CAE 中，这体现在执行身份、资源账本和结果版本的闭环设计。面试时我会现场展开具体代码与失败场景，展示可修改、可验证的掌握程度。\n",
+    "facts/cae/ai-speed.md": "# CAE 项目：如何衡量 AI Coding 的效率提升？\n\n1. 我用可合并交付时间衡量 AI 编码提效，计入需求澄清、提示、审查、返工和测试，比较时保持任务复杂度与验收要求接近。\n\n2. 同时看逃逸缺陷、返工率和维护负担，按接口样板、业务逻辑、排障等类型分组，避免平均值掩盖高风险改动。\n\n3. 在项目里，AI 主要加速样板生成、代码检索和局部修改；验收权由我掌握。报告整理降幅和 Agent Token 降幅各有独立口径，编码效率用交付与质量指标单独评价。\n",
+    "facts/cae/ai-command.md": "# CAE 项目：不使用 shell 拼接就彻底没有命令注入风险了吗？\n\n1. 固定程序并使用参数数组能减少 shell 解释风险，但攻击者仍可能通过参数改变程序行为，所以参数白名单和取值范围仍然必要。\n\n2. 限制工作目录、环境变量、文件路径和可执行文件，按业务能力映射命令；敏感操作不接受模型直接提供任意命令串。\n\n3. CAE 应把 solver profile 映射成受控启动参数；Arclight 的通用命令能力需要额外权限和系统隔离，不能套用固定 Solver 的信任范围。\n",
+    "facts/cae/ai-review-example.md": "# CAE 项目：举一个 AI 代码看似正确却有严重问题的例子。\n\n1. 一次 AI 生成的异常分支在 HTTP 超时后立即释放 License 并新建 attempt。单元测试只模拟请求抛异常，全部通过，但漏掉了远端已经执行的情况。\n\n2. 我沿副作用链审查，补“Worker 已接单但响应丢失”的用例，检查执行登记、进程计数和资源账本，暴露重复运行与资源低估。\n\n3. 修复为保留原执行和资源、按身份对账，再保留取消与完成竞态回归。这个案例说明 Review 必须审业务不变量，测试也必须表达真实失败路径。\n",
+    "facts/arclight/ai-workflow.md": "# Arclight 项目：你怎样用 Vibe Coding 完成一个复杂需求？\n\n1. 我先把需求写成可验收规格：输入输出、影响模块、业务不变量、失败路径和必须保留的行为，再让 AI 先给修改计划。\n\n2. 每次只推进一个可验证切片，先读相关代码，再生成小补丁；完成后看 diff、实际运行测试、检查错误和副作用，最后记录变更与回滚点。\n\n3. 例如先验证一个工具闭环，再加入预算替换，最后覆盖恢复路径。我衡量的是交付周期和逃逸缺陷，代码生成量只是过程指标。\n",
+    "facts/arclight/ai-context.md": "# Arclight 项目：怎样让 AI 理解项目规范和复杂业务上下文？\n\n1. 上下文分成稳定规范和当前任务：稳定部分放架构边界、命名、异常、事务、测试命令；当前部分给相关文件、接口、例子与验收条件。\n\n2. 先让 AI 复述要保持的不变量和计划改动的文件，再检查它是否定位到现有扩展点；信息不足时补最小相关片段，不把整个仓库一次性塞入。\n\n3. Arclight 要明确工具 ID 配对、原始历史与 API 视图的差异。规则版本随代码维护，完成后把有复用价值的决策沉淀下来，避免每次重新口头解释。\n",
+    "facts/arclight/ai-review.md": "# Arclight 项目：AI 生成大量代码后，你按什么顺序审查？\n\n1. 先审需求与不变量，再追调用链、状态与副作用；重点看鉴权是否前置、事务边界是否正确、失败是否可恢复，而不是先纠结排版。\n\n2. 审完整 diff，包括配置、依赖、数据库迁移和测试修改，确认没有为了变绿删断言、吞异常或关闭安全检查。\n\n3. Arclight 特别检查工具执行前的权限、错误回注与压缩后的消息完整性。对高风险分支补反例并实际运行；另一轮 AI Review 可以找遗漏，最终依据仍是代码和可执行证据。\n",
+    "facts/arclight/ai-robust.md": "# Arclight 项目：Vibe Coding 快速生成代码，怎样保证健壮性？\n\n1. 把健壮性落实为失败路径：非法输入、重复请求、乱序结果、超时、并发冲突和资源耗尽都要有明确行为。\n\n2. 外部调用设置截止时间与取消，重试有次数和退避，队列有背压；有副作用的操作先定义身份与恢复方式，再讨论自动重试。\n\n3. Arclight 的重点是工具错误、压缩失败、重复动作与子代理异常。验收看故障注入后状态能否收敛、资源是否泄漏、旧结果是否污染新任务，正常路径跑通只完成了一部分。\n",
+    "facts/arclight/ai-maintain.md": "# Arclight 项目：AI 写出的代码如何保持可维护性？\n\n1. 先约束模块责任和依赖方向，复用已有接口与错误模型；不允许每个功能重新造一套配置、重试器或数据模型。\n\n2. 优先小补丁、显式类型和可定位日志，对跨模块改动补设计理由；重复代码是否抽象由变化模式决定，不因 AI 能生成就过度封装。\n\n3. Arclight 把模型适配、工具、会话、权限和上下文拆成独立责任。维护成本通过变更影响面、定位时间、测试稳定性和依赖复杂度观察，不用代码行数评价。\n",
+    "facts/arclight/ai-tests.md": "# Arclight 项目：AI 写代码又写测试，会不会一起写错？\n\n1. 会，所以测试预期必须来自独立规格、领域规则或已确认样例，不能让同一个实现反推标准答案。\n\n2. 正常、边界、恶意和故障用例分别设计；关键断言要检查结果与副作用，必要时注入已知缺陷，看测试是否真的失败。\n\n3. Arclight 可从压缩配对断裂、旧文件编辑、MCP 返回错误等反例入手。我会检查失败日志和退出码，也检查测试有没有被跳过、断言被弱化；覆盖率只说明执行到哪里。\n",
+    "facts/arclight/ai-security.md": "# Arclight 项目：AI 经常生成不安全代码，你如何防范？\n\n1. 按数据流找信任边界：输入从哪里来、能访问什么资源、会触发什么副作用；服务端强制参数、权限和资源归属校验。\n\n2. SQL 使用参数绑定，命令采用固定可执行文件和受限参数，路径限制到允许目录；密钥与业务数据限制进入提示词和日志。\n\n3. Arclight 特别检查不可信工具返回、越界文件操作与外部网络调用。静态检查、依赖扫描和恶意用例补充人工 Review；安全结论必须落在具体控制与失败测试上。\n",
+    "facts/arclight/ai-secret.md": "# Arclight 项目：使用云端 AI Coding 如何保护公司数据和密钥？\n\n1. 先确定允许发送的代码与数据范围，使用获准服务；用脱敏最小复现替代完整生产输入，密钥、个人信息和模型资产按类别排除。\n\n2. 执行环境使用最小权限、短期凭据和网络限制；检查 diff、日志、命令历史及提交内容，防止凭据进入仓库或外部工具结果。\n\n3. CAE 的工程模型与内部路径不能因调试方便就直接外发；Arclight 的插件和 MCP 服务也分别控制可见数据。发送前先检查数据范围，执行时再限制凭据和网络权限。\n",
+    "facts/arclight/ai-deps.md": "# Arclight 项目：AI 推荐不存在的依赖或过时 API 怎么办？\n\n1. 先查官方文档、包仓库和实际安装版本，确认名字、维护者、API 和许可证来源，再决定是否新增依赖。\n\n2. 锁定版本并检查 lockfile 差异、传递依赖和漏洞；不要因为包名看起来合理就直接安装，更不能把下载脚本无审查接入流水线。\n\n3. Arclight 先核对 pyproject.toml、Pydantic 和 MCP SDK 的实际版本。能使用已有能力解决时优先复用；新增依赖需要明确收益、升级策略和移除成本。\n",
+    "facts/arclight/ai-debug.md": "# Arclight 项目：AI 修复一直失败或者越改越乱怎么办？\n\n1. 先冻结一个可复现失败用例和已知可用提交，收集完整错误、调用链和最小输入，让 AI 提出可证伪的原因。\n\n2. 每轮只验证一个假设，用小补丁观察结果；连续无进展就停止扩大改动，回到人工定位或替换策略，而不是继续堆提示词。\n\n3. Arclight 把错误缩成最小会话和工具轨迹，先排数据流再调提示词。最终记录根因、修复和回归，不接受关闭检查、吞掉异常或放宽断言带来的假成功。\n",
+    "facts/arclight/ai-completion.md": "# Arclight 项目：AI 说完成了，你怎样判断可以交付？\n\n1. 交付必须满足具体验收条件：功能行为、错误行为、权限边界与兼容性；模型生成的总结只是待核对说明。\n\n2. 核对实际改动、执行命令、退出码和测试输出，确认运行的是修改后的版本；必要时做端到端或界面验证。\n\n3. Arclight 的子代理结果要经过主流程的集成与回归检查。留下验证记录、已知限制和回滚办法，外部部署或高影响动作继续按授权流程进行。\n",
+    "facts/arclight/ai-rollback.md": "# Arclight 项目：AI 一次改很多文件，怎样控制变更风险？\n\n1. 先圈定任务影响范围并保留工作区现状，拆成独立可审查的提交；发现无关改动时回查原因，不能直接把所有修改打包接受。\n\n2. 数据库变更考虑新旧版本兼容，功能上线先小范围验证；代码回滚和数据回滚分开设计，已发生的外部副作用要有补偿。\n\n3. Arclight 可用独立工作目录审查 diff，但共享资源副作用另行处理。自动化脚本也必须纳入 diff 审查，避免它在测试通过后绕过同样的控制。\n",
+    "facts/arclight/ai-human.md": "# Arclight 项目：用了 AI，你本人到底创造了什么价值？\n\n1. 我的价值在于把模糊需求变成可执行规格、选对架构边界，并判断生成代码是否符合业务不变量。\n\n2. 我需要解释关键调用链、定位错误、设计反例并承担最终验收；AI 加速检索和产出，但不会替我理解错误的业务后果。\n\n3. 在 Arclight 中，这体现在把上下文、工具和恢复行为解释到代码并做实验。面试时我会现场展开具体代码与失败场景，展示可修改、可验证的掌握程度。\n",
+    "facts/arclight/ai-speed.md": "# Arclight 项目：如何衡量 AI Coding 的效率提升？\n\n1. 我用可合并交付时间衡量 AI 编码提效，计入需求澄清、提示、审查、返工和测试，比较时保持任务复杂度与验收要求接近。\n\n2. 同时看逃逸缺陷、返工率和维护负担，按接口样板、业务逻辑、排障等类型分组，避免平均值掩盖高风险改动。\n\n3. 在项目里，AI 主要加速样板生成、代码检索和局部修改；验收权由我掌握。报告整理降幅和 Agent Token 降幅各有独立口径，编码效率用交付与质量指标单独评价。\n",
+    "facts/arclight/ai-command.md": "# Arclight 项目：不使用 shell 拼接就彻底没有命令注入风险了吗？\n\n1. 固定程序并使用参数数组能减少 shell 解释风险，但攻击者仍可能通过参数改变程序行为，所以参数白名单和取值范围仍然必要。\n\n2. 限制工作目录、环境变量、文件路径和可执行文件，按业务能力映射命令；敏感操作不接受模型直接提供任意命令串。\n\n3. CAE 应把 solver profile 映射成受控启动参数；Arclight 的通用命令能力需要额外权限和系统隔离，不能套用固定 Solver 的信任范围。\n",
+    "facts/arclight/ai-review-example.md": "# Arclight 项目：举一个 AI 代码看似正确却有严重问题的例子。\n\n1. 一次 AI 补丁为了减少输入，直接把原始历史中的大工具结果替换成预览。当前请求变短了，但会话恢复和分叉对状态的理解发生分歧。\n\n2. 我把问题缩成包含大结果、压缩边界和一次 fork 的最小会话，逐项对照原始消息、API 视图及持久记录。\n\n3. 修复时保留原始历史，单独维护预算视图与持久替换记录，再验证重复恢复、原文回读和工具配对，保证成本优化不破坏会话语义。\n",
+    "facts/arclight/timeline.md": "# Arclight 从零到完成是怎么推进的？\n\n1. 项目从 2026 年 2 月推进到 6 月。2 月拆解终端 Coding Agent 的模型、会话和工具闭环，先跑通完整的小任务。\n\n2. 3—4 月补上下文预算、压缩恢复和 MCP/Skills；5 月组合独立探索、后台通知和工作目录管理，让新增能力围绕已有执行链路扩展。\n\n3. 6 月围绕固定任务评估成本、耗时和修复效果，记录失败案例，再从上下文、工具和协作机制逐项分析收益。\n",
+    "facts/cae/operations.md": "# 上线后如何发现问题并持续迭代？\n\n1. 我会同时观察业务与执行：批次受理、排队时间、UNKNOWN 数量、对账积压、Outbox 重试、节点资源与失败阶段。\n\n2. 以 jobId/executionId/输入版本关联日志和事件，区分模型不合法、资源不足、通信故障与后处理失败，避免只盯 HTTP 成功率。\n\n3. 发布前跑关键故障回归，变更后小范围观察；失败案例回到契约、测试和告警规则，形成可解释的迭代闭环。\n",
+    "facts/cae/incident-report.md": "# CAE 报告中的图片和数字对不上，你怎么排查？\n\n1. 我遇到过按任务名取到新图片，却配上旧 parser 指标的情况。文件分别合法，组合后却不属于同一次工况，根因是关联条件缺少执行与版本身份。\n\n2. 我核对输入版本、executionId、parser 版本、condition、Subcase、单位和产物 manifest；后端把这些字段写进产物契约，Python 同事按固定渲染规格输出，专家校核工程含义。\n\n3. 报告组装先验证身份一致性，再做人工审核；回归专门构造同名文件、不同执行与版本的组合，确保错误关联被拒绝。\n",
+    "facts/cae/measurement-environment.md": "# CAE 测试环境和统计口径怎么固定？\n\n1. 控制面测试固定 API 为 4 vCPU/8GiB，MySQL 为 4 vCPU/8GiB，三个 MockSolver Worker 各 8 vCPU/16GiB，输入和产物使用共享目录。\n\n2. 批次受理采用 5 并发、50 Case/批，20 批预热后统计 300 批；重放、恢复、输入和报告分别建测试集，记录环境、样本与计时边界。\n\n3. MockSolver 用于重复执行、资源与故障控制验证；OptiStruct 的实际求解耗时和工程正确性由对应模型与 CAE 校核流程验收，两类测试分别报告。\n"
+  }
+}

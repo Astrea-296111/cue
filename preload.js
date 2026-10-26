@@ -55,6 +55,7 @@ contextBridge.exposeInMainWorld('cue', {
   projectImportZip: () => ipcRenderer.invoke('project:import-zip'),
   projectIndexClear: () => ipcRenderer.invoke('project:index-clear'),
   projectPrefetch: (query) => ipcRenderer.send('project:prefetch', query),
+  answerDomain: (domain) => ipcRenderer.invoke('answer:domain', domain),
   projectCurrent: (projectId) => ipcRenderer.invoke('project:current', projectId),
   projectSemanticState: () => ipcRenderer.invoke('project:semantic-state'),
   projectSemanticPrepare: (importLocal = false) => ipcRenderer.invoke('project:semantic-prepare', { importLocal }),

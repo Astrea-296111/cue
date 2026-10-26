@@ -49,6 +49,12 @@
 
   installEditableQwenAsrModelControl();
   const projectChooser = window.CueCaptureSafeSelect.install($('#current-project'));
+  function renderDomains() {
+    document.querySelectorAll('[data-domain]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.domain === (settings?.answerDomain || 'general'))));
+  }
+  document.querySelectorAll('[data-domain]').forEach(button => button.addEventListener('click', async () => {
+    try { settings = await cue.answerDomain(button.dataset.domain); renderDomains(); } catch(error) { showToast(error.message); }
+  }));
   const answerModeChooser = window.CueCaptureSafeSelect.install($('#realtime-answer-mode'));
   new MutationObserver(() => window.CueCaptureSafeSelect.close()).observe($('#panel'), { attributes: true, attributeFilter: ['class'] });
 
@@ -117,7 +123,7 @@
   function finalizeAi() {
     if (!aiEl) return;
     const raw = aiEl.dataset.raw || '';
-    aiEl.innerHTML = renderMarkdown(raw);
+    aiEl.innerHTML = renderMarkdown(aiEl.dataset.presentation || raw);
     aiEl = null; caretEl = null;
   }
 
@@ -1399,7 +1405,8 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
     details.append(summary, body);
     group.appendChild(details);
   });
-  cue.on('project:active', ({ label, retrieve, requestId }) => {
+  cue.on('project:active', ({ label, retrieve, requestId, switchHint }) => {
+    if (switchHint) showToast(switchHint);
     if (!acceptsReply(requestId)) return;
     $('#active-project-label').textContent = retrieve ? label : '当前为通用问题';
   });
@@ -1425,21 +1432,20 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
     }
     setBusy(true);
   });
+  cue.on('llm:presentation', ({text, displayTruncated, requestId, epoch}) => {
+    if (!acceptsReply(requestId,epoch) || !displayTruncated || !aiEl) return;
+    aiEl.dataset.presentation = text + '\n[口述卡已截句；完整原文保留在记录中]';
+    aiEl.innerHTML = renderMarkdown(aiEl.dataset.presentation);
+  });
   cue.on('llm:done', ({ requestId, epoch } = {}) => {
     if (!acceptsReply(requestId, epoch)) return;
     clearTimeout(answerWaitTimer);
     const completed = aiEl;
     finalizeAi(); setBusy(false); activeRequestId = null; activeRequestEpoch = null;
-    if (completed && completed.textContent.length > 800 && !['technical', 'leetcode', 'assist'].includes(completed.parentElement?.dataset.mode)) {
-      completed.classList.add('answer-collapsed');
-      const expand = document.createElement('button');
-      expand.type = 'button'; expand.className = 'answer-expand'; expand.textContent = '展开完整回答';
-      expand.setAttribute('aria-expanded', 'false');
-      expand.addEventListener('click', () => {
-        const collapsed = completed.classList.toggle('answer-collapsed');
-        expand.textContent = collapsed ? '展开完整回答' : '收起完整回答';
-        expand.setAttribute('aria-expanded', String(!collapsed));
-      });
+    const question=submittedSnapshot?.text;
+    if (completed && question && !['technical','leetcode','assist'].includes(completed.parentElement?.dataset.mode)) {
+      const expand=document.createElement('button');expand.type='button';expand.className='answer-expand';expand.textContent='展开细节';
+      expand.addEventListener('click',()=>runMode('ask','请详细展开这个问题，补充关键细节：'+question));
       completed.after(expand);
     }
   });
@@ -1700,7 +1706,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
       select.appendChild(option);
     }
     select.value = settings?.currentProjectId || '';
-    projectChooser.sync();
+    projectChooser.sync(); renderDomains();
   }
 
   function renderSemanticState(state = {}) {

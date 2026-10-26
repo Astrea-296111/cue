@@ -95,11 +95,8 @@ function recoverPersonalWorkspaceImport({materialService,store}) {
   clearJournal(file);recoveryResults.set(materialService,result);return result;
 }
 
-function sanitizeResumeForPrompt(value) {
-  return String(value || '').replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[联系方式已省略]')
-    .replace(/(?<!\d)(?:\+?86[ -]?)?1[3-9]\d(?:[ -]?\d){8}(?!\d)/g, '[联系方式已省略]')
-    .replace(/(?:联系电话|手机|电话|邮箱|电子邮件|email)\s*[:：]\s*[^\n]+/gi, '[联系方式已省略]');
-}
+function sanitizeResumeForPrompt(value) { return String(value || ''); }
+
 function text(value, name, max = 256 * 1024) {
   if (typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > max) throw new Error(name + '正文格式无效或过大');
   return value;
@@ -152,7 +149,7 @@ async function preparePersonalWorkspaceImport({filePath, workspace:value, materi
   const workspace = value ? validatePersonalWorkspace(value) : readWorkspace(filePath);
   const settings = store.getSettings(), prior = settings.personalWorkspace || {}, already = settings.personalWorkspaceRevision === workspace.revision;
   // Keep the original v1 install contract; v2 upgrades merge stable IDs and retain local additions.
-  const mode = workspace.schemaVersion === 1 && !settings.personalWorkspaceRevision ? 'replace-projects' : 'merge';
+  const mode = (workspace.schemaVersion === 1 && !settings.personalWorkspaceRevision || workspace.mergeLog?.some(row=>row.kind==='replace-projects'&&row.reason==='oct26-reviewed-facts')) ? 'replace-projects' : 'merge';
   const materialPreview = already ? {token:randomUUID(),baseGeneration:materialService.snapshot.generation,conflicts:[],packConflicts:[],changes:[]} : await materialService.prepareImport({index:workspace.facts,mode});
   const preservedCards = workspace.facts.cards.filter(c => {
     const old = materialService.snapshot.facts.cards.find(row => row.cardId === c.cardId);

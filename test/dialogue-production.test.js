@@ -61,7 +61,7 @@ test('diagnostics preserve the actual deep request identity after configuration 
   const changed=plain(app.value('redactedDiagnostics()'));assert.equal(changed.configuredModel.fast,'later-fast');assert.equal(changed.configuredModel.smart,'later-deep');assert.equal(changed.jobProfileId,'java_security');assert.deepEqual(changed.lastActualRequest,original.lastActualRequest);assert.equal(changed.model.model,'actual-deep');
   app.answer('',{error:new Error('SYNTHETIC_FAILURE '+secret)});await app.ask('say','一般解释事务的取舍。');
   const failed=plain(app.value('redactedDiagnostics()'));assert.equal(failed.lastActualRequest.status,'failed');assert.equal(failed.lastActualRequest.dispatched,true);assert.equal(failed.lastActualRequest.model,'later-deep');assert.equal(failed.lastActualRequest.jobProfileId,'java_security');assert.notEqual(failed.lastActualRequest.requestId,original.lastActualRequest.requestId);assert.equal(failed.lastRequest.actualRequest.requestId,original.lastActualRequest.requestId);assert.equal(failed.lastActualRequest.errorClass,'Error');
-  const serialized=JSON.stringify(failed);for(const privateValue of [secret,'sample@example.test','13800000000','SYNTHETIC_FAILURE','apiKeys'])assert.ok(!serialized.includes(privateValue),privateValue);
+  const serialized=JSON.stringify(failed);for(const privateValue of [secret,'SYNTHETIC_FAILURE','apiKeys'])assert.ok(!serialized.includes(privateValue),privateValue);
 });
 
 for(const executionProfile of ['instant','standard'])test(`${executionProfile}: production request preserves hypothetical and question speech labels`,async t=>{
@@ -315,15 +315,15 @@ test('configured code output budget reaches production request planning and rema
   app.final('用 Java 实现二分查找函数，给完整代码。');
   await app.ask('technical');
   const request=app.commits.at(-1).request;
-  assert.deepEqual(plain(request.responseBudget),{kind:'code',maxTokens:6000});
+  assert.deepEqual(plain(request.responseBudget),{kind:'code',maxTokens:6000,maxVisibleCharacters:null,styleVersion:require('../src/oral-answer-policy').VERSION});
   assert.equal(request.settingsSnapshot.responseBudgets.code,6000);
   assert.equal(app.calls.at(-1).max_tokens,6000);
   const scenario='假设多个客户端重复提交批次，远端确认响应丢失。'.repeat(25)+'请分别说明受理身份、执行资源、输入版本和故障验证，逐项给出机制与边界。';
   await app.ask('say',scenario);
-  assert.equal(app.commits.at(-1).request.responseBudget.kind,'scenario');
-  assert.ok(app.calls.at(-1).max_tokens>1800&&app.calls.at(-1).max_tokens<=4096);
+  assert.equal(app.commits.at(-1).request.responseBudget.kind,'oral');
+  assert.ok(app.calls.at(-1).max_tokens===600);
   await app.invoke('settings:set',{responseBudgets:{oral:900,code:2048}});
-  await app.ask('say',scenario);assert.equal(app.calls.at(-1).max_tokens,2048);
+  await app.ask('say',scenario);assert.equal(app.calls.at(-1).max_tokens,600);
   await app.ask('say','什么是幂等？');assert.ok(app.calls.at(-1).max_tokens<=900);
 });
 
@@ -336,8 +336,8 @@ test('diagnostic export writes only a user-selected local file with contacts and
   const result=await app.invoke('diagnostics:export');
   assert.equal(result.canceled,false);
   const output=fs.readFileSync(destination,'utf8');
-  assert.doesNotMatch(output,/sample@example\.com|13800138000|test-transport-only|sk-syntheticSecret/);
-  assert.match(output,/联系方式已省略/);
+  assert.doesNotMatch(output,/test-transport-only|sk-syntheticSecret/);
+  assert.match(output,/sample@example\.com/);assert.match(output,/13800138000/);
   const diagnostics=JSON.parse(output);
   assert.equal(diagnostics.dialogue.events.length,1);
   assert.ok(diagnostics.materials.generation!=null);

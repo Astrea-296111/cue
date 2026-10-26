@@ -1,0 +1,1861 @@
+{
+  "schema_version": "cue_handoff_seed_v1",
+  "created_at": "2026-10-24",
+  "intended_consumer": "Codex implementation task",
+  "importable_by_current_cue": false,
+  "required_action": "将本资料编译为当前或迁移后的 CUE schema，校验后交付可导入成品；不可直接导入 seed。",
+  "cue_baseline_sha": "9898a05184a8f860411da8e084cd4b1ed22093a6",
+  "upstream_shas": {
+    "arclight": "528704eb373f637830640b3fefcc5cbc95f23a78",
+    "cae": "c50dd29d1b1981e299d2ce4821e0a1ef745aa48e"
+  },
+  "candidate_profile": {
+    "name": "廖松毅",
+    "subject_role": "candidate",
+    "source": "inputs/resume.pdf",
+    "status": "user_supplied_claim",
+    "education": [
+      {
+        "school": "暨南大学",
+        "degree": "硕士",
+        "major": "网络空间安全",
+        "period": "2025.09–2028.06"
+      },
+      {
+        "school": "广西大学",
+        "degree": "本科",
+        "major": "信息安全",
+        "period": "2020.09–2024.06"
+      }
+    ],
+    "availability": {
+      "days_per_week": 5,
+      "duration_months": 6,
+      "start": "简历声明立即到岗；随实际日期更新"
+    },
+    "employment": [
+      {
+        "organization": "上汽通用五菱股份有限公司",
+        "role": "后端开发工程师",
+        "period": "2024.07–2025.07",
+        "employment_transition": "2025.01 转正"
+      }
+    ],
+    "resume_project_order": [
+      "cae",
+      "arclight"
+    ],
+    "projects": [
+      {
+        "id": "cae",
+        "role": "后端开发",
+        "period": "2024.12–2025.04",
+        "scope": "任务提交与资源约束、可靠性、输入治理、结果与报告元数据及阶段重试，Python 后处理联调"
+      },
+      {
+        "id": "arclight",
+        "role": "个人项目开发",
+        "period": "2026.02–2026.06",
+        "scope": "Agent Loop、上下文、工具扩展、协作恢复与评测设计"
+      }
+    ],
+    "do_not_infer": [
+      "未提供的离职原因",
+      "真人团队人数或姓名",
+      "生产 KMS 研发经历",
+      "Agentic RL 实操经历",
+      "指定顶会论文",
+      "开源贡献 PR",
+      "未给出的线上规模"
+    ],
+    "contact_policy": "联系方式不进入模型普通问答上下文；原始 PDF 仍作为私有输入保存。"
+  },
+  "job_profiles": [
+    {
+      "id": "ai_supply_chain",
+      "priority_topics": [
+        "Agent Loop",
+        "上下文",
+        "Memory",
+        "MCP Skills",
+        "评估",
+        "Schema Linking",
+        "NL2SQL",
+        "多模态",
+        "后训练知识边界"
+      ],
+      "source": "inputs/job_descriptions.txt#岗位1"
+    },
+    {
+      "id": "java_security",
+      "priority_topics": [
+        "Java JUC JVM",
+        "MySQL事务",
+        "RabbitMQ幂等",
+        "RBAC",
+        "租户隔离",
+        "KMS",
+        "信封加密",
+        "鉴权SDK"
+      ],
+      "source": "inputs/job_descriptions.txt#岗位2"
+    }
+  ],
+  "metric_claims": [
+    {
+      "id": "cae.batch.accept.p95",
+      "project_id": "cae",
+      "value": "281 ms",
+      "scope": "300 批次；5 并发；每批50 Case；持久受理",
+      "provenance": "USER",
+      "status": "source-claim",
+      "source": "inputs/resume.pdf",
+      "independently_verified": false
+    },
+    {
+      "id": "cae.replay",
+      "project_id": "cae",
+      "value": "500 次同身份重放未新增进程",
+      "scope": "限定重放场景；同时核验执行身份",
+      "provenance": "USER",
+      "status": "source-claim",
+      "source": "inputs/resume.pdf",
+      "independently_verified": false
+    },
+    {
+      "id": "cae.recovery.p95",
+      "project_id": "cae",
+      "value": "12.6 s",
+      "scope": "30 轮限定故障；从恢复条件就绪起算",
+      "provenance": "USER",
+      "status": "source-claim",
+      "source": "inputs/resume.pdf",
+      "independently_verified": false
+    },
+    {
+      "id": "cae.input",
+      "project_id": "cae",
+      "value": "46 缺陷全拦截，74 合规无误拦",
+      "scope": "120 组回归样本；有限分布",
+      "provenance": "USER",
+      "status": "source-claim",
+      "source": "inputs/resume.pdf",
+      "independently_verified": false
+    },
+    {
+      "id": "cae.report",
+      "project_id": "cae",
+      "value": "约减少76.3%",
+      "scope": "30 组同内容、同审核要求的配对样本；人工整理耗时",
+      "provenance": "USER",
+      "status": "source-claim",
+      "source": "inputs/resume.pdf",
+      "independently_verified": false
+    },
+    {
+      "id": "arc.context",
+      "project_id": "arclight",
+      "value": "累计输入 Token 减少31.57%",
+      "scope": "60 项长会话；不等于全部总成本",
+      "provenance": "USER",
+      "status": "source-claim",
+      "source": "inputs/resume.pdf",
+      "independently_verified": false
+    },
+    {
+      "id": "arc.mcp",
+      "project_id": "arclight",
+      "value": "初始 Token 18.6k→4.2k",
+      "scope": "50 个外部MCP工具配置；不是累计调用",
+      "provenance": "USER",
+      "status": "source-claim",
+      "source": "inputs/resume.pdf",
+      "independently_verified": false
+    },
+    {
+      "id": "arc.parallel",
+      "project_id": "arclight",
+      "value": "耗时减少23.1%，Token增加32.16%",
+      "scope": "30 组独立探索；墙钟与总量分开",
+      "provenance": "USER",
+      "status": "source-claim",
+      "source": "inputs/resume.pdf",
+      "independently_verified": false
+    },
+    {
+      "id": "arc.swe",
+      "project_id": "arclight",
+      "value": "31.33%→43.67%",
+      "scope": "SWE-bench Lite 300；简历指定 qwen3.6-plus-2026-04-02；约94→131为算术推导",
+      "provenance": "USER",
+      "status": "source-claim",
+      "source": "inputs/resume.pdf",
+      "independently_verified": false
+    }
+  ],
+  "code_boundaries": [
+    "Arclight SharedTaskStore 未证明跨进程锁/CAS",
+    "Mailbox consume 不是事务ACK",
+    "worktree 不隔离共享状态和外部副作用",
+    "CAE UNKNOWN 不能仅凭心跳失联直接释放容量",
+    "PID校验不是 fencing",
+    "公开本地bench与简历声明不可合并"
+  ],
+  "narrative_scenarios": [
+    {
+      "id": "story-cae-01",
+      "project_id": "cae",
+      "title": "确认丢失后的重复提交",
+      "provenance": "REFERENCE-STORY",
+      "truth_scope": "narrative_scenario",
+      "verification_status": "not_historical_evidence",
+      "background": "用户通过统一入口批量提交仿真任务，界面等待超时后重试。",
+      "trigger": "请求返回失败，但 Worker 实际已经受理。",
+      "investigation": "按业务请求、消息和执行身份串起日志，区分没发送、没收到确认和已执行未回写。",
+      "alternative_and_rejection": "只延长 HTTP 超时不能消除确认丢失；仅查 Job 行也无法判断远端是否重复启动。",
+      "solution": "将稳定身份贯穿受理、投递和远端核验，Outbox 解决待发意图持久化，幂等与对账处理重复和未知。",
+      "validation_plan": "在 Agent 接收后阻断响应，同身份重放；核对 Job/Execution 数量、远端进程与资源账本，再恢复网络。",
+      "tradeoff_and_remaining_risk": "可靠性增加了身份和状态复杂度，仍依赖清晰故障模型。",
+      "first_person_narrative_example": "我最先碰到的不是队列吞吐，而是提交超时后任务到底有没有被受理。我的排查从执行身份入手，发现超时不能直接等于失败，所以把重投和新尝试分开，并让对账核验远端事实。",
+      "source_refs": [
+        "cae-05",
+        "cae-07",
+        "cae-09"
+      ],
+      "usage": "用户要求的合理场景补充；可作场景叙述，不得自动标成真实事故、实测结果或源码已实现保证。"
+    },
+    {
+      "id": "story-cae-02",
+      "project_id": "cae",
+      "title": "License 释放与未知执行",
+      "provenance": "REFERENCE-STORY",
+      "truth_scope": "narrative_scenario",
+      "verification_status": "not_historical_evidence",
+      "background": "多个小组共享计算和 License 资源。",
+      "trigger": "节点失联后如果按超时立即释放，会出现账本可用而远端仍运行。",
+      "investigation": "复核心跳、提交响应、进程状态与资源占用的时间线，发现可达性和执行终态不是同一件事。",
+      "alternative_and_rejection": "单纯增大租约只推迟问题；在 Redis 中改数字不能证明进程已退出。",
+      "solution": "保留 UNKNOWN 与执行身份，等待主动查询或权威终态后释放；人工处理作为不可恢复分支。",
+      "validation_plan": "模拟短断网、恢复后仍运行、进程已退出但回调丢失三种情形，验证无过早释放和无重复释放。",
+      "tradeoff_and_remaining_risk": "宁可短暂降低利用率，也不冒险重复占用；须控制永久挂起的处置。",
+      "first_person_narrative_example": "这个难点是安全与利用率的取舍。节点看不见时我不能假设求解已经结束，因此把未知状态显式留下来，再通过对账决定何时释放资源。",
+      "source_refs": [
+        "cae-09",
+        "cae-10",
+        "cae-11"
+      ],
+      "usage": "用户要求的合理场景补充；可作场景叙述，不得自动标成真实事故、实测结果或源码已实现保证。"
+    },
+    {
+      "id": "story-cae-03",
+      "project_id": "cae",
+      "title": "目录迁移造成依赖断裂",
+      "provenance": "REFERENCE-STORY",
+      "truth_scope": "narrative_scenario",
+      "verification_status": "not_historical_evidence",
+      "background": "模型包含多个 INCLUDE 文件，资料目录有调整。",
+      "trigger": "主文件存在，任务运行后才发现相对路径依赖缺失。",
+      "investigation": "从失败输入还原依赖图，检查相对路径、越界路径、软链接和校验后修改。",
+      "alternative_and_rejection": "只检查主文件存在不能覆盖依赖；只修改 UI 提示不能防执行前变化。",
+      "solution": "入口增加依赖预检与路径约束，保存输入快照，执行前核对版本。",
+      "validation_plan": "用缺失依赖、路径越界、目录迁移、执行前篡改和正常输入构成固定样本；计误拦与漏拦。",
+      "tradeoff_and_remaining_risk": "预检增加准备耗时和存储开销，解析覆盖面必须写清。",
+      "first_person_narrative_example": "我把错误尽量前移到执行之前：先确认依赖和路径，再固定一次任务使用的输入版本。这样遇到失败时，能够复现当时真正执行的内容。",
+      "source_refs": [
+        "cae-12",
+        "cae-13"
+      ],
+      "usage": "用户要求的合理场景补充；可作场景叙述，不得自动标成真实事故、实测结果或源码已实现保证。"
+    },
+    {
+      "id": "story-cae-04",
+      "project_id": "cae",
+      "title": "报告模板变更后的阶段重试",
+      "provenance": "REFERENCE-STORY",
+      "truth_scope": "narrative_scenario",
+      "verification_status": "not_historical_evidence",
+      "background": "仿真结果已生成，业务需要同一结果的标准报告。",
+      "trigger": "报告渲染失败或模板变更，直接全流程重跑代价高。",
+      "investigation": "检查失败是解析、后处理还是模板渲染，同时核对上游产物和模板版本。",
+      "alternative_and_rejection": "全 Job 重跑浪费求解资源；只看文件名复用可能错配版本。",
+      "solution": "分阶段记录产物与状态，以输入和版本指纹决定能否复用，只重试失败阶段。",
+      "validation_plan": "对重复请求、模板更新、迟到回调和已有报告场景验收，检查内容与元数据一致。",
+      "tradeoff_and_remaining_risk": "状态与产物关系更复杂，需要清晰失效规则。",
+      "first_person_narrative_example": "我把求解成功和报告成功拆开处理，报告失败时不重新消耗求解资源。关键不是简单加重试，而是证明复用的结果仍与当前模板和输入对应。",
+      "source_refs": [
+        "cae-14",
+        "cae-15"
+      ],
+      "usage": "用户要求的合理场景补充；可作场景叙述，不得自动标成真实事故、实测结果或源码已实现保证。"
+    },
+    {
+      "id": "story-cae-05",
+      "project_id": "cae",
+      "title": "受理速度与后台积压",
+      "provenance": "REFERENCE-STORY",
+      "truth_scope": "narrative_scenario",
+      "verification_status": "not_historical_evidence",
+      "background": "批量提交体验需要快速反馈。",
+      "trigger": "接口看起来很快，但后面的子任务长时间排队。",
+      "investigation": "分开测批次受理、子任务接入、资源等待与真正执行，检查积压年龄而不只看接口均值。",
+      "alternative_and_rejection": "单纯增加消费并发可能压垮数据库或资源池；把受理指标当端到端掩盖问题。",
+      "solution": "给受理和执行独立状态，结合背压与资源约束派发，并提供队列与最老任务监控。",
+      "validation_plan": "固定输入规模和资源配额，逐步增加负载；同时看排队、拒绝、完成率与 P95。",
+      "tradeoff_and_remaining_risk": "快速受理不消除执行瓶颈，界面要让用户理解当前阶段。",
+      "first_person_narrative_example": "我后来把“提交快”与“任务完成快”分成两件事，不再只看一个接口数值。先明确各阶段耗时，再判断瓶颈在数据库、队列还是资源。",
+      "source_refs": [
+        "cae-02",
+        "cae-10",
+        "cae-16"
+      ],
+      "usage": "用户要求的合理场景补充；可作场景叙述，不得自动标成真实事故、实测结果或源码已实现保证。"
+    },
+    {
+      "id": "story-cae-06",
+      "project_id": "cae",
+      "title": "后端与后处理接口联调",
+      "provenance": "REFERENCE-STORY",
+      "truth_scope": "narrative_scenario",
+      "verification_status": "not_historical_evidence",
+      "background": "Java 管业务状态，Python 负责部分后处理和渲染。",
+      "trigger": "同名字段或版本理解不同，导致状态成功但产物不匹配。",
+      "investigation": "用最小样例逐项核对 Execution、输入摘要、模板版本、错误码及重试语义。",
+      "alternative_and_rejection": "靠口头约定或宽松 JSON 兼容会把协议错误拖到运行后。",
+      "solution": "固定契约样例和校验规则，联调时先校验输入输出再接入完整批次。",
+      "validation_plan": "对缺字段、类型错、版本错、重复回调和超时分别构造契约测试。",
+      "tradeoff_and_remaining_risk": "契约严格会增加协调成本，但能让错误及早暴露。",
+      "first_person_narrative_example": "我的职责主要在后端编排，后处理部分需要联调。遇到理解不一致时，我会用可运行样例和字段契约对齐，而不是在两边各写一层猜测兼容。",
+      "source_refs": [
+        "cae-01",
+        "cae-14",
+        "gen-02"
+      ],
+      "usage": "用户要求的合理场景补充；可作场景叙述，不得自动标成真实事故、实测结果或源码已实现保证。"
+    },
+    {
+      "id": "story-arc-01",
+      "project_id": "arclight",
+      "title": "日志挤掉任务约束",
+      "provenance": "REFERENCE-STORY",
+      "truth_scope": "narrative_scenario",
+      "verification_status": "not_historical_evidence",
+      "background": "Agent 多轮检索和测试产生大量输出。",
+      "trigger": "后续回答重复读取文件，甚至忘记最初不能修改的范围。",
+      "investigation": "检查实际发送的 Prompt，区分模型能力问题与关键约束被日志挤掉。",
+      "alternative_and_rejection": "简单从头截断会删除任务；每轮全部摘要会增加延迟且可能丢细节。",
+      "solution": "大结果落盘，保留定位预览；近期消息保真，较早历史分层压缩，重要约束单独保留。",
+      "validation_plan": "固定长会话任务，对比任务成功、约束保持和累计输入 Token；检查压缩边界前后。",
+      "tradeoff_and_remaining_risk": "节省上下文要付出读回和摘要成本，不能承诺无损。",
+      "first_person_narrative_example": "我排查时先看真正发送了什么，发现任务约束被低价值输出挤掉。后来把输出存储与模型可见上下文分开，既控制输入，也能在需要时读回。",
+      "source_refs": [
+        "arc-04",
+        "arc-05",
+        "arc-06"
+      ],
+      "usage": "用户要求的合理场景补充；可作场景叙述，不得自动标成真实事故、实测结果或源码已实现保证。"
+    },
+    {
+      "id": "story-arc-02",
+      "project_id": "arclight",
+      "title": "fork 后工具消息不完整",
+      "provenance": "REFERENCE-STORY",
+      "truth_scope": "narrative_scenario",
+      "verification_status": "not_historical_evidence",
+      "background": "主 Agent 执行工具时启动子 Agent。",
+      "trigger": "新上下文保留了一半工具对话，导致模型协议错误或理解错位。",
+      "investigation": "逐条对比 fork 前的消息、tool_call_id、结果和会话持久化内容。",
+      "alternative_and_rejection": "按文本长度裁剪无法保证协议结构；直接删除所有历史又丢掉必要任务信息。",
+      "solution": "在边界处理未完成调用，保留完整配对或明确中断标记，再建立子任务上下文。",
+      "validation_plan": "分别在调用前、调用中、结果到达后 fork，验证结构和恢复；失败时检查原始事件。",
+      "tradeoff_and_remaining_risk": "上下文继承需要结构规则，不能只用通用字符串裁剪。",
+      "first_person_narrative_example": "这个问题让我把上下文当结构化状态看，而不是一长段文本。fork 时我先保证工具调用关系完整，再决定哪些内容给子代理。",
+      "source_refs": [
+        "arc-05",
+        "arc-11",
+        "arc-16"
+      ],
+      "usage": "用户要求的合理场景补充；可作场景叙述，不得自动标成真实事故、实测结果或源码已实现保证。"
+    },
+    {
+      "id": "story-arc-03",
+      "project_id": "arclight",
+      "title": "工具多但首轮无效上下文过大",
+      "provenance": "REFERENCE-STORY",
+      "truth_scope": "narrative_scenario",
+      "verification_status": "not_historical_evidence",
+      "background": "配置外部 MCP 服务后可用工具增加。",
+      "trigger": "首轮请求包含大量本任务不会用到的 Schema。",
+      "investigation": "统计初始 Prompt 组成、实际使用工具和工具发现失败案例。",
+      "alternative_and_rejection": "一口气删工具会损失能力；只缩短工具描述可能影响参数理解。",
+      "solution": "用工具目录与 ToolSearch 按需提供完整 Schema，并对目录更新和找不到工具有回退。",
+      "validation_plan": "同任务对照全量与按需策略，统计初始与累计 Token、工具选对率和完成率。",
+      "tradeoff_and_remaining_risk": "按需发现会额外占一轮或增加查找成本，要测完整任务。",
+      "first_person_narrative_example": "我优化的不是工具数量本身，而是每次请求看到的工具信息。把发现和调用拆开后，既减少初始负担，也保留了完整参数约束。",
+      "source_refs": [
+        "arc-07",
+        "arc-08",
+        "arc-09"
+      ],
+      "usage": "用户要求的合理场景补充；可作场景叙述，不得自动标成真实事故、实测结果或源码已实现保证。"
+    },
+    {
+      "id": "story-arc-04",
+      "project_id": "arclight",
+      "title": "并行探索与成本上升",
+      "provenance": "REFERENCE-STORY",
+      "truth_scope": "narrative_scenario",
+      "verification_status": "not_historical_evidence",
+      "background": "多个模块需要相互独立的代码理解。",
+      "trigger": "并行更快，但重复读代码与协同消息明显增多。",
+      "investigation": "分别统计每个代理的任务、上下文、墙钟耗时与总 Token，定位重复工作。",
+      "alternative_and_rejection": "无限增加代理会增加协调和上下文成本；让所有代理修改同一目录会冲突。",
+      "solution": "只拆独立探索，明确输出契约与文件归属，主代理整合并验收；强依赖任务串行。",
+      "validation_plan": "对相同任务做单代理与多代理重复对照，计失败与整合时间。",
+      "tradeoff_and_remaining_risk": "接受一定 Token 增长换取时间，必要时退回单代理。",
+      "first_person_narrative_example": "我没有把多 Agent 当作一定省成本的优化。对独立探索它更快，但整体 Token 会增加，所以要让拆分服务于任务依赖关系。",
+      "source_refs": [
+        "arc-11",
+        "arc-12",
+        "arc-13"
+      ],
+      "usage": "用户要求的合理场景补充；可作场景叙述，不得自动标成真实事故、实测结果或源码已实现保证。"
+    },
+    {
+      "id": "story-arc-05",
+      "project_id": "arclight",
+      "title": "文件协作状态的可靠性边界",
+      "provenance": "REFERENCE-STORY",
+      "truth_scope": "narrative_scenario",
+      "verification_status": "not_historical_evidence",
+      "background": "任务状态和消息通过文件持久化。",
+      "trigger": "并发写者或中断可能带来丢更新、部分文件和未确认副作用。",
+      "investigation": "审查 read-modify-write 与 consume 路径，分辨原子写、并发互斥和处理确认。",
+      "alternative_and_rejection": "不能靠“有文件保存”声称强一致；原子 rename 不解决多个读改写者覆盖。",
+      "solution": "当前回答明确能力边界；后续方案比较单写者、进程锁或事务存储，并设计幂等消费。",
+      "validation_plan": "用多进程竞争和读后崩溃检验提议；没有实现和结果前不宣称修复。",
+      "tradeoff_and_remaining_risk": "更强一致性会增加运行时与迁移复杂度。",
+      "first_person_narrative_example": "我会明确区分目前文件机制做到了什么和没有做到什么。要支持更强并发，必须补真正的协议和测试，不能只把名字改成事务。",
+      "source_refs": [
+        "arc-14",
+        "arc-15"
+      ],
+      "usage": "用户要求的合理场景补充；可作场景叙述，不得自动标成真实事故、实测结果或源码已实现保证。"
+    },
+    {
+      "id": "story-arc-06",
+      "project_id": "arclight",
+      "title": "模型说完成但测试未通过",
+      "provenance": "REFERENCE-STORY",
+      "truth_scope": "narrative_scenario",
+      "verification_status": "not_historical_evidence",
+      "background": "Agent 能生成补丁和解释。",
+      "trigger": "只看总结很容易把未执行或失败的测试当成修复成功。",
+      "investigation": "对照工具退出码、测试报告、diff 和实际基准版本，发现叙述与执行证据不一致。",
+      "alternative_and_rejection": "另一个模型觉得代码看起来对不等于可运行，也不能只检查补丁非空。",
+      "solution": "以外部测试 harness 判定任务结果，模型裁判用于补充分类和解释，不替代执行。",
+      "validation_plan": "在固定样本上比较基线与消融，完整保留失败、环境错误和预算。",
+      "tradeoff_and_remaining_risk": "可复现评测成本高，但能发现提示词看不出的工程问题。",
+      "first_person_narrative_example": "我最看重的是把“模型说做完了”和“任务实际完成”分开。最终判断来自补丁和测试，不来自它的总结有多像真的。",
+      "source_refs": [
+        "arc-18",
+        "arc-19",
+        "gen-06"
+      ],
+      "usage": "用户要求的合理场景补充；可作场景叙述，不得自动标成真实事故、实测结果或源码已实现保证。"
+    }
+  ],
+  "question_answers": [
+    {
+      "id": "cae-01",
+      "project_id": "cae",
+      "topic": "背景职责",
+      "question": "为什么要做 CAE 平台，你负责什么？",
+      "answer_short": "这个平台解决的是提交分散、状态难跟踪和结果报告难整理的问题。我负责 Java 后端的任务提交编排、资源约束、可靠性和输入校验，以及结果报告的元数据与阶段重试；求解器数值算法不属于我的工作。",
+      "followup_questions": [
+        "为什么原来的脚本不够用？",
+        "哪些是你独立实现的？",
+        "一条任务链路经过哪些模块？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "职责来源为简历声明，不根据代码文件数量推断个人贡献。"
+      ],
+      "source_refs": [
+        "resume",
+        "R3"
+      ],
+      "evidence_kind": "resume_claim",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-02",
+      "project_id": "cae",
+      "topic": "受理边界",
+      "question": "281 ms 到底测的是什么？",
+      "answer_short": "这是简历所述配置下批次持久受理的 P95，不是求解完成时间。请求完成必要校验并把批次意图可靠保存后可以返回；后续任务接入、排队、求解和报告分别计时，不能把这几段合成一个数字。",
+      "followup_questions": [
+        "计时从哪到哪？",
+        "300 个样本怎样取 P95？",
+        "为什么要优化受理而不只优化 Solver？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "5 并发、每批 50 Case、300 批次属于简历测试声明；不可冒充当前公开基准。"
+      ],
+      "source_refs": [
+        "resume",
+        "R3"
+      ],
+      "evidence_kind": "resume_claim",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-03",
+      "project_id": "cae",
+      "topic": "架构选型",
+      "question": "为什么采用模块化单体而不是微服务？",
+      "answer_short": "任务、资源和执行状态的事务关系紧密，先用模块边界把领域分清，比一开始拆很多服务更容易保证一致性和排查问题。远程 Worker 仍通过明确协议解耦。只有独立扩缩容、团队边界或发布节奏确实成为瓶颈时才考虑继续拆分。",
+      "followup_questions": [
+        "哪些模块最先拆？",
+        "事务怎么跨服务？",
+        "单体是否无法扩展？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不要虚构生产集群规模或微服务迁移已完成。"
+      ],
+      "source_refs": [
+        "R3"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-04",
+      "project_id": "cae",
+      "topic": "消息选型",
+      "question": "为什么用 RabbitMQ，不直接 HTTP 或 Kafka？",
+      "answer_short": "数据库保存业务状态，RabbitMQ 传输有边界的任务命令，适合解耦受理与耗时执行，并支持重试和失败隔离。直接 HTTP 仍可用于实际 Agent 交互，但前端不能等待 Solver 完成；Kafka 的日志回放和分区顺序也不能替我解决业务幂等。",
+      "followup_questions": [
+        "HTTP 超时但实际执行了怎么办？",
+        "Kafka 什么场景更合适？",
+        "队列堆积怎么发现？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "实际项目为 RabbitMQ；备选 Kafka 只能作为比较。"
+      ],
+      "source_refs": [
+        "R3",
+        "R7"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-05",
+      "project_id": "cae",
+      "topic": "事务一致性",
+      "question": "Outbox 为什么能解决保存成功但消息没发出去？",
+      "answer_short": "业务变化和待发事件在同一数据库事务落盘，发布器再独立投递。这样进程在事务提交后宕机，待发记录仍能被扫描到。发布成功到标记 SENT 之间还有故障窗口，所以它改善可靠交付，但仍需要消费与执行端幂等。",
+      "followup_questions": [
+        "为什么不在事务里一直等 MQ？",
+        "confirm 后更新数据库前宕机？",
+        "发布器并发怎样领取？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不能把 Outbox 说成消灭重复投递。"
+      ],
+      "source_refs": [
+        "R3",
+        "R7"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-06",
+      "project_id": "cae",
+      "topic": "消息可靠性",
+      "question": "publisher confirm 与 consumer ACK 是一回事吗？",
+      "answer_short": "不是同一个边界。confirm 是发布端与 broker 之间的确认，consumer ACK 是消费端对消息处理边界的确认。这里消费者完成可靠业务受理后 ACK，不等求解器跑完；最终执行结果由 Execution 状态和对账链路管理。",
+      "followup_questions": [
+        "ACK 早了会怎样？",
+        "业务提交后 ACK 丢了呢？",
+        "积压与处理失败怎样区分？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不声称收到 confirm 就证明业务已完成。"
+      ],
+      "source_refs": [
+        "R3",
+        "R7"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-07",
+      "project_id": "cae",
+      "topic": "业务幂等",
+      "question": "500 次重放没有新进程，幂等键到底是什么？",
+      "answer_short": "要分清请求身份、消息身份和执行身份。相同逻辑请求应命中已有受理结果，消息重投应复用已有业务处理记录；向 Worker 提交还要带稳定的执行身份并核验返回。验证时同时看 Job、Execution 与远端进程，不能只数数据库行。",
+      "followup_questions": [
+        "重跑与重试用同一个身份吗？",
+        "参数变了但 key 没变呢？",
+        "数据库唯一约束起什么作用？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "500 次是限定测试声明；具体 key 字段由当前源码核验后落卡。"
+      ],
+      "source_refs": [
+        "resume",
+        "R3"
+      ],
+      "evidence_kind": "resume_claim_and_code",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-08",
+      "project_id": "cae",
+      "topic": "Job Execution",
+      "question": "为什么要拆 Job 与 Execution？",
+      "answer_short": "Job 表达用户想完成的工作，Execution 表达某次实际执行尝试。把它们分开，重试、取消、远端状态和历史产物就不会混在一条记录里；新尝试也不能被旧尝试迟到的回调覆盖。",
+      "followup_questions": [
+        "为什么一个 status 字段不够？",
+        "同一 Job 有几个活跃尝试？",
+        "终态回调乱序怎么办？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "幂等身份与状态转换约束以实现为准，不无条件承诺严格恰好一次。"
+      ],
+      "source_refs": [
+        "R3"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-09",
+      "project_id": "cae",
+      "topic": "UNKNOWN 对账",
+      "question": "Worker 心跳没了，为什么不能马上释放资源？",
+      "answer_short": "心跳不可达不能证明求解进程停止。如果先释放 CPU、内存或 License 账本，可能让新任务占到仍在使用的资源。应保留不确定执行身份，主动核验远端进程或权威终态，再让业务状态和资源账本收敛。",
+      "followup_questions": [
+        "一直查询失败怎么办？",
+        "什么时候人工介入？",
+        "租约过期等于进程结束吗？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不要把 PID 校验等同于 fencing；没有证据不补造可靠栅栏。"
+      ],
+      "source_refs": [
+        "R3"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-10",
+      "project_id": "cae",
+      "topic": "并发资源",
+      "question": "CPU、内存和 License 怎么一起预占？",
+      "answer_short": "把多维容量当作同一受理条件：任意一项不足就不派发。并发请求必须在受控事务与条件检查下更新持久账本，不能只读一次剩余量再在内存减数；释放也要绑定执行身份并能幂等处理。",
+      "followup_questions": [
+        "两台调度器同时抢最后一个 License？",
+        "大任务饥饿怎么办？",
+        "资源拒绝算系统错误吗？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "具体锁和 SQL 需要源码定位；不要默认用了 Redis 分布式锁。"
+      ],
+      "source_refs": [
+        "R3"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-11",
+      "project_id": "cae",
+      "topic": "取消竞争",
+      "question": "取消请求和成功回调同时到来怎么办？",
+      "answer_short": "取消是一个请求，不代表远端已经停止。应区分取消意图、执行状态与资源释放，按同一 Execution 的允许状态转换处理迟到消息，并重新核验远端事实。终态不能被旧消息随意回滚，释放必须防重复。",
+      "followup_questions": [
+        "进程已经退出但回调未到？",
+        "重试和取消交错？",
+        "前端显示什么？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不承诺取消后瞬间没有任何远端副作用。"
+      ],
+      "source_refs": [
+        "R3"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-12",
+      "project_id": "cae",
+      "topic": "输入治理",
+      "question": "INCLUDE 预检检查什么，为什么还要快照？",
+      "answer_short": "预检先解决依赖是否存在、路径是否越界和模型引用是否可解析；快照解决校验后到执行前输入又变化的问题。执行前核对依赖和版本，使一次结果能对应到确定输入，而不只依赖一个可能已经迁移的路径。",
+      "followup_questions": [
+        "软链接越界怎么办？",
+        "校验后文件被修改？",
+        "大量小文件怎么优化？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "120 组是有限样本；不能保证解析所有求解器语法。"
+      ],
+      "source_refs": [
+        "resume",
+        "R3"
+      ],
+      "evidence_kind": "resume_claim_and_code",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-13",
+      "project_id": "cae",
+      "topic": "共享存储",
+      "question": "为什么用 NFS，而不是把模型放消息里？",
+      "answer_short": "模型和结果体积较大，队列只传任务身份和可定位的输入信息，实际文件通过共享存储交接，减少消息膨胀。代价是要治理路径、权限、可见性和版本，文件存在也不等于完整可用；后续迁对象存储需要改协议和一致性校验。",
+      "followup_questions": [
+        "写一半被读到怎么办？",
+        "多节点路径不一致？",
+        "对象存储会解决全部问题吗？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不能把本地路径假设外推到所有部署。"
+      ],
+      "source_refs": [
+        "R3"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-14",
+      "project_id": "cae",
+      "topic": "报告重试",
+      "question": "报告失败为什么不重新跑仿真？",
+      "answer_short": "求解、解析、后处理和报告是不同阶段。如果失败只发生在渲染，应该复用已经确认的上游产物，从对应阶段重试。产物要绑定输入、执行与模板版本，防止新模板或旧结果混在一起，造成看似成功但内容不一致。",
+      "followup_questions": [
+        "如何判断能复用哪个阶段？",
+        "模板变了如何失效？",
+        "重复回调会生成多份报告吗？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不得宣称报告可以替代全部人工审核。"
+      ],
+      "source_refs": [
+        "R3"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-15",
+      "project_id": "cae",
+      "topic": "指标口径",
+      "question": "报告省了 76.3%，这个数怎么比较？",
+      "answer_short": "比较对象必须是相同内容与相同审核要求下的人工整理流程和平台辅助流程。记录各配对样本的开始结束与异常情况，说明采用总时长比还是逐样本均值，再给减少比例；它衡量整理效率，不代表求解速度。",
+      "followup_questions": [
+        "30 组是否有偏差？",
+        "审核时间算没算？",
+        "异常样本怎么处理？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "简历未给原始样本时不编造实验表；用明示的复现方案回答。"
+      ],
+      "source_refs": [
+        "resume"
+      ],
+      "evidence_kind": "resume_claim",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-16",
+      "project_id": "cae",
+      "topic": "监控",
+      "question": "你如何监控链路，而不只看平均耗时？",
+      "answer_short": "把受理、排队、Agent 提交、求解和报告分段看，同时关注 Outbox 积压量和最老消息年龄、节点状态与资源账本。公开实现有 Actuator/Prometheus 和 Grafana；状态快照用 Gauge，事件累加用 Counter，不能对所有名字带 total 的指标直接 rate。",
+      "followup_questions": [
+        "怎样配置抓取？",
+        "P95 为什么比平均值有用？",
+        "为什么 jobId 不做 label？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "公开实现的部分 total 名称实际为 Gauge，按真实类型答。"
+      ],
+      "source_refs": [
+        "R3"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-17",
+      "project_id": "cae",
+      "topic": "链路上下文",
+      "question": "异步线程和 MQ 中 traceId 会自动传吗？",
+      "answer_short": "不能假设线程本地变量会跨线程或跨消息自动传播。日志关联要在提交异步任务时捕获上下文、执行时恢复并在 finally 清理；跨进程则显式传递约定字段。当前代码能证明到哪里就讲哪里，业务 ID 关联日志不等于完整分布式追踪。",
+      "followup_questions": [
+        "线程池复用为什么会串号？",
+        "跨 MQ 怎么传？",
+        "Python Worker 如何关联？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "增强方案与当前已实现能力分开，不编造全链路 OpenTelemetry 已接入。"
+      ],
+      "source_refs": [
+        "R3",
+        "R10"
+      ],
+      "evidence_kind": "code_and_proposed_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-18",
+      "project_id": "cae",
+      "topic": "故障测试",
+      "question": "怎么设计可靠性测试而不是测正常流程？",
+      "answer_short": "在事务提交、publish confirm、消费提交、Agent 受理、终态回调和资源释放这些边界注入中断或重放。每次断言业务状态、执行身份和资源账本最终一致，同时检查有没有新增进程和重复产物。恢复时间从条件满足后计算，保留未收敛样本。",
+      "followup_questions": [
+        "网络恢复但进程仍失联？",
+        "如何控制故障可复现？",
+        "为什么只看 HTTP 200 不够？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "测试成功只覆盖已声明的故障模型。"
+      ],
+      "source_refs": [
+        "resume",
+        "R3"
+      ],
+      "evidence_kind": "design_for_validation",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-19",
+      "project_id": "cae",
+      "topic": "权限",
+      "question": "知道 Job ID 就能读别人的任务吗？",
+      "answer_short": "权限必须在服务端根据已认证身份和任务所属项目检查，不能信任前端传来的用户信息。公开 ProjectAccess 有角色和项目成员检查、Owner/Lead 边界；文件下载和后台回调也需要分别审查，不能因为列表过滤就认为所有入口都安全。",
+      "followup_questions": [
+        "管理员如何审计？",
+        "跨项目猜 ID？",
+        "缓存了权限后撤权怎么办？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "项目成员控制不等于完整多租户 RBAC/KMS 中台。"
+      ],
+      "source_refs": [
+        "R3"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "cae-20",
+      "project_id": "cae",
+      "topic": "数据库优化",
+      "question": "慢 SQL 如何优化，怎么证明有效？",
+      "answer_short": "先从真实慢请求定位 SQL、参数分布、扫描行数和执行计划，再判断联合索引、回表、排序或锁等待问题。对照同一数据量与相同负载测试 P95 和错误率，同时验证写入代价；不能只加索引后测一条热缓存请求就宣布优化成功。",
+      "followup_questions": [
+        "索引顺序怎么定？",
+        "为什么不用缓存直接解决？",
+        "锁等待和 CPU 慢怎样区分？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "通用排查方法，不能编造项目已有 800→150 ms 优化。"
+      ],
+      "source_refs": [
+        "R3"
+      ],
+      "evidence_kind": "general_knowledge",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-01",
+      "project_id": "arclight",
+      "topic": "背景职责",
+      "question": "Arclight 是什么，你自己实现了什么？",
+      "answer_short": "它是把模型、工具、文件编辑和测试串起来的终端 Coding Agent。作为个人项目，我关注运行闭环、上下文预算、MCP/Skills 扩展和多 Agent 协作，而不是训练基础模型；第三方 SDK 与界面库提供基础能力，我实现的是它们之间的控制和状态逻辑。",
+      "followup_questions": [
+        "为什么不用现成工具？",
+        "哪部分最体现个人工作？",
+        "内部 mewcode 是什么？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "个人项目来自简历；不要编真人团队或开源贡献。"
+      ],
+      "source_refs": [
+        "resume",
+        "R2"
+      ],
+      "evidence_kind": "resume_claim_and_code",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-02",
+      "project_id": "arclight",
+      "topic": "Agent Loop",
+      "question": "一轮 Agent Loop 具体怎么跑？",
+      "answer_short": "模型收到任务和当前工具描述后输出正文或调用意图；运行时解析并校验参数，执行允许的工具，把结构化结果与错误送回下一轮，再决定继续还是结束。完成判定需要看文件变化和测试结果，不能只看模型说 done。",
+      "followup_questions": [
+        "非法参数怎么回注？",
+        "重复失败怎样停止？",
+        "工具返回很大怎么办？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "迭代上限和权限边界不能为了演示成功删除。"
+      ],
+      "source_refs": [
+        "R2"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-03",
+      "project_id": "arclight",
+      "topic": "框架选型",
+      "question": "为什么不用 LangGraph 或固定 Workflow？",
+      "answer_short": "如果流程稳定，固定工作流更易测试。Coding 任务的下一步常依赖代码与报错，动态 Loop 更灵活；自建运行时能细控流式事件、工具预算和会话恢复。代价是要自己承担状态、兼容和评测；LangGraph 的持久化机制可以作为设计比较，不是我已经使用它的证据。",
+      "followup_questions": [
+        "什么部分仍适合确定性脚本？",
+        "自研的收益怎么测？",
+        "后续迁框架成本？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "简历技能熟悉 LangGraph 不等于 Arclight 依赖它。"
+      ],
+      "source_refs": [
+        "R2",
+        "R11"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-04",
+      "project_id": "arclight",
+      "topic": "上下文",
+      "question": "为什么长会话会变差？",
+      "answer_short": "不仅是超过窗口，长日志还会挤占任务约束和关键代码，使下一轮注意力落在低价值内容上。我把大工具结果落盘并保留可定位预览，结合近期原文与较早历史摘要控制输入；需要细节时读回对应片段。",
+      "followup_questions": [
+        "为什么不直接截断？",
+        "怎样防摘要丢约束？",
+        "落盘路径丢了怎么办？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "摘要有损，不宣称完全无损记忆。"
+      ],
+      "source_refs": [
+        "R2"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-05",
+      "project_id": "arclight",
+      "topic": "压缩边界",
+      "question": "上下文压缩怎么保留 tool call 配对？",
+      "answer_short": "压缩不能只按字符切断消息序列。要明确保留窗口与摘要边界，维护调用与结果的对应关系，对未完成调用保持可识别的中断状态；恢复时读取持久化边界，避免出现只有结果没有调用或反过来的消息。",
+      "followup_questions": [
+        "fork 时遇到进行中的调用？",
+        "摘要失败怎么办？",
+        "压缩前后怎样回放验证？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "具体边界对象以 CompactBoundary 与会话实现为准。"
+      ],
+      "source_refs": [
+        "R2"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-06",
+      "project_id": "arclight",
+      "topic": "Token 指标",
+      "question": "31.57% 的 Token 减少代表什么？",
+      "answer_short": "这是简历中 60 项长会话对比的累计输入 Token 指标。比较时需要固定任务、模型和工具条件，同时看完成率是否下降；输入少了不一定总费用同幅下降，因为输出和额外摘要调用也有成本。",
+      "followup_questions": [
+        "累计输入怎么算？",
+        "失败任务是否计入？",
+        "摘要调用 Token 算不算？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "没有原始日志不宣称已经复核该数。"
+      ],
+      "source_refs": [
+        "resume",
+        "R2"
+      ],
+      "evidence_kind": "resume_claim",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-07",
+      "project_id": "arclight",
+      "topic": "MCP 按需加载",
+      "question": "50 个工具为什么不全部塞进去？",
+      "answer_short": "全量工具 Schema 会占初始上下文，也增加选择干扰。通过工具搜索先找到相关能力，再加载完整描述与参数 Schema，让模型看到当前需要的工具；工具真正执行前仍做参数与权限校验。",
+      "followup_questions": [
+        "找错工具怎么办？",
+        "目录变更如何刷新？",
+        "18.6k→4.2k 的边界是什么？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "初始上下文下降不等于完整任务总 Token 同幅下降。"
+      ],
+      "source_refs": [
+        "resume",
+        "R2",
+        "R9"
+      ],
+      "evidence_kind": "resume_claim_and_code",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-08",
+      "project_id": "arclight",
+      "topic": "工具协议",
+      "question": "MCP、Tool Calling 和 Skill 有什么区别？",
+      "answer_short": "Tool Calling 是模型表达调用意图的方式，MCP 规范外部能力如何被发现和调用，Skill 则组织任务步骤、提示和可复用资源。它们可以组合：Skill 指导流程，模型选择工具，运行时通过 MCP 或本地适配器执行。",
+      "followup_questions": [
+        "Skill 能否替代权限控制？",
+        "怎样做渐进加载？",
+        "工具错误在哪里处理？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不要把 Skill 文本本身当执行授权，也不要说 MCP 自动解决业务幂等。"
+      ],
+      "source_refs": [
+        "R2",
+        "R9"
+      ],
+      "evidence_kind": "general_knowledge",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-09",
+      "project_id": "arclight",
+      "topic": "Schema 与校验",
+      "question": "Pydantic 已校验参数，还要校验什么？",
+      "answer_short": "类型和字段校验只能保证输入形状合理，不能证明路径在授权目录、命令安全或业务状态允许。工具层还需检查语义、资源范围与副作用，失败时返回模型能修正的错误信息，并避免泄露环境秘密。",
+      "followup_questions": [
+        "路径穿越如何挡？",
+        "错误重试会重复写文件吗？",
+        "Schema 与实际参数漂移怎么办？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不把类型校验等同于安全沙箱。"
+      ],
+      "source_refs": [
+        "R2"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-10",
+      "project_id": "arclight",
+      "topic": "asyncio",
+      "question": "异步 Agent 为什么也会卡住？",
+      "answer_short": "asyncio 的收益主要来自等待期间让出执行权。如果工具里有同步磁盘大操作、CPU 重活或阻塞 subprocess，仍会堵住事件循环。要分清协程并发与真正并行，把阻塞部分隔离，并让超时和取消能传播到子任务。",
+      "followup_questions": [
+        "gather 一个失败其他怎么处理？",
+        "取消会自动终止子进程吗？",
+        "如何测 event-loop delay？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "通用设计解释，不断言所有工具已经做到完整取消。"
+      ],
+      "source_refs": [
+        "R2"
+      ],
+      "evidence_kind": "general_knowledge",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-11",
+      "project_id": "arclight",
+      "topic": "子代理",
+      "question": "什么时候拆子 Agent，什么时候不拆？",
+      "answer_short": "依赖少、可独立验证的探索任务适合拆分，主代理保留整合和验收。强依赖或频繁互相等待的修改不一定受益，因为拆分有上下文复制和协调成本；不能为了多 Agent 而多 Agent。",
+      "followup_questions": [
+        "探索、规划、验证如何分工？",
+        "输出如何汇总？",
+        "重复探索怎样去重？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "软件角色不是现实项目团队人数。"
+      ],
+      "source_refs": [
+        "R2"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-12",
+      "project_id": "arclight",
+      "topic": "协作代价",
+      "question": "为什么耗时少 23.1%，Token 却多 32.16%？",
+      "answer_short": "并行把独立工作同时做，缩短的是墙钟时间；每个代理都有自己的上下文与推理，重复阅读和协同消息会增加总 Token。所以这个结果体现时间和成本的交换，只能在适合并行的任务上评估。",
+      "followup_questions": [
+        "怎么控制并行度？",
+        "比较基线一致吗？",
+        "什么时候退回单代理？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "百分比为简历声明，不能声称所有任务都更快。"
+      ],
+      "source_refs": [
+        "resume",
+        "R2"
+      ],
+      "evidence_kind": "resume_claim",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-13",
+      "project_id": "arclight",
+      "topic": "worktree",
+      "question": "worktree 能保证多个 Agent 不冲突吗？",
+      "answer_short": "它让各个工作目录和分支独立，适合隔离文件修改，但不能自动解决合并冲突，也不会隔离共享任务文件、外部数据库或端口。需要约定文件归属，整合时检查 diff、跑相关测试，再处理冲突。",
+      "followup_questions": [
+        "同一文件被两人改？",
+        "依赖安装和端口冲突？",
+        "什么时候不用 worktree？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不把 worktree 说成系统级沙箱。"
+      ],
+      "source_refs": [
+        "R2"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-14",
+      "project_id": "arclight",
+      "topic": "共享任务",
+      "question": "SharedTaskStore 已经有跨进程 CAS 吗？",
+      "answer_short": "当前可见实现是文件持久化，不能据此声称已有跨进程 CAS 或强一致事务。多写者会有覆盖和丢更新风险；要增强，需要选定单写者、锁或事务存储等策略，并用真实并发和中断测试验证。",
+      "followup_questions": [
+        "原子 rename 能解决丢更新吗？",
+        "改 SQLite 有什么收益？",
+        "锁持有者宕机怎么办？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "原子写文件只解决部分可见性问题，不自动解决读改写竞争。"
+      ],
+      "source_refs": [
+        "R2"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-15",
+      "project_id": "arclight",
+      "topic": "Mailbox",
+      "question": "Mailbox consume 是事务 ACK 吗？",
+      "answer_short": "当前 Mailbox 是文件消息机制，读取、处理、删除之间不构成完整事务 ACK，不能保证处理副作用与删除原子一致。若要提高可靠性，可以引入领取、处理中、确认与重投协议，再配合幂等处理；这是改进方案。",
+      "followup_questions": [
+        "读后进程崩溃？",
+        "删除失败？",
+        "重复消息如何识别？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "明确当前实现边界，不把拟议协议说成已实现。"
+      ],
+      "source_refs": [
+        "R2"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-16",
+      "project_id": "arclight",
+      "topic": "会话恢复",
+      "question": "JSONL 恢复是不是重新执行所有工具？",
+      "answer_short": "会话恢复首先是重建已保存的上下文和状态，不应把历史工具副作用无条件重放。对已完成、未完成和结果缺失的调用需要分别处理，尤其是文件写入和命令执行；恢复后还要核验文件与记录是否一致。",
+      "followup_questions": [
+        "最后一行写一半怎么办？",
+        "当前工作目录变了？",
+        "工具结果文件丢失？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "持久化历史不等于任意外部副作用都可以回滚。"
+      ],
+      "source_refs": [
+        "R2"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-17",
+      "project_id": "arclight",
+      "topic": "Memory",
+      "question": "长期记忆和会话压缩是什么关系？",
+      "answer_short": "压缩是当前会话预算管理，长期记忆是跨会话保存仍有价值的信息。长期记忆应带来源、更新时间与适用范围，项目代码变化后可能失效；不能把模型一次错误总结固化成永久事实。",
+      "followup_questions": [
+        "哪些东西不该记？",
+        "过期怎么判断？",
+        "如何避免跨项目串记忆？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不把摘要等同于知识库事实。"
+      ],
+      "source_refs": [
+        "R2",
+        "R11"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-18",
+      "project_id": "arclight",
+      "topic": "SWE-bench",
+      "question": "SWE-bench 怎么判修好了？",
+      "answer_short": "给定仓库、问题和基准版本，让 Agent 产生补丁，再在隔离环境应用补丁并执行对应测试，检查问题修复和原有行为回归。比较不同 Agent 时固定模型、样本、预算及环境，失败和环境错误都需要单独记录。",
+      "followup_questions": [
+        "为什么不用模型自评？",
+        "FAIL_TO_PASS 和 PASS_TO_PASS？",
+        "官方 harness 与自写脚本差别？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "简历 300 题结果为声明，不补造逐题日志或官方榜单记录。",
+        "31.33%到43.67%展示值相减为12.34个百分点；按约94到131个成功还原为12.33个百分点，是舍入差异。"
+      ],
+      "source_refs": [
+        "resume",
+        "R2",
+        "R8"
+      ],
+      "evidence_kind": "resume_claim_and_method",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-19",
+      "project_id": "arclight",
+      "topic": "消融",
+      "question": "解决率提升能证明全是多 Agent 的功劳吗？",
+      "answer_short": "不能。多个组件同时变化无法归因，需要在同模型、同题集和可比预算下分别关闭上下文管理、工具发现或协作，观察成功率、耗时和 Token。还要看失败类型与重复运行波动，不能只报一个汇总百分比。",
+      "followup_questions": [
+        "随机性怎么控制？",
+        "相同预算怎么定义？",
+        "是否过拟合公开题？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不要把不同模型或预算的差异算成框架提升。"
+      ],
+      "source_refs": [
+        "resume",
+        "R8"
+      ],
+      "evidence_kind": "evaluation_method",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "arc-20",
+      "project_id": "arclight",
+      "topic": "工程边界",
+      "question": "Arclight 最大的下一步改进是什么？",
+      "answer_short": "我会优先补可靠协作与可复现评测：把文件状态的并发边界讲清并加故障测试，把不同组件的收益用统一任务和成本口径验证。只有这些基础可靠，增加更多 Agent 或复杂记忆才有意义。",
+      "followup_questions": [
+        "先改哪个模块？",
+        "风险怎么控制？",
+        "如何判断重构值得？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "这是改进优先级，不是已完成结果。"
+      ],
+      "source_refs": [
+        "R2"
+      ],
+      "evidence_kind": "proposed_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "gen-01",
+      "project_id": "general",
+      "topic": "困难叙述",
+      "question": "项目中最难的一件事怎么讲？",
+      "answer_short": "选择一件有明确失败现象的事情，说明它破坏了哪个业务约束、如何缩小范围、排除过什么方案、最后改了哪个边界，再讲验证和剩余限制。不要用“用了分布式锁所以很难”代替实际问题。",
+      "followup_questions": [
+        "第一次判断错在哪？",
+        "什么证据推翻了假设？",
+        "重做会怎么简化？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "可结合附件故事，但不能虚构实际测试已经执行。"
+      ],
+      "source_refs": [
+        "R1",
+        "R4"
+      ],
+      "evidence_kind": "answer_framework",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "gen-02",
+      "project_id": "general",
+      "topic": "个人边界",
+      "question": "怎么回答你和团队分别做了什么？",
+      "answer_short": "把需求与整体协同、自己设计实现的模块、他人提供的输入和共同验收分开。CAE 可以说后端与后处理联调边界，Arclight 按个人项目讲；无法确认的组织人数不随口补。",
+      "followup_questions": [
+        "谁定方案？",
+        "你做了哪些技术决策？",
+        "失败谁负责？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "合成协作场景使用角色不使用虚构人名和公司事件。"
+      ],
+      "source_refs": [
+        "resume"
+      ],
+      "evidence_kind": "answer_framework",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "gen-03",
+      "project_id": "general",
+      "topic": "版本演进",
+      "question": "你这个项目怎么迭代的？",
+      "answer_short": "按问题驱动讲能力阶段：先打通最小链路，再补异常与恢复，再做观测和评测。每阶段都说明上一个版本为什么不够、改了什么、如何兼容旧数据；只有查得到的 commit 或 tag 才说具体版本。",
+      "followup_questions": [
+        "如何灰度？",
+        "数据迁移失败？",
+        "为什么不一次做完整？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "叙事阶段不自动等于真实发布 tag。"
+      ],
+      "source_refs": [
+        "R1",
+        "R2",
+        "R3"
+      ],
+      "evidence_kind": "answer_framework",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "gen-04",
+      "project_id": "general",
+      "topic": "测试数据",
+      "question": "测试数据怎么来，怎样避免自测自嗨？",
+      "answer_short": "把真实输入格式、边界样本、历史失败、合成故障和留出任务分开建集，保留来源和生成规则。测试数据不能只覆盖自己刚实现的正常路径；失败样本加入回归，同时留出未用于调优的机制家族。",
+      "followup_questions": [
+        "合成数据有什么偏差？",
+        "数据泄漏怎么防？",
+        "如何切片看效果？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不声称合成样本代表完整线上分布。"
+      ],
+      "source_refs": [
+        "R3",
+        "R8"
+      ],
+      "evidence_kind": "evaluation_method",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "gen-05",
+      "project_id": "general",
+      "topic": "AI Coding",
+      "question": "你用 AI Coding 的完整流程是什么？",
+      "answer_short": "我先明确输入输出和验收，再让工具读相关模块、提出小范围改动；实现后看 diff、执行相关测试和真实场景，失败时把输入、日志与实际输出交回分析。涉及状态和权限的边界由我核验，模型说通过不能代替退出码与报告。",
+      "followup_questions": [
+        "怎么写好任务提示？",
+        "上下文放什么？",
+        "什么情况自己动手？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不虚构具体未提供的工具使用时长或生产收益。"
+      ],
+      "source_refs": [
+        "R1"
+      ],
+      "evidence_kind": "answer_framework",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "gen-06",
+      "project_id": "general",
+      "topic": "AI 生成代码",
+      "question": "AI 写的代码能跑但质量差怎么办？",
+      "answer_short": "先用失败用例和调用链确定问题，再要求局部修复并解释不变量。review 要看状态是否重复、异常是否吞掉、资源是否释放、取消能否传播以及测试是否绕开生产路径；功能能跑只是起点。",
+      "followup_questions": [
+        "模型一直改坏其他功能？",
+        "如何避免测试也被改松？",
+        "如何控制补丁大小？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不能以 AI 自动生成测试当作独立证明。"
+      ],
+      "source_refs": [
+        "R1"
+      ],
+      "evidence_kind": "general_knowledge",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "gen-07",
+      "project_id": "general",
+      "topic": "开源复用",
+      "question": "项目参考哪些开源，哪些自己写？",
+      "answer_short": "先列直接依赖与实际调用，再列确认过的代码复用和设计参考。以 Arclight 为例，模型 SDK、Textual、Pydantic 和 MCP SDK 提供底层能力，运行闭环与预算状态逻辑属于项目编排。相似设计不能证明复制来源。",
+      "followup_questions": [
+        "许可证怎么处理？",
+        "升级依赖怎么测？",
+        "为什么不直接 fork？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不编造 PR、作者联系或历史参考链。"
+      ],
+      "source_refs": [
+        "R2",
+        "R9",
+        "R12"
+      ],
+      "evidence_kind": "code_and_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "gen-08",
+      "project_id": "general",
+      "topic": "生产排障",
+      "question": "遇到线上问题你先做什么？",
+      "answer_short": "先确认影响范围和可逆止损方式，再结合版本、请求和资源时间线定位最近变化。用最小复现验证假设，修复后回放同类负载并持续观察；给协作方同步事实和下一步，而不是没有依据地猜恢复时间。",
+      "followup_questions": [
+        "回滚失败怎么办？",
+        "日志不够怎么办？",
+        "怎样避免再发生？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "通用情境答案，不声称某次线上事故真实发生。"
+      ],
+      "source_refs": [
+        "R3"
+      ],
+      "evidence_kind": "general_knowledge",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "gen-09",
+      "project_id": "general",
+      "topic": "缓存一致性",
+      "question": "为什么不能所有慢问题都加缓存？",
+      "answer_short": "缓存会引入过期、失效、并发击穿与数据一致性问题。如果慢在锁竞争、排队或外部执行，加缓存可能掩盖根因。先明确数据新鲜度与允许延迟，选择能接受陈旧的读路径，再测命中、失效和回源峰值。",
+      "followup_questions": [
+        "权限缓存能多久失效？",
+        "热点 key 失效？",
+        "更新与失效竞争？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "权限撤销不能仅为低延迟无限期使用旧缓存。"
+      ],
+      "source_refs": [
+        "R3"
+      ],
+      "evidence_kind": "general_knowledge",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "gen-10",
+      "project_id": "general",
+      "topic": "追问承接",
+      "question": "如果前面把技术名或指标说错了怎么接？",
+      "answer_short": "先用一句话修正具体边界，例如“我刚才说的是受理耗时，不是求解耗时”，再直接回答当前追问。不要用一串新细节掩盖错误；如果只是近似表达，补精确口径即可，不需要每次道歉。",
+      "followup_questions": [
+        "已经纠正过还要提醒吗？",
+        "对方基于错前提深挖？",
+        "ASR 可能听错呢？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "实际发言、ASR 文本与项目事实分开。"
+      ],
+      "source_refs": [
+        "R1"
+      ],
+      "evidence_kind": "answer_framework",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "ai-01",
+      "project_id": "general",
+      "topic": "供应链迁移",
+      "question": "Coding Agent 经验怎么迁移到供应链 AI？",
+      "answer_short": "可迁移的是工具契约、上下文与状态、可追踪执行及评测闭环。供应链要先定义订单、库存、仓和运输等对象、权限与业务规则，再让模型在限定工具和已发布 Schema 上操作；不能把写代码成功率直接当业务收益。",
+      "followup_questions": [
+        "如何定义业务指标？",
+        "错误动作如何回退？",
+        "哪些环节不交给模型？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "这是岗位设计迁移，不是已经做过供应链系统。"
+      ],
+      "source_refs": [
+        "R2"
+      ],
+      "evidence_kind": "proposed_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "ai-02",
+      "project_id": "general",
+      "topic": "语义取数",
+      "question": "自然语言取数怎样避免乱写 SQL？",
+      "answer_short": "先做实体别名与时间口径归一，限定可访问的对象和字段，再进行 Schema Linking 与 SQL 生成。执行前做语法、权限、只读范围和资源预算检查，结果用合计、主外键关系或抽样查询核对；歧义问题要明确假设。",
+      "followup_questions": [
+        "跨域补数怎么做？",
+        "同名字段如何区分？",
+        "SQL 执行成功就算正确吗？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不能称已实现企业数仓或图谱系统。"
+      ],
+      "source_refs": [
+        "jd"
+      ],
+      "evidence_kind": "proposed_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "ai-03",
+      "project_id": "general",
+      "topic": "RAG",
+      "question": "什么情况下用混合检索和 Rerank？",
+      "answer_short": "业务缩写、代码符号和精确 ID 更依赖关键词，表达改写更适合语义召回，可以合并候选后在预算允许时重排。评估需要区分召回是否找到证据、回答是否正确引用；实时场景要同时测重排增加的延迟。",
+      "followup_questions": [
+        "召回率高但答案错？",
+        "chunk 怎么切？",
+        "为什么不是所有请求都 rerank？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "这是简历技能与通用方案，不把 CUE 检索机制说成 Arclight 已有实现。"
+      ],
+      "source_refs": [
+        "resume",
+        "R1"
+      ],
+      "evidence_kind": "general_knowledge",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "ai-04",
+      "project_id": "general",
+      "topic": "训练边界",
+      "question": "SFT、DPO、RL 与 Prompt 优化怎么区分？",
+      "answer_short": "Prompt 和上下文工程主要改变推理时输入；SFT 用示范数据更新参数，DPO 用偏好对进行优化，RL 通过奖励反馈优化策略。先用固定评测确认问题是知识、表达还是决策，再决定是否值得训练；我不会把应用编排说成后训练实操。",
+      "followup_questions": [
+        "怎样构建偏好对？",
+        "Agent RL 奖励怎么设计？",
+        "如何避免只学会迎合裁判？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "当前资料未证明实际完成模型后训练。"
+      ],
+      "source_refs": [
+        "jd"
+      ],
+      "evidence_kind": "general_knowledge",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "ai-05",
+      "project_id": "general",
+      "topic": "多模态",
+      "question": "UI 自动化 Agent 怎么评测？",
+      "answer_short": "把视觉定位、状态理解、动作执行和最终业务结果拆开看，增加分辨率变化、遮挡、弹窗和页面延迟等切片。操作前后保留可复核状态，危险动作设明确边界；只看模型描述截图正确不能证明点击成功。",
+      "followup_questions": [
+        "元素位置变了？",
+        "误点后怎么办？",
+        "成功标准怎么定义？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不宣称简历项目已有多模态生产部署。"
+      ],
+      "source_refs": [
+        "jd",
+        "R5"
+      ],
+      "evidence_kind": "proposed_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "ai-06",
+      "project_id": "general",
+      "topic": "离线在线",
+      "question": "离线评分更高为什么业务可能没提升？",
+      "answer_short": "离线集分布、评分偏好和真实业务流程可能不一致。应把任务成功与业务结果分别定义，按用户类型、长尾与失败成本切片，分析线上反馈再更新评测；不能用语言更流畅替代正确完成业务。",
+      "followup_questions": [
+        "用户反馈噪声怎么处理？",
+        "如何避免只收好评？",
+        "如何控制上线风险？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不编造线上 A/B 实验已完成。"
+      ],
+      "source_refs": [
+        "R5"
+      ],
+      "evidence_kind": "evaluation_method",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "sec-01",
+      "project_id": "general",
+      "topic": "RBAC",
+      "question": "如何从 CAE 权限扩展为权限中台？",
+      "answer_short": "先明确主体、角色、资源、动作与租户作用域，把策略决策和业务调用分离。CAE 现有角色和项目成员检查能作为起点，但扩展中台还需要策略版本、审计、继承冲突、缓存失效与不同语言 SDK 的一致契约。",
+      "followup_questions": [
+        "角色爆炸怎么办？",
+        "资源继承怎么处理？",
+        "默认允许还是默认拒绝？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不把简单项目鉴权说成成熟权限中台。"
+      ],
+      "source_refs": [
+        "R3",
+        "jd"
+      ],
+      "evidence_kind": "proposed_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "sec-02",
+      "project_id": "general",
+      "topic": "租户隔离",
+      "question": "tenantId 由前端传过来就可以了吗？",
+      "answer_short": "不能只信前端声明。租户范围应从已验证身份和授权上下文推导，再落实到查询、缓存 key、文件路径和后台任务。测试不仅检查正常租户内访问，还要修改 ID、复用缓存和跨租户猜测资源。",
+      "followup_questions": [
+        "管理员跨租户怎么审计？",
+        "异步任务丢 tenantId？",
+        "缓存 key 漏租户？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "是设计要求，不声称 CAE 已实现完整多租户隔离。"
+      ],
+      "source_refs": [
+        "jd",
+        "R3"
+      ],
+      "evidence_kind": "proposed_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "sec-03",
+      "project_id": "general",
+      "topic": "KMS",
+      "question": "信封加密怎么工作？",
+      "answer_short": "大数据通常用数据密钥加密，再由 KMS 管理的密钥保护数据密钥。保存密文和加密后的数据密钥，解密时先获得允许使用的数据密钥，使用后尽快清理明文。还要校验调用身份、用途与审计，不能把密钥写进日志。",
+      "followup_questions": [
+        "为什么不让 KMS 加密所有大文件？",
+        "密钥轮换后旧数据？",
+        "密钥版本如何选择？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "属于岗位知识；不声称已有 KMS 项目经历。"
+      ],
+      "source_refs": [
+        "R16"
+      ],
+      "evidence_kind": "general_knowledge",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "sec-04",
+      "project_id": "general",
+      "topic": "密钥轮换",
+      "question": "密钥轮换等于马上把所有数据重加密吗？",
+      "answer_short": "要区分保护数据密钥的主密钥版本、数据密钥轮换和全量业务数据重加密。设计时保留密文关联的 key/version 信息，明确旧数据解密与迁移策略；销毁密钥前要评估不可恢复影响与依赖。",
+      "followup_questions": [
+        "归档与禁用有什么区别？",
+        "回滚怎么办？",
+        "谁能批准销毁？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不假设所有 KMS 厂商轮换语义相同。"
+      ],
+      "source_refs": [
+        "R16",
+        "jd"
+      ],
+      "evidence_kind": "general_knowledge",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "sec-05",
+      "project_id": "general",
+      "topic": "鉴权 SDK",
+      "question": "鉴权 SDK 如何兼顾低延迟和撤权及时？",
+      "answer_short": "可用本地策略快照或缓存减少远程请求，但要设计版本、失效通知、最大陈旧时间与失败行为。测的不只是热缓存 P95，还包括撤权传播、冷启动、控制面故障和跨租户 key；不能为了可用性默认长期放行。",
+      "followup_questions": [
+        "网络断开如何决策？",
+        "策略推送漏了？",
+        "Java Go Python 如何一致？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "此为场景设计，具体 fail-open/closed 由业务风险定义。"
+      ],
+      "source_refs": [
+        "jd"
+      ],
+      "evidence_kind": "proposed_design",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "sec-06",
+      "project_id": "general",
+      "topic": "Java 并发",
+      "question": "线程池为什么不能无限加线程？",
+      "answer_short": "线程数应根据 CPU 和 I/O 等待、下游容量与任务排队共同决定。过多线程会增加切换、内存和连接争用；需要有界队列、明确拒绝策略和指标，避免把压力藏在无限队列中。",
+      "followup_questions": [
+        "核心线程数怎么估？",
+        "队列满了怎么办？",
+        "上下文如何在线程池传播？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不给脱离实际负载的万能线程数。"
+      ],
+      "source_refs": [
+        "resume"
+      ],
+      "evidence_kind": "general_knowledge",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "sec-07",
+      "project_id": "general",
+      "topic": "JVM",
+      "question": "服务响应慢但 CPU 不高怎么查？",
+      "answer_short": "先看等待发生在哪里：线程栈、连接池、锁、外部 RPC、磁盘和 GC 暂停，再与时间窗口内请求排队和依赖指标关联。CPU 低只说明没持续计算，不说明系统没有瓶颈；验证单一假设后再调参数。",
+      "followup_questions": [
+        "线程都 WAITING 是不是正常？",
+        "数据库连接池耗尽？",
+        "如何区分 GC 与网络？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不虚构当前项目线上发生过此事故。"
+      ],
+      "source_refs": [
+        "resume"
+      ],
+      "evidence_kind": "general_knowledge",
+      "migration_status": "seed_requires_compilation"
+    },
+    {
+      "id": "sec-08",
+      "project_id": "general",
+      "topic": "事务与幂等",
+      "question": "Redis 锁能替代数据库唯一约束吗？",
+      "answer_short": "通常不能。锁是一种并发协调手段，超时、进程故障或租约丢失都可能让调用重叠；业务唯一性仍应由持久化约束和事务处理兜底。拿到锁也不证明远端副作用只发生一次。",
+      "followup_questions": [
+        "锁续期失败？",
+        "先查再插为什么有竞态？",
+        "事务回滚后消息怎么办？"
+      ],
+      "answer_method": "先回答问题，再用具体机制、取舍和验证补充；按上下文决定是否展开，不固定背诵全部条目。",
+      "boundaries": [
+        "不要凭空给项目加上 Redis 锁实现。"
+      ],
+      "source_refs": [
+        "R3"
+      ],
+      "evidence_kind": "general_knowledge",
+      "migration_status": "seed_requires_compilation"
+    }
+  ],
+  "source_id_map": {
+    "resume": "inputs/resume.pdf",
+    "jd": "inputs/job_descriptions.txt",
+    "R1": "https://github.com/Astrea-296111/cue",
+    "R2": "https://github.com/Astrea-296111/Arclight",
+    "R3": "https://github.com/Astrea-296111/cae-job-platform",
+    "R4": "https://www.nowcoder.com/feed/main/detail/3181217280144ee0ab47fe979dc28ff1",
+    "R5": "https://www.nowcoder.com/feed/main/detail/3bc407aee58a44c5a8d4762c4b2decf3",
+    "R7": "https://www.rabbitmq.com/docs/confirms",
+    "R8": "https://www.swebench.com/SWE-bench/guides/evaluation/",
+    "R9": "https://modelcontextprotocol.io/specification/2025-11-25/server/tools",
+    "R10": "https://opentelemetry.io/docs/concepts/context-propagation/",
+    "R11": "https://docs.langchain.com/oss/python/langgraph/persistence",
+    "R12": "https://aider.chat/docs/repomap.html",
+    "R16": "https://docs.aws.amazon.com/kms/latest/developerguide/data-keys.html"
+  }
+}
