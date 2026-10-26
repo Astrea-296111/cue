@@ -1,5 +1,10 @@
 # Capture-protection validation
 
+2026-10-26: the user explicitly waived the interactive Windows on-site check.
+Physical microphone, system loopback, OBS/Tencent pixels and first-frame leakage
+remain unverified. The waiver does not change the protection guards or the CI
+native-affinity results below.
+
 Protection is a release requirement. The production paths retain Electron
 `setContentProtection(true)`, Windows Set/GetWindowDisplayAffinity with expected
 `WDA_EXCLUDEFROMCAPTURE = 0x11`, hidden creation and protection before display.
