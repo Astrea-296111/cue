@@ -22,3 +22,5 @@
 - [oct26-smoke02-judge-v3 / rejudge](runs/oct26-smoke02-judge-v3/rejudge/report.md)
 
 - [oct26-smoke02-judge-final / rejudge](runs/oct26-smoke02-judge-final/rejudge/report.md)
+
+- [oct26-full-final / full](runs/oct26-full-final/full/report.md)
