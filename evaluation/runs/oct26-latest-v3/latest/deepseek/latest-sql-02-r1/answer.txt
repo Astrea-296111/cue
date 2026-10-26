@@ -1,0 +1,9 @@
+```sql
+SELECT SUM(o.pay_amount) AS gmv
+FROM orders o
+WHERE o.status IN (2,3,4)
+  AND EXISTS (
+    SELECT 1 FROM signup s
+    WHERE s.item_id = o.item_id AND s.activity = '活动A'
+  );
+```

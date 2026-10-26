@@ -1,0 +1,10 @@
+```sql
+SELECT
+  COALESCE(SUM(pay_amount), 0) AS gmv,
+  COUNT(DISTINCT buyer_id) AS buyers,
+  COALESCE(SUM(pay_amount) * 1.0 / NULLIF(COUNT(DISTINCT buyer_id), 0), 0) AS avg_order_value
+FROM orders
+WHERE status IN (2, 3, 4);
+```
+
+按 status IN (2,3,4) 过滤后聚合，GMV 是 20+40+40=100；买家去重后为 10、11 两个，客单价 = 100.0 / 2 = 50。用 `*1.0` 做浮点除法，用 `NULLIF` 防止零分母。
