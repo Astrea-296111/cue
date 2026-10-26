@@ -1,15 +1,15 @@
 # CUE 的 GitHub 下载与 GPT 阅读入口
 
-2026-10-26，按用户本轮明确要求，将能恢复的交付资料发布到本仓库与 GitHub Releases，供直接下载和外部工具读取。
+2026-10-26，按用户本轮明确要求，将能恢复的交付资料发布到本仓库与 GitHub资料分支，供直接下载和外部工具读取。
 
 ## 直接下载
 
-- [全部可读 Actions 日志、运行索引和汇总 ZIP](https://github.com/Astrea-296111/cue/releases/download/cue-review-2026-10-26/cue-actions-readable-2026-10-26.zip)
-- [原始任务附件、简历/JD素材及原109卡事实文件 ZIP](https://github.com/Astrea-296111/cue/releases/download/cue-review-2026-10-26/cue-source-materials-2026-10-26.zip)
-- [45份原始加密评测报告 ZIP](https://github.com/Astrea-296111/cue/releases/download/cue-review-2026-10-26/cue-actions-encrypted-originals-2026-10-26.zip)
-- [SHA-256 校验清单](https://github.com/Astrea-296111/cue/releases/download/cue-review-2026-10-26/SHA256SUMS.txt)
+- [全部可读 Actions 日志、运行索引和汇总 ZIP](https://raw.githubusercontent.com/Astrea-296111/cue/cue-review-data-2026-10-26/cue-actions-readable-2026-10-26.zip)
+- [原始任务附件、简历/JD素材及原109卡事实文件 ZIP](https://raw.githubusercontent.com/Astrea-296111/cue/cue-review-data-2026-10-26/cue-source-materials-2026-10-26.zip)
+- [45份原始加密评测报告 ZIP](https://github.com/Astrea-296111/cue/tree/cue-review-data-2026-10-26#加密原件分卷)
+- [SHA-256 校验清单](https://raw.githubusercontent.com/Astrea-296111/cue/cue-review-data-2026-10-26/SHA256SUMS.txt)
 
-网页阅读入口：[203次 Actions 的日志及索引](../evaluation/exports/2026-10-26/README.md)、[最终机器汇总](../evaluation/final-summary-2026-10-26.json)、[评测报告](CUE_真实评测报告.md)。Release 还提供对应源码的 Source code ZIP。
+网页阅读入口：[203次 Actions 的日志及索引](../evaluation/exports/2026-10-26/README.md)、[最终机器汇总](../evaluation/final-summary-2026-10-26.json)、[评测报告](CUE_真实评测报告.md)。[当前CUE源码 ZIP](https://github.com/Astrea-296111/cue/archive/refs/heads/main.zip) 可单独下载。
 
 ## 旧本地包的恢复限制
 

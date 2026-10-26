@@ -4,16 +4,16 @@
 
 ## 下载
 
-- [可读日志、汇总与源码位置索引 ZIP](https://github.com/Astrea-296111/cue/releases/download/cue-review-2026-10-26/cue-actions-readable-2026-10-26.zip)
-- [原始附件与原109卡事实文件 ZIP](https://github.com/Astrea-296111/cue/releases/download/cue-review-2026-10-26/cue-source-materials-2026-10-26.zip)
-- [45份加密评测原件 ZIP](https://github.com/Astrea-296111/cue/releases/download/cue-review-2026-10-26/cue-actions-encrypted-originals-2026-10-26.zip)
-- [文件大小与 SHA-256](https://github.com/Astrea-296111/cue/releases/download/cue-review-2026-10-26/SHA256SUMS.txt)
+- [可读日志、汇总与源码位置索引 ZIP](https://raw.githubusercontent.com/Astrea-296111/cue/cue-review-data-2026-10-26/cue-actions-readable-2026-10-26.zip)
+- [原始附件与原109卡事实文件 ZIP](https://raw.githubusercontent.com/Astrea-296111/cue/cue-review-data-2026-10-26/cue-source-materials-2026-10-26.zip)
+- [45份加密评测原件 ZIP](https://github.com/Astrea-296111/cue/tree/cue-review-data-2026-10-26#加密原件分卷)
+- [文件大小与 SHA-256](https://raw.githubusercontent.com/Astrea-296111/cue/cue-review-data-2026-10-26/SHA256SUMS.txt)
 
 ## 明文恢复范围
 
 旧云环境的本地 133MB 包、194卡最终导入工作区、完整问题/回答/裁判明文及解密用的 local-key.json 没有跨环境保留。这份快照没有恢复它们，不能用步骤日志或汇总替代完整回答。现有明文报告数为 **0**。原评测汇总和来源复核统计仍保存在 [最终机器汇总](../../final-summary-2026-10-26.json) 及 [评测报告](../../../docs/CUE_真实评测报告.md)。
 
-45份原始密文已另存 Release；保留原密钥时可以恢复，没有原密钥不能重新解密。本次没有重跑付费推理，也没有从摘要拼造原回答。原始附件和109卡来源文件已从会话附件重新取得，未冒充原来审核后的194卡成品。Windows安装包等二进制列于各运行 artifacts.json，未复制进此文本快照。
+45份原始密文已另存资料分支；保留原密钥时可以恢复，没有原密钥不能重新解密。本次没有重跑付费推理，也没有从摘要拼造原回答。原始附件和109卡来源文件已从会话附件重新取得，未冒充原来审核后的194卡成品。Windows安装包等二进制列于各运行 artifacts.json，未复制进此文本快照。
 
 ## 后续评测
 
