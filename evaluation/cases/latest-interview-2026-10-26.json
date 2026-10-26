@@ -1,0 +1,294 @@
+{
+  "schemaVersion": 1,
+  "kind": "development regression; not unseen",
+  "sourceSha256": "8540e9a932fd28cc395a58baad6fd46f919c77573bc57b7cb5840b2f1f378201",
+  "cases": [
+    {
+      "caseId": "latest-01",
+      "rawQuestion": "嗯,你是遇到了你你有个阶段性的设计,比如说最开始是遇到了什么问题,然后你选择这个方案呢?就是你是先遇到了什么,然后你决定要做这个token的上下文压缩或这个工具的分层",
+      "sourceEventIndex": 58,
+      "sourceTime": "2026/10/26 17:04:54",
+      "suggestedDomain": "arclight",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "关于“先遇到了什么、为什么决定做工具输出落盘和分层压缩”这个问题：我会先讲**现象**——工具调用一多，一次会话里写代码、跑测试的完整输出都塞回上下文，几轮之后上下文迅速膨胀，模型开始在长上下文里丢前面的约束，延迟和费用也跟着涨。比如连续跑几次测试，失败日志几百行全回流，下一轮我让它改代码，它连最初的需求都记混了。\n\n然后讲**决策**：我没有一上来就砍历史，而是先把**大块工具输出落盘**，上下文里只留摘要加文件路径和行号，需要细节时再按路径读回来；再对历史做**分层**——近几轮保留原文，较早的压成结构化的关键结论（改过哪些文件、测试结果、未完成事项）。\n\n取舍是摘要会丢细节，所以我会保留**可回查的原始落盘**，并在压缩后跑回归任务验证关键信息没被压掉，而不是只看token降了多少。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-02",
+      "rawQuestion": "它的一个更新频率或存储内容是什么。",
+      "sourceEventIndex": 72,
+      "sourceTime": "2026/10/26 17:05:33",
+      "suggestedDomain": "arclight",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "关于用户长期记忆的**更新频率或存储内容**这个问题：我会把存储内容分成三类——**稳定偏好**（称呼、语言、禁忌）、**业务事实**（常买品类、收货地址摘要）、**阶段性目标**（比如“这月在比价空调”）。更新不是每轮都写，而是**每轮先抽取候选记忆，再按“明确说出/重复出现/用户确认”三档置信度决定是否落库**，阶段性目标带过期时间，过期后归档不直接删。比如用户这次说“以后都别推荐含酒精的”，我会立刻写成稳定偏好，下一轮就生效；如果只是随口提一句“最近在看空调”，就先记为有期限的阶段性目标，不必长期存。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-03",
+      "rawQuestion": "嗯,过程当中,你这个A技能会存在参数。",
+      "sourceEventIndex": 91,
+      "sourceTime": "2026/10/26 17:06:31",
+      "suggestedDomain": "arclight",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "在呃做MCP的时候,参数参数塞的不对,或参数调用的写法不对嘛,就Agent传\n关于**Agent 调用 MCP 工具时参数传不对或调用写法不对**这个问题：我会在工具执行前做**参数 Schema 校验**，用 Pydantic 定义每个工具的参数模型，模型返回的 JSON 先过 `parse` 再执行，类型、必填项、枚举值不对就直接拦下，把校验错误连同原始参数回灌给模型让它重试。比如工具要 `{\"path\": str}`，模型给了 `{\"path\": 123}`，校验失败就返回“path 应为字符串”，模型下一轮自动改对。另外 MCP 调用写法本身，我会封装统一的 client 层，固定 method 名和参数结构，避免模型自由拼调用格式；重试设上限，超过就降级报错而不是死循环。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-04",
+      "rawQuestion": "你这个校验错误,包括工具的一些错误码,你存储在哪里呀?会有个统一的管理模块吗",
+      "sourceEventIndex": 99,
+      "sourceTime": "2026/10/26 17:07:12",
+      "suggestedDomain": "arclight",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "关于校验错误和工具错误码存哪里这个问题：**校验错误**我直接在工具调用链里接住，用 **Pydantic** 的 validation error 结构化后回给模型重试，不单独落库；**工具错误码**我会定义统一枚举，放在**工具注册表**里跟每个工具的描述、参数 Schema 一起管理，执行失败时按注册表里的映射转成模型能读懂的提示。\n\n比如查订单工具返回“用户不存在”，注册表把它映射成可重试的 `USER_NOT_FOUND` 并附“请先确认手机号”；权限类错误则标记不可重试、直接终止这条链路。取舍是：校验错误要短平快、不进库，但**审计需要的调用记录**我会另外记一条带错误码的日志，方便回放排查。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-05",
+      "rawQuestion": "嗯,好,他会告诉模型下一步要做什么事情吗?就为什么会出这个错吗?还是说模型每次都是自己呃,自己判断。",
+      "sourceEventIndex": 110,
+      "sourceTime": "2026/10/26 17:07:40",
+      "suggestedDomain": "arclight",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "关于“校验失败后会不会告诉模型下一步做什么、为什么会出错”这个问题：我会把**Pydantic 校验错误整理成结构化反馈**，明确给出错字段、期望类型或取值范围、实际收到的值，并提示“请只修正参数后重新调用工具”；但具体下一步动作仍由模型自己判断，我不写死流程。这样模型能针对错误重试，而不是盲目换工具，重试次数也设上限，防止死循环。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-06",
+      "rawQuestion": "呃,这一层工具的这一层管理,你会怎么做?就怎么快速完成一个知识的构建。",
+      "sourceEventIndex": 128,
+      "sourceTime": "2026/10/26 17:08:16",
+      "suggestedDomain": "arclight",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "关于工具管理这一层怎么快速完成构建这个问题：我会把工具做成**注册表加统一描述格式**，每个工具登记名称、用途、参数 schema 和适用场景，方便批量录入和检索。比如接入 1000 多个工具时，用一份配置或接口批量导入、自动校验 schema，而不是一个个手写。取舍是先用**元数据索引**保证可查可用，工具真实执行逻辑再由各团队按它的 schema 补齐。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-07",
+      "rawQuestion": "你这个工具啊,比如说像1000多工具,我怎么快速找对呢?",
+      "sourceEventIndex": 148,
+      "sourceTime": "2026/10/26 17:09:15",
+      "suggestedDomain": "arclight",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "那A等的快速找对或工具。\n就知道用要用什么工具或工具存在。\n呃,就是你这个schema是怎么定义的?我想问一下,就是你的ma\n**关于一千多个工具怎么快速找对：** 我会做**按需发现**，不会把一千多个 Schema 一次塞给模型。初始只保留基础工具和搜索入口，模型先用 `ToolSearch`，按名称或关键词查延迟工具，返回匹配的少量 Schema 并标记 discovered，下一轮再调用目标工具。当前 Arclight 走的就是**关键词相关性加显式 `select:name`**，不是向量检索；比如“查 CI 日志”先搜到日志工具，再看完整 Schema 调用。取舍是省初始输入但多一轮发现，所以我会同时看**命中率、补查次数和最终任务成功率**。\n\n**关于 Schema 怎么定义：** 我会用 **Pydantic 参数模型**定义每个工具的参数、必填项和枚举，并从模型生成 JSON Schema 给模型看。模型返回 JSON 后先 **parse，再做 Pydantic 校验**，类型不对、必填缺失或枚举越界就转成结构化错误，关联原 `tool_use_id` 回给模型，让它改参数重试。这样校验失败不会进到真正执行。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-08",
+      "rawQuestion": "关键词。",
+      "sourceEventIndex": 162,
+      "sourceTime": "2026/10/26 17:10:05",
+      "suggestedDomain": "arclight",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "只用关键词吗?精准关键词吗?模糊关键词吗?还是什么\n关于“只用关键词吗、是精准关键词还是模糊关键词”这个问题：当前实现是**关键词相关性匹配**，也支持显式 `select:名称` 的精准路径，不是向量检索，也不要求用户先记住精确工具名。\n\n具体做法是：ToolSearch 拿名称或关键词去和延迟工具的**名称、描述**做匹配，算相关性后返回候选；比如模型想改文件，输入“编辑 文件”这类模糊词也能被列出，选中后标记 discovered，下一轮才拿到完整 Schema。取舍是命中更依赖词面，容易漏掉同义表达；我会补一组带同义词和错别字的查询集，量**命中率、补查次数和最终任务成功率**来验证。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-09",
+      "rawQuestion": "但目前结束的情况下,理论上单纯精准不太行。",
+      "sourceEventIndex": 193,
+      "sourceTime": "2026/10/26 17:11:22",
+      "suggestedDomain": "arclight",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "应该是要多录的\n关于“单纯精准匹配不太行、应该是要多路召回”这个问题：对，光靠**精准关键词**一套召回会漏，我会做成**多路召回再融合**。具体是关键词或BM25走精确匹配、向量检索走向语义近邻，两路各取TopK后用**RRF按排名融合**；比如1000多个工具里，用户说“把表格转成PDF”，关键词能命中“PDF转换”，向量能补上只说“导出成文档”的工具。取舍是召回放宽、后面再用重排和阈值卡精度，最后用一批带标准工具名的问题测**召回率**，看多路比单路漏了多少。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-10",
+      "rawQuestion": "大概是这几个方向,还有一个可能就是小模型训练,就这四个,这这可能五个分类当中,你觉得你哪一个比较强,或者说哪一个可以给我介绍一下?",
+      "sourceEventIndex": 247,
+      "sourceTime": "2026/10/26 17:13:40",
+      "suggestedDomain": "general",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "关于这几个方向里我**哪一个比较强**：我会重点讲**大模型工具调用与多工具路由**，因为我做的是把“1000多个工具里怎么精准选对”落成可执行方案，而不是泛泛谈规划。具体分三层：先按领域标签和动作词做**召回**，比如用户说“查上周订单并退款”，先捞出订单查询、退款两个候选；再用小模型或规则做**精排**，看参数是否齐全、权限是否匹配；最后做**参数校验和二次确认**，缺字段就追问，高风险动作必须人工确认。取舍上，关键词召回便宜、可控但同义词覆盖差，向量召回泛化好但容易误召回，所以我会用“关键词打底+向量补充+规则兜底”，并用错选率、漏选率、端到端成功率在固定评测集上验证。\n\n关于**可以给你介绍哪一个**：我还可以讲**小模型训练**，它在工具选中能当便宜的**意图分类器和参数抽取器**，比如把“帮我订明天去上海的票”抽成工具名、日期、目的地三个槽位。做法上先用大模型标注一批样本，人工抽检后训练小分类模型，再用困难样本迭代；边界是训练集覆盖不到的意图要退回大模型或规则，不能指望小模型自己泛化。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-11",
+      "rawQuestion": "嗯,工具调用,嗯,你这个路由有什么你觉得比较好的一个设计点吗?",
+      "sourceEventIndex": 253,
+      "sourceTime": "2026/10/26 17:14:00",
+      "suggestedDomain": "arclight",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "关于“工具路由有什么比较好的设计点”这个问题：我会先做**按意图分层的候选召回**，不是一上来就把上千个工具全塞进上下文。具体做法是先用规则或轻量模型把用户请求归到业务域，比如查库存、查订单，再从对应域里按工具名、描述和参数做**关键词与向量混合检索**，先粗筛出十几个候选，再让模型在候选里做最终选择。比如有 2000 个工具时，两个都叫“查库存”的工具，就靠参数 schema 和所属系统区分开，避免选错。这样上下文小、命中也稳，验证上我会用离线标注的工具选择集看 top-k 召回，再把候选截断的窗口单独压测。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-12",
+      "rawQuestion": "他这个他这个改代码。",
+      "sourceEventIndex": 268,
+      "sourceTime": "2026/10/26 17:14:46",
+      "suggestedDomain": "arclight",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "你的你是有代码的get或者什么之类的给他吗?他怎么知道一段\n关于“改代码时我有没有给代码地址、它怎么知道改哪段”这个问题：我不会只丢一个仓库地址让它自己猜。我会先收集**仓库标识、分支、文件路径和行号或符号名**，再从输入里绑定用户要改的实体，比如“把订单导出里的时间格式改成 ISO”。如果信息不全，我会让它**先用只读工具检索文件、返回匹配片段**，确认目标后再进入写操作。这样它知道的是具体文件和代码片段，不只是一个 get 地址。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-13",
+      "rawQuestion": "对,有对这个代码仓库有建模吗?或者说有建知识的,或者说图谱或之类的吗",
+      "sourceEventIndex": 276,
+      "sourceTime": "2026/10/26 17:15:04",
+      "suggestedDomain": "arclight",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "关于“对代码仓库有没有建模或建知识图谱”这个问题：有做仓库级建模。我把**Repository**建成一个实体，挂上**代码量、语言构成、目录结构和文件/模块节点**；用户查代码时会先定位到仓库，再下钻到具体模块，比如用户问“某个服务模块在哪”，我能按业务域和仓库地址找到对应文件。是否直接生成完整知识图谱，要看查询链路是否需要跨仓库关系，一般先用**仓库-模块-文件三层结构**承接，再做语义检索。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-14",
+      "rawQuestion": "你觉得哪些角色要拆分吗?",
+      "sourceEventIndex": 290,
+      "sourceTime": "2026/10/26 17:15:43",
+      "suggestedDomain": "general",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "关于“哪些角色要拆分”这个问题：我会先把**路由判定**和**下游执行**拆开，路由只负责选目标并产出带版本的路由结果，执行侧独占资源申请与释放。再拆出**状态核验**角色，沿同一个请求身份查状态，不拿路由记录本身当执行完成。比如一次请求路由成功后，由执行侧拿幂等键提交并回写终态，核验侧只认终态；这样记录存在和真正处理完成就不会混在一起。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-15",
+      "rawQuestion": "你觉得哪些环节可以用到它",
+      "sourceEventIndex": 307,
+      "sourceTime": "2026/10/26 17:16:14",
+      "suggestedDomain": "general",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "关于“哪些环节可以用到它”这个问题：我会先把 Agent 框架定位成团队里的**自动化执行层**，而不是替代人做判断。比如需求评审后自动整理待办、研发阶段做代码检索和变更影响分析、测试阶段按失败日志定位模块并生成复现步骤，再把这些结果交给人确认。上线后还能用在值班排障里：先查监控和日志，给出初步根因和处置建议，最后仍由人做决策。落到具体动作，我会按**输入、处理、输出可追溯**三件事接进去，每个环节都保留人工确认点，避免把建议当成已经执行完的操作。取舍上，先接**高频、低风险、结果可核验**的环节，像查询和草稿生成；涉及发布、删除、改权限这类动作不直接放开，只出建议单。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-16",
+      "rawQuestion": "嗯,它大概入口是什么?就是什么东西会触发它开始,然后它可以实现什么能力,大概。",
+      "sourceEventIndex": 316,
+      "sourceTime": "2026/10/26 17:16:37",
+      "suggestedDomain": "general",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "关于入口是什么这个问题：我会把它设计成事件驱动加手动补录两条路。前端表单提交、库存定时盘点结果、外部系统回调，都会先过**参数校验**，必填缺失或枚举值不对就直接拦下，不进后续流程；人工也能在后台手动发起。这样触发源明确，异常输入在第一道门就被挡住。\n\n关于它能实现什么能力这个问题：核心是一个可复用的 **Agent Loop**，收到触发后跑“理解意图→选工具→执行→校验结果”的循环。比如库存类请求进来，先用 **BM25 关键词精确匹配**在1000多个工具里快速召回候选，再交给模型确认调用；工具结果返回后做一次**结构化校验**，不通过就回退重选。能力上支持查询、盘点、异常上报这几类动作，并且同一个 Loop 换工具集就能复用到别的业务上。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-17",
+      "rawQuestion": "嗯嗯,你们你们之前这个复杂度大概做过最高的是多少呀?",
+      "sourceEventIndex": 338,
+      "sourceTime": "2026/10/26 17:17:39",
+      "suggestedDomain": "general",
+      "domainSelection": "Evaluation assumption; original UI domain is not recorded.",
+      "oldCueSuggestion": "关于**之前做过的最高复杂度**这个问题：候选人刚才说的“大概是40个”，我理解是指**单次要覆盖的领域对象或应用数量在40个左右**；库存那类场景会到**100多个应用**，这是已知的更大规模，不是单点最高复杂度。复杂度不只看数量，还要看**跨域依赖和状态约束**——比如一个库存扣减要同时校验仓库、批次、可用量和单据状态，任一分支都要能回滚。具体“最高”我会按**应用数、依赖层数和故障窗口**分开报，不把40和100多混成一个指标。",
+      "semanticChecks": [
+        "保留当前问题及完整指代，不答旧问题",
+        "区分源码实现、个人经历、面试官背景和假设方案",
+        "不把千工具、向量、知识图谱、统一错误码中心写成无来源历史",
+        "口述不超过260可见字符；不要复述问题或讲答题策略"
+      ]
+    },
+    {
+      "caseId": "latest-sql-01",
+      "rawQuestion": "请写出一条完整SQLite SQL查询，只给SQL代码块。GMV仅含status IN (2,3,4)，客单价=GMV/去重买家数。\n表与测试数据：\nCREATE TABLE orders(id INTEGER PRIMARY KEY,buyer_id INTEGER,pay_amount REAL,status INTEGER);\nINSERT INTO orders VALUES(1,10,20,2),(2,10,40,3),(3,11,40,4),(4,12,99,0);",
+      "contextBefore": [],
+      "suggestedDomain": "general",
+      "derivedCase": true,
+      "provenance": "New authored text regression inspired by incorrect old SQL suggestions; not a reconstruction of the missing screenshot.",
+      "fixtureSql": "CREATE TABLE orders(id INTEGER PRIMARY KEY,buyer_id INTEGER,pay_amount REAL,status INTEGER);\nINSERT INTO orders VALUES(1,10,20,2),(2,10,40,3),(3,11,40,4),(4,12,99,0);",
+      "expectedSql": "SELECT SUM(pay_amount)*1.0/COUNT(DISTINCT buyer_id) AS aov FROM orders WHERE status IN (2,3,4)",
+      "expectedScalar": 50,
+      "semanticChecks": [
+        "SQL必须完整并符合本题显式口径",
+        "聚合粒度正确，重复报名不能放大金额",
+        "不能添加题目未要求的item.status过滤"
+      ]
+    },
+    {
+      "caseId": "latest-sql-02",
+      "rawQuestion": "请写出一条完整SQLite SQL查询，只给SQL代码块。计算报名活动A商品的已付GMV，订单status IN (2,3,4)。报名可能重复；题目不要求商品当前在售。\n表与测试数据：\nCREATE TABLE orders(id INTEGER PRIMARY KEY,item_id INTEGER,pay_amount REAL,status INTEGER);\nCREATE TABLE item(id INTEGER PRIMARY KEY,status INTEGER);\nCREATE TABLE signup(item_id INTEGER,activity TEXT);\nINSERT INTO orders VALUES(1,7,20,2),(2,8,30,3);\nINSERT INTO item VALUES(7,0),(8,1);\nINSERT INTO signup VALUES(7,'活动A'),(7,'活动A'),(8,'其他');",
+      "contextBefore": [],
+      "suggestedDomain": "general",
+      "derivedCase": true,
+      "provenance": "New authored text regression inspired by incorrect old SQL suggestions; not a reconstruction of the missing screenshot.",
+      "fixtureSql": "CREATE TABLE orders(id INTEGER PRIMARY KEY,item_id INTEGER,pay_amount REAL,status INTEGER);\nCREATE TABLE item(id INTEGER PRIMARY KEY,status INTEGER);\nCREATE TABLE signup(item_id INTEGER,activity TEXT);\nINSERT INTO orders VALUES(1,7,20,2),(2,8,30,3);\nINSERT INTO item VALUES(7,0),(8,1);\nINSERT INTO signup VALUES(7,'活动A'),(7,'活动A'),(8,'其他');",
+      "expectedSql": "SELECT SUM(o.pay_amount) AS gmv FROM orders o WHERE o.status IN (2,3,4) AND EXISTS (SELECT 1 FROM signup s WHERE s.item_id=o.item_id AND s.activity='活动A')",
+      "expectedScalar": 20,
+      "semanticChecks": [
+        "SQL必须完整并符合本题显式口径",
+        "聚合粒度正确，重复报名不能放大金额",
+        "不能添加题目未要求的item.status过滤"
+      ]
+    }
+  ]
+}

@@ -88,15 +88,16 @@ class SpokenClaimLedger {
         experimentId:require('./metric-index').matches(event.normalizedText,event.projectIds)[0]||groups.join(':'), topic:groups, timeRange:{startMs:event.startMs,endMs:event.endMs},
         projectIds: [...event.projectIds], text: event.normalizedText, rawText: event.rawText,
         numericClaims: numericClaims(event.normalizedText), concepts: groups,
-        modality:speechModality, status: event.speaker === 'unknown' ? 'uncertain' : speechModality==='assertion'?'affirmed':speechModality,
+        modality:speechModality, status: event.speaker === 'unknown' || event.possibleEchoOf ? 'uncertain' : speechModality==='assertion'?'affirmed':speechModality,
+        ...(event.possibleEchoOf?{possibleEchoOf:event.possibleEchoOf,uncertainty:'cross-channel-contained-text; speaker unverified'}:{}),
         correction: explicitCorrection, manuallyCorrected:event.source==='user-correction', replaces: [], evidenceRevision: event.evidenceRevision };
-      if (explicitCorrection && event.speaker === 'candidate' && speechModality==='assertion') {
+      if (explicitCorrection && event.speaker === 'candidate' && !event.possibleEchoOf && speechModality==='assertion') {
         for (const previous of correctionTargets(claims,claim)) {
           // Only a human correction can retire an earlier spoken claim.
           previous.status = 'corrected'; previous.replacedBy = claim.id;
           claim.replaces.push(previous.id);
         }
-      } else if(event.speaker==='candidate'&&speechModality==='assertion') {
+      } else if(event.speaker==='candidate'&&!event.possibleEchoOf&&speechModality==='assertion') {
         const broker=text=>/kafka/i.test(text)&&!/rabbit\s*mq/i.test(text)?'kafka':/rabbit\s*mq/i.test(text)&&!/kafka/i.test(text)?'rabbitmq':null;
         const nextBroker=broker(claim.text);
         if(nextBroker) for(const previous of claims) {
@@ -181,6 +182,18 @@ class DialogueStore {
       }
     }
     this.events.set(eventId, event); this.revision++;
+    // Partial cross-channel overlap is only a suspicion. Retain both raw turns
+    // and the interviewer target, but stop treating the microphone copy as an
+    // affirmed candidate claim. A manual role correction overrides this guard.
+    for(const [id,old] of this.events)if(old.possibleEchoOf===eventId)this.events.set(id,{...old,possibleEchoOf:undefined});
+    const fingerprint=value=>value.replace(/[\p{P}\p{Z}\s]/gu,'').toLowerCase();
+    if(isFinal&&!event.roleCorrected)for(const other of this.events.values()) {
+      if(other.eventId===eventId||!other.isFinal||other.roleCorrected||!other.channel||other.channel===event.channel||Math.abs(other.startMs-startMs)>2000)continue;
+      const a=fingerprint(event.text),b=fingerprint(other.text),short=a.length<b.length?a:b,long=a.length<b.length?b:a;
+      if(short.length<12||short===long||!long.includes(short))continue;
+      const mic=event.channel==='you'?event:other.channel==='you'?other:null;
+      if(mic&&mic.speaker==='candidate') {mic.possibleEchoOf=mic.eventId===eventId?other.eventId:eventId;this.events.set(mic.eventId,mic);}
+    }
     if (this.events.size > this.maxEvents) {
       const oldest = this.ordered().find(item => !item.isFinal) || this.ordered()[0];
       this.events.delete(oldest.eventId);

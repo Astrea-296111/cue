@@ -128,3 +128,94 @@ test('standalone Agent knowledge does not inherit a future supply-chain role des
   assert.ok(!packs.selectKnowledge('Claude Code这种agent是怎么设计的？').evidence.some(c=>c.cardId==='ai-01'));
   assert.ok(packs.selectKnowledge('如何把Coding Agent经验迁移到供应链岗位？').evidence.some(c=>c.cardId==='ai-01'));
 });
+test('historical replay uses only canonical human events before each original output point',()=>{
+  const {adapt}=require('../scripts/lib/interview-replay.cjs');
+  const cases=require('../evaluation/cases/interview-2026-10-26.json').cases;
+  const events=require('../materials/personal/data/transcript-events.json').events;
+  const replay=adapt(cases[5],events);
+  assert.equal(replay.cutoffExclusive,61);assert.ok(replay.events.every(e=>e.sourceIndex<61));
+  assert.ok(replay.events.some(e=>/temperature.*Top p/i.test(e.text)));
+  assert.ok(replay.events.every(e=>!e.text.includes('（发言 ')));
+  assert.equal(replay.aiSuggestionsIncluded,false);
+  const revisions=adapt({sourceEventIndex:3},[
+    {role:'本人',text:'旧说法\n（发言 same · 版本 1）'},
+    {role:'本人',text:'已纠正\n（发言 same · 版本 2）'},
+    {role:'CUE 建议（未确认说出）',text:'不应进入真人账本'},
+    {role:'本人',text:'未来发言'}]);
+  assert.equal(revisions.events.length,1);assert.equal(revisions.events[0].revision,2);assert.equal(revisions.events[0].text,'已纠正');
+  const role=adapt({sourceEventIndex:2},[{role:'本人',text:'说过的话\n（发言 stream:you:1 · 版本 4）'},{role:'修订 · 说话人待确认',text:'说过的话\n（发言 stream:you:1 · 版本 4）'}]);
+  assert.equal(role.events[0].speaker,'unknown');assert.equal(role.events[0].roleCorrected,true);
+});
+test('referential question freezes complete parameter and sparse/dense entities, not trailing fragments',()=>{
+  const {reference}=require('../src/question-topic-context');
+  const transcript=[{channel:'them',text:'Transformer为什么需要上下文窗口？'},{channel:'them',text:'temperature和top-p分别是采样时的参数，有了解过吗？'},{channel:'them',text:'你这些有了解过吗？'},{channel:'them',text:'他们是什么东西？'}];
+  const text=reference('你这些有了解过吗？他们是什么东西？',transcript);
+  assert.match(text,/temperature和top-p/);assert.doesNotMatch(text,/Transformer/);
+  const fusion=reference('怎么融合这些？',[{channel:'them',text:'Agentic RAG是否需要路由？'},{channel:'them',text:'稀疏召回和稠密召回分别怎么做？'},{channel:'them',text:'你有了解过吗？'}]);
+  assert.match(fusion,/稀疏召回和稠密召回/);assert.doesNotMatch(fusion,/Agentic/);
+});
+test('benchmark follow-up reference protects SWE rather than inheriting the MCP experiment',()=>{
+  const {ProjectFactPacks}=require('../src/project-fact-packs');
+  const packs=new ProjectFactPacks({index:workspace().facts});
+  const found=packs.select('对照组怎么设计？',{resolution:{canonicalProjectIds:['arclight'],retrieveFacts:true,metricContext:'这个agent跑过什么benchmark？SWE-bench Lite有300道题。'},maxCards:3});
+  assert.ok(found.evidence.find(c=>c.cardId==='metric.arc.swe')?.protectedMetric);
+});
+test('actual historical parameter replay freezes temperature/top-p at the production SDK boundary',async t=>{
+  const app=createInterviewRuntime(t,{settings:{answerDomain:'general',realtimeAnswerMode:'instant'}});await app.ready;
+  const c=require('../evaluation/cases/interview-2026-10-26.json').cases[5];
+  const replay=require('../scripts/lib/interview-replay.cjs').adapt(c,require('../materials/personal/data/transcript-events.json').events);
+  for(const e of replay.events) {
+    const meta={eventId:e.eventId,utteranceKey:e.eventId,revision:e.revision,startMs:e.startMs,rawText:e.rawText};
+    if(e.speaker==='candidate')app.candidate(e.text,meta);else if(e.speaker==='interviewer')app.final(e.text,meta);
+  }
+  await app.ask('say',c.rawQuestion);
+  const message=JSON.stringify(app.calls.at(-1).messages);
+  const reference=message.split('最近真人提问实体').at(-1);
+  assert.match(reference,/temperature/i);assert.match(reference,/top p/i);assert.doesNotMatch(reference,/Transformer/);
+  assert.doesNotMatch(message,/（发言 /);
+});
+test('MCP optimization SDK request keeps both metric and verified original-schema mechanism',async t=>{
+  const app=createInterviewRuntime(t,{settings:{answerDomain:'arclight',realtimeAnswerMode:'instant'}});
+  await app.importMaterialSnapshot({facts:workspace().facts,sources:sources()});
+  await app.ask('say','50个MCP工具的初始Token从18.6k到4.2k，是怎么优化的？');
+  const ids=app.commits.at(-1).config.evidence.map(e=>e.cardId);
+  assert.ok(ids.includes('metric.arc.mcp'));assert.ok(ids.includes('oct26.code.toolsearch'));assert.ok(ids.includes('oct26.code.mcp-wrapper'));
+  assert.match(JSON.stringify(app.calls.at(-1).messages),/保留(?:原始|服务端完整)inputSchema/);
+});
+test('partial cross-channel echo cannot promote interviewer history into candidate claims',()=>{
+  const {DialogueStore}=require('../src/spoken-claim-ledger');
+  const d=new DialogueStore();
+  d.ingest({eventId:'mic',channel:'you',text:'其实我是来自某电商供应链的',startMs:1000,isFinal:true});
+  d.ingest({eventId:'system',channel:'them',text:'其实我是来自某电商供应链的，我们团队负责库存和调度。',startMs:1800,isFinal:true});
+  assert.equal(d.events.get('system').speaker,'interviewer');
+  assert.equal(d.ledger.snapshot().find(c=>c.eventIds.includes('mic')).status,'uncertain');
+  assert.equal(d.events.get('mic').rawText,'其实我是来自某电商供应链的');
+  d.correct({eventId:'mic',speaker:'candidate'});
+  assert.equal(d.ledger.snapshot().find(c=>c.eventIds.includes('mic')).status,'affirmed');
+  const later=new DialogueStore();later.ingest({eventId:'a',channel:'you',text:'其实我是来自某电商供应链的',startMs:1000});
+  later.ingest({eventId:'b',channel:'them',text:'其实我是来自某电商供应链的，我们团队负责库存。',startMs:10000});
+  assert.equal(later.ledger.snapshot()[0].status,'affirmed');
+});
+test('latest interview source cards ground memory cadence, error returns and MCP schema boundaries',()=>{
+  const {ProjectFactPacks}=require('../src/project-fact-packs');const w=workspace(),packs=new ProjectFactPacks({index:w.facts});
+  assert.equal(w.facts.cards.length,131);
+  for(const [q,id]of [['它的更新频率或存储内容是什么？','oct26.code.memory'],['这个校验错误存储在哪里？有统一错误码模块吗？','oct26.code.tool-errors']]) {
+    const result=packs.select(q,{resolution:{canonicalProjectIds:['arclight'],retrieveFacts:true},maxCards:4});
+    assert.ok(result.evidence.some(c=>c.cardId===id&&c.protectedMechanism));
+  }
+  const schema=w.facts.cards.find(c=>c.cardId==='oct26.code.mcp-wrapper');assert.match(schema.text,/默认可能类型转换/);
+});
+test('latest regression contains 17 real oral points and two authored SQL checks, never fabricates screen replay',()=>{
+  const suite=require('../evaluation/cases/latest-interview-2026-10-26.json'),source=require('../evaluation/cases/latest-technical-events.json');
+  assert.equal(suite.cases.filter(c=>Number.isInteger(c.sourceEventIndex)).length,17);
+  assert.equal(suite.cases.filter(c=>c.derivedCase).length,2);assert.equal(source.unreplayableScreenSuggestionIndices.length,9);
+  const {automatic}=require('../scripts/eval-public.cjs');assert.equal(automatic({answer:'```sql\nSELECT 1;\n```',transportStatus:'passed',completion:{complete:true}},suite.cases.at(-1).rawQuestion).formatPassed,true);
+});
+test('SQL fixtures reject the old buyer/buyer formula and duplicate-signup join',()=>{
+  const {spawnSync}=require('node:child_process'),cases=require('../evaluation/cases/latest-interview-2026-10-26.json').cases.filter(c=>c.derivedCase);
+  const check=(c,sql)=>JSON.parse(spawnSync('python3',['scripts/lib/verify-sql-regression.py'],{input:JSON.stringify({...c,answer:'```sql\n'+sql+';\n```'}),encoding:'utf8',timeout:5000}).stdout);
+  assert.equal(check(cases[0],cases[0].expectedSql).passed,true);
+  assert.equal(check(cases[0],'SELECT COUNT(DISTINCT buyer_id)*1.0/COUNT(DISTINCT buyer_id) FROM orders WHERE status IN (2,3,4)').passed,false);
+  assert.equal(check(cases[1],cases[1].expectedSql).passed,true);
+  assert.equal(check(cases[1],"SELECT SUM(o.pay_amount) FROM orders o JOIN signup s ON s.item_id=o.item_id WHERE s.activity='活动A' AND o.status IN (2,3,4)").passed,false);
+});

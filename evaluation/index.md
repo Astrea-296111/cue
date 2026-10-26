@@ -24,3 +24,5 @@
 - [oct26-smoke02-judge-final / rejudge](runs/oct26-smoke02-judge-final/rejudge/report.md)
 
 - [oct26-full-final / full](runs/oct26-full-final/full/report.md)
+
+- [oct26-baseline-final / baseline](runs/oct26-baseline-final/baseline/report.md)

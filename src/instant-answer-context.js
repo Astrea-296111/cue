@@ -71,7 +71,7 @@ function buildInstantContext({ settings = {}, question, snapshot, request, ready
   for (const source of sources.slice(0, 32)) {
     if (evidence.length >= limits.maxSources) break;
     const block = formatEvidenceBlock(source), size = estimateTokens(block);
-    if (dataTokens + size > limits.evidenceTokens && !source.protectedMetric) continue;
+    if (dataTokens + size > limits.evidenceTokens && !(source.protectedMetric||source.protectedMechanism)) continue;
     evidence.push(source); blocks.push(block); dataTokens += size;
   }
   const project = request.plan?.retrieve && request.plan.projectLabel ? `当前项目：${request.plan.projectLabel}\n` : '';
@@ -99,8 +99,12 @@ function buildInstantContext({ settings = {}, question, snapshot, request, ready
   // Soft target never crops the question, constraints or configured style.
   while (blocks.length && estimateTokens(systemBase + current + spoken + reference + optional) > limits.softInputTokens) {
     const last = blocks.at(-1);
+    // Mechanism evidence may include a function and the constants/helpers it
+    // depends on. It already passed the finite evidence budget; a soft latency
+    // target must not leave only an uninterpretable function body behind.
+    if(evidence.some(source=>last.includes(source.id)&&(limits.mechanismDetail||source.requiredContext||source.neighbor||source.relation)))break;
     if (evidence.length <= 2 && evidence.some(e=>e.sourceType==='project-pack') && evidence.some(e=>!['project-pack','knowledge-reference'].includes(e.sourceType))) break;
-    if (evidence.some(source => source.protectedMetric && last.includes(source.id)) || evidence.length === 1 && last.includes(evidence[0].id)) break;
+    if (evidence.some(source => (source.protectedMetric||source.protectedMechanism) && last.includes(source.id)) || evidence.length === 1 && last.includes(evidence[0].id)) break;
     const dropped = blocks.pop(); optional = blocks.join('\n\n');
     const index = evidence.findIndex(source => dropped.includes(`--- 来源 ${source.id} 开始 ---`));
     if (index >= 0) evidence.splice(index, 1);
