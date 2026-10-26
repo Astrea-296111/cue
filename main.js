@@ -895,7 +895,11 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
   const voiceAnswer = ['say', 'answerThis', 'ask', 'assist', 'technical'].includes(mode);
   let resolved = explicit ? questionResolver.manualSnapshot(explicit, { epoch: conversation.epoch })
     : retrySnapshot || (voiceAnswer ? questionResolver.resolveForSubmit({ allowPartial: true, epoch: conversation.epoch }) : null);
-  if(resolved)resolved={...resolved,referenceContext:require('./src/question-topic-context').reference(resolved.text,transcript)||resolved.referenceContext};
+  if(resolved) {
+    const interviewerReference=require('./src/question-topic-context').reference(resolved.text,transcript);
+    resolved={...resolved,referenceContext:interviewerReference||resolved.referenceContext,
+      referenceSpeaker:interviewerReference?'interviewer':resolved.referenceSpeaker};
+  }
   if (mode === 'assist' && !explicit && !resolved?.text) {
     const requirement = lastScreenSnapshot?.epoch === conversation.epoch && !resolved?.awaitingNewQuestion
       ? lastScreenSnapshot.text : '请解决当前屏幕上的技术题';
@@ -1116,7 +1120,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const legacyNarrative='不要编造项目结果。';
     const resolvedSystem = builtSystem + (instantContext?'':'\n' + oralRule + narrativeRule + SPOKEN_CONTEXT_RULES) + (request.plan.kind==='unresolved'?'\n当前未定位到对应项目资料，直接给出可落地的通用方案或小例子，不猜测具体项目身份或职责。':'');
     const initialSystem = llm.prepareSystem ? llm.prepareSystem(resolvedSystem) : resolvedSystem;
-    const questionReferenceSection={id:'question-reference',text:frozen?.referenceContext ? '最近真人提问实体（仅消解当前指代）：\n'+frozen.referenceContext:'',protected:true};
+    const questionReferenceSection={id:'question-reference',text:frozen?.referenceContext ? '最近真人提问实体（仅消解指代；面试官的公司、规模、假设不属于候选人经历）：\n'+JSON.stringify({speaker:frozen.referenceSpeaker||'unspecified-question',text:frozen.referenceContext}):'',protected:true};
     const candidateRoleSection={id:'candidate-role',text:candidateRole.text,protected:candidateRole.required,priority:2};
     const responseContext = { transcript: contextTranscript, userText: question, answerPlan, partial, hasImage: !!imageDataUrl };
     const built = def.build(responseContext);

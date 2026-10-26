@@ -179,6 +179,7 @@ test('actual historical parameter replay freezes temperature/top-p at the produc
   const message=JSON.stringify(app.calls.at(-1).messages);
   const reference=message.split('最近真人提问实体').at(-1);
   assert.match(reference,/temperature/i);assert.match(reference,/top p/i);assert.doesNotMatch(reference,/Transformer/);
+  assert.equal(app.requests.at(-1).questionSnapshot.referenceSpeaker,'interviewer');
   assert.doesNotMatch(message,/（发言 /);
 });
 test('MCP optimization SDK request keeps both metric and verified original-schema mechanism',async t=>{
