@@ -1,0 +1,337 @@
+{
+  "reviewer": "Codex per-answer source review",
+  "scope": "Additional answers containing non-heading digits; added to the prior question-based selection",
+  "reviewed": 33,
+  "reviews": [
+    {
+      "provider": "qwen",
+      "caseId": "interview-19",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "初始Token与命中率分开，测试集/完整Schema对照明确是建议；77%是18.6到4.2的近似比例。",
+      "quote": "1. 样本：我会准备明确、模糊和易选错的需求，标出可接受工具集。\n2. 对照：同模型分别用完整定义和摘要目录，比找对率、参数正确率和任务完成度。\n3. 边界：精确命中率未确认；初始Token降77%不等于全程成本或命中率无损。",
+      "answer": "qwen/interview-19-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-29",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "31.33/43.67被粗略写成31/43，且配置组历史来源不完整，需保留精确值及已有/设计边界。",
+      "quote": "1. 对照：同模型跑基础ReAct与完整配置，隔离框架增益。\n2. 边界：不同模型对比仅展示能力差异，不归因于框架。\n3. 现状：简历记录31%到43%，具体消融数据待查日志确认。",
+      "answer": "qwen/interview-29-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-30",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "300题、harness修复与回归共同判定，消融按建议设计说，不提供虚构中间组分数。",
+      "quote": "1. 基线对照：固定qwen3.6-plus模型和SWE-bench Lite 300题，比较基础ReAct、单代理框架及完整配置。\n2. 消融设计：从完整配置中一次移除一个机制（如关闭上下文管理），保持其他预算一致，观察修复率、耗时和Token变化。\n3. 判定标准：以独立harness验证修复测试与回归测试均通过为成功，不依赖Agent自述；报告总分母及可运行子集口径。",
+      "answer": "qwen/interview-30-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-31",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "控制变量/每次去一个机制/换模型另组的设计成立；300是计划题集，未冒充原始逐题日志。",
+      "quote": "1. 基线：固定同一模型和300道题，对比基础ReAct、单代理框架与完整配置。\n2. 消融：从完整配置逐一移除机制（如关闭上下文管理），保持其他预算一致。\n3. 判断：综合修复率、耗时及Token变化评估；换模型需另开组，避免混淆提升来源。",
+      "answer": "qwen/interview-31-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-31",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "控制变量/每次去一个机制/换模型另组的设计成立；300是计划题集，未冒充原始逐题日志。",
+      "quote": "1. 基线对照：固定同一模型和300道题，比较基础ReAct、单代理框架和完整配置。\n2. 机制消融：从完整配置一次拿掉一个机制，比如关闭上下文管理，保持其他预算一致。\n3. 独立分组：换模型的比较另开一组，不能混成同一种提升；看修复率、时间和Token变化。",
+      "answer": "qwen/interview-31-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-39",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "BM25词项权重及与稠密互补成立；具体ID能否完整命中取决于分词配置，不能保证所有tokenizer。",
+      "quote": "1. 定义：稀疏召回主要指基于关键词匹配，比如用BM25算法。它看词频和文档长度来打分，擅长精确命中专有名词或代码符号。\n2. 短板：换一种说法可能就找不到，因为字面不匹配。所以通常和向量召回结合使用，互补语义理解不足的问题。",
+      "answer": "qwen/interview-39-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-40",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "RRF按两路排名累积分数后去重，2/3是例子，不直接加异量纲原分。",
+      "quote": "1. 做法：我会用RRF融合，按两路排名合并，不直接相加量纲不同的原始分数。\n2. 例子：一篇文档关键词排第2、向量排第3，两边都给它加分。\n3. 后续：合并去重后，再按需重排，选最相关的几段给模型。",
+      "answer": "qwen/interview-40-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-40",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "RRF按两路排名累积分数后去重，2/3是例子，不直接加异量纲原分。",
+      "quote": "1. 做法：用RRF融合，按两路排名合并，不直接相加量纲不同的原始分数。\n2. 例子：文档关键词排第2、向量排第3，两边都给它加分，综合排序更稳。\n3. 后续：合并去重后，再按需重排，选最相关的几段给模型。",
+      "answer": "qwen/interview-40-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-41",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "Rerank处理候选，50取5是示例，漏召回不能靠重排补回。",
+      "quote": "1. 做法：混合检索后按需重排。关键词补漏精确ID，语义召回改写表达，合并候选后用Rerank模型二次打分提升精度。\n2. 取舍：延迟与效果平衡。非全量启用，仅对Top-K或低置信度结果触发；评估需区分召回率与最终回答准确率。\n3. 例子：搜“BUG-1024”用BM25命中，搜“登录报错”用语义召回，最后统一Rerank排序输出最相关片段。",
+      "answer": "qwen/interview-41-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-41",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "Rerank处理候选，50取5是示例，漏召回不能靠重排补回。",
+      "quote": "1. 作用：召回先找一批候选，Rerank把问题和每段内容放在一起比较，重新排序。\n2. 例子：比如先找50段，重排后只留最相关的5段。它更费计算，所以通常只处理候选；漏召回的文档，它也没法凭空找回来。",
+      "answer": "qwen/interview-41-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "unseen-arclight-06",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "23.1耗时与32.16Token仅30组独立探索；任务依赖/共享写/协调成本限制外推。",
+      "quote": "1. 不能泛化：23.1%提速仅基于30组独立探索测试，未覆盖所有任务类型，存在样本偏差。\n2. 成本权衡：Token增加32.16%，说明并行虽降墙钟耗时，但显著抬高计算与推理成本。\n3. 适用边界：该优化针对可解耦的独立子任务，强依赖或需全局状态的任务未必受益甚至可能变慢。",
+      "answer": "qwen/unseen-arclight-06-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "unseen-arclight-06",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "23.1耗时与32.16Token仅30组独立探索；任务依赖/共享写/协调成本限制外推。",
+      "quote": "1. 不能：30组独立探索耗时降23.1%仅适用于子问题无依赖场景，强依赖任务串行才稳。\n2. 代价：并行虽快但Token增32.16%，因重复读代码与协调开销，需权衡时间换成本。",
+      "answer": "qwen/unseen-arclight-06-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "unseen-general-02",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "温度改分布、top-p裁候选概率质量；只变一个参数方便归因，不保证准确率。",
+      "quote": "1. 对象：温度控制概率分布的平滑度，决定整体随机性；top-p控制候选词集合的大小，按累计概率截断。\n2. 单调：我会只调一个。比如固定top-p为0.9，仅改变温度看输出多样性变化，避免变量耦合导致无法归因。",
+      "answer": "qwen/unseen-general-02-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "unseen-general-04",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "退出码/测试记录的程序门禁与文本要求分开。",
+      "quote": "1. 不等价：Workflow仅声明意图，若执行器未强制拦截失败分支，Agent可忽略验证直接结束。\n2. 关键在硬约束：我会把“测试通过”作为代码级门禁，校验真实测试记录或退出码，而非依赖提示词自觉。\n3. 例子：Skill提醒跑测试，但只有执行器检查到`exit code 0`才允许提交，否则阻断流程并报错。",
+      "answer": "qwen/unseen-general-04-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "unseen-general-08",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "fail",
+      "conclusion": "两次仍可计算区间，只是极宽；“至少30次”不是通用充分门槛，自动漏检。",
+      "quote": "1. 结论：不能。两次通过只是离散结果，样本量太小，无法计算统计意义上的置信区间。\n2. 做法：需增加独立重复实验次数，比如至少30次以上，记录通过率。\n3. 原因：小样本下波动极大，只有足够多的数据点才能估算成功率的真实范围及其置信度。",
+      "answer": "qwen/unseen-general-08-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-23",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "角色、Mailbox及30独立探索的时间/Token范围基本对应；不外推全任务或事务ACK。",
+      "quote": "1. 角色拆分：我按探索、规划、验证拆角色，探索查代码和上下文，规划定改动方案，验证跑测试和检查回归，减少互相干扰。\n2. 协作方式：子代理间通过对话、后台通知和 Mailbox 传递状态；主代理汇总结果，不共享全部历史。\n3. 取舍：拆分会增加 Token 和调度成本，30 组独立探索任务里耗时降了 23.1%，Token 增了 32.16%，所以我按任务复杂度决定是否开多代理。",
+      "answer": "deepseek/interview-23-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-29",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "问的是前一轮benchmark比较，不能以60长会话Token替代；历史细分配置组与四个新组设计要分开。",
+      "quote": "1. 对比结论：同模型做框架对照，不同模型另做表，不把差异归因于框架；这些是计划，不是已跑结果。\n2. 我会补做：基础 ReAct、单 Agent、完整配置、关闭上下文管理四组，同 300 题、同 harness、可比预算。\n3. 报告口径：解决率按 harness 判定，环境失败不删题，给总分母与可运行子集两版。",
+      "answer": "deepseek/interview-29-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-30",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "fail",
+      "conclusion": "把31.33到43.67说成三个配置组都跑过的结果，新增组别被反写成历史；自动漏检。",
+      "quote": "1. 评测口径：SWE-bench Lite 300 道题，固定 qwen3.6-plus-2026-04-02，比较基础 ReAct、单代理框架和完整配置；解决率 31.33% 到 43.67% 就是这三组同模型对照的结果。\n2. 判定方式：每题从干净环境起，用 issue 生成 patch；看 harness 是否同时通过修复测试和回归测试，不靠 Agent 自称修好。\n3. 消融与边界：再从完整配置拿掉上下文管理，看修复率、时间和 Token 的变化；约 94 到 131 是比例换算，逐题日志我这里没有，不能",
+      "answer": "deepseek/interview-30-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-31",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "控制变量/每次去一个机制/换模型另组的设计成立；300是计划题集，未冒充原始逐题日志。",
+      "quote": "1. 四组对照：同一模型和300道题，先跑基础ReAct、单代理、完整配置；完整配置再逐项去掉上下文管理，工具分层与上下文阶段各单独看贡献。\n2. 控制变量：各组预算、判定标准一致，分开看修复率、时间和Token；换模型另开一组，不混算提升。",
+      "answer": "deepseek/interview-31-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-31",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "控制变量/每次去一个机制/换模型另组的设计成立；300是计划题集，未冒充原始逐题日志。",
+      "quote": "1. 对比设计：固定 qwen3.6-plus 同一模型和 SWE-bench Lite 300 题，先比较基础 ReAct、单代理框架、完整配置三组；工具分层和上下文阶段分别单独做消融。\n2. 消融顺序：从完整配置每次只改变一个变量，例如关闭上下文管理或改用全量暴露工具，其他组的预算保持一致。\n3. 判定标准：每组都要求修复测试和回归测试都通过，同时看修复率、时间和 Token；不同模型的组单独进行，不混在一起。",
+      "answer": "deepseek/interview-31-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-37",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "问题拆关键词与向量、两路召回融合是通识设计，示例错误码不是历史实测指标。",
+      "quote": "1. 判断检索：先看问题是否需要外部资料；闲聊或常识直接答，要代码位置和报错码再检索。\n2. 拆分字段：提取错误码、函数名等关键词，同时把问题转成语义向量；比如“退款失败 5001”，关键词走精确匹配，向量找退款流程。\n3. 片段切分：按函数或段落切块并保留文件名和行号，两路召回合并去重后按相关度取片段。",
+      "answer": "deepseek/interview-37-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-39",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "BM25词项权重及与稠密互补成立；具体ID能否完整命中取决于分词配置，不能保证所有tokenizer。",
+      "quote": "1. 稀疏检索：了解，典型是BM25，按词频和逆文档频率算相关性，擅长精确词、业务缩写和ID，例“ERR-502”不会被切碎后召回丢失。\n2. 混合做法：稀疏与语义检索各取候选再合并，必要时rerank；chunk按语义边界切，避免切太碎伤召回。\n3. 回归验证：我会把召回率与引用正确率分开测，看证据是否被找到。",
+      "answer": "deepseek/interview-39-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-39",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "BM25词项权重及与稠密互补成立；具体ID能否完整命中取决于分词配置，不能保证所有tokenizer。",
+      "quote": "1. 做法：稀疏召回就是按词项和权重找文档，BM25 是常见做法，报错码这类少见关键词的命中会更精确。\n2. 例子：查一个具体错误码，关键词检索通常比纯语义更容易直接找到包含该错误码的那段。\n3. 短板：换一种说法就搜不到，所以一般和向量召回一起使用，再按排名合并并去重。",
+      "answer": "deepseek/interview-39-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-40",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "RRF按两路排名累积分数后去重，2/3是例子，不直接加异量纲原分。",
+      "quote": "1. 做法：我了解的是用RRF融合，按两路排名加分，不直接加原始分数，因为量纲不一样。\n2. 例子：一篇文档关键词排第2、向量排第3，就按各自名次给它加分，合并后一篇文档只得一份分。\n3. 后续：融合去重后再按相关性重排，选最相关的几段交给模型。",
+      "answer": "deepseek/interview-40-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-40",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "RRF按两路排名累积分数后去重，2/3是例子，不直接加异量纲原分。",
+      "quote": "1. 做法：我会用RRF融合，两路按排名各算1/(k+排名)再相加，不直接加原始分数，因为量纲和分布不同。\n2. 例子：比如一篇文档关键词召回排第2、向量召回排第3，两路都贡献分数，合并排序后靠前。\n3. 后续：去重后按需重排，取Top几段给模型生成。",
+      "answer": "deepseek/interview-40-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-41",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "Rerank处理候选，50取5是示例，漏召回不能靠重排补回。",
+      "quote": "1. 区别：Rerank 是在召回之后做二次排序。召回先快速找一批候选，Rerank 再把问题和每段内容放在一起逐对比较，重新排出先后顺序。\n2. 边界：它只处理已召回的候选，漏掉的文档它没法补回来；而且计算成本更高，所以一般先召回 50 段，重排后只留 5 段。",
+      "answer": "deepseek/interview-41-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "unseen-arclight-06",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "23.1耗时与32.16Token仅30组独立探索；任务依赖/共享写/协调成本限制外推。",
+      "quote": "1. 结论：不能。23.1%降耗仅覆盖30组独立探索的简历声明口径，未经独立重跑，不能推广到所有任务。\n2. 边界：串行依赖、共享写冲突、协调开销大的任务可能不变慢；Token增32.16%也说明加速有成本。\n3. 验证：我会按任务类型分层重测，记录墙钟、Token和失败率，再判断适用范围。",
+      "answer": "deepseek/unseen-arclight-06-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "unseen-arclight-06",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "23.1耗时与32.16Token仅30组独立探索；任务依赖/共享写/协调成本限制外推。",
+      "quote": "1. 不能说明：这23.1%的耗时降幅只来自30组独立探索任务，而且比较对象是单代理顺序执行；它不能推广到强依赖、频繁冲突的修改类任务。\n2. 看任务依赖：子任务能独立验证、汇总成本低时，拆分更可能见效；如果强依赖、要共享文件或反复等待，我宁愿串行。\n3. 同时看Token：这组任务里Token增加了32.16%，说明这是拿并行换时间、增加成本，我会按任务类型和预算决定是否拆分。",
+      "answer": "deepseek/unseen-arclight-06-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "unseen-cae-07",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "同身份不同输入拒绝，新的attempt与500同身份重放分开，符合身份及指纹边界。",
+      "quote": "1. 结论：同一执行身份携带不同输入时，我会拒绝，不返回旧结果。身份相同并不代表输入相同，直接复用旧结果等于把错误结果当成功返回。\n\n2. 校验：收到请求后，先用 executionId 和 inputHash 核验，只有两者都匹配才复用已有执行；如果 executionId 相同，但 inputHash 变了，就返回冲突并提示使用新的 attempt。\n\n3. 测试：我会单独把这种情况设为拒绝用例，不混入 500 次同身份重放，以免把拒绝统计成没有新增进程。",
+      "answer": "deepseek/unseen-cae-07-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "unseen-general-02",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "温度改分布、top-p裁候选概率质量；只变一个参数方便归因，不保证准确率。",
+      "quote": "1. 温度：控制候选词概率分布的集中或分散程度；低温度更集中，高温度更分散。\n2. Top-p：控制累计概率保留的候选范围，比如0.9只在该累计概率约90%的候选词里抽样。\n3. 可以只调一个，但先固定另一个，再用同一批题看效果，避免同时变动导致归因不清。",
+      "answer": "deepseek/unseen-general-02-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "unseen-general-02",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "温度改分布、top-p裁候选概率质量；只变一个参数方便归因，不保证准确率。",
+      "quote": "1. 温度：温度控制的是候选词的概率分布：低温时更集中，高温时更分散；它不直接删掉候选词，只改变各候选词的概率。\n2. top-p：top-p 控制候选词的范围：只保留累计概率达到阈值的那一批候选词，比如设成 0.9，就是在累计概率约 90% 的候选词里抽取。\n3. 只调一个：可以只调其中一个，另一个先固定；比如固定 top-p=0.9 只调温度，先用同一批题对比效果，免得两个一起变、分不清是谁起的作用。",
+      "answer": "deepseek/unseen-general-02-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "unseen-general-07",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "名字对不等于参数/权限/副作用执行成功；400是明确反例，不是项目实测。",
+      "quote": "1. 匹配不等于成功：工具名对只说明路由选对了，参数、权限和执行结果仍可能失败。\n2. 反例：`create_order` 名字正确，但数量传成负数，程序校验失败返回 400；工具名匹配，调用却没有成功。\n3. 判断依据：我会看返回状态和业务结果，不只看工具名；写操作的超时或未知结果还要沿同一请求身份查询是否已生效。",
+      "answer": "deepseek/unseen-general-07-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "unseen-general-08",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "两次样本不能支撑稳定高置信结论，可以计算很宽的二项区间，不能夸大。",
+      "quote": "1. 直接结论：两次都通过只能说明这两个样本通过，不能给出可靠置信区间；样本太少，区间会非常宽，也会掩盖波动。\n2. 补充做法：我会积累同一题型的多次结果，记录通过和失败的数量，再用二项分布估一个区间；例如 20 次里 16 次通过，区间仍会跨不小范围。\n3. 控制条件：还要固定模型版本、提示词和评分口径，否则两次通过可能只是条件和题目不同。",
+      "answer": "deepseek/unseen-general-08-r2/answer.txt"
+    }
+  ]
+}

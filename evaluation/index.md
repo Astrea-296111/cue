@@ -49,3 +49,7 @@
 - [oct26-latest-v4 / latest](runs/oct26-latest-v4/latest/report.md)
 
 - [oct26-smoke-v4 / smoke](runs/oct26-smoke-v4/smoke/report.md)
+
+- [首轮数字输出补审33条](runs/oct26-full-final/full/codex-numeric-supplement.md)（首轮审阅并集185条）
+- [完整前缀开发回放审阅76条](runs/oct26-replay-canonical/replay/codex-review.md)与[数字补审27条](runs/oct26-replay-canonical/replay/codex-numeric-supplement.md)（该run并集103条）
+- [最新面试原始TXT](cases/original-latest-interview-2026-10-26.txt)与[问题和修正](../docs/最新面试_问题与修正.md)

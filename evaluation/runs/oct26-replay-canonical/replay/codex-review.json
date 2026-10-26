@@ -1,0 +1,773 @@
+{
+  "reviewer": "Codex per-answer source review",
+  "selection": {
+    "totalRun": 164,
+    "allAutomaticFailures": 20,
+    "automaticPasses": 144,
+    "minimumPassSample": 29,
+    "unionReviewed": 76
+  },
+  "scope": "Development run before PR26/PR27, not the final source snapshot",
+  "reviews": [
+    {
+      "provider": "deepseek",
+      "caseId": "interview-01",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "平台定位、后端职责与数值算法边界符合cae-01及简历，不能由代码量推贡献。",
+      "quote": "1. 平台定位：CAE 平台解决任务提交分散、状态难跟踪、结果报告难整理的问题，把提交编排、资源约束和报告整理串成一条链路。\n2. 我的职责：负责 Java 后端的任务提交编排、资源约束、可靠性和输入校验，以及报告元数据与阶段重试；求解器数值算法不在我的范围内。\n3. 说明口径：以上职责来自简历声明，具体模块贡献按实际链路讲，不按代码量推断。",
+      "answer": "deepseek/interview-01-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-01",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "平台定位、后端职责与数值算法边界符合cae-01及简历，不能由代码量推贡献。",
+      "quote": "1. 定位：CAE 是给科室共用服务器做仿真任务调度和结果管理，解决任务提交分散、状态难跟踪、报告难整理的问题。\n2. 职责：我负责 Java 后端的提交编排、资源约束、可靠性和输入校验，也做结果报告的元数据和阶段重试；求解器数值算法不属于我的工作。\n3. 链路：任务按 CPU、内存和 License 约束分批派发，Job/Execution 分离后用 Outbox、消费幂等和对账保状态，结果再联调后处理出报告。",
+      "answer": "deepseek/interview-01-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-01",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "平台定位、后端职责与数值算法边界符合cae-01及简历，不能由代码量推贡献。",
+      "quote": "1. 定位：CAE是解决仿真任务提交分散、状态难跟踪及报告整理难的工程平台。\n2. 职责：我负责Java后端，涵盖任务编排、资源约束、可靠性、输入校验及报告元数据与重试。\n3. 边界：求解器数值算法由其他团队负责，不在我的工作范围内。",
+      "answer": "qwen/interview-01-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-01",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "平台定位、后端职责与数值算法边界符合cae-01及简历，不能由代码量推贡献。",
+      "quote": "1. 定位：面向CAE科室的仿真任务调度与结果管理平台，解决提交分散、状态难跟踪和报告整理低效问题。\n2. 职责：我负责Java后端的任务编排、资源约束、可靠性及输入校验；求解器数值算法不属于我的工作。\n3. 成果：通过事务Outbox等机制保障消息重投下的状态收敛，并优化自动报告流程，显著减少人工整理耗时。",
+      "answer": "qwen/interview-01-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-02",
+      "repeat": 1,
+      "automaticPassed": false,
+      "reviewStatus": "usable",
+      "conclusion": "GNN/CNN研究与平台后端分开，未说LLM替代求解器；粗预测流程按示例范围讲，不证明本人实现所有模型。",
+      "quote": "1. 方法定位：24 年我们做 AI 结合仿真，用的是 GNN、CNN 这类传统深度学习，不是用大模型替代求解器。\n2. 使用方式：拿结构参数和网格信息先估计刚度、模态这类结果，先筛方案，再对候选做完整仿真。\n3. 职责边界：我参与的是这个预测方向的研究；平台建设归平台侧，没有把预测能力说成平台已全部实现。",
+      "answer": "deepseek/interview-02-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-02",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "GNN/CNN研究与平台后端分开，未说LLM替代求解器；粗预测流程按示例范围讲，不证明本人实现所有模型。",
+      "quote": "1. 定位：24年我做的是GNN和CNN这类传统深度学习，用结构参数和网格信息先估算仿真结果，用来先筛选方案，不替代求解器。\n2. 流程：先做粗预测，再用有限元完整计算校核；平台开发和预测模型研究要分开说，我不把平台说成已实现预测。\n3. 边界：会先固定数据口径和对照，验证筛选精度和节省的计算量。",
+      "answer": "deepseek/interview-02-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-02",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "GNN/CNN研究与平台后端分开，未说LLM替代求解器；粗预测流程按示例范围讲，不证明本人实现所有模型。",
+      "quote": "1. 方向定位：当时主要是GNN、CNN这类传统深度学习，不是用大模型替代求解器。\n2. 核心做法：用结构参数或网格信息训练预测模型，快速估计仿真结果。\n3. 实际价值：先筛选出有潜力的方案，再做完整计算，大幅减少无效等待。",
+      "answer": "qwen/interview-02-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-02",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "GNN/CNN研究与平台后端分开，未说LLM替代求解器；粗预测流程按示例范围讲，不证明本人实现所有模型。",
+      "quote": "1. 方向：当时主要做GNN、CNN等传统深度学习，而非大模型替代求解器。\n2. 应用：用结构参数或网格信息估计仿真结果，先筛选方案再跑完整计算以提效。\n3. 职责：需区分CAE平台后端开发与预测模型研究，不将平台代码等同于已实现全部预测能力。",
+      "answer": "qwen/interview-02-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-03",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "宽泛确认句可直接确认，不需主动铺训练边界；比第一轮多点答题提纲更自然。",
+      "quote": "可以，Agent 相关的问题你直接问，我按项目实践和工程理解来答。",
+      "answer": "deepseek/interview-03-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-03",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "宽泛确认句可直接确认，不需主动铺训练边界；比第一轮多点答题提纲更自然。",
+      "quote": "可以，Agent 这块你直接问就行。",
+      "answer": "deepseek/interview-03-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-03",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "宽泛确认句可直接确认，不需主动铺训练边界；比第一轮多点答题提纲更自然。",
+      "quote": "面试官好，没问题。我确实有相关项目经验，对Agent架构、工具调用及记忆机制都有实践。我可以从具体场景切入，比如多步推理或外部API集成，分享我的设计思路与落地效果。",
+      "answer": "qwen/interview-03-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-03",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "宽泛确认句可直接确认，不需主动铺训练边界；比第一轮多点答题提纲更自然。",
+      "quote": "可以的，您请说。",
+      "answer": "qwen/interview-03-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-04",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "资源与训练/位置处理约束分开；通识同义词不应被参考卡逐字要求卡住。",
+      "quote": "1. **算力成本**：注意力要和前文每个 token 做关系计算，上下文翻倍，显存和前向耗时也跟着涨，所以窗口不是越大越划算。\n2. **有上限**：位置编码和训练长度本身有范围，超过训练时见过的长度，表现通常不稳定。\n3. **使用取舍**：塞得下不等于用得好，比如几万行日志，我会先留报错和相关代码，其余按需再查。",
+      "answer": "deepseek/interview-04-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-04",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "资源与训练/位置处理约束分开；通识同义词不应被参考卡逐字要求卡住。",
+      "quote": "1. 资源限制：上下文越长，注意力计算和缓存占用越大，显存、时延、成本都会上去，所以不是越大越划算。\n2. 效果限制：模型受训练长度和位置外推能力约束，比如窗口写1M，但训练短，塞满也可能用不好。\n3. 工程取舍：我会按任务裁剪，比如保留错误日志和相关文件，其余按需检索，而不是硬塞满窗口。",
+      "answer": "deepseek/interview-04-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-04",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "资源与训练/位置处理约束分开；通识同义词不应被参考卡逐字要求卡住。",
+      "quote": "1. 资源：文本越长，模型要处理的关系越多，也要保存更多历史计算结果，显存和耗时都会增加。\n2. 效果：模型还受训练长度和位置处理方式限制，塞得下也不一定用得好。比如日志有几万行，我会先保留错误和相关文件，其他内容按需再读。",
+      "answer": "qwen/interview-04-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-04",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "资源与训练/位置处理约束分开；通识同义词不应被参考卡逐字要求卡住。",
+      "quote": "1. 资源瓶颈：文本越长，模型需处理的关系越多且保存的历史计算结果越大，导致显存占用和推理耗时急剧增加。\n2. 训练限制：受限于预训练时的长度分布和位置编码机制，超出窗口即使能塞入，模型也难以有效利用长距离信息。\n3. 工程取舍：比如日志有几万行，我会先保留错误和相关文件，其他内容按需再读，以平衡成本与效果。",
+      "answer": "qwen/interview-04-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-05",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "自注意力与并行解释基本成立，但需限定训练/prefill，不把全部显存一概说成平方增长。",
+      "quote": "1. **核心机制**：Transformer 靠自注意力让每个词直接看全句其他词，并行算相关度；相比 RNN 逐词传递，长距离依赖更稳。\n2. **结构流程**：先分词嵌入，加位置编码，经多头注意力再接前馈网络；注意力算 Q·K 得权重，加权求和 V，多个头并行拼不同关系。\n3. **面试落点**：我会说它强在并行和全局建模，代价是注意力随序列长度平方增长，所以长上下文要控窗口、分块或用稀疏/线性注意力。",
+      "answer": "deepseek/interview-05-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-05",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "自注意力与并行解释基本成立，但需限定训练/prefill，不把全部显存一概说成平方增长。",
+      "quote": "1. 核心结构：Transformer 是堆叠的多层结构，每层含自注意力和前馈网络。自注意力把一句话里的每个词和其他词两两比对，算出相关性权重再汇总信息，所以“它指代谁”这类远距离关系能学到。\n2. 关键组件：多头注意力从多个角度并行做这件事；再加位置编码保留词序，残差连接和归一化帮助深层训练。\n3. 主要取舍：训练能整句并行，比 RNN 逐词快很多；代价是注意力随序列长度平方增长，这也是上下文窗口受限的底层原因。",
+      "answer": "deepseek/interview-05-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-05",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "自注意力与并行解释基本成立，但需限定训练/prefill，不把全部显存一概说成平方增长。",
+      "quote": "1. 机制：Transformer靠自注意力让每个Token同时看全序列，动态算相关性权重。比如问“苹果”，模型能关联前文“吃”而非“手机”。\n2. 优势：相比RNN串行处理，它能并行计算且直接建模远距离依赖，训练更快、长文本理解更准。\n3. 瓶颈：复杂度随长度平方增长，所以需窗口限制或稀疏优化来平衡成本与效果。",
+      "answer": "qwen/interview-05-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-05",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "自注意力与并行解释基本成立，但需限定训练/prefill，不把全部显存一概说成平方增长。",
+      "quote": "1. 核心机制：Transformer主要靠自注意力，让每个Token同时看所有其他Token算相关性权重。比如“它”指代前文的“模型”，注意力能直接建立关联。\n2. 并行处理：相比RNN的串行，Transformer可以并行计算整个序列，训练效率高。这也是为什么上下文越长，显存和计算成本呈平方级增长的原因。",
+      "answer": "qwen/interview-05-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-06",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "四份均已答temperature/top-p，不再错误复述Transformer；调参例子不等于准确率保证。",
+      "quote": "1. Temperature：控制输出随机性，值越高越发散，越低越稳定。做事实问答我会调低，写创意文案会调高。\n2. Top-p：按概率从高到低累计到 p 为止，只在这个候选集合里采样。它和 Temperature 都会改变概率分布，一般只调一个，避免两个参数一起放大效果。",
+      "answer": "deepseek/interview-06-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-06",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "四份均已答temperature/top-p，不再错误复述Transformer；调参例子不等于准确率保证。",
+      "quote": "1. **采样参数**：temperature 调概率分布的尖锐度，越低越保守；top-p 按累积概率截断候选词。比如 top-p=0.9 只从累计 90% 概率的词里采样。\n2. **作用取舍**：要稳定输出就低温、小 top-p；要多样创意就调高。两者一般不同时大改，先调一个看效果。",
+      "answer": "deepseek/interview-06-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-06",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "实体已绑定正确；高温配低top-p不能保证不跑偏，准确率仍需测试。",
+      "quote": "1. Temperature：控制随机性，值越高输出越多样，越低越确定。比如设0.2适合写代码，设0.8适合头脑风暴。\n2. Top-p：也叫核采样，只从累计概率达到p的词里选。比如设0.9，就丢掉长尾低概率词，平衡质量和多样性。\n3. 配合用：通常二选一或结合。高Temperature配低Top-p能防止乱出词，让回答既灵活又不跑偏。",
+      "answer": "qwen/interview-06-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-06",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "实体已绑定正确；0.7–1.0不普遍平衡准确性，调参例子应保留条件。",
+      "quote": "1. 作用：Temperature控制输出随机性，Top P按累积概率截断候选词，两者共同调节生成多样性与稳定性。\n2. 做法：我会将Temperature设为0.7-1.0平衡创造与准确，Top P设0.9过滤长尾噪声；比如代码生成用低温低P保严谨，创意写作适度调高避免重复。",
+      "answer": "qwen/interview-06-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-07",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "温度作用于采样分布，0不保证完全一致或正确；未说修改模型权重。",
+      "quote": "1. 核心区别：temperature=0 时，模型通常选概率最高的词，输出更稳定；temperature=1 时，模型按原始概率分布采样，输出更多样。\n2. 纠正：我记得调整 temperature 会改变词分布的采样；但“调权重”这一说法不准确，权重没有被修改。它也不控制思考长度或思考强度。\n3. 例子：抽取订单号时，我会用低温度；写多个文案时，可以用高一些的温度。不过 temperature=0 也不保证每次完全一样或一定正确。",
+      "answer": "deepseek/interview-07-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-07",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "温度作用于采样分布，0不保证完全一致或正确；未说修改模型权重。",
+      "quote": "1. 区别：0通常接近选概率最高的词，1按原来的概率分布采样，所以1的变化更多、更发散。更准确说，temperature调的是候选词的概率分布，不是权重，也不直接决定思考强度。\n2. 例子：抽订单号希望稳定，我会用0；写多个文案可以设1。但0也不保证每次完全一样，更不保证答案正确。\n3. 用法：我会想清楚要稳定还是要多样性，再固定一个温度、用同一批题对比效果。",
+      "answer": "deepseek/interview-07-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-07",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "温度作用于采样分布，0不保证完全一致或正确；未说修改模型权重。",
+      "quote": "1. 采样策略：0接近贪心选最高概率词，输出稳定；1按原始分布采样，随机性更强。\n2. 场景选择：抽取订单号等确定性任务我会用低温度；创意文案生成可设高一些。\n3. 纠正说明：更准确说，temperature是调整概率分布而非模型权重，也不保证绝对一致或正确。",
+      "answer": "qwen/interview-07-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-07",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "温度作用于采样分布，0不保证完全一致或正确；未说修改模型权重。",
+      "quote": "1. 机制：温度0会让模型几乎只选概率最高的词，输出非常稳定；温度1则按原始概率分布采样，候选词更多，变化更大。\n2. 场景：比如抽取订单号或做事实问答，我会用低温度求稳；写营销文案时可以用高温度增加多样性。\n3. 边界：注意温度为0也不保证每次完全一样，更不保证答案一定正确，它只是降低了随机性。",
+      "answer": "qwen/interview-07-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-08",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "ReAct与P&E的解释成立；可澄清PNE转写，不应强求额外未问的所有范式。",
+      "quote": "1. 循环：ReAct是走一步看一步，比如先查文件，再根据报错决定下一步，路径不确定时适合用。\n2. 计划：PNE我理解是Plan-and-Execute，先列计划再执行；计划不合适时仍要调整，步骤比较清楚时可以加计划。\n3. 结束：正常是模型给出最终答复后检查完成条件，比如测试有没有通过；用户取消、超时、预算用完或工具连续失败也要能强制停，停了不等于任务做完。",
+      "answer": "deepseek/interview-08-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-08",
+      "repeat": 2,
+      "automaticPassed": false,
+      "reviewStatus": "usable",
+      "conclusion": "ReAct与P&E的解释成立；可澄清PNE转写，不应强求额外未问的所有范式。",
+      "quote": "1. **范式说明**：ReAct是“想一步、做一步、看结果”的循环，把推理与工具调用交错；比如查天气先思考该查哪个城市并调用工具，拿到结果后再生成答复。PNE我不确定指哪个缩写，若是Plan-and-Execute，则是先规划再逐步执行。\n2. **循环结束**：模型给最终答复后，程序还要检查任务完成条件，比如测试是否通过；用户取消、超时、预算耗尽或工具连续失败时则强制结束。达到限制只表示本轮结束，不能说明任务已完成。",
+      "answer": "deepseek/interview-08-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-08",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "ReAct与P&E的解释成立；可澄清PNE转写，不应强求额外未问的所有范式。",
+      "quote": "1. ReAct：走一步看一步，比如先查文件，再根据报错决定下一步动作。\n2. PNE：指Plan-and-Execute，先列计划再执行；计划不合适时仍要调整。\n3. 选法：路径不确定时用ReAct，步骤清晰时加计划，两者不必完全对立。",
+      "answer": "qwen/interview-08-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-11",
+      "repeat": 1,
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "给了工具串联和循环边界，但对公开Claude Code的设计解释偏浅，应区分自己的设计建议。",
+      "quote": "1. 循环控制：我会设最大步数（如8-15轮）防空转，遇不可恢复异常直接终止。\n2. 工作流串联：仿Claude Code将代码检索、文件修改、命令执行整合为可运行流程。\n3. 设计目的：主要为了学习Agent Loop的任务流执行机制，而非追求生产级成熟度。",
+      "answer": "qwen/interview-11-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-12",
+      "repeat": 2,
+      "automaticPassed": false,
+      "reviewStatus": "usable",
+      "conclusion": "Skill步骤与程序完成条件分层，切题；这份原判口述自然度过严。",
+      "quote": "1. 结论：不一定要把每一步写死，Skill也能说明做事步骤。关键看哪些要求必须由程序检查。\n2. 例子：Skill可以提醒改完跑测试，但如果要求没测试就不能结束，就要在执行器里检查测试记录。\n3. 取舍：我会保留自由探索，把超时、权限和完成条件用代码管住。",
+      "answer": "qwen/interview-12-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-14",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "60长会话累计输入31.57与总成本分开；分层摘要/落盘/回读符合来源。",
+      "quote": "1. 分层压缩：近期原文保留，较早历史做摘要，并带回文件和 Skill 快照，这样任务能继续；摘要有损，细节要回原文件查。\n2. 大输出落盘：长命令和长文件正文只留错误与文件位置，完整内容落盘，需要时再读回片段，避免挤占窗口。\n3. 指标口径：31.57% 是 60 项长会话累计输入 Token 的降幅，不等于总成本。",
+      "answer": "deepseek/interview-14-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-14",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "60长会话累计输入31.57与总成本分开；分层摘要/落盘/回读符合来源。",
+      "quote": "1. 分层压缩：我会保留近期原文，只总结较早历史，并带回文件和 Skill 快照；这样压缩后仍能继续任务。\n2. 大结果落盘：我会把大工具结果存到文件里，只保留可定位的预览；需要细节时再读回相应片段，避免占满上下文窗口。\n3. 指标口径：降低 31.57% 是 60 项长会话的累计输入 Token，不等于全部总成本；缓存和摘要开销是否计入尚未确认。",
+      "answer": "deepseek/interview-14-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-14",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "60长会话累计输入31.57与总成本分开；分层摘要/落盘/回读符合来源。",
+      "quote": "1. 做法：大工具结果落盘只留预览，近期原文保留，较早历史做摘要。\n2. 原因：防止长日志挤占关键代码和约束，让注意力落在高价值内容上。\n3. 数据：简历记录60项长会话累计输入Token降31.57%，含摘要开销未独立复核。",
+      "answer": "qwen/interview-14-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-14",
+      "repeat": 2,
+      "automaticPassed": false,
+      "reviewStatus": "fail",
+      "conclusion": "明确说不含缓存与摘要开销，历史这两项归属未知，即使卡片给出边界仍未遵守。",
+      "quote": "1. 分层压缩：近期原文保留，较早历史做摘要；大工具结果落盘仅留预览。\n2. 动态回查：需要细节时按路径读回片段，避免全量塞入挤占注意力。\n3. 指标口径：31.57%指60项长会话累计输入Token降幅，不含缓存与摘要开销的独立核算。",
+      "answer": "qwen/interview-14-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-18",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "50MCP初始注入18.6k到4.2k，关键词/select后返回完整Schema，未误裁Schema。",
+      "quote": "1. **做法**：50个外部 MCP 工具不再全量塞进初始上下文，只保留 ToolSearch 入口；模型先用关键词或 select 找到相关工具，再返回完整 schema 并标记已发现。\n2. **原因**：全量 schema 会占初始上下文，也会增加选择干扰；按需加载只让模型看到当前需要的工具。\n3. **口径**：18.6k→4.2k 是这 50 个工具配置下的初始 Token，不是累计调用，也不等于整个任务总 Token 同幅下降。",
+      "answer": "deepseek/interview-18-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-18",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "50MCP初始注入18.6k到4.2k，关键词/select后返回完整Schema，未误裁Schema。",
+      "quote": "1. 按需发现：ToolSearch常驻，关键词/指定名搜索后才返回完整schema并标记已发现，避免50个schema全量注入。\n2. 延迟包装：MCP工具带服务名前缀延迟加载，保留服务端完整inputSchema；指标口径是50个工具的初始配置Token，简历声明，未经独立重跑。\n3. 准确说：4.2K是初始配置口径，不是累计调用；若追问全量校验，当前未设strict，只按顶层属性构造参数。",
+      "answer": "deepseek/interview-18-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-18",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "50MCP初始注入18.6k到4.2k，关键词/select后返回完整Schema，未误裁Schema。",
+      "quote": "1. 延迟加载：MCP工具加服务名前缀后默认不注入完整Schema，只保留轻量入口信息，避免50个工具的原始定义直接占满初始上下文。\n2. 按需发现：ToolSearch作为常驻入口支持关键词搜索，模型找到相关工具后才返回其完整inputSchema并标记为已发现，把全量暴露改为渐进式加载。\n3. 口径边界：18.6k→4.2k仅指50个外部MCP工具配置的初始Token，不是累计调用消耗；该数值基于简历声明，未经独立重跑复核。",
+      "answer": "qwen/interview-18-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-18",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "50MCP初始注入18.6k到4.2k，关键词/select后返回完整Schema，未误裁Schema。",
+      "quote": "1. 做法：MCP工具加服务名前缀并延迟加载，保留服务端完整inputSchema；本地工具才由Pydantic生成。\n2. 机制：ToolSearch作为入口支持关键词搜索或select，找到后返回完整schema并标记已发现，非自动执行所有工具。\n3. 口径：简历声明的18.6k→4.2k指50个外部MCP工具配置初始Token，未经独立重跑验证。",
+      "answer": "qwen/interview-18-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-19",
+      "repeat": 1,
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "需直接说命中率是否已有同口径数据；不从Token下降推准确率。",
+      "quote": "1. 命中方式：一句摘要命中不了就用 ToolSearch 的关键词和 select 补，模型先搜再加载完整 schema，靠入口兜底，不靠摘要一次猜中。\n2. 持续触发：我不指望首轮摘要全中，会在执行前按任务阶段放宽暴露范围，命中后再加载详情定义。\n3. 核验办法：我会记录每次搜索、加载、调用的分布，看摘要是否让工具可被发现，再调描述写法。",
+      "answer": "deepseek/interview-19-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-19",
+      "repeat": 1,
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "需直接说命中率是否已有同口径数据；不从Token下降推准确率。",
+      "quote": "1. 命中率：摘要需精准匹配意图，我会优化描述关键词并监控搜索成功率。\n2. 持续加载：支持动态检索，ToolSearch入口常驻，命中后按需注入完整Schema。\n3. 边界处理：若摘要模糊导致漏召，会补充语义索引或允许用户显式Select工具名。",
+      "answer": "qwen/interview-19-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-19",
+      "repeat": 2,
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "需直接说命中率是否已有同口径数据；不从Token下降推准确率。",
+      "quote": "1. 现状：目前简历里的18.6k到4.2k只是初始Token注入量的减少，还没做命中率测试，所以不能直接说持续优化效果。\n2. 方案：我会准备明确、模糊和易错的需求样本，对比“完整定义”和“摘要目录”两种配置，看工具找对没、参数对不对。\n3. 指标：单独统计任务完成率和误选率，这样才能验证按需加载是否真的影响了模型选择工具的准确性。",
+      "answer": "qwen/interview-19-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-20",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "没有补造命中率，A/B与Recall@k按未来设计讲；60题等新分配不是历史测试。",
+      "quote": "1. 先说现状：目前还没有把“一句话摘要 + 按需加载”和“完整暴露”放在同一测试集上，做过精确命中率的对照；简历里的 18.6k→4.2k 是初始 Token 配置，不是命中率结果。\n2. 测试设计：我会建议设三组：完整暴露、只给目录入口、再加一句话能力摘要，在相同模型和题目下比较 ToolSearch Recall@k、最终选对率和参数有效率，并分明确题、模糊题、近似工具题看差异。\n3. 预期取舍：摘要越短，初始 Token 越省，但近似工具的区分会变差；所以用命中后加载完整 schema 的做法来弥补。",
+      "answer": "deepseek/interview-20-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-20",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "没有补造命中率，A/B与Recall@k按未来设计讲；60题等新分配不是历史测试。",
+      "quote": "1. 测试口径：我会固定同一模型和首轮上下文，对比“全量暴露schema”与“仅一句话入口＋命中后加载”的精确命中率；汇总摘要不能当可执行schema，最终仍须校验参数。\n2. 指标设计：记录ToolSearch Recall@k、最终工具选择正确率和参数有效率；近似工具易混淆，若同义词多，精确命中会下降。\n3. 当前状态：我只做过局部工具命中对照，精确命中率和样本数未确认；比如按60题各跑3次，用金标准允许多个等价工具来核验。",
+      "answer": "deepseek/interview-20-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-20",
+      "repeat": 1,
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "没有补造命中率，A/B与Recall@k按未来设计讲；60题等新分配不是历史测试。 原始长度超过260，本地裁句不能算通过。",
+      "quote": "1. 实测现状：简历中“50个MCP工具初始Token从18.6k降至4.2k”是已落地的效果，但针对“摘要命中 vs 全量暴露”的精确命中率对比，目前尚未独立复核具体数值。\n2. 测试设计：如果要做严格对照，我会固定同一模型与用户需求，分别测试A组（全量暴露Schema）和B组（仅目录+ToolSearch按需加载），统计Recall@k、最终工具选择正确率及额外发现轮数。\n3. 潜在差异：摘要命中依赖语义匹配，若描述模糊可能导致漏召或误召；全量暴露虽占Token但信息无损。我会建议每题重复3次以消除随机性，并记",
+      "answer": "qwen/interview-20-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-20",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "没有补造命中率，A/B与Recall@k按未来设计讲；60题等新分配不是历史测试。",
+      "quote": "1. 现状：目前未做精确对比测试，仅基于设计假设认为摘要足以触发检索。\n2. 方案：我会建立基准集，分别用“全量Schema”和“短摘要+ToolSearch”跑60题，统计Recall@k与最终选对率。\n3. 验证：重点看模糊意图下摘要是否漏召，若命中率显著低于全量，则需优化摘要粒度或增加候选池。",
+      "answer": "qwen/interview-20-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-21",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "常驻发现、服务前缀、完整Schema及Pydantic边界对应源码；不保证工具语义一定选对。",
+      "quote": "1. 按需发现：ToolSearch 常驻，可关键词搜或 select 工具名；命中后只返回完整 schema 并标为已发现，不执行，50 个工具不必首轮全暴露。\n2. 前缀隔离：MCP 工具统一加服务名前缀并延迟加载，同名冲突可定位到具体服务和工具；我会用注册表校验重名，保证调用目标唯一。\n3. 懒加载控制上下文：MCP 保留服务端完整 inputSchema，本地工具才由 Pydantic 生成；首轮只给入口和摘要，命中后再展开详情，避免 schema 撑爆上下文。",
+      "answer": "deepseek/interview-21-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-21",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "常驻发现、服务前缀、完整Schema及Pydantic边界对应源码；不保证工具语义一定选对。",
+      "quote": "1. **保留完整定义**：MCP工具做包装时加服务名前缀、延迟加载，但保留服务端完整inputSchema，不丢字段，模型看到的参数定义是准的。\n2. **发现入口**：ToolSearch本身一直可用，按关键词或select加工具名找到后再返回完整schema，并标记为已发现，不是自动全执行。\n3. **执行校验**：包装器按顶层属性构造Pydantic参数模型再交给MCP客户端，连接或调用异常返回is_error结果。不过没设strict，不能声称完全严格校验，嵌套约束这块我会补测试。",
+      "answer": "deepseek/interview-21-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-21",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "常驻发现、服务前缀、完整Schema及Pydantic边界对应源码；不保证工具语义一定选对。",
+      "quote": "1. 入口：我会保留ToolSearch常驻，支持关键词搜索或select指定工具名。\n2. 加载：命中后返回完整schema并标记已发现，实现按需注入而非一次性暴露50个工具详情。",
+      "answer": "qwen/interview-21-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-21",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "常驻发现、服务前缀、完整Schema及Pydantic边界对应源码；不保证工具语义一定选对。",
+      "quote": "1. 入口：ToolSearch本身一直可用，支持关键词搜索或select加工具名。\n2. 加载：找到后返回完整schema并标为已发现；它是工具发现入口，不是自动执行所有工具。",
+      "answer": "qwen/interview-21-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-22",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "按用途/服务归类可作为方案，但任务阶段分类须标为建议，不能当已核查源码的统计表。",
+      "quote": "1. 分层：我按“工具用途+所在服务”来分，常用能力放首批，其余MCP工具按服务名前缀分组，每组配一句话摘要。\n2. 入口：模型先通过ToolSearch用关键词或指定工具名找到目标；命中后返回完整的inputSchema，才算完成发现。\n3. 用途：代码任务首批保留读写、搜索、测试执行；外部服务工具按查询、变更等用途归组，只有命中才展开详细定义。",
+      "answer": "deepseek/interview-22-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-22",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "按用途/服务归类可作为方案，但任务阶段分类须标为建议，不能当已核查源码的统计表。",
+      "quote": "1. 分类维度：我会先按任务阶段分，再按能力域归组——文件读写、搜索、执行测试、外部MCP服务各自成组；高频工具给详述，其余只给一句话摘要，命中后再加载完整schema。\n2. 分组落地：MCP工具按服务名前缀聚合，组内每个工具保留服务端完整inputSchema；ToolSearch一直可用，支持关键词搜索或按名select，只做发现不自动执行。\n3. 取舍：比如代码任务首轮只暴露文件读写、搜索、执行测试，MCP组只给入口摘要；好处是少占上下文、少干扰，代价是可能首轮漏选，靠搜索兜底。",
+      "answer": "deepseek/interview-22-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-22",
+      "repeat": 1,
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "按用途/服务归类可作为方案，但任务阶段分类须标为建议，不能当已核查源码的统计表。",
+      "quote": "1. 分层：按任务阶段划分，高频工具如文件读写直接注入完整定义，其余MCP工具仅保留服务名前缀与一句话能力摘要。\n2. 发现：模型通过ToolSearch关键词搜索或select指定名称定位目标，命中后动态加载该工具的完整Schema并标记为已发现。\n3. 边界：这是按需加载机制而非静态分类表，确保首轮上下文精简，同时保证执行前能获取准确参数约束以支持调用校验。",
+      "answer": "qwen/interview-22-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-22",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "按用途/服务归类可作为方案，但任务阶段分类须标为建议，不能当已核查源码的统计表。",
+      "quote": "1. 分层：按任务阶段分组，高频核心工具常驻上下文，其余MCP工具仅暴露摘要。\n2. 检索：通过ToolSearch按需加载完整Schema，避免50个工具全量注入导致干扰。\n3. 校验：执行前仍做参数与权限检查，确保动态加载后的调用安全。",
+      "answer": "qwen/interview-22-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-23",
+      "repeat": 1,
+      "automaticPassed": false,
+      "reviewStatus": "usable",
+      "conclusion": "主Agent整合、按独立验证拆分、文件Mailbox协作与共享状态的设计可用，不等于事务ACK。",
+      "quote": "1. 角色分工：主 Agent 负责规划整合验收，探索、文件修改等按依赖弱、可独立验证再拆子 Agent；否则拆分会被协调成本抵消。\n2. 消息协作：子 Agent 间通过文件邮箱传 id、正文、摘要等字段，写入 JSON 后由对方消费。\n3. 结果汇总：主 Agent 去重并校验子任务输出，我还会用共享任务状态减少重复探索。",
+      "answer": "deepseek/interview-23-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-25",
+      "repeat": 1,
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "P&E单多Agent子实验须与独立探索、整体SWE成绩分开；没有同条件数据时不补显著性。",
+      "quote": "1. 澄清定位：宏观上更像“规划—执行”的骨架，但不必说成已用某个框架； Coding 场景我会保留动态循环和工具预算控制。\n2. 对比测法：我会固定任务集，分别跑单 Agent 和“规划器+多执行者”，比较成功率、步数、token 和延迟；多 Agent 换并行、错误隔离，单 Agent 省协调和上下文开销。\n3. 口径：现有测量不能直接外推；若未做过同条件对照，我会先补这一组，再谈差异。",
+      "answer": "deepseek/interview-25-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-25",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "fail",
+      "conclusion": "一面否认特指P&E子实验，一面仍把新增三个配置组说成现有对比，自动裁判漏检。",
+      "quote": "单 Agent 多 Agent 的 Plan-and-Execute 对比，我没有单独跑过这组消融。现有对比是基础 ReAct、单代理框架和关闭上下文管理三个配置，解决率从 31.33% 到 43.67%。\n\n1. 差异看法：单 Agent 要在一个上下文里做探索、规划、验证，容易互相干扰；多 Agent 拆开后上下文更干净，但通信和 Token 开销会上升。\n2. 补测方案：我会固定模型和任务集，只切换“单 Agent、多 Agent”这一个开关，同一套判定跑多轮，同时记录解决率、耗时和 Token。",
+      "answer": "deepseek/interview-25-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-25",
+      "repeat": 1,
+      "automaticPassed": false,
+      "reviewStatus": "fail",
+      "conclusion": "编造超过8轮错误率显著上升的实验结论；来源没有这个阈值。",
+      "quote": "1. 区别：单Agent易因上下文膨胀导致规划漂移，多Agent通过职责隔离提升长任务稳定性。\n2. 验证：我会对比复杂Coding任务的完成率与Token消耗，单Agent在步骤超8轮时错误率显著上升。",
+      "answer": "qwen/interview-25-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-25",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "fail",
+      "conclusion": "把动态Agent Loop确认成固定P&E，再用30组独立探索回答特指子实验，混了口径，自动漏检。",
+      "quote": "1. 宏观确认：对，整体就是 Plan-and-Execute 范式。先规划再执行，最后验证。\n2. 差异对比：单 Agent 上下文长、易受干扰；多 Agent 拆分角色，隔离上下文，减少噪音。\n3. 实测结果：简历里有数据。30 组独立探索任务中，多 Agent 耗时降低 23.1%，但 Token 增加 32.16%。",
+      "answer": "qwen/interview-25-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-27",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "fail",
+      "conclusion": "新增“60项固定MCP工具常规化任务”的已做实验，没有来源；60长会话分母被改写，自动漏检。",
+      "quote": "1. 测试口径：测过任务完成度，用 SWE-bench Lite 300 条，模型 qwen3.6-plus-2026-04-02，按 resolved 率算，31.33%→43.67%，约 94→131 条，来自简历声明。\n2. 补充验证：另外做了一组 60 项常规化任务，每任务固定所需 MCP 工具，看流程能否跑通。\n3. 说明边界：SWE-bench 是单次声明、未独立重跑；若要加分，我会固定环境重复跑并报均值方差。",
+      "answer": "deepseek/interview-27-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-27",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "300题、指定Qwen、31.33到43.67以及测试判定口径可核对；编辑复核与本人历史应分开。",
+      "quote": "1. 测试口径：测过，用的是 SWE-bench Lite 300 道修复题，固定使用 qwen3.6-plus-2026-04-02 模型对比框架配置。\n2. 判定方式：既看问题对应的测试有没有修好，也看原有测试有没有被改坏，这两方面都通过，才算完成任务。\n3. 结果：简历中记录解决率从 31.33% 到 43.67%，提高约 12.34 个百分点；其他长会话里 31.57% 是另一个 Token 指标，不是任务完成度。",
+      "answer": "deepseek/interview-27-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-27",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "300题、指定Qwen、31.33到43.67以及测试判定口径可核对；编辑复核与本人历史应分开。",
+      "quote": "1. 基准：跑过SWE-bench Lite，300题集。简历记录解决率从31.33%升至43.67%，约94到131题。\n2. 口径：指定qwen3.6-plus模型。该数据为简历声明，未做独立重跑复现，但反映了Agent在代码修复任务上的量化表现。",
+      "answer": "qwen/interview-27-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-27",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "300题、指定Qwen、31.33到43.67以及测试判定口径可核对；编辑复核与本人历史应分开。",
+      "quote": "1. 跑过：我在SWE-bench Lite的300道修复题上做了评测，统一使用qwen3.6-plus-2026-04-02模型对比不同框架配置。\n2. 判定：既看原本失败的测试是否修好，也检查原来通过的测试有没有被改坏，确保没有引入回归问题。\n3. 结果：简历记录解决率从31.33%提升到43.67%，约提高12.34个百分点；另外还跑了60项长会话任务测Token指标。",
+      "answer": "qwen/interview-27-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-28",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "SWE成绩、12.34个百分点及94/131算术换算可核对，不混60长会话的Token分母。",
+      "quote": "1. 测过什么：我跑过 SWE-bench Lite 的 300 道修复题，模型固定用 qwen3.6-plus-2026-04-02，对比不同框架配置。\n2. 怎么判：每道题生成补丁后，放到隔离环境里，只有原来失败的测试修好，并且原来通过的测试没被改坏，才算解决。\n3. 结果：简历里记的是解决率从 31.33% 到 43.67%，提高了约 12.34 个百分点；这个数还没独立重跑复核。",
+      "answer": "deepseek/interview-28-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-28",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "SWE成绩、12.34个百分点及94/131算术换算可核对，不混60长会话的Token分母。",
+      "quote": "1. 测过口径：简历记录 SWE-bench Lite 300 题，用 qwen3.6-plus，解决率 31.33%→43.67%（约94→131题）；这是我声明的结果，未独立复跑。\n2. 补测建议：我会保留每题 pass/fail、工具调用和重试，再报端到端完成度。\n3. 别混口径：并行探索的耗时和 Token 不是完成度指标。",
+      "answer": "deepseek/interview-28-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-28",
+      "repeat": 1,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "SWE成绩、12.34个百分点及94/131算术换算可核对，不混60长会话的Token分母。",
+      "quote": "1. 测过：我在 SWE-bench Lite 的 300 道修复题上跑过评测，固定用 qwen3.6-plus-2026-04-02 做同模型对照。\n2. 判定：既看原本失败的测试修好没有，也检查原来通过的测试有没有被改坏，以独立 harness 结果为准。\n3. 结果：简历记录解决率从 31.33% 升到 43.67%，提高约 12.34 个百分点；这是整体配置对比，不拆单组件贡献。",
+      "answer": "qwen/interview-28-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-28",
+      "repeat": 2,
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "SWE成绩、12.34个百分点及94/131算术换算可核对，不混60长会话的Token分母。",
+      "quote": "1. 简历口径：SWE-bench Lite 300题，用qwen3.6-plus从31.33%提至43.67%，即94到131。\n2. 验证状态：这是简历声明，未独立重跑；实际面试中需说明数据基于该特定模型与基准组合的算术推导。",
+      "answer": "qwen/interview-28-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-31",
+      "repeat": 1,
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "对照设计可用，94/131只是由声明比例推导，不是有逐题日志的既有对照；复现目标不等于已稳定复现。",
+      "quote": "1. 变量控制：我会固定模型版本和SWE-bench Lite 300样本，仅调整Agent架构（如单/多智能体）或工具集，确保对比公平。\n2. 基准对齐：对照组采用全量工具的单Agent模式，实验组引入协作机制，通过同一Harness运行以消除环境差异。\n3. 指标校验：记录任务解决率变化，比如从31.33%提升至43.67%，并验证算术推导的约94到131个案例增量是否稳定复现。",
+      "answer": "qwen/interview-31-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-32",
+      "repeat": 2,
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "没有编采购人是进步，但自费订阅/API渠道仍未经确认，且扩到了未问评测。",
+      "quote": "1. 先澄清：这里指 Claude 模型，不是云服务。我会说明是自费订阅或 API 按量付费，具体渠道保留待确认。\n2. 评测口径：我会统一 harness、提示词和工具集，记录模型版本与调用成本，避免把渠道差异混进效果对比。",
+      "answer": "deepseek/interview-32-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-32",
+      "repeat": 1,
+      "automaticPassed": false,
+      "reviewStatus": "fail",
+      "conclusion": "统一harness中比较通过率/工具选择准确率没有来源；真人只说主观模型体验，不能扩成定量实验。",
+      "quote": "1. 账号来源：这个细节我暂时没法确认，当时主要聚焦在跑通评测流程。\n2. 测试做法：我在统一的 Agent harness 里接入了 Claude、Deepseek 和 Qwen，对比了任务通过率和工具选择准确率。\n3. 结果表现：在那套框架下，Claude 的整体表现最好，Qwen 优于 Deepseek，这验证了多模型接入的兼容性。",
+      "answer": "qwen/interview-32-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-32",
+      "repeat": 2,
+      "automaticPassed": false,
+      "reviewStatus": "fail",
+      "conclusion": "团队申请/报销、公司数据隔离等采购及合规历史均无来源。",
+      "quote": "1. 采购：账号由团队统一申请或报销，非个人购买。\n2. 合规：严格遵守公司数据隔离与安全规范，不传敏感信息。\n3. 用途：仅用于Arclight项目的模型评测与调试，无其他商业行为。",
+      "answer": "qwen/interview-32-r2/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "interview-33",
+      "repeat": 2,
+      "automaticPassed": false,
+      "reviewStatus": "fail",
+      "conclusion": "“可以你继续问”未回答明确的RAG技术问题，是确认句规则误触发。",
+      "quote": "可以，你继续问。",
+      "answer": "deepseek/interview-33-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-33",
+      "repeat": 2,
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "RAG具名技术问不能因前半句API是吧而变成一句确认；已补定向回归。",
+      "quote": "对，直接调的 API。RAG 我有了解，也做过相关实践，这块可以展开讲讲。",
+      "answer": "qwen/interview-33-r2/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "interview-38",
+      "repeat": 2,
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "召回题应讲关键词/向量/融合，后两点却转成评测与旧代码返还，偏题。",
+      "quote": "1. 混合检索：结合关键词与语义向量。业务缩写靠关键词精确匹配，自然语言改写靠语义召回，合并候选后重排。\n2. 分层验证：按仓库难度分层测试，不只看总量。记录初始注入量、工具发现增量及每次调用返回量，确保各层级证据被正确引用。\n3. 实时控制：评估需区分召回率与答案准确性。实时场景要测重排延迟，预算允许时才全量rerank，避免旧代码误返。",
+      "answer": "qwen/interview-38-r2/answer.txt"
+    }
+  ]
+}
