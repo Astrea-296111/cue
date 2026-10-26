@@ -53,7 +53,7 @@ npm run dist:win:installer
 | `materials/bundle.json` | 两个项目的公开源码索引 | 已随源码和安装包内置，无需手动导入 |
 | 附件原始 seed JSON | 编译输入 | 不能直接当成 CUE 事实包导入 |
 
-源码固定版本为 Arclight `528704eb373f637830640b3fefcc5cbc95f23a78` 和 CAE `c50dd29d1b1981e299d2ce4821e0a1ef745aa48e`。本轮修正了输入校验包的误排除规则，并重建 Java 泛型方法、try-with-resources 和 Python 多行函数的代码边界；调用链只采用当前项目中能解析到明确类型的关系。当前公开索引有 **345 个文件、2519 个片段**，原文件字节与 Git blob/hash 可核对。
+源码固定版本为 Arclight `528704eb373f637830640b3fefcc5cbc95f23a78` 和 CAE `c50dd29d1b1981e299d2ce4821e0a1ef745aa48e`。本轮修正了输入校验包的误排除规则，重建 Java 泛型方法、try-with-resources 和 Python 多行函数边界，并补充显式导入函数/别名及模块策略表；调用关系只在当前项目可明确解析的范围内展开。当前公开索引有 **345 个文件、2519 个片段**，原文件字节与 Git blob/hash 可核对。
 
 需要更新上游时才运行 `npm run sync:sources` 和 `npm run compile:materials`。这会检查公开仓库并更新 source-lock；更新版本后还须核对导航符号、事实引用和评测，不能混用不同提交的实现。
 
@@ -178,7 +178,7 @@ npm run eval:remote -- --payload ".cue-private\workspace.json" --scenarios ".cue
 完整 deep 为 20 会话 × 4 问 × 2 模型 × 3 重复：
 
 ```powershell
-npm run eval:remote -- --payload ".cue-private\workspace.json" --scenarios ".cue-private\task-2026-10-24\data\multiturn_scenarios.json" --profile deep --shards 4 --concurrency 1 --judge --judge-reference ".cue-private\workspace.json" --output-dir ".cue-private\results\deep"
+npm run eval:remote -- --payload ".cue-private\workspace.json" --scenarios ".cue-private\task-2026-10-24\data\multiturn_scenarios.json" --profile deep --concurrency 1 --judge --judge-reference ".cue-private\workspace.json" --output-dir ".cue-private\results\deep"
 # 终端意外退出后，复用原响应密钥恢复，避免重复推理：
 npm run eval:remote -- --resume ".cue-private\results\deep\resume.json"
 ```
