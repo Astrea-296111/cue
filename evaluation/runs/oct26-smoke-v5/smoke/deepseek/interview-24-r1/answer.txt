@@ -1,0 +1,2 @@
+1. 消息结构：MailboxMessage 里我实际放了 id、发送方、接收方、正文和摘要，再加类型、时间戳和 metadata；metadata 用来存任务上下文之类的附加信息。
+2. 传递方式：Mailbox.write 把消息写成 JSON 文件，consume 读取后删除；所以是轻量文件邮箱，不是 RabbitMQ，也没有事务 ACK。
