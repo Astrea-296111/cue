@@ -114,6 +114,25 @@ test('trusted private evaluation publishes only encrypted answers and aggregate 
   assert.equal(reports.artifacts['manual-review-queue.json'].private,'PRIVATE_REVIEW_PACKET');
   assert.equal(reports.artifacts['manual-review-queue.json'].key,'[REDACTED]');
 
+  const readableDirectory=fixture(t),readableOutput=path.join(readableDirectory,'out');
+  const readableSession=initialize(readableDirectory,env);
+  const readableInput=envelope.encryptPayload({session:readableSession,payload});
+  await evaluateSession({directory:readableDirectory,outputDir:readableOutput,
+    env:{...env,CUE_PUBLISH_READABLE_REPORTS:'true'},
+    fetchImpl:async()=>new Response(JSON.stringify(readableInput.envelope),{status:200}),
+    evaluatePrivate:async options=>{
+      fs.mkdirSync(options.outputDir,{recursive:true});
+      fs.writeFileSync(path.join(options.outputDir,'report.md'),'READABLE_ANSWER '+env.QWEN_API_KEY);
+      return {kind:'live-private',status:'passed',budget:{attemptedCalls:1},
+        providers:[{answer:'READABLE_ANSWER',accidentalKey:env.DEEPSEEK_API_KEY}]};
+    }});
+  const readableJson=fs.readFileSync(path.join(readableOutput,'readable/report.json'),'utf8');
+  const readableMarkdown=fs.readFileSync(path.join(readableOutput,'readable/report.md'),'utf8');
+  assert.ok(readableJson.includes('READABLE_ANSWER'));assert.ok(readableMarkdown.includes('READABLE_ANSWER'));
+  for(const secret of [env.QWEN_API_KEY,env.DEEPSEEK_API_KEY])assert.ok(!(readableJson+readableMarkdown).includes(secret));
+  assert.equal(fs.existsSync(path.join(readableDirectory,'private-key.pem')),false);
+  assert.equal(fs.existsSync(path.join(readableDirectory,'plain-reports')),false);
+
   const rejected = fixture(t), rejectedSession = initialize(rejected, env);
   assert.ok(rejectedSession.publicKey);
   const result = await evaluateSession({directory:rejected, outputDir:path.join(rejected, 'out'), env:{...env, GITHUB_REF:'refs/heads/untrusted'},

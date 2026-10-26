@@ -74,8 +74,9 @@ test('remote dispatch uploads ciphertext only, binds session SHA/run/attempt, re
    encryptedReport=cipher.encryptReports({session,key:decoded.key,reports:{report:{kind:'live',status:'failed',budget:{attemptedCalls:1},providers:[{id:'qwen',model:'actual-model',status:'failed',cases:[{id:'q',answer:'PRIVATE_FULL_ANSWER',status:'failed',attempted:true,transportStatus:'passed',error:{code:'quality'}}]}],failures:[]},markdown:'PRIVATE_FULL_MARKDOWN'}});decoded.key.fill(0);
   }
  };
- const options=parseArgs(['--payload',input,'--judge-reference',reference,'--scenarios',scenarios,'--repository',repository,'--application','baseline','--source-snapshot','baseline','--provider','qwen','--output-dir',path.join(dir,'private-output'),'--detach']);
+ const options=parseArgs(['--payload',input,'--judge-reference',reference,'--scenarios',scenarios,'--repository',repository,'--application','baseline','--source-snapshot','baseline','--provider','qwen','--output-dir',path.join(dir,'private-output'),'--detach','--publish-readable']);
  const first=await runRemote(options,{github,log:()=>{}});assert.equal(first.state.runs[0].stage,'uploaded');assert.equal(dispatched,1);assert.equal(uploaded,1);
+ assert.equal(calls.find(call=>call.endpoint.endsWith('/dispatches')).body.inputs.publish_readable_reports,'true');
  assert.equal(fs.statSync(first.manifest).mode&0o777,0o600);assert.equal(fs.statSync(path.join(first.state.directory,'shard-0','local-key.json')).mode&0o777,0o600);
  completed=true;const resumed=await runRemote(parseArgs(['--resume',first.manifest]),{github,log:()=>{}});
  assert.equal(dispatched,1);assert.equal(uploaded,1);assert.equal(resumed.state.runs[0].stage,'decrypted');assert.equal(resumed.state.status,'failed');

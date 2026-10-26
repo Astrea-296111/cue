@@ -22,6 +22,10 @@ on:
         description: Explicitly query the configured endpoints for an available fast text model when MODEL is absent
         type: boolean
         default: false
+      publish_readable_reports:
+        description: Also retain credential-redacted plaintext answers and judge reports for direct review
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -82,6 +86,7 @@ jobs:
           PRIVATE_MODE: ${{ inputs.mode }}
           PRIVATE_PROVIDER: ${{ inputs.provider }}
           DISCOVER_MODELS: ${{ inputs.discover_models }}
+          CUE_PUBLISH_READABLE_REPORTS: ${{ inputs.publish_readable_reports }}
           QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
           QWEN_ASR_API_KEY: ${{ secrets.QWEN_ASR_API_KEY }}
           QWEN_ASR_MODEL: ${{ vars.QWEN_ASR_MODEL }}
@@ -106,7 +111,7 @@ jobs:
           name: private-live-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/private-live/
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 30
 
       - name: Remove ephemeral plaintext and session private key
         if: always()

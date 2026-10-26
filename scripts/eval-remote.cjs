@@ -34,6 +34,7 @@ function parseArgs(args) {
   for (let index=0; index<args.length; index++) {
     const key=args[index];
     if (key==='--discover-models') options.discoverModels=true;
+    else if (key==='--publish-readable') options.publishReadable=true;
     else if (key==='--judge') options.judge=true;
     else if (key==='--dynamic') options.dynamic=true;
     else if (key==='--detach') options.detach=true;
@@ -202,7 +203,7 @@ async function runRemote(options,{github,log=message=>process.stdout.write(messa
       if(!found) {
         const current=(await github.api(`repos/${state.repository}/git/ref/heads/main`)).object.sha;
         if(current!==state.trustedSha) throw new Error('Trusted main changed before dispatch. Start a new evaluation to bind its new SHA.');
-        await github.api(`repos/${state.repository}/actions/workflows/${WORKFLOW}/dispatches`,'POST',{ref:'main',inputs:{mode:options.profile,provider:options.provider,request_tag:run.tag,discover_models:String(!!options.discoverModels)}});
+        await github.api(`repos/${state.repository}/actions/workflows/${WORKFLOW}/dispatches`,'POST',{ref:'main',inputs:{mode:options.profile,provider:options.provider,request_tag:run.tag,discover_models:String(!!options.discoverModels),publish_readable_reports:String(!!options.publishReadable)}});
         found=await wait(find);
       }
       run.runId=String(found.id);run.runAttempt=String(found.run_attempt||1);run.url=found.html_url;run.stage='dispatched';save(manifest,state);
@@ -301,7 +302,7 @@ async function runRemote(options,{github,log=message=>process.stdout.write(messa
 }
 async function main(args=process.argv.slice(2)) {
   const options=parseArgs(args);
-  if(options.help) {process.stdout.write('npm run eval:remote -- --payload PRIVATE_WORKSPACE --scenarios PRIVATE_SCENARIOS --profile smoke|regression|deep|stress [--application baseline|current|SHA] [--shards N] [--judge --judge-reference CANONICAL_PRIVATE_WORKSPACE] [--discover-models]\nResume: npm run eval:remote -- --resume PRIVATE_RESUME_JSON\n--detach returns after encrypted input upload. Keys and complete reports remain in the private output directory.\n');return 0;}
+  if(options.help) {process.stdout.write('npm run eval:remote -- --payload PRIVATE_WORKSPACE --scenarios PRIVATE_SCENARIOS --profile smoke|regression|deep|stress [--application baseline|current|SHA] [--shards N] [--judge --judge-reference CANONICAL_PRIVATE_WORKSPACE] [--discover-models] [--publish-readable]\nResume: npm run eval:remote -- --resume PRIVATE_RESUME_JSON\n--publish-readable also preserves credential-redacted plaintext reports in Actions artifacts.\n--detach returns after encrypted input upload. Keys and complete reports remain in the private output directory.\n');return 0;}
   const {state}=await runRemote(options);return state.status==='failed'?1:0;
 }
 if(require.main===module) main().then(code=>process.exit(code)).catch(error=>{process.stderr.write(error.message+'\n');process.exit(1);});
