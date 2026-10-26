@@ -1,0 +1,350 @@
+{
+  "reviewer": "Codex per-answer source review",
+  "reviewed": 38,
+  "originalScreensReplayed": 0,
+  "authoredSqlQuestions": 2,
+  "reviews": [
+    {
+      "provider": "deepseek",
+      "caseId": "latest-01",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "大工具输出落盘与有损摘要的动机对应上下文代码，工具分层不得当作中文向量检索。",
+      "quote": "1. 起因：工具调用增多后，长日志挤占任务约束和关键代码，不只是窗口超限；所以我先做工具输出落盘，大结果只留可定位预览，需要细节再读回。\n2. 分层：高频写码、测试工具留在第一层直接可调，低频检索工具后置按需调用，减少无关定义占上下文。\n3. 压缩：较早历史摘要、近期原文保留，并带回文件和Skill快照；摘要有损，关键约束沿原文件回查。",
+      "answer": "deepseek/latest-01-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-01",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "大工具输出落盘与有损摘要的动机对应上下文代码，工具分层不得当作中文向量检索。",
+      "quote": "1. 痛点：工具输出膨胀挤占关键代码，导致注意力偏移。\n2. 方案：分层压缩，高频工具结果落盘留预览，低频按需检索。\n3. 机制：保留近期原文与摘要边界，细节回查原始文件。",
+      "answer": "qwen/latest-01-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-02",
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "写成memos.md，实际memories.md；主要存储内容/频率正确，文件名仍应修正。",
+      "quote": "1. 存什么：从新增对话中提取用户编码偏好、纠正反馈、项目知识和参考资料；去重后，按用户级和项目级分别写入 memos.md。\n2. 更新频率：主 Agent 每 5 轮在后台触发一次提取，也支持手动触发；不是按固定秒数更新。\n3. 读取方式：读取时按需召回 memory 目录下的 Markdown；目前做到的是文件记忆，还没有建向量库或知识图谱。",
+      "answer": "deepseek/latest-02-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-02",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "编码偏好/纠正反馈/项目知识及每5轮提取可核查；memories.md与独立memory目录要区分。",
+      "quote": "1. 存储内容：主要存用户编码偏好、纠正反馈和项目知识。去重后分别写入用户级和项目级的 memories.md 文件，按需召回时读取这些 Markdown 目录。\n2. 更新时机：主 Agent 每 5 轮对话触发一次后台提取，也有手动入口。不是按固定秒数自动刷新，也不是电商购物偏好数据库。",
+      "answer": "qwen/latest-02-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-03",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "形状/业务状态/权限分开，类型校验不等于调用安全。",
+      "quote": "1. 做法：MCP 中 Agent 传参主要有两类问题，一是参数塞错，二是写法不对。前者如路径、命令、资源范围超出授权；后者如字段名、类型、枚举值与 Schema 不一致。\n2. 边界：Pydantic 只校验形状，不证明调用安全。工具层还要校验业务状态和权限，失败时返回可修正的错误。\n3. 我会这样做：先校验 Schema，再做语义和资源校验；错误提示不泄露环境秘密，并让模型据此重试。",
+      "answer": "deepseek/latest-03-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-03",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "形状/业务状态/权限分开，类型校验不等于调用安全。",
+      "quote": "1. 校验范围：Pydantic仅保参数形状，需额外查路径授权、命令安全及业务状态允许。\n2. 失败处理：返回模型可修正的错误信息，避免泄露环境秘密。\n3. 边界澄清：类型校验不等于安全沙箱，工具层须检查语义与副作用。",
+      "answer": "qwen/latest-03-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-04",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "ToolResult错误回传而非统一错误码库，已修正旧建议中的虚构中心。",
+      "quote": "1. 返回位置：校验错误和工具异常都在执行路径里统一包装成 ToolResult，带 is_error 标记，MCP 连接或调用失败也转成错误结果，不是单独存到某个地方。\n2. 统一模块：目前没有统一错误码枚举中心，也不是持久化错误库；错误作为工具结果回给对话，由模型决定修参还是换工具。\n3. 补充建议：如果要做统一管理，我会加错误分类和审计模块，但现在这版没落地。",
+      "answer": "deepseek/latest-04-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-04",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "ToolResult错误回传而非统一错误码库，已修正旧建议中的虚构中心。",
+      "quote": "1. 现状：目前没有统一的错误码存储模块。校验错误和工具异常直接包装成 `ToolResult(is_error=True)`，随对话上下文回传给模型，由模型决定修参或换工具。\n2. 机制：运行时仅对“未知工具连续失败”做保护拦截，防止死循环。源码中不存在类似 `USER_NOT_FOUND` 的全局业务错误枚举中心或持久化审计库。\n3. 建议：如果后续要增强可观测性，我会引入独立的错误分类字典和日志审计模块，但当前架构依赖模型自主纠错，未实现集中式错误管理。",
+      "answer": "qwen/latest-04-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-05",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "模型读错误决定下一步；未知工具保护不等于运行时唯一终止控制。",
+      "quote": "1. 错误信息：校验异常会包装成ToolResult，带is_error和具体报错输出给模型，比如字段类型不符的提示。\n2. 下一步：不主动指定动作，由模型读错误后自己判断修参重试还是换工具；运行时另有未知工具连续失败保护。\n3. 补充：业务错误码统一中心和纠错策略，我会按建议设计补上，当前还没有。",
+      "answer": "deepseek/latest-05-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-05",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "模型读错误决定下一步；未知工具保护不等于运行时唯一终止控制。",
+      "quote": "1. 反馈：校验错误和工具异常包装成ToolResult(is_error=True)直接返回对话，模型看到原始报错文本后自行判断修参或换工具。\n2. 机制：系统不预设下一步指令，完全依赖模型根据错误内容决策；运行时仅对未知工具连续失败做保护，无统一业务错误码映射。",
+      "answer": "qwen/latest-05-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-06",
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "可作为千工具的设计方案，索引/自动抽取/更新指标需明确是假设，不能保证秒级。",
+      "quote": "1. 先抽元数据：从各团队的 OpenAPI、MCP Schema 自动抽取工具名、能力描述、参数和负责人，统一成标准 Schema，人工只补充摘要和标签，不手写。\n2. 建检索层：按能力描述、参数和示例建向量索引，再加领域标签做过滤；新工具入库后自动生成摘要，供按需检索，不把全量定义直接放进上下文。\n3. 再控质量：先用少量样例做回放，检查参数能不能校验通过，失败的交给负责人修，通过后再进主目录。",
+      "answer": "deepseek/latest-06-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-06",
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "可作为千工具的设计方案，索引/自动抽取/更新指标需明确是假设，不能保证秒级。",
+      "quote": "1. 分层索引：我会按团队和服务域建立两级目录，先存摘要元数据，高频工具才加载完整Schema。\n2. 自动抽取：建议用LLM从接口文档批量生成结构化描述并校验，减少人工录入成本。\n3. 动态更新：通过监听注册中心变更触发增量同步，确保新工具上线后秒级可被检索到。",
+      "answer": "qwen/latest-06-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-07",
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "不能保证本地MCP参数模型拒绝所有枚举值；包装器只构造顶层类型，完整服务端Schema不等于运行时全部约束都执行。",
+      "quote": "1. 检索入口：我让模型先调常驻的 ToolSearch，按关键词或工具名找出候选，不用一次把千个工具塞进上下文。\n2. 注册表：用统一描述格式登记名称、服务前缀、能力说明和枚举约束，可查询、可用，再按命中返回完整 schema 并按需加载。\n3. 找准依据：MCP 保留服务端完整 inputSchema，必填项和枚举不对就返回 is_error；我会再加同名消歧和调用示例。",
+      "answer": "deepseek/latest-07-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-07",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "ToolSearch发现后加载完整Schema、MCP保留服务端inputSchema；外部工具不等于全部由Pydantic重新生成。",
+      "quote": "1. 入口常驻：我会让ToolSearch始终可用，支持关键词搜索或select工具名。\n2. 按需加载：找到目标后返回完整Schema并标记已发现，不自动执行所有工具。\n3. 统一注册：MCP工具加服务名前缀延迟加载，保留服务端inputSchema供检索定位。",
+      "answer": "qwen/latest-07-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-08",
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "关键词具体算法仍不足/错误；实际小写整串子串及空白拆词加权，不是纯精确或向量。",
+      "quote": "1. 匹配方式：ToolSearch 的关键词走精确匹配，不拆词，也不做语义模糊搜索；工具名或描述里包含这个词才能命中。\n2. 原因：这样做简单、结果稳定，也能避免搜出大量不相关的工具；缺点是对同义词和近义描述不敏感。\n3. 补充：如果以后要支持模糊搜索，我会再增加别名匹配，或先按向量粗召回，再用关键词精排。",
+      "answer": "deepseek/latest-08-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-08",
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "没有编造算法，但未回答精确/模糊的具体实现；已补查search_deferred源码。",
+      "quote": "1. 匹配方式：支持关键词搜索，也支持 select 加工具名精准定位。\n2. 返回结果：找到后返回完整 schema，并把工具标为已发现。\n3. 作用边界：它是工具发现入口，不是自动把所有工具都执行一遍。",
+      "answer": "qwen/latest-08-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-09",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "混合召回与重排明确说我会，是建议，不冒充已实现向量检索。",
+      "quote": "1. 原因：我会先纠正你刚才口误的“结束”：应该是“检索”；只说精准关键词确实不够，在1000多个工具中光靠精确匹配会漏掉同义和改写表达。\n2. 做法：我会用“关键词+语义”混合召回，再按工具名、参数Schema和ID加权过滤，必要时再对候选重排。\n3. 边界：重排会增加延迟，因此我只对预算允许的请求启用；并且我会分别测召回和最终选对工具。",
+      "answer": "deepseek/latest-09-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-09",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "混合召回与重排明确说我会，是建议，不冒充已实现向量检索。",
+      "quote": "1. 原因：工具量大时纯关键词易漏召。我会用混合检索，结合语义与精准匹配。\n2. 方案：先粗筛候选集，再对Top-K做Rerank重排。比如用户问“查库存”，关键词匹配ID，语义匹配描述。\n3. 取舍：全量Rerank延迟高，建议仅对召回结果或高频复杂Query启用，平衡精度与响应速度。",
+      "answer": "qwen/latest-09-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-10",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "按Agent/上下文选强项，千工具写成我会设计，未声称做过小模型训练。",
+      "quote": "1. **最有把握**：Agent Loop和工具这一块我最强。我做过循环里调工具、把结果回填上下文、失败后重试和恢复，比如工具返回参数不对，我会让模型修正参数再试一次。\n2. **次选详细讲**：上下文管理也熟，包括控制历史长度、筛选召回的工具描述。1000多个工具时，我会先用关键词和分类缩小范围，再把少量候选交给模型判断。",
+      "answer": "deepseek/latest-10-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-10",
+      "automaticPassed": false,
+      "reviewStatus": "fail",
+      "conclusion": "把JD中的Schema Linking/NL2SQL优化写成本人Arclight成果，确属编造；后续移除不相关JD注入。",
+      "quote": "1. 最熟：Agent Loop和上下文工程。在arclight项目里，我负责设计工具调用链路、处理多轮对话的状态恢复，以及通过Schema Linking优化NL2SQL的准确率。\n2. 实践：MCP与Skill接入。我实现了统一协议接入外部工具，比如文件操作或数据库查询，让模型能按步骤执行任务并自动纠错。\n3. 边界：后训练仅懂原理。SFT/DPO/RL我熟悉区别和应用场景，但没有实际的Agentic RL训练实操经历，这点如实说明。",
+      "answer": "qwen/latest-10-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-11",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "按需发现、服务前缀与完整Schema说明路由设计，不能保证语义选择一定正确。",
+      "quote": "1. 路由设计：先固定ToolSearch入口可用，再按关键词/select精准召回，不把2000个工具全塞进上下文。这样先缩小候选面，避免“肯定要试错”。\n2. 消歧设计：同名工具给服务名前缀并返回完整schema，比如“查询货品库存”和“查询货品仓库存”按入参字段区分；召回多个时用schema比对，模型选错也有依据。\n3. 代价取舍：若只用名称，同名工具仍需模型判断或一次试错；我会补别名/描述关键词，并在返回结果里带服务名和必填参数做校验。",
+      "answer": "deepseek/latest-11-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-11",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "按需发现、服务前缀与完整Schema说明路由设计，不能保证语义选择一定正确。",
+      "quote": "1. 延迟加载：工具仅存名称与摘要，按需检索才注入完整Schema，避免上下文膨胀。\n2. 精准发现：支持关键词搜索与Select指定，快速定位目标工具，降低模型选择噪音。\n3. 隔离执行：MCP加前缀包装，异常返回Error而非崩溃，保障Agent Loop稳定性。",
+      "answer": "qwen/latest-11-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-12",
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "路径检索/工具回传方向可用；Pydantic参数类型本身不能保证目标路径存在，需执行层检查。",
+      "quote": "1. 定位方式：模型先用检索工具定位文件和行号，拿到带路径的代码片段；改的时候按这个路径和片段生成编辑，而不是凭记忆猜位置。\n2. 结果校验：编辑结果通过结构化的工具调用回填，比如路径、替换片段；执行后再读回文件并跑测试，确认改到期望位置。",
+      "answer": "deepseek/latest-12-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-12",
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "路径检索/工具回传方向可用；Pydantic参数类型本身不能保证目标路径存在，需执行层检查。",
+      "quote": "1. 定位：模型不直接猜行号，而是调用检索工具。比如输入函数名或报错关键字，返回文件路径和代码片段位置。\n2. 依据：Agent Loop 中，运行时解析模型输出的工具调用意图，执行允许的代码搜索或读取操作，把结构化结果回注给下一轮。\n3. 校验：改代码前先看测试结果和文件变化，不能只看模型说 done。通过参数校验确保写入目标存在，避免幻觉地址导致失败。",
+      "answer": "qwen/latest-12-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-13",
+      "automaticPassed": true,
+      "reviewStatus": "fail",
+      "conclusion": "否认已建知识图谱有边界意识，但又声称预建切块/函数签名索引，当前Arclight主要是文件工具现场检索，仍编造细节。",
+      "quote": "1. 建模：没有做代码知识图谱，目前只按文件索引仓库，靠检索拿上下文。比如先把仓库文件路径和内容切块建索引，检索到相关片段再交给模型。\n2. 图谱做法：如果改用代码图谱，我会用 AST 抽取函数、类、调用和导入关系，把文件与符号做节点，调用边连起来。这样能回答某函数被谁调用、改动会影响哪些文件。\n3. 取舍：图谱要随提交增量更新，并处理重命名和删除；所以我会先覆盖高频改动目录，小范围验证再扩大。",
+      "answer": "deepseek/latest-13-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-13",
+      "automaticPassed": true,
+      "reviewStatus": "fail",
+      "conclusion": "否认已建知识图谱有边界意识，但又声称预建切块/函数签名索引，当前Arclight主要是文件工具现场检索，仍编造细节。",
+      "quote": "1. 现状：目前未建代码知识图谱，仅用文件路径和函数签名做轻量索引。\n2. 方案：我会引入AST解析提取实体关系，构建局部依赖图辅助定位。\n3. 边界：全量图谱成本高且易过时，优先对核心模块建模以平衡性能。",
+      "answer": "qwen/latest-13-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-14",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "库存/变更/调拨/补货角色是明确设计例子，不应把面试官的上百应用写成本人规模。",
+      "quote": "1. 按动作拆：查询库存、改库存、调拨、补货预测至少分开。比如查库存只读货品ID，改库存必须带数量、仓和版本，读写权限不能混。\n2. 按领域拆：库存百来个应用，我会拆成库存查询、库存变更、仓间调拨、补货计划几个路由域，每个域再管自己的工具，别让一个角色拿2000个工具。\n3. 按风险拆：只读工具和高风险写操作分权，写操作走独立角色和审批校验，出错不影响查询侧。",
+      "answer": "deepseek/latest-14-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-14",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "库存/变更/调拨/补货角色是明确设计例子，不应把面试官的上百应用写成本人规模。",
+      "quote": "1. 按域拆分：工具多时，我会把库存、订单等拆成独立子Agent。比如2000个工具，让“库存助手”只管货品ID查询，减少上下文干扰。\n2. 分层路由：建议加一个轻量级意图识别层。先判断用户是要查库存还是下单，再分发到对应子Agent，避免大模型在海量工具里盲目检索。",
+      "answer": "qwen/latest-14-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-15",
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "影响分析/排障方案本身可用，开头“我理解/我会按环节讲”元话语应删；裁判把假设当编造且否定正确编号，属于部分误判。",
+      "quote": "1. **先说指代**：结合前文，这里“它”我理解为可查询、可用的 Agent/工具及路由能力；我会按环节讲使用方式，不把通用方案说成项目已验证实现。\n2. **适合环节**：我会先把依赖关系整理成可查询图谱，用于影响分析、发布前检查和故障排查；再在调用入口按任务复杂度路由到检索、诊断或变更建议。\n3. **关键取舍**：查询结果要能追溯到应用、依赖边和时间，方案确认后再执行；比如改库存服务前先列出上下游与受影响应用。",
+      "answer": "deepseek/latest-15-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-15",
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "“哪些环节可用Agent框架”回答成混合检索启用环节，窄化指代。",
+      "quote": "1. 适用场景：我会优先在业务缩写、精确ID查询或强依赖关系的库存应用检索中启用混合检索，利用关键词保证召回准确性。\n2. 重排策略：建议对语义改写类问题合并候选后做Rerank，但需评估延迟；若实时性要求高，仅对低置信度结果触发重排以平衡性能。\n3. 验证方法：通过对比纯向量与混合检索的召回率及最终答案正确率，确定各环节是否值得引入该机制，避免全量开启导致资源浪费。",
+      "answer": "qwen/latest-15-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-16",
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "冻结原实体含面试官“库存100多应用及依赖”，可作为假设场景；须显式我会设计，不能被当项目已做BM25/语义路由。裁判没看到该冻结指代而误说100无上下文。",
+      "quote": "1. 入口：用户提问或系统事件触发后，Agent 循环启动，先按关键词和语义定位相关工具与应用。\n2. 能力：它能做多步查询和工具调用，比如从 100 多个库存应用里查依赖、追根因。\n3. 复用：Agent 的 Loop 可以复用，换场景只需替换工具和知识入口。",
+      "answer": "deepseek/latest-16-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-16",
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "冻结原实体含面试官“库存100多应用及依赖”，可作为假设场景；须显式我会设计，不能被当项目已做BM25/语义路由。裁判没看到该冻结指代而误说100无上下文。",
+      "quote": "1. 触发：用户提问或系统定时任务。比如库存应用依赖变更时，自动拉取最新文档并生成影响分析。\n2. 能力：精准检索与推理。通过 BM25 关键词匹配定位具体工具定义，再结合 LLM 判断执行路径，解决多应用间复杂依赖查询。",
+      "answer": "qwen/latest-16-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-17",
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "没有可靠历史规模数字时应简短保留未知，再给真实项目实例，不能只讲我会如何回答或借用面试官规模。",
+      "quote": "1. 口径：我不会凭印象报“最高复杂度”的绝对数字，先确认比较维度，是应用数量、数据规模还是流程层数。\n2. 经验答法：我会说目前复杂的是多步骤流程编排，涉及入口触发、依赖关系、工具调用与失败回退。\n3. 核验：若需具体数字，我会沿用项目记录，按同一口径核对再给。",
+      "answer": "deepseek/latest-17-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-17",
+      "automaticPassed": false,
+      "reviewStatus": "revise",
+      "conclusion": "没有可靠历史规模数字时应简短保留未知，再给真实项目实例，不能只讲我会如何回答或借用面试官规模。",
+      "quote": "1. 规模：我会按实体关系复杂度评估，比如供应链涉及上百应用、数千字段的多跳依赖，远超单表查询。\n2. 应对：建议先做本体建模和Schema Linking收敛范围，再用Agent分步拆解多跳推理，避免上下文爆炸。",
+      "answer": "qwen/latest-17-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-sql-01",
+      "automaticPassed": false,
+      "reviewStatus": "usable",
+      "conclusion": "隔离SQLite按原题数据执行得到正确客单价/活动GMV。 原校验器只许单列，误拒绝正确的GMV/买家数/客单价三列；保留旧判定，另记校验修正，无新生成。",
+      "quote": "```sql\nSELECT\n  SUM(pay_amount) AS gmv,\n  COUNT(DISTINCT buyer_id) AS buyers,\n  SUM(pay_amount) * 1.0 / COUNT(DISTINCT buyer_id) AS avg_order_value\nFROM orders\nWHERE status IN (2, 3, 4);\n```",
+      "answer": "deepseek/latest-sql-01-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-sql-01",
+      "automaticPassed": true,
+      "reviewStatus": "usable",
+      "conclusion": "隔离SQLite按原题数据执行得到正确客单价/活动GMV。",
+      "quote": "```sql\nSELECT SUM(pay_amount) / COUNT(DISTINCT buyer_id) AS avg_order_value FROM orders WHERE status IN (2, 3, 4);\n```",
+      "answer": "qwen/latest-sql-01-r1/answer.txt"
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-sql-02",
+      "automaticPassed": true,
+      "reviewStatus": "revise",
+      "conclusion": "隔离SQLite按原题数据执行得到正确客单价/活动GMV。 题目只要SQL，仍附了两点解释，属于格式指令偏差。",
+      "quote": "1. 口径：用报名表去重后连接订单，只算活动A且status IN (2,3,4)的pay_amount。\n2. 防重复：`DISTINCT item_id` 避免同一商品重复报名导致订单被放大。\n\n```sql\nSELECT SUM(o.pay_amount)\nFROM orders o\nJOIN (SELECT DISTINCT item_id FROM signup WHERE activity = '活动A') s\n  ON s.item_id = o.item_id\nWHERE o.status IN (",
+      "answer": "deepseek/latest-sql-02-r1/answer.txt"
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-sql-02",
+      "automaticPassed": false,
+      "reviewStatus": "fail",
+      "conclusion": "直接JOIN重复报名使GMV=40而非20；必须EXISTS或先去重。",
+      "quote": "```sql\nSELECT SUM(o.pay_amount) AS gmv\nFROM orders o\nJOIN signup s ON o.item_id = s.item_id\nWHERE s.activity = '活动A'\n  AND o.status IN (2,3,4);\n```",
+      "answer": "qwen/latest-sql-02-r1/answer.txt"
+    }
+  ]
+}

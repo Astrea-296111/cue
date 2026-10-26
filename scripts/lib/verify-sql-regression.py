@@ -36,9 +36,16 @@ try:
         ticks += 1
         return ticks > 100
     db.set_progress_handler(progress, 1000)
-    rows = db.execute(sql).fetchmany(3)
-    result.update(sql=sql, rows=rows, expectedScalar=data["expectedScalar"])
-    result["passed"] = len(rows) == 1 and len(rows[0]) == 1 and rows[0][0] is not None and abs(float(rows[0][0])-data["expectedScalar"]) < 1e-8
+    cursor = db.execute(sql)
+    columns = [column[0].lower() for column in cursor.description]
+    rows = cursor.fetchmany(3)
+    aliases = [name.lower() for name in data.get("expectedAliases", [])]
+    candidates = [i for i, name in enumerate(columns) if name in aliases]
+    # Extra diagnostic aggregates are permitted by the question. Verify the
+    # named metric, rather than failing a correct answer with GMV/buyer columns.
+    column = 0 if len(columns) == 1 else candidates[0] if len(candidates) == 1 else None
+    result.update(sql=sql, columns=columns, rows=rows, checkedColumn=column, expectedScalar=data["expectedScalar"])
+    result["passed"] = len(rows) == 1 and column is not None and rows[0][column] is not None and abs(float(rows[0][column])-data["expectedScalar"]) < 1e-8
 except Exception as error:
     result["error"] = str(error)
 print(json.dumps(result, ensure_ascii=False))

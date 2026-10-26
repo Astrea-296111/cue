@@ -198,7 +198,7 @@ test('partial cross-channel echo cannot promote interviewer history into candida
 });
 test('latest interview source cards ground memory cadence, error returns and MCP schema boundaries',()=>{
   const {ProjectFactPacks}=require('../src/project-fact-packs');const w=workspace(),packs=new ProjectFactPacks({index:w.facts});
-  assert.equal(w.facts.cards.length,131);
+  assert.equal(w.facts.cards.length,132);
   for(const [q,id]of [['它的更新频率或存储内容是什么？','oct26.code.memory'],['这个校验错误存储在哪里？有统一错误码模块吗？','oct26.code.tool-errors']]) {
     const result=packs.select(q,{resolution:{canonicalProjectIds:['arclight'],retrieveFacts:true},maxCards:4});
     assert.ok(result.evidence.some(c=>c.cardId===id&&c.protectedMechanism));
@@ -216,6 +216,18 @@ test('SQL fixtures reject the old buyer/buyer formula and duplicate-signup join'
   const check=(c,sql)=>JSON.parse(spawnSync('python3',['scripts/lib/verify-sql-regression.py'],{input:JSON.stringify({...c,answer:'```sql\n'+sql+';\n```'}),encoding:'utf8',timeout:5000}).stdout);
   assert.equal(check(cases[0],cases[0].expectedSql).passed,true);
   assert.equal(check(cases[0],'SELECT COUNT(DISTINCT buyer_id)*1.0/COUNT(DISTINCT buyer_id) FROM orders WHERE status IN (2,3,4)').passed,false);
+  assert.equal(check(cases[0],'SELECT SUM(pay_amount) AS gmv, COUNT(DISTINCT buyer_id) AS buyers, SUM(pay_amount)*1.0/COUNT(DISTINCT buyer_id) AS avg_order_value FROM orders WHERE status IN (2,3,4)').passed,true);
   assert.equal(check(cases[1],cases[1].expectedSql).passed,true);
   assert.equal(check(cases[1],"SELECT SUM(o.pay_amount) FROM orders o JOIN signup s ON s.item_id=o.item_id WHERE s.activity='活动A' AND o.status IN (2,3,4)").passed,false);
+});
+test('personal strengths use candidate history without injecting JD skills or generic training cards',async t=>{
+  const app=createInterviewRuntime(t,{settings:{answerDomain:'general',realtimeAnswerMode:'instant',...workspace().profile}});await app.ready;
+  await app.ask('say','这些方向当中，你觉得你哪一个比较强，可以介绍一下？');
+  const messages=JSON.stringify(app.calls.at(-1).messages);
+  assert.match(messages,/个人项目开发/);assert.doesNotMatch(messages,/Schema Linking|NL2SQL|oct26.react-pe|targetRole/);
+});
+test('a fragment keyword follow-up protects the verified matching algorithm',()=>{
+  const {ProjectFactPacks}=require('../src/project-fact-packs');const packs=new ProjectFactPacks({index:workspace().facts});
+  const selected=packs.select('关键词。',{resolution:{canonicalProjectIds:['arclight'],retrieveFacts:true,metricContext:'MCP工具怎么快速查找？只用精准关键词还是模糊关键词？'},maxCards:4});
+  const source=selected.evidence.find(c=>c.cardId==='oct26.code.toolsearch');assert.ok(source.protectedMechanism);assert.match(source.text,/空白拆词/);
 });

@@ -1062,7 +1062,8 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       factsEnabled:policy.factsEnabled,sourcePolicy:policy.ragPolicy,...evidenceLimits});
     // General reference cards use the same finite request budget, but never
     // become another resume project or evidence of personal implementation.
-    const knowledge=policy.factsEnabled&&!answerPlan.confirmation&&request.plan.kind!=='unresolved'
+    const candidateRole=buildCandidateRoleContext(settings,question,{project:request.plan.retrieve});
+    const knowledge=policy.factsEnabled&&!candidateRole.personal&&!answerPlan.confirmation&&request.plan.kind!=='unresolved'
       ? generation.materials.factPacks.selectKnowledge(question,{jobProfileId:settings.jobProfileId,maxCards:policy.instant?2:3}):null;
     evidencePlan.contextKnowledgeIds=[];
     for(const item of knowledge?.evidence||[]) {
@@ -1115,7 +1116,6 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const legacyNarrative='不要编造项目结果。';
     const resolvedSystem = builtSystem + (instantContext?'':'\n' + oralRule + narrativeRule + SPOKEN_CONTEXT_RULES) + (request.plan.kind==='unresolved'?'\n当前未定位到对应项目资料，直接给出可落地的通用方案或小例子，不猜测具体项目身份或职责。':'');
     const initialSystem = llm.prepareSystem ? llm.prepareSystem(resolvedSystem) : resolvedSystem;
-    const candidateRole=buildCandidateRoleContext(settings,question,{project:request.plan.retrieve});
     const questionReferenceSection={id:'question-reference',text:frozen?.referenceContext ? '最近真人提问实体（仅消解当前指代）：\n'+frozen.referenceContext:'',protected:true};
     const candidateRoleSection={id:'candidate-role',text:candidateRole.text,protected:candidateRole.required,priority:2};
     const responseContext = { transcript: contextTranscript, userText: question, answerPlan, partial, hasImage: !!imageDataUrl };
