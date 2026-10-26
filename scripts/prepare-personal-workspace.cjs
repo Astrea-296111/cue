@@ -34,6 +34,6 @@ if(require.main===module) {
     if(!flags[args[i]]||!args[i+1]){process.stderr.write('用法：npm run prepare:personal -- --workspace 工作区.json [--directory materials/personal]\n或 --task-directory 附件目录 [--baseline 旧workspace.json] [--audit 来源核查.json]\n兼容：--resume 简历.pdf --facts 已编译事实.json --jd 岗位.txt\n');process.exit(2);}
     options[flags[args[i]]]=args[i+1];
   }
-  preparePersonalWorkspace(options).then(workspace=>process.stdout.write(`个人工作区已准备：v${workspace.schemaVersion}，${workspace.facts.cards.length} 张卡，revision ${workspace.revision}；私人原文仅保存在本地。\n`)).catch(error=>{process.stderr.write('个人工作区准备失败：'+error.message+'\n');process.exitCode=1;});
+  preparePersonalWorkspace(options).then(workspace=>process.stdout.write(`个人工作区已准备：v${workspace.schemaVersion}，${workspace.facts.cards.length} 张卡，revision ${workspace.revision}；明文已写入所选资料目录（默认是仓库公开资料路径）。\n`)).catch(error=>{process.stderr.write('个人工作区准备失败：'+error.message+'\n');process.exitCode=1;});
 }
 module.exports={preparePersonalWorkspace};

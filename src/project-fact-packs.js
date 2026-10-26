@@ -104,7 +104,8 @@ class ProjectFactPacks {
   selectKnowledge(question,{jobProfileId='',maxCards=3}={}) {
     const q=boundedRankingText(question),query=grams(q),features=this.index.projects.filter(p=>p.kind==='knowledge').flatMap(p=>this.featuresByProject.get(p.id)||[]);
     const preferred=jobProfileId==='ai_supply_chain'?'ai-':jobProfileId==='java_security'?'sec-':'';
-    const selected=features.map(f=>({f,score:[...query].filter(g=>f.terms.has(g)).length/Math.max(1,query.size)+f.keywords.filter(k=>q.toLowerCase().includes(k)).length*.6+(preferred&&f.card.cardId.startsWith(preferred)?.06:0)})).filter(row=>row.score>.08).sort((a,b)=>b.score-a.score||a.f.card.cardId.localeCompare(b.f.card.cardId)).slice(0,Math.max(0,Math.min(6,maxCards)));
+    const applicable=features.filter(f=>!['FUTURE'].includes(f.card.provenance)||/岗位|迁移|供应链|业务|未来|后续|打算|如果/.test(q));
+    const selected=applicable.map(f=>({f,score:[...query].filter(g=>f.terms.has(g)).length/Math.max(1,query.size)+f.keywords.filter(k=>q.toLowerCase().includes(k)).length*.6+(preferred&&f.card.cardId.startsWith(preferred)?.06:0)})).filter(row=>row.score>.08).sort((a,b)=>b.score-a.score||a.f.card.cardId.localeCompare(b.f.card.cardId)).slice(0,Math.max(0,Math.min(6,maxCards)));
     return {evidence:selected.map(row=>this.evidenceById.get(row.f.card.cardId)),stats:{selectedCardCount:selected.length,packRevision:this.index.revision},scope:'general-knowledge-reference'};
   }
   select(question,{projectId,anchor,maxCards=4,effectiveModel={},resolution,primaryQuestion}={}) {

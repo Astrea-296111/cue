@@ -62,7 +62,7 @@ async function callRoleOnce({ config, messages, role = 'judge', timeoutMs = 1200
 }
 
 async function runRole({ config, messages, role, attempts = [], retryLimit = 2, validate = value => value,
-  onCheckpoint = async () => {}, fetchImpl, pauseImpl = pause, timeoutMs, maxTokens, secrets = [] }) {
+  onCheckpoint = async () => {}, fetchImpl, pauseImpl = pause, timeoutMs, maxTokens, secrets = [], sanitizeOutput }) {
   // A started attempt survives interruption as an observed unknown outcome.
   for (const attempt of attempts) if (attempt.status === 'running') {
     attempt.status = 'interrupted'; attempt.error = { code: 'interrupted-outcome-unknown' };
@@ -91,7 +91,7 @@ async function runRole({ config, messages, role, attempts = [], retryLimit = 2, 
       attempt.durationMs ??= +(performance.now() - started).toFixed(2);
       attempt.error = { code: String(error.code || error.message || 'role-invalid-output') };
       if (error.validationDetails) attempt.error.validationDetails = error.validationDetails;
-      if (attempt.rawOutput) attempt.rawOutput = sanitizeText(attempt.rawOutput, { secrets });
+      if (attempt.rawOutput) attempt.rawOutput = (sanitizeOutput || (text=>sanitizeText(text,{secrets})))(attempt.rawOutput);
       await onCheckpoint();
       if (!retryable(attempt.error) || attempts.length > retryLimit) break;
       await pauseImpl(Math.min(10000, 1000 * (2 ** (attempts.length - 1))));
