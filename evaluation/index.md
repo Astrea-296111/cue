@@ -55,3 +55,5 @@
 - [最新面试原始TXT](cases/original-latest-interview-2026-10-26.txt)与[问题和修正](../docs/最新面试_问题与修正.md)
 
 - [oct26-smoke-v5 / smoke](runs/oct26-smoke-v5/smoke/report.md)
+
+- [oct26-acceptance-v2 / acceptance](runs/oct26-acceptance-v2/acceptance/report.md)

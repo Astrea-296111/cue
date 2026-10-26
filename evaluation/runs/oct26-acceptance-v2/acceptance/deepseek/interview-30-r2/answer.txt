@@ -1,0 +1,3 @@
+1. 基线对照：我会固定同一模型和 300 个 SWE-bench Lite instance，先跑基础 ReAct、单代理和完整配置，三组都用同题集、同 harness、可比预算。
+2. 单机制消融：再从完整配置一次只关一个机制，比如上下文管理、ToolSearch、并行，其余不动；看修复率、耗时、Token 一起变，不能把换模型差异归给框架。
+3. 评测口径：每题从干净环境只给 issue，生成 patch 交独立 harness，fail-to-pass 和 pass-to-pass 都过才算 resolved；记录 patch、日志、状态、Token，环境失败不悄悄删题，报 300 总分母和可运行子集两个口径。
