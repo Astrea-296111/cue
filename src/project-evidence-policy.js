@@ -4,7 +4,8 @@ const {formatEvidenceBlock}=require('./evidence-selector');
 const {inProjectScope}=require('./project-scope');
 const {strictProjectScopes}=require('./project-registry');
 const {projectQuestionParts}=require('./project-question-parts');
-const {tokenize,hasImplementationBody,implementationQuery}=require('./project-search');
+const {tokenize,hasImplementationBody,implementationQuery,querySpec}=require('./project-search');
+const {maskCode}=require('./project-chunks');
 const VERSION='project-evidence-v2';
 function resolveEvidenceLimits({question='',answerPlan={},instant=false}={}) {
   const longScenario=answerPlan.questionCount>=3||String(question).length>450;
@@ -52,6 +53,22 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
   // Technical questions need a real implementation excerpt before optional
   // summaries fill the budget. Keep each project's evidence in comparisons.
   const projectIds=resolution.canonicalProjectIds||resolution.projectIds||[];
+  if(implementation&&!personal){
+    const weights=querySpec(question).weights,identity=new Set(projectIds.map(id=>String(id).toLowerCase()));
+    const identifiers=[...(question.match(/\b[A-Za-z][A-Za-z0-9_]{2,63}\b/g)||[]),
+      ...[...weights.keys()].filter(word=>word.includes('_'))]
+      .map(word=>({key:word.toLowerCase(),parts:[...new Set(tokenize(word))].filter(part=>part!==word.toLowerCase())}))
+      .filter((word,index,all)=>weights.has(word.key)&&!identity.has(word.key)&&all.findIndex(other=>other.key===word.key)===index).slice(0,16);
+    const matches=allowedSources.filter(item=>item.sourceType!=='manual').map(item=>{
+      const available=new Set(tokenize(`${item.symbol||''}\n${maskCode(item.text||'',/\.py$/i.test(item.path||''))}`));
+      const hits=identifiers.filter(word=>available.has(word.key)||word.parts.length>1&&word.parts.every(part=>available.has(part)));
+      return {item,hits};
+    }).filter(row=>row.hits.length>=2||row.hits.some(word=>word.key.includes('_')))
+      .sort((a,b)=>b.hits.length-a.hits.length);
+    // An imported policy table or a split method can supply the actual values
+    // for several named asks. Keep that proof before optional fact summaries.
+    for(const row of matches.slice(0,3))queue(row.item);
+  }
   if(implementation||sourcePolicy==='standard')for(const id of projectIds){
     const ownScopes=resolution.catalog?.find(project=>(project.id||project.projectId)===id)?.sourceScopes ||
       (projectIds.length===1?resolution.sourceScopes||resolution.scopes:[`@project:${id}`]);

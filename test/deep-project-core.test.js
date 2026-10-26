@@ -24,6 +24,16 @@ test('Python multiline constructors keep their body and declared instance calls 
   const feed=java.findIndex(c=>c.symbol==='Feed#feed'),related=buildProjectCodeRelations(java).edges.get(feed)||[];
   assert.ok(related.some(e=>e.status==='resolved'&&e.toSymbol==='Feed#one'));
   assert.ok(!related.some(e=>e.status==='resolved'&&e.toSymbol==='Feed#feed'));
+  const functions = [
+    ...chunkText('pkg/caller.py', 'from .policy import decide as choose\n\ndef invoke(value):\n    return choose(value)\n\ndef shadow(choose):\n    return choose(1)\n'),
+    ...chunkText('pkg/policy.py', '_POLICY = {"write": "ask"}\n\ndef decide(value):\n    return _POLICY[value]\n')
+  ].map(c=>({...c,projectId:'one'}));
+  const functionGraph=buildProjectCodeRelations(functions),invoke=functions.findIndex(c=>c.symbol==='invoke');
+  const imported=functionGraph.edges.get(invoke).find(e=>e.status==='resolved');
+  assert.equal(imported.toSymbol,'decide');assert.equal(imported.targetPath,'pkg/policy.py');
+  assert.ok(functionGraph.edges.get(imported.targetId).some(e=>e.status==='resolved'&&e.toSymbol==='_POLICY'));
+  assert.ok(!functionGraph.edges.get(functions.findIndex(c=>c.symbol==='shadow')).some(e=>e.status==='resolved'));
+  assert.equal(hasImplementationBody(functions.find(c=>c.kind==='context'&&c.text.includes('_POLICY ='))),true);
 });
 
 test('expanded source selection rechecks truth and changed source text while sharing token features',()=>{

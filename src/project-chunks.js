@@ -65,7 +65,39 @@ function sourceDescription(lines, start, declaration) {
     .filter(Boolean).join('\n');
 }
 
-function sourceCalls(text, startLine, python = false, localTypes = {}, language = '') {
+function pythonImports(source, filePath) {
+  const imports = new Map();
+  for (const match of source.matchAll(/^from\s+([.\w]+)\s+import\s+(\([^)]*\)|[^\n]+)/gm)) {
+    const module = match[1], relative = /^\.+/.exec(module)?.[0].length || 0;
+    const base = relative ? path.posix.join(path.posix.dirname(filePath), ...Array(relative - 1).fill('..')) : '';
+    const targetPath = path.posix.join(base, module.slice(relative).replaceAll('.', '/') + '.py');
+    if (targetPath.startsWith('../') || targetPath.startsWith('/')) continue;
+    for (const name of match[2].replace(/[()]/g, '').split(',')) {
+      const alias = /^\s*(\w+)(?:\s+as\s+(\w+))?\s*$/.exec(name);
+      if (alias) imports.set(alias[2] || alias[1], { targetPath, targetSymbol: alias[1] });
+    }
+  }
+  // Rebound module aliases are ambiguous without execution-order analysis.
+  // Leave them unresolved instead of linking to a possibly stale import.
+  for (const match of source.matchAll(/^(?:(?:async\s+)?def|class)\s+(\w+)|^(\w+)\s*(?::[^=\n]+)?\s*=(?!=)/gm)) {
+    const name = match[1] || match[2];
+    if (imports.has(name)) imports.set(name, { shadowed: true });
+  }
+  return imports;
+}
+
+function pythonLocalNames(source) {
+  const masked = maskCode(source, true), names = {};
+  const header = /(?:async\s+)?def\s+\w+\s*\(([\s\S]*?)\)\s*(?:->[^:]+)?\s*:/.exec(masked)?.[1] || '';
+  for (const part of header.split(',')) {
+    const name = /^\s*\**(\w+)/.exec(part)?.[1];
+    if (name) names[name] = 'unknown';
+  }
+  for (const match of masked.matchAll(/^\s+(\w+)\s*(?::[^=\n]+)?\s*=(?!=)/gm)) names[match[1]] = 'unknown';
+  return names;
+}
+
+function sourceCalls(text, startLine, python = false, localTypes = {}, language = '', importedFunctions = new Map()) {
   const masked = maskCode(text, python), calls = [];
   const re = /\b([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)\s*\(/g;
   let match;
@@ -88,7 +120,15 @@ function sourceCalls(text, startLine, python = false, localTypes = {}, language 
       calls.push({receiver:'this',method:item[1],line:startLine+(masked.slice(0,item.index).match(/\n/g)||[]).length,explicitThis:true});
     }
   }
-  return calls;
+  if (python) for (const item of masked.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)) {
+    const prefix = masked.slice(0, item.index).trimEnd();
+    if (/[.@]$/.test(prefix) || /\b(?:def|class)\s*$/.test(prefix)) continue;
+    const binding = importedFunctions.get(item[1]);
+    calls.push({ receiver: '', method: item[1], bare: true,
+      line: startLine + (masked.slice(0, item.index).match(/\n/g) || []).length,
+      ...(binding || {}), ...(Object.hasOwn(localTypes, item[1]) ? { shadowed: true } : {}) });
+  }
+  return calls.sort((a, b) => a.line - b.line);
 }
 
 function javaLocalTypes(text) {
@@ -158,6 +198,7 @@ function chunkText(filePath, text, options = {}) {
   const source = lines.join('\n');
   const maskedSource = maskCode(source, language === 'python');
   const masked = maskedSource.split('\n');
+  const importedFunctions = language === 'python' ? pythonImports(maskedSource, safePath) : new Map();
   const offsets = [0];
   for (const line of lines) offsets.push(offsets.at(-1) + line.length + 1);
   const imports = language === 'java' ? [...maskedSource.matchAll(/^\s*import\s+(?:static\s+)?([\w.$]+(?:\.\*)?)\s*;/gm)].map(m => m[1]) : [];
@@ -166,7 +207,7 @@ function chunkText(filePath, text, options = {}) {
   const parents = [];
   Object.defineProperty(chunks, 'parents', { value: parents });
   const defaultMetadata = { docType: 'implementation', truthScope: language === 'text' ? 'unverified' : /(?:^|\/)(?:test|tests|__tests__)(?:\/|$)|(?:Test|Spec)\.[^/]+$|\.(?:test|spec)\./i.test(safePath) ? 'test_only' : 'implemented',
-    status: 'draft', topics: [], aliases: [], codeRefs: [], relatedDocs: [], headingPath: [], provenance: 'imported', offsetEncoding: 'utf16', docTypeDeclared: language !== 'text', metadataDeclared: false, parserKind: 'lexical', parserVersion: 'cue-lexical-5', parserQuality: 'conservative', ...options.metadata };
+    status: 'draft', topics: [], aliases: [], codeRefs: [], relatedDocs: [], headingPath: [], provenance: 'imported', offsetEncoding: 'utf16', docTypeDeclared: language !== 'text', metadataDeclared: false, parserKind: 'lexical', parserVersion: 'cue-lexical-6', parserQuality: 'conservative', ...options.metadata };
   function emit(start, end, symbol = '', kind = 'text', metadata = {}) {
     if (end <= start) return;
     const parentId = metadata.parentId || hash(safePath + ':' + offsets[start] + ':' + offsets[end] + ':' + symbol);
@@ -205,7 +246,7 @@ function chunkText(filePath, text, options = {}) {
           imports, packageName, fieldTypes: {}, localTypes: {}, extends: [], implements: [], description: '', declarationLine: cursor + 1, descriptionLine: null,
           role, importance: /(?:^|\/)(?:test|tests|__tests__|build|dist|generated)(?:\/|$)|(?:Test|Spec)\.[^/]+$|\.(?:test|spec)\./i.test(safePath) ? 'low' : /^(?:controller|service|repository)$/.test(role) || /(?:^|\/)readme\./i.test(safePath) ? 'high' : 'normal',
           interviewTopics, ...defaultMetadata, ...metadata, parentId,
-          calls: language === 'text' ? [] : sourceCalls(part, startLine, language === 'python', metadata.localTypes, language),
+          calls: language === 'text' ? [] : sourceCalls(part, startLine, language === 'python', metadata.localTypes, language, importedFunctions),
           ...(cursor !== start || stop !== end || body.length > MAX ? { partial: true } : {}) };
         if (language === 'text' && record.truthScope === 'implemented' && CONDITIONAL_BODY.test(part)) {
           record.declaredTruthScope = 'implemented'; record.truthScope = 'unverified';
@@ -352,7 +393,8 @@ function chunkText(filePath, text, options = {}) {
     emit(span.start, span.end, parent ? `${parent.symbol}#${span.symbol}` : span.symbol, span.kind,
       { ...(span.metadata || parent?.metadata || {}), description: span.description, declarationLine: span.declaration + 1, descriptionLine: span.description ? span.start + 1 : null,
         ...(span.kind === 'method' || parent && span.kind === 'function' ? { method: span.symbol, declarationOnly: span.declarationOnly } : {}),
-        ...(language === 'java' && span.kind === 'method' ? { localTypes: javaLocalTypes(lines.slice(span.declaration, span.end).join('\n')) } : {}) });
+        ...(language === 'java' && span.kind === 'method' ? { localTypes: javaLocalTypes(lines.slice(span.declaration, span.end).join('\n')) } : {}),
+        ...(language === 'python' && span.kind === 'function' ? { localTypes: pythonLocalNames(lines.slice(span.declaration, span.end).join('\n')) } : {}) });
     cursor = span.end;
   }
   emitContext(cursor, lines.length);

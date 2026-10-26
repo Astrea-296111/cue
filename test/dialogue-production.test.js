@@ -45,7 +45,7 @@ test('both answer modes give experience-based fallbacks and examples through the
     const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:mode,projectFactsEnabled:false,manualProjectKnowledgeEnabled:false,sourceRagPolicies:{instant:'off',standard:'off'}}});await app.ready;
     app.answer('我会先用一个小例子说明，再解释设计取舍。');await app.ask('say','如果用一个冷门协议做数据同步，你会如何处理重复请求？');
     const actual=app.calls.at(-1).messages.map(m=>m.content||'').join('\n');
-    assert.match(actual,/项目事实卡未覆盖当前细节时，仍直接给出面试答案/);
+    assert.match(actual,/被问到的任何细节缺少项目证据时，仍直接给出面试答案/);
     assert.match(actual,/比如.*输入、处理和结果/);assert.doesNotMatch(actual,/资料不足时只简短指出具体缺口/);
     assert.match(actual,/经验方案和例子不反写成已核实/);
   }
