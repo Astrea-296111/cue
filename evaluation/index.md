@@ -33,3 +33,5 @@
 - [首轮268条中的152条逐条审阅](runs/oct26-full-final/full/codex-review.md)
 
 - [oct26-smoke-acceptance / smoke](runs/oct26-smoke-acceptance/smoke/report.md)
+
+- [oct26-latest-final / latest](runs/oct26-latest-final/latest/report.md)

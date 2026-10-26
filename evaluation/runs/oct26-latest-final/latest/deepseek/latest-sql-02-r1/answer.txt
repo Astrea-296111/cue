@@ -1,0 +1,10 @@
+1. 口径：用报名表去重后连接订单，只算活动A且status IN (2,3,4)的pay_amount。
+2. 防重复：`DISTINCT item_id` 避免同一商品重复报名导致订单被放大。
+
+```sql
+SELECT SUM(o.pay_amount)
+FROM orders o
+JOIN (SELECT DISTINCT item_id FROM signup WHERE activity = '活动A') s
+  ON s.item_id = o.item_id
+WHERE o.status IN (2, 3, 4);
+```
