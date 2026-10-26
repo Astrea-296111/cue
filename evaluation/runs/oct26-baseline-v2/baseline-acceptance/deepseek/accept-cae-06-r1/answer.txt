@@ -1,0 +1,3 @@
+报告重试时我会先确认 Job 和 execution 仍是当前有效且未取消，parseRecordId 对应的那份解析仍在、metricCount 与指标行数一致、conditionCode 和 subcase 都与所选解析对得上。接着核对阶段版本对应的模板和 POST 源版本、canonical RESULT_JSON 的 URI 归属这个 Job、checksum 与文件实际摘要一致，确保复用不是拿到已变或属于别人的产物。
+
+不能为了重试报告顺手再启动 Solver，是因为报告只是基于已有解析的派生阶段，重跑 Solver 会产生新的解析和执行身份，破坏幂等与版本对应，还可能覆盖或混入不同批次的指标。工程上我会按同一 jobId、parseRecordId、reportVersion 查询已有报告状态，只在缺失或未完成时补跑报告；如果确实怀疑上游解析本身坏了，另走显式的新执行流程，不塞进报告重试里。

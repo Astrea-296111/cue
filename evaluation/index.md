@@ -57,3 +57,5 @@
 - [oct26-smoke-v5 / smoke](runs/oct26-smoke-v5/smoke/report.md)
 
 - [oct26-acceptance-v2 / acceptance](runs/oct26-acceptance-v2/acceptance/report.md)
+
+- [oct26-baseline-v2 / baseline-acceptance](runs/oct26-baseline-v2/baseline-acceptance/report.md)
