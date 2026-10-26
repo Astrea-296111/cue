@@ -1,0 +1,1641 @@
+===== 0_Essential tests (Node 22).txt =====
+﻿2026-10-25T17:34:52.4892950Z Current runner version: '2.338.0'
+2026-10-25T17:34:52.4913112Z ##[group]Runner Image Provisioner
+2026-10-25T17:34:52.4913821Z Hosted Compute Agent
+2026-10-25T17:34:52.4914345Z Version: 20261021.618
+2026-10-25T17:34:52.4914928Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-10-25T17:34:52.4915534Z Build Date: 2026-10-21T00:45:21Z
+2026-10-25T17:34:52.4916090Z Worker ID: {7dc3998d-5d47-4989-afe2-b378a4a3bbe9}
+2026-10-25T17:34:52.4916731Z Region: westus3
+2026-10-25T17:34:52.4917222Z Cloud: Azure
+2026-10-25T17:34:52.4917706Z ##[endgroup]
+2026-10-25T17:34:52.4919177Z ##[group]Operating System
+2026-10-25T17:34:52.4919730Z Ubuntu
+2026-10-25T17:34:52.4920276Z 24.04.5
+2026-10-25T17:34:52.4920736Z LTS
+2026-10-25T17:34:52.4921199Z ##[endgroup]
+2026-10-25T17:34:52.4921672Z ##[group]Runner Image
+2026-10-25T17:34:52.4922167Z Image: ubuntu-24.04
+2026-10-25T17:34:52.4922681Z Version: 20261012.334.1
+2026-10-25T17:34:52.4923753Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-25T17:34:52.4925033Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-25T17:34:52.4925812Z ##[endgroup]
+2026-10-25T17:34:52.4926804Z ##[group]GITHUB_TOKEN Permissions
+2026-10-25T17:34:52.4928284Z Contents: read
+2026-10-25T17:34:52.4928977Z Metadata: read
+2026-10-25T17:34:52.4929445Z ##[endgroup]
+2026-10-25T17:34:52.4931254Z Secret source: Actions
+2026-10-25T17:34:52.4932045Z Cache mode: write
+2026-10-25T17:34:52.4932587Z Prepare workflow directory
+2026-10-25T17:34:52.5188880Z Prepare all required actions
+2026-10-25T17:34:52.5243174Z Getting action download info
+2026-10-25T17:34:52.8087916Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-25T17:34:53.0477918Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-10-25T17:34:53.4180984Z Complete job name: Essential tests (Node 22)
+2026-10-25T17:34:53.5036701Z ##[group]Run actions/checkout@v4
+2026-10-25T17:34:53.5038138Z with:
+2026-10-25T17:34:53.5039052Z   repository: Astrea-296111/cue
+2026-10-25T17:34:53.5046736Z   token: ***
+2026-10-25T17:34:53.5047473Z   ssh-strict: true
+2026-10-25T17:34:53.5048190Z   ssh-user: git
+2026-10-25T17:34:53.5049144Z   persist-credentials: true
+2026-10-25T17:34:53.5049944Z   clean: true
+2026-10-25T17:34:53.5050682Z   sparse-checkout-cone-mode: true
+2026-10-25T17:34:53.5051542Z   fetch-depth: 1
+2026-10-25T17:34:53.5052245Z   fetch-tags: false
+2026-10-25T17:34:53.5052975Z   show-progress: true
+2026-10-25T17:34:53.5053723Z   lfs: false
+2026-10-25T17:34:53.5054414Z   submodules: false
+2026-10-25T17:34:53.5055161Z   set-safe-directory: true
+2026-10-25T17:34:53.5055993Z   allow-unsafe-pr-checkout: false
+2026-10-25T17:34:53.5057228Z ##[endgroup]
+2026-10-25T17:34:53.6001605Z Syncing repository: Astrea-296111/cue
+2026-10-25T17:34:53.6003987Z ##[group]Getting Git version info
+2026-10-25T17:34:53.6005876Z Working directory is '/home/runner/work/cue/cue'
+2026-10-25T17:34:53.6008197Z [command]/usr/bin/git version
+2026-10-25T17:34:53.6112825Z git version 2.55.0
+2026-10-25T17:34:53.6132131Z ##[endgroup]
+2026-10-25T17:34:53.6145649Z Temporarily overriding HOME='/home/runner/work/_temp/66f8fe20-3bd0-49e9-888e-4f0a3dae43ad' before making global git config changes
+2026-10-25T17:34:53.6149259Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-25T17:34:53.6151866Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/cue/cue
+2026-10-25T17:34:53.6198640Z Deleting the contents of '/home/runner/work/cue/cue'
+2026-10-25T17:34:53.6202558Z ##[group]Initializing the repository
+2026-10-25T17:34:53.6205584Z [command]/usr/bin/git init /home/runner/work/cue/cue
+2026-10-25T17:34:53.6311776Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-25T17:34:53.6313813Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-25T17:34:53.6319698Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-25T17:34:53.6322137Z hint: call:
+2026-10-25T17:34:53.6330002Z hint:
+2026-10-25T17:34:53.6331652Z hint: 	git config --global init.defaultBranch <name>
+2026-10-25T17:34:53.6333454Z hint:
+2026-10-25T17:34:53.6334983Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-25T17:34:53.6337022Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-25T17:34:53.6338720Z hint:
+2026-10-25T17:34:53.6339901Z hint: 	git branch -m <name>
+2026-10-25T17:34:53.6341057Z hint:
+2026-10-25T17:34:53.6342616Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-25T17:34:53.6344629Z Initialized empty Git repository in /home/runner/work/cue/cue/.git/
+2026-10-25T17:34:53.6349382Z [command]/usr/bin/git remote add origin https://github.com/Astrea-296111/cue
+2026-10-25T17:34:53.6388985Z ##[endgroup]
+2026-10-25T17:34:53.6390267Z ##[group]Disabling automatic garbage collection
+2026-10-25T17:34:53.6396491Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-25T17:34:53.6478366Z ##[endgroup]
+2026-10-25T17:34:53.6480397Z ##[group]Setting up auth
+2026-10-25T17:34:53.6504406Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-25T17:34:53.6537358Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-25T17:34:53.6853367Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-25T17:34:53.6884725Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-25T17:34:53.7079101Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-25T17:34:53.7109756Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-25T17:34:53.7304507Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-25T17:34:53.7342517Z ##[endgroup]
+2026-10-25T17:34:53.7343773Z ##[group]Fetching the repository
+2026-10-25T17:34:53.7351311Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +394fa66e0bd788580b0e43dfb2dea48ca0c555f6:refs/remotes/pull/14/merge
+2026-10-25T17:34:54.9345367Z From https://github.com/Astrea-296111/cue
+2026-10-25T17:34:54.9347198Z  * [new ref]         394fa66e0bd788580b0e43dfb2dea48ca0c555f6 -> pull/14/merge
+2026-10-25T17:34:54.9349150Z ##[endgroup]
+2026-10-25T17:34:54.9349705Z ##[group]Determining the checkout info
+2026-10-25T17:34:54.9351837Z ##[endgroup]
+2026-10-25T17:34:54.9356765Z [command]/usr/bin/git sparse-checkout disable
+2026-10-25T17:34:54.9403911Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-25T17:34:54.9455524Z ##[group]Checking out the ref
+2026-10-25T17:34:54.9458381Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/14/merge
+2026-10-25T17:34:55.0215902Z Note: switching to 'refs/remotes/pull/14/merge'.
+2026-10-25T17:34:55.0216343Z 
+2026-10-25T17:34:55.0216646Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-25T17:34:55.0217307Z changes and commit them, and you can discard any commits you make in this
+2026-10-25T17:34:55.0217945Z state without impacting any branches by switching back to a branch.
+2026-10-25T17:34:55.0218363Z 
+2026-10-25T17:34:55.0218848Z If you want to create a new branch to retain commits you create, you may
+2026-10-25T17:34:55.0219460Z do so (now or later) by using -c with the switch command. Example:
+2026-10-25T17:34:55.0219815Z 
+2026-10-25T17:34:55.0219972Z   git switch -c <new-branch-name>
+2026-10-25T17:34:55.0220227Z 
+2026-10-25T17:34:55.0220457Z Or undo this operation with:
+2026-10-25T17:34:55.0221021Z 
+2026-10-25T17:34:55.0221162Z   git switch -
+2026-10-25T17:34:55.0221378Z 
+2026-10-25T17:34:55.0221722Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-25T17:34:55.0222139Z 
+2026-10-25T17:34:55.0222543Z HEAD is now at 394fa66 Merge 4fb704c8585391a82f26a4d7d969a1d67ab7feb0 into 42f3bc1213284533f9a0d28ffb9a0b895b3ed174
+2026-10-25T17:34:55.0226743Z ##[endgroup]
+2026-10-25T17:34:55.0267637Z [command]/usr/bin/git log -1 --format=%H
+2026-10-25T17:34:55.0290194Z 394fa66e0bd788580b0e43dfb2dea48ca0c555f6
+2026-10-25T17:34:55.0578932Z ##[group]Run actions/setup-node@v4
+2026-10-25T17:34:55.0579251Z with:
+2026-10-25T17:34:55.0579472Z   node-version: 22
+2026-10-25T17:34:55.0579707Z   cache: npm
+2026-10-25T17:34:55.0579917Z   always-auth: false
+2026-10-25T17:34:55.0580135Z   check-latest: false
+2026-10-25T17:34:55.0582069Z   token: ***
+2026-10-25T17:34:55.0582313Z ##[endgroup]
+2026-10-25T17:34:55.1685626Z Found in cache @ /opt/hostedtoolcache/node/22.23.3/x64
+2026-10-25T17:34:55.1688773Z (node:2727) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-25T17:34:55.1689574Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-25T17:34:55.1690881Z ##[group]Environment details
+2026-10-25T17:34:55.5592031Z node: v22.23.3
+2026-10-25T17:34:55.5592294Z npm: 10.9.9
+2026-10-25T17:34:55.5592473Z yarn: 1.22.22
+2026-10-25T17:34:55.5593579Z ##[endgroup]
+2026-10-25T17:34:55.5613609Z [command]/opt/hostedtoolcache/node/22.23.3/x64/bin/npm config get cache
+2026-10-25T17:34:55.6543941Z /home/runner/.npm
+2026-10-25T17:34:55.8610142Z Cache hit for: node-cache-Linux-x64-npm-707be72f2997b04d37d07552e08f3f07763ca6f1bb5316653dc06873f4c643ff
+2026-10-25T17:34:55.8722585Z (node:2727) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-25T17:34:57.0696050Z Received 37748736 of 167393035 (22.6%), 36.0 MBs/sec
+2026-10-25T17:34:57.8404760Z Received 167393035 of 167393035 (100.0%), 90.1 MBs/sec
+2026-10-25T17:34:57.8405961Z Cache Size: ~160 MB (167393035 B)
+2026-10-25T17:34:57.8457740Z [command]/usr/bin/tar -xf /home/runner/work/_temp/b54d87fe-62a8-4714-bf0f-a134e40931b3/cache.tzst -P -C /home/runner/work/cue/cue --use-compress-program unzstd
+2026-10-25T17:34:58.0625132Z Cache restored successfully
+2026-10-25T17:34:58.0698755Z Cache restored from key: node-cache-Linux-x64-npm-707be72f2997b04d37d07552e08f3f07763ca6f1bb5316653dc06873f4c643ff
+2026-10-25T17:34:58.0859138Z ##[group]Run npm ci
+2026-10-25T17:34:58.0859404Z [36;1mnpm ci[0m
+2026-10-25T17:34:58.1594068Z shell: /usr/bin/bash -e {0}
+2026-10-25T17:34:58.1594336Z ##[endgroup]
+2026-10-25T17:35:01.2236569Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2026-10-25T17:35:01.2504028Z npm warn deprecated rimraf@2.6.3: Rimraf versions prior to v4 are no longer supported
+2026-10-25T17:35:01.3159636Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+2026-10-25T17:35:01.5080951Z npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+2026-10-25T17:35:01.6758201Z npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+2026-10-25T17:35:17.4861425Z 
+2026-10-25T17:35:17.4861986Z > cue@0.2.2 postinstall
+2026-10-25T17:35:17.4862322Z > node scripts/rename-electron.js
+2026-10-25T17:35:17.4862491Z 
+2026-10-25T17:35:17.5251998Z 
+2026-10-25T17:35:17.5252630Z added 411 packages in 19s
+2026-10-25T17:35:17.5254010Z 
+2026-10-25T17:35:17.5254284Z 61 packages are looking for funding
+2026-10-25T17:35:17.5254673Z   run `npm fund` for details
+2026-10-25T17:35:17.6002235Z ##[group]Run set -euo pipefail
+2026-10-25T17:35:17.6002517Z [36;1mset -euo pipefail[0m
+2026-10-25T17:35:17.6003025Z [36;1mfor file in main.js preload.js electron-builder.cjs renderer/*.js src/*.js scripts/*.js scripts/*.cjs scripts/lib/*.cjs test/*.test.js test/*.cjs; do[0m
+2026-10-25T17:35:17.6003534Z [36;1m  node --check "$file"[0m
+2026-10-25T17:35:17.6003748Z [36;1mdone[0m
+2026-10-25T17:35:17.6061081Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-10-25T17:35:17.6061383Z ##[endgroup]
+2026-10-25T17:35:20.8629957Z ##[group]Run npm test
+2026-10-25T17:35:20.8630197Z [36;1mnpm test[0m
+2026-10-25T17:35:20.8685222Z shell: /usr/bin/bash -e {0}
+2026-10-25T17:35:20.8685455Z ##[endgroup]
+2026-10-25T17:35:20.9501504Z 
+2026-10-25T17:35:20.9502078Z > cue@0.2.2 test
+2026-10-25T17:35:20.9502441Z > node scripts/test-essential.cjs
+2026-10-25T17:35:20.9502703Z 
+2026-10-25T17:35:21.0205268Z TAP version 13
+2026-10-25T17:35:21.2335211Z # Subtest: package bootstrap obtains the single-instance lock before opening shared material services
+2026-10-25T17:35:21.2348884Z ok 1 - package bootstrap obtains the single-instance lock before opening shared material services
+2026-10-25T17:35:21.2349836Z   ---
+2026-10-25T17:35:21.2350506Z   duration_ms: 3.060431
+2026-10-25T17:35:21.2351077Z   type: 'test'
+2026-10-25T17:35:21.2351531Z   ...
+2026-10-25T17:35:21.2352252Z # Subtest: package.json has no "build" field shadowing electron-builder.cjs
+2026-10-25T17:35:21.2353308Z ok 2 - package.json has no "build" field shadowing electron-builder.cjs
+2026-10-25T17:35:21.2353950Z   ---
+2026-10-25T17:35:21.2354354Z   duration_ms: 0.180081
+2026-10-25T17:35:21.2354829Z   type: 'test'
+2026-10-25T17:35:21.2355269Z   ...
+2026-10-25T17:35:22.2931587Z # Subtest: electron-builder resolves the canonical config and preserves the Windows package identity
+2026-10-25T17:35:22.2933101Z ok 3 - electron-builder resolves the canonical config and preserves the Windows package identity
+2026-10-25T17:35:22.2933799Z   ---
+2026-10-25T17:35:22.2934132Z   duration_ms: 1055.19593
+2026-10-25T17:35:22.2934525Z   type: 'test'
+2026-10-25T17:35:22.2934834Z   ...
+2026-10-25T17:35:22.2935397Z # Subtest: manifest dependencies match the existing lockfile for a clean install
+2026-10-25T17:35:22.2959019Z ok 4 - manifest dependencies match the existing lockfile for a clean install
+2026-10-25T17:35:22.2959628Z   ---
+2026-10-25T17:35:22.2989183Z   duration_ms: 2.921824
+2026-10-25T17:35:22.2989786Z   type: 'test'
+2026-10-25T17:35:22.2990089Z   ...
+2026-10-25T17:35:22.2990824Z # Subtest: dist/pack scripts do not pass an inline --config that could bypass electron-builder.cjs
+2026-10-25T17:35:22.2991800Z ok 5 - dist/pack scripts do not pass an inline --config that could bypass electron-builder.cjs
+2026-10-25T17:35:22.2992375Z   ---
+2026-10-25T17:35:22.2992650Z   duration_ms: 0.370517
+2026-10-25T17:35:22.2992964Z   type: 'test'
+2026-10-25T17:35:22.2993234Z   ...
+2026-10-25T17:35:22.2993967Z # Subtest: mac config never auto-publishes and only claims hardened runtime / notarization with a real cert
+2026-10-25T17:35:22.2995039Z ok 6 - mac config never auto-publishes and only claims hardened runtime / notarization with a real cert
+2026-10-25T17:35:22.2995726Z   ---
+2026-10-25T17:35:22.2995994Z   duration_ms: 1.204761
+2026-10-25T17:35:22.2996301Z   type: 'test'
+2026-10-25T17:35:22.2996581Z   ...
+2026-10-25T17:35:22.2997168Z # Subtest: mac config ships the zip target with entitlements files that exist on disk
+2026-10-25T17:35:22.2998019Z ok 7 - mac config ships the zip target with entitlements files that exist on disk
+2026-10-25T17:35:22.2998704Z   ---
+2026-10-25T17:35:22.2998958Z   duration_ms: 0.533171
+2026-10-25T17:35:22.2999266Z   type: 'test'
+2026-10-25T17:35:22.2999529Z   ...
+2026-10-25T17:35:22.3230368Z # Subtest: explicit personal workspace imports facts, resume and JD once while preserving later local edits
+2026-10-25T17:35:22.3257339Z ok 8 - explicit personal workspace imports facts, resume and JD once while preserving later local edits
+2026-10-25T17:35:22.3347950Z   ---
+2026-10-25T17:35:22.3348758Z   duration_ms: 102.613142
+2026-10-25T17:35:22.3359236Z   type: 'test'
+2026-10-25T17:35:22.3359815Z   ...
+2026-10-25T17:35:22.3360852Z # Subtest: empty packaged revision preserves local facts/sources/settings and never creates a new material generation
+2026-10-25T17:35:22.3362160Z ok 9 - empty packaged revision preserves local facts/sources/settings and never creates a new material generation
+2026-10-25T17:35:22.3363163Z   ---
+2026-10-25T17:35:22.3363629Z   duration_ms: 8.748865
+2026-10-25T17:35:22.3364511Z   type: 'test'
+2026-10-25T17:35:22.3364965Z   ...
+2026-10-25T17:35:22.3365842Z # Subtest: packaging uses only hash-approved original files and the real folder importer deterministically
+2026-10-25T17:35:22.3367120Z ok 10 - packaging uses only hash-approved original files and the real folder importer deterministically
+2026-10-25T17:35:22.3367925Z   ---
+2026-10-25T17:35:22.3368369Z   duration_ms: 52.923244
+2026-10-25T17:35:22.3368999Z   type: 'test'
+2026-10-25T17:35:22.3369434Z   ...
+2026-10-25T17:35:22.3370317Z # Subtest: packaging rejects traversal, symlinks, sensitive paths and invalid source identity before publication
+2026-10-25T17:35:22.3371495Z ok 11 - packaging rejects traversal, symlinks, sensitive paths and invalid source identity before publication
+2026-10-25T17:35:22.3372317Z   ---
+2026-10-25T17:35:22.3372745Z   duration_ms: 13.312527
+2026-10-25T17:35:22.3373239Z   type: 'test'
+2026-10-25T17:35:22.3373686Z   ...
+2026-10-25T17:35:22.3374723Z # Subtest: facts and source snapshot install in one persisted generation; restarts and updates preserve local edits and unrelated sources
+2026-10-25T17:35:22.3376287Z ok 12 - facts and source snapshot install in one persisted generation; restarts and updates preserve local edits and unrelated sources
+2026-10-25T17:35:22.3377203Z   ---
+2026-10-25T17:35:22.3377647Z   duration_ms: 40.123991
+2026-10-25T17:35:22.3378119Z   type: 'test'
+2026-10-25T17:35:22.3378750Z   ...
+2026-10-25T17:35:22.3379659Z # Subtest: a new packaged revision updates an untouched distributed resume while preserving a preexisting local resume
+2026-10-25T17:35:22.3381002Z ok 13 - a new packaged revision updates an untouched distributed resume while preserving a preexisting local resume
+2026-10-25T17:35:22.3381842Z   ---
+2026-10-25T17:35:22.3382339Z   duration_ms: 11.684779
+2026-10-25T17:35:22.3382811Z   type: 'test'
+2026-10-25T17:35:22.3383447Z   ...
+2026-10-25T17:35:22.3384406Z # Subtest: updating an untouched packaged source replaces that project snapshot without retaining stale chunks
+2026-10-25T17:35:22.3385744Z ok 14 - updating an untouched packaged source replaces that project snapshot without retaining stale chunks
+2026-10-25T17:35:22.3386591Z   ---
+2026-10-25T17:35:22.3387041Z   duration_ms: 23.837613
+2026-10-25T17:35:22.3387533Z   type: 'test'
+2026-10-25T17:35:22.3387988Z   ...
+2026-10-25T17:35:22.3389151Z # Subtest: missing bundle is a no-op and tampering or a bundled JD fails before changing any installed materials
+2026-10-25T17:35:22.3390393Z ok 15 - missing bundle is a no-op and tampering or a bundled JD fails before changing any installed materials
+2026-10-25T17:35:22.3391172Z   ---
+2026-10-25T17:35:22.3391620Z   duration_ms: 10.347418
+2026-10-25T17:35:22.3392119Z   type: 'test'
+2026-10-25T17:35:22.3392544Z   ...
+2026-10-25T17:35:24.4133899Z # Subtest: instant: imported candidate and selected role reach personal answers without requiring a project route
+2026-10-25T17:35:24.4147287Z ok 16 - instant: imported candidate and selected role reach personal answers without requiring a project route
+2026-10-25T17:35:24.4147991Z   ---
+2026-10-25T17:35:24.4169463Z   duration_ms: 366.848112
+2026-10-25T17:35:24.4170037Z   type: 'test'
+2026-10-25T17:35:24.4170538Z   ...
+2026-10-25T17:35:24.4171461Z # Subtest: standard: imported candidate and selected role reach personal answers without requiring a project route
+2026-10-25T17:35:24.4173081Z ok 17 - standard: imported candidate and selected role reach personal answers without requiring a project route
+2026-10-25T17:35:24.4173909Z   ---
+2026-10-25T17:35:24.4174354Z   duration_ms: 209.172658
+2026-10-25T17:35:24.4174832Z   type: 'test'
+2026-10-25T17:35:24.4175264Z   ...
+2026-10-25T17:35:24.9838925Z # Subtest: evaluation imports candidate data through the personal preview/commit path and preserves its revision
+2026-10-25T17:35:24.9879988Z ok 18 - evaluation imports candidate data through the personal preview/commit path and preserves its revision
+2026-10-25T17:35:24.9909169Z   ---
+2026-10-25T17:35:24.9939117Z   duration_ms: 3345.08295
+2026-10-25T17:35:24.9940226Z   type: 'test'
+2026-10-25T17:35:24.9968360Z   ...
+2026-10-25T17:35:25.0519836Z # Subtest: expanded source selection rechecks truth and changed source text while sharing token features
+2026-10-25T17:35:25.0535915Z ok 19 - expanded source selection rechecks truth and changed source text while sharing token features
+2026-10-25T17:35:25.0578214Z   ---
+2026-10-25T17:35:25.0604185Z   duration_ms: 4.700567
+2026-10-25T17:35:25.0649455Z   type: 'test'
+2026-10-25T17:35:25.0679055Z   ...
+2026-10-25T17:35:25.0850174Z # Subtest: prepared source lookup is scoped and bounded without scanning or calling a model provider
+2026-10-25T17:35:25.0902336Z ok 20 - prepared source lookup is scoped and bounded without scanning or calling a model provider
+2026-10-25T17:35:25.0908939Z   ---
+2026-10-25T17:35:25.0909268Z   duration_ms: 6.253383
+2026-10-25T17:35:25.0909590Z   type: 'test'
+2026-10-25T17:35:25.0909869Z   ...
+2026-10-25T17:35:25.0910569Z # Subtest: fact and source budgets preserve multiple actual asks instead of unrelated broad intents
+2026-10-25T17:35:25.0911556Z ok 21 - fact and source budgets preserve multiple actual asks instead of unrelated broad intents
+2026-10-25T17:35:25.0912131Z   ---
+2026-10-25T17:35:25.0912395Z   duration_ms: 27.499739
+2026-10-25T17:35:25.0912704Z   type: 'test'
+2026-10-25T17:35:25.0912965Z   ...
+2026-10-25T17:35:25.0913880Z # Subtest: a current mechanism question retains its relevant reference through the final budget instead of unrelated USER or inherited intents
+2026-10-25T17:35:25.0915254Z ok 22 - a current mechanism question retains its relevant reference through the final budget instead of unrelated USER or inherited intents
+2026-10-25T17:35:25.0916013Z   ---
+2026-10-25T17:35:25.0916278Z   duration_ms: 6.626152
+2026-10-25T17:35:25.0916581Z   type: 'test'
+2026-10-25T17:35:25.0916840Z   ...
+2026-10-25T17:35:25.0917701Z # Subtest: a cold conversational cache can attach prepared source to a full >1600-character instant question; source off performs no lookup
+2026-10-25T17:35:25.0919376Z ok 23 - a cold conversational cache can attach prepared source to a full >1600-character instant question; source off performs no lookup
+2026-10-25T17:35:25.0920125Z   ---
+2026-10-25T17:35:25.0920387Z   duration_ms: 390.873519
+2026-10-25T17:35:25.0920699Z   type: 'test'
+2026-10-25T17:35:25.0920956Z   ...
+2026-10-25T17:35:25.0921771Z # Subtest: whole interview TXT keeps both speakers, corrections and distinct suggestions beyond ledger eviction and session reset
+2026-10-25T17:35:25.0933611Z ok 24 - whole interview TXT keeps both speakers, corrections and distinct suggestions beyond ledger eviction and session reset
+2026-10-25T17:35:25.0960207Z   ---
+2026-10-25T17:35:25.0988973Z   duration_ms: 336.203397
+2026-10-25T17:35:25.0989314Z   type: 'test'
+2026-10-25T17:35:25.0989599Z   ...
+2026-10-25T17:35:25.0990431Z # Subtest: both answer modes give experience-based fallbacks and examples through the real SDK when project details are absent
+2026-10-25T17:35:25.0991700Z ok 25 - both answer modes give experience-based fallbacks and examples through the real SDK when project details are absent
+2026-10-25T17:35:25.0992399Z   ---
+2026-10-25T17:35:25.0992667Z   duration_ms: 261.5914
+2026-10-25T17:35:25.0992973Z   type: 'test'
+2026-10-25T17:35:25.0993245Z   ...
+2026-10-25T17:35:25.0994067Z # Subtest: diagnostics preserve the actual deep request identity after configuration changes and retain the latest failed attempt
+2026-10-25T17:35:25.0995640Z ok 26 - diagnostics preserve the actual deep request identity after configuration changes and retain the latest failed attempt
+2026-10-25T17:35:25.0996341Z   ---
+2026-10-25T17:35:25.0996612Z   duration_ms: 125.486733
+2026-10-25T17:35:25.0996947Z   type: 'test'
+2026-10-25T17:35:25.0997202Z   ...
+2026-10-25T17:35:25.0997808Z # Subtest: instant: production request preserves hypothetical and question speech labels
+2026-10-25T17:35:25.1058798Z ok 27 - instant: production request preserves hypothetical and question speech labels
+2026-10-25T17:35:25.1059469Z   ---
+2026-10-25T17:35:25.1060066Z   duration_ms: 109.96224
+2026-10-25T17:35:25.1060407Z   type: 'test'
+2026-10-25T17:35:25.1060676Z   ...
+2026-10-25T17:35:25.1061309Z # Subtest: standard: production request preserves hypothetical and question speech labels
+2026-10-25T17:35:25.1062201Z ok 28 - standard: production request preserves hypothetical and question speech labels
+2026-10-25T17:35:25.1062757Z   ---
+2026-10-25T17:35:25.1063031Z   duration_ms: 123.094996
+2026-10-25T17:35:25.1063338Z   type: 'test'
+2026-10-25T17:35:25.1063598Z   ...
+2026-10-25T17:35:25.1064382Z # Subtest: instant: an indexed unique mechanism starts the right project thread without hijacking explicit general questions
+2026-10-25T17:35:25.1065619Z ok 29 - instant: an indexed unique mechanism starts the right project thread without hijacking explicit general questions
+2026-10-25T17:35:25.1066305Z   ---
+2026-10-25T17:35:25.1066569Z   duration_ms: 154.094167
+2026-10-25T17:35:25.1066884Z   type: 'test'
+2026-10-25T17:35:25.1067142Z   ...
+2026-10-25T17:35:25.1067932Z # Subtest: standard: an indexed unique mechanism starts the right project thread without hijacking explicit general questions
+2026-10-25T17:35:25.1069385Z ok 30 - standard: an indexed unique mechanism starts the right project thread without hijacking explicit general questions
+2026-10-25T17:35:25.1070063Z   ---
+2026-10-25T17:35:25.1070328Z   duration_ms: 496.18324
+2026-10-25T17:35:25.1070627Z   type: 'test'
+2026-10-25T17:35:25.1070892Z   ...
+2026-10-25T17:35:25.1071535Z # Subtest: speech revisions, final replay, aliases and unknown roles retain the original observation
+2026-10-25T17:35:25.1072506Z ok 31 - speech revisions, final replay, aliases and unknown roles retain the original observation
+2026-10-25T17:35:25.1073092Z   ---
+2026-10-25T17:35:25.1073358Z   duration_ms: 1.936552
+2026-10-25T17:35:25.1073658Z   type: 'test'
+2026-10-25T17:35:25.1073916Z   ...
+2026-10-25T17:35:25.1074523Z # Subtest: cross-channel echo is uncertain in you then them arrival order and can be corrected
+2026-10-25T17:35:25.1075413Z ok 32 - cross-channel echo is uncertain in you then them arrival order and can be corrected
+2026-10-25T17:35:25.1075963Z   ---
+2026-10-25T17:35:25.1076242Z   duration_ms: 0.961786
+2026-10-25T17:35:25.1076534Z   type: 'test'
+2026-10-25T17:35:25.1076793Z   ...
+2026-10-25T17:35:25.1077397Z # Subtest: cross-channel echo is uncertain in them then you arrival order and can be corrected
+2026-10-25T17:35:25.1078281Z ok 33 - cross-channel echo is uncertain in them then you arrival order and can be corrected
+2026-10-25T17:35:25.1078984Z   ---
+2026-10-25T17:35:25.1079252Z   duration_ms: 0.701685
+2026-10-25T17:35:25.1079543Z   type: 'test'
+2026-10-25T17:35:25.1079792Z   ...
+2026-10-25T17:35:25.1080500Z # Subtest: out-of-order corrections and mixed missing/relative times preserve chronology and evidence versions
+2026-10-25T17:35:25.1081607Z ok 34 - out-of-order corrections and mixed missing/relative times preserve chronology and evidence versions
+2026-10-25T17:35:25.1082227Z   ---
+2026-10-25T17:35:25.1082487Z   duration_ms: 5.70017
+2026-10-25T17:35:25.1082799Z   type: 'test'
+2026-10-25T17:35:25.1083053Z   ...
+2026-10-25T17:35:25.1083784Z # Subtest: a named benchmark correction keeps independent CI speech and recognizes a correction within one final
+2026-10-25T17:35:25.1084904Z ok 35 - a named benchmark correction keeps independent CI speech and recognizes a correction within one final
+2026-10-25T17:35:25.1085827Z   ---
+2026-10-25T17:35:25.1086092Z   duration_ms: 0.887164
+2026-10-25T17:35:25.1086403Z   type: 'test'
+2026-10-25T17:35:25.1142785Z   ...
+2026-10-25T17:35:25.1143650Z # Subtest: hypothetical broker design and candidate questions do not contradict an actual implementation statement
+2026-10-25T17:35:25.1144813Z ok 36 - hypothetical broker design and candidate questions do not contradict an actual implementation statement
+2026-10-25T17:35:25.1145447Z   ---
+2026-10-25T17:35:25.1145717Z   duration_ms: 0.430677
+2026-10-25T17:35:25.1146028Z   type: 'test'
+2026-10-25T17:35:25.1146280Z   ...
+2026-10-25T17:35:25.1147434Z # Subtest: an English self-correction observed by live ASR reaches production SDK speech context without repeated correction or unrelated claim retirement
+2026-10-25T17:35:25.1149169Z ok 37 - an English self-correction observed by live ASR reaches production SDK speech context without repeated correction or unrelated claim retirement
+2026-10-25T17:35:25.1150011Z   ---
+2026-10-25T17:35:25.1150279Z   duration_ms: 132.388461
+2026-10-25T17:35:25.1150592Z   type: 'test'
+2026-10-25T17:35:25.1150865Z   ...
+2026-10-25T17:35:25.1151598Z # Subtest: production speech keeps an early corrected subject after thirty rounds and an interrupted two-speaker turn
+2026-10-25T17:35:25.1152762Z ok 38 - production speech keeps an early corrected subject after thirty rounds and an interrupted two-speaker turn
+2026-10-25T17:35:25.1153412Z   ---
+2026-10-25T17:35:25.1153681Z   duration_ms: 253.293854
+2026-10-25T17:35:25.1153992Z   type: 'test'
+2026-10-25T17:35:25.1154250Z   ...
+2026-10-25T17:35:25.1154887Z # Subtest: protected speech and numeric qualifications survive instant soft target and final request pressure
+2026-10-25T17:35:25.1155942Z ok 39 - protected speech and numeric qualifications survive instant soft target and final request pressure
+2026-10-25T17:35:25.1156576Z   ---
+2026-10-25T17:35:25.1156844Z   duration_ms: 4.652615
+2026-10-25T17:35:25.1157136Z   type: 'test'
+2026-10-25T17:35:25.1157413Z   ...
+2026-10-25T17:35:25.1158112Z # Subtest: production instant IPC uses real speech across request boundaries and continues a human correction
+2026-10-25T17:35:25.1159337Z ok 40 - production instant IPC uses real speech across request boundaries and continues a human correction
+2026-10-25T17:35:25.1159959Z   ---
+2026-10-25T17:35:25.1160248Z   duration_ms: 144.563026
+2026-10-25T17:35:25.1160550Z   type: 'test'
+2026-10-25T17:35:25.1160821Z   ...
+2026-10-25T17:35:25.1161512Z # Subtest: production standard IPC uses real speech across request boundaries and continues a human correction
+2026-10-25T17:35:25.1162596Z ok 41 - production standard IPC uses real speech across request boundaries and continues a human correction
+2026-10-25T17:35:25.1163191Z   ---
+2026-10-25T17:35:25.1163446Z   duration_ms: 174.199779
+2026-10-25T17:35:25.1163762Z   type: 'test'
+2026-10-25T17:35:25.1164011Z   ...
+2026-10-25T17:35:25.1164710Z # Subtest: production cancel and reset reject late tokens and suggestion state while preserving occurred speech
+2026-10-25T17:35:25.1165780Z ok 42 - production cancel and reset reject late tokens and suggestion state while preserving occurred speech
+2026-10-25T17:35:25.1166389Z   ---
+2026-10-25T17:35:25.1166657Z   duration_ms: 90.253446
+2026-10-25T17:35:25.1166979Z   type: 'test'
+2026-10-25T17:35:25.1167231Z   ...
+2026-10-25T17:35:25.1167916Z # Subtest: production manual role/text correction updates one transcript and keeps the source observation
+2026-10-25T17:35:25.1213224Z ok 43 - production manual role/text correction updates one transcript and keeps the source observation
+2026-10-25T17:35:25.1213888Z   ---
+2026-10-25T17:35:25.1214180Z   duration_ms: 71.548761
+2026-10-25T17:35:25.1214498Z   type: 'test'
+2026-10-25T17:35:25.1214839Z   ...
+2026-10-25T17:35:25.1215487Z # Subtest: configured code output budget reaches production request planning and remains frozen
+2026-10-25T17:35:25.1216432Z ok 44 - configured code output budget reaches production request planning and remains frozen
+2026-10-25T17:35:25.1217230Z   ---
+2026-10-25T17:35:25.1217494Z   duration_ms: 102.53392
+2026-10-25T17:35:25.1217800Z   type: 'test'
+2026-10-25T17:35:25.1218070Z   ...
+2026-10-25T17:35:25.1218933Z # Subtest: diagnostic export writes only a user-selected local file with contacts and configured keys redacted
+2026-10-25T17:35:25.1219979Z ok 45 - diagnostic export writes only a user-selected local file with contacts and configured keys redacted
+2026-10-25T17:35:25.1220597Z   ---
+2026-10-25T17:35:25.1220849Z   duration_ms: 106.7765
+2026-10-25T17:35:25.1221143Z   type: 'test'
+2026-10-25T17:35:25.1221392Z   ...
+2026-10-25T17:35:25.1222263Z # Subtest: production local Whisper reset during model-verification restarts under the new session
+2026-10-25T17:35:25.1223268Z ok 46 - production local Whisper reset during model-verification restarts under the new session
+2026-10-25T17:35:25.1223860Z   ---
+2026-10-25T17:35:25.1224151Z   duration_ms: 116.392769
+2026-10-25T17:35:25.1224460Z   type: 'test'
+2026-10-25T17:35:25.1224715Z   ...
+2026-10-25T17:35:25.1225327Z # Subtest: production local Whisper reset during model-verification respects a subsequent stop
+2026-10-25T17:35:25.1226271Z ok 47 - production local Whisper reset during model-verification respects a subsequent stop
+2026-10-25T17:35:25.1226847Z   ---
+2026-10-25T17:35:25.1227108Z   duration_ms: 87.865385
+2026-10-25T17:35:25.1227411Z   type: 'test'
+2026-10-25T17:35:25.1227678Z   ...
+2026-10-25T17:35:25.1228314Z # Subtest: production local Whisper reset during transcriber-start restarts under the new session
+2026-10-25T17:35:25.1229437Z ok 48 - production local Whisper reset during transcriber-start restarts under the new session
+2026-10-25T17:35:25.1230025Z   ---
+2026-10-25T17:35:25.1230283Z   duration_ms: 82.234188
+2026-10-25T17:35:25.1230586Z   type: 'test'
+2026-10-25T17:35:25.1230838Z   ...
+2026-10-25T17:35:25.1231456Z # Subtest: production local Whisper reset during transcriber-start respects a subsequent stop
+2026-10-25T17:35:25.1232387Z ok 49 - production local Whisper reset during transcriber-start respects a subsequent stop
+2026-10-25T17:35:25.1232950Z   ---
+2026-10-25T17:35:25.1233220Z   duration_ms: 121.140122
+2026-10-25T17:35:25.1233507Z   type: 'test'
+2026-10-25T17:35:25.1233752Z   ...
+2026-10-25T17:35:25.1234313Z # Subtest: family holdout rejects mechanism overlap and requires an explicit manifest
+2026-10-25T17:35:25.1270000Z ok 50 - family holdout rejects mechanism overlap and requires an explicit manifest
+2026-10-25T17:35:25.1270634Z   ---
+2026-10-25T17:35:25.1270917Z   duration_ms: 2.678337
+2026-10-25T17:35:25.1271235Z   type: 'test'
+2026-10-25T17:35:25.1271499Z   ...
+2026-10-25T17:35:25.1272194Z # Subtest: resumed production accounting retains the failed original request as well as its successful retry
+2026-10-25T17:35:25.1273275Z ok 51 - resumed production accounting retains the failed original request as well as its successful retry
+2026-10-25T17:35:25.1273879Z   ---
+2026-10-25T17:35:25.1274145Z   duration_ms: 0.273081
+2026-10-25T17:35:25.1274439Z   type: 'test'
+2026-10-25T17:35:25.1274691Z   ...
+2026-10-25T17:35:25.1275428Z # Subtest: dynamic production materials exclude reference answers and embedded oracle and preserve valid relations
+2026-10-25T17:35:25.1276579Z ok 52 - dynamic production materials exclude reference answers and embedded oracle and preserve valid relations
+2026-10-25T17:35:25.1277238Z   ---
+2026-10-25T17:35:25.1277491Z   duration_ms: 3.490789
+2026-10-25T17:35:25.1277809Z   type: 'test'
+2026-10-25T17:35:25.1278071Z   ...
+2026-10-25T17:35:25.1279027Z # Subtest: all six candidate behaviors use actual-speech followups, isolated actor requests and production answer callback
+2026-10-25T17:35:25.1280266Z ok 53 - all six candidate behaviors use actual-speech followups, isolated actor requests and production answer callback
+2026-10-25T17:35:25.1280950Z   ---
+2026-10-25T17:35:25.1281226Z   duration_ms: 1285.670183
+2026-10-25T17:35:25.1281522Z   type: 'test'
+2026-10-25T17:35:25.1281791Z   ...
+2026-10-25T17:35:25.1282486Z # Subtest: system prefix precedes changing sources, retains user style, and grounds claims by evidence type
+2026-10-25T17:35:25.1283751Z ok 54 - system prefix precedes changing sources, retains user style, and grounds claims by evidence type
+2026-10-25T17:35:25.1284365Z   ---
+2026-10-25T17:35:25.1284625Z   duration_ms: 1.379874
+2026-10-25T17:35:25.1284919Z   type: 'test'
+2026-10-25T17:35:25.1285185Z   ...
+2026-10-25T17:35:25.1285741Z # Subtest: source caps preserve complete source blocks and never register a clipped tail
+2026-10-25T17:35:25.1286595Z ok 55 - source caps preserve complete source blocks and never register a clipped tail
+2026-10-25T17:35:25.1287118Z   ---
+2026-10-25T17:35:25.1287587Z   duration_ms: 1.396609
+2026-10-25T17:35:25.1287906Z   type: 'test'
+2026-10-25T17:35:25.1288169Z   ...
+2026-10-25T17:35:25.1289127Z # Subtest: final request reserves output and image tokens, preserves full current question and constraints before old history
+2026-10-25T17:35:25.1290340Z ok 56 - final request reserves output and image tokens, preserves full current question and constraints before old history
+2026-10-25T17:35:25.1291039Z   ---
+2026-10-25T17:35:25.1291293Z   duration_ms: 4.933709
+2026-10-25T17:35:25.1291587Z   type: 'test'
+2026-10-25T17:35:25.1291840Z   ...
+2026-10-25T17:35:25.1292481Z # Subtest: final model window removes whole excess source blocks and reports unfulfilled evidence
+2026-10-25T17:35:25.1293460Z ok 57 - final model window removes whole excess source blocks and reports unfulfilled evidence
+2026-10-25T17:35:25.1294023Z   ---
+2026-10-25T17:35:25.1294295Z   duration_ms: 1.692275
+2026-10-25T17:35:25.1294593Z   type: 'test'
+2026-10-25T17:35:25.1294845Z   ...
+2026-10-25T17:35:25.1295449Z # Subtest: source omission notice stays bounded and fits even with many excluded source IDs
+2026-10-25T17:35:25.1296268Z ok 58 - source omission notice stays bounded and fits even with many excluded source IDs
+2026-10-25T17:35:25.1296790Z   ---
+2026-10-25T17:35:25.1297059Z   duration_ms: 2.578327
+2026-10-25T17:35:25.1297351Z   type: 'test'
+2026-10-25T17:35:25.1297610Z   ...
+2026-10-25T17:35:25.1298215Z # Subtest: oversize original questions are never silently cut to retain history or fixed rules
+2026-10-25T17:35:25.1329505Z ok 59 - oversize original questions are never silently cut to retain history or fixed rules
+2026-10-25T17:35:25.1330102Z   ---
+2026-10-25T17:35:25.1330380Z   duration_ms: 0.401604
+2026-10-25T17:35:25.1330694Z   type: 'test'
+2026-10-25T17:35:25.1330969Z   ...
+2026-10-25T17:35:25.1331677Z # Subtest: visible source refs are checked against actual OpenAI, Anthropic, Gemini and Ollama request text
+2026-10-25T17:35:25.1332753Z ok 60 - visible source refs are checked against actual OpenAI, Anthropic, Gemini and Ollama request text
+2026-10-25T17:35:25.1333356Z   ---
+2026-10-25T17:35:25.1333604Z   duration_ms: 0.55186
+2026-10-25T17:35:25.1333883Z   type: 'test'
+2026-10-25T17:35:25.1334134Z   ...
+2026-10-25T17:35:25.4066986Z # Subtest: actual v1 runtime keeps bootstrap and explicit project switching isolated
+2026-10-25T17:35:25.4072242Z ok 61 - actual v1 runtime keeps bootstrap and explicit project switching isolated
+2026-10-25T17:35:25.4073019Z   ---
+2026-10-25T17:35:25.4073483Z   duration_ms: 774.065825
+2026-10-25T17:35:25.4073977Z   type: 'test'
+2026-10-25T17:35:25.4074399Z   ...
+2026-10-25T17:35:25.4075112Z # Subtest: actual v2 runtime keeps bootstrap and explicit project switching isolated
+2026-10-25T17:35:25.4076370Z ok 62 - actual v2 runtime keeps bootstrap and explicit project switching isolated
+2026-10-25T17:35:25.4077052Z   ---
+2026-10-25T17:35:25.4077448Z   duration_ms: 188.527621
+2026-10-25T17:35:25.4077889Z   type: 'test'
+2026-10-25T17:35:25.4078298Z   ...
+2026-10-25T17:35:25.4079221Z # Subtest: real Ctrl+Enter skips empty/incomplete targets and accepts a later complete final
+2026-10-25T17:35:25.4080312Z ok 63 - real Ctrl+Enter skips empty/incomplete targets and accepts a later complete final
+2026-10-25T17:35:25.4081031Z   ---
+2026-10-25T17:35:25.4081472Z   duration_ms: 93.737214
+2026-10-25T17:35:25.4081914Z   type: 'test'
+2026-10-25T17:35:25.4082586Z   ...
+2026-10-25T17:35:25.4083333Z # Subtest: Ctrl+Enter interruption cancels the old SDK stream and commits only its replacement
+2026-10-25T17:35:25.4084352Z ok 64 - Ctrl+Enter interruption cancels the old SDK stream and commits only its replacement
+2026-10-25T17:35:25.4085051Z   ---
+2026-10-25T17:35:25.4085432Z   duration_ms: 129.790254
+2026-10-25T17:35:25.4085860Z   type: 'test'
+2026-10-25T17:35:25.4086247Z   ...
+2026-10-25T17:35:25.4086985Z # Subtest: clear during real SDK generation isolates late tokens and the new conversation epoch
+2026-10-25T17:35:25.4088046Z ok 65 - clear during real SDK generation isolates late tokens and the new conversation epoch
+2026-10-25T17:35:25.4089324Z   ---
+2026-10-25T17:35:25.4089788Z   duration_ms: 167.447881
+2026-10-25T17:35:25.4090249Z   type: 'test'
+2026-10-25T17:35:25.4090645Z   ...
+2026-10-25T17:35:25.4091434Z # Subtest: real Assist shortcut uses the new screenshot and the current interviewer code modification
+2026-10-25T17:35:25.4092563Z ok 66 - real Assist shortcut uses the new screenshot and the current interviewer code modification
+2026-10-25T17:35:25.4093279Z   ---
+2026-10-25T17:35:25.4093684Z   duration_ms: 131.436594
+2026-10-25T17:35:25.4094147Z   type: 'test'
+2026-10-25T17:35:25.4094547Z   ...
+2026-10-25T17:35:25.4095458Z # Subtest: Chinese scenario reaches final SDK messages in order and an omitted third answer stays pending until supplemented
+2026-10-25T17:35:25.4096817Z ok 67 - Chinese scenario reaches final SDK messages in order and an omitted third answer stays pending until supplemented
+2026-10-25T17:35:25.4097646Z   ---
+2026-10-25T17:35:25.4098077Z   duration_ms: 230.706001
+2026-10-25T17:35:25.4098686Z   type: 'test'
+2026-10-25T17:35:25.4099088Z   ...
+2026-10-25T17:35:25.4100235Z # Subtest: English scenario reaches final SDK messages in order and an omitted third answer stays pending until supplemented
+2026-10-25T17:35:25.4101818Z ok 68 - English scenario reaches final SDK messages in order and an omitted third answer stays pending until supplemented
+2026-10-25T17:35:25.4102669Z   ---
+2026-10-25T17:35:25.4103264Z   duration_ms: 194.835456
+2026-10-25T17:35:25.4103715Z   type: 'test'
+2026-10-25T17:35:25.4104124Z   ...
+2026-10-25T17:35:25.4105195Z # Subtest: a new standard project question does not reactivate unknown old asks, while explicit ordinal follow-ups retain the requested ask
+2026-10-25T17:35:25.4106868Z ok 69 - a new standard project question does not reactivate unknown old asks, while explicit ordinal follow-ups retain the requested ask
+2026-10-25T17:35:25.4107949Z   ---
+2026-10-25T17:35:25.4108669Z   duration_ms: 186.516467
+2026-10-25T17:35:25.4109200Z   type: 'test'
+2026-10-25T17:35:25.4109624Z   ...
+2026-10-25T17:35:25.4110268Z # Subtest: SDK finish_reason=length cannot mark requested answers covered
+2026-10-25T17:35:25.4111206Z ok 70 - SDK finish_reason=length cannot mark requested answers covered
+2026-10-25T17:35:25.4111707Z   ---
+2026-10-25T17:35:25.4112060Z   duration_ms: 141.275422
+2026-10-25T17:35:25.4112476Z   type: 'test'
+2026-10-25T17:35:25.4112829Z   ...
+2026-10-25T17:35:25.4113355Z # Subtest: SDK finish_reason=null cannot mark requested answers covered
+2026-10-25T17:35:25.4114184Z ok 71 - SDK finish_reason=null cannot mark requested answers covered
+2026-10-25T17:35:25.4114865Z   ---
+2026-10-25T17:35:25.4115286Z   duration_ms: 135.939084
+2026-10-25T17:35:25.4115715Z   type: 'test'
+2026-10-25T17:35:25.4116099Z   ...
+2026-10-25T17:35:25.4116926Z # Subtest: generic Redis interlude suspends project state and its explicit return restores scoped evidence
+2026-10-25T17:35:25.4120010Z ok 72 - generic Redis interlude suspends project state and its explicit return restores scoped evidence
+2026-10-25T17:35:25.4120756Z   ---
+2026-10-25T17:35:25.4121105Z   duration_ms: 196.56683
+2026-10-25T17:35:25.4121523Z   type: 'test'
+2026-10-25T17:35:25.4121935Z   ...
+2026-10-25T17:35:25.5556388Z # Subtest: 30-minute real runtime keeps project facts source-faithful across more than 24 answered turns
+2026-10-25T17:35:25.5566754Z ok 73 - 30-minute real runtime keeps project facts source-faithful across more than 24 answered turns
+2026-10-25T17:35:25.5568095Z   ---
+2026-10-25T17:35:25.5568741Z   duration_ms: 395.707333
+2026-10-25T17:35:25.5569203Z   type: 'test'
+2026-10-25T17:35:25.5569614Z   ...
+2026-10-25T17:35:25.7301059Z # Subtest: project Redis decisions and outage follow-ups reselect scoped typed evidence while unknown code needs search
+2026-10-25T17:35:25.7309945Z ok 74 - project Redis decisions and outage follow-ups reselect scoped typed evidence while unknown code needs search
+2026-10-25T17:35:25.7310798Z   ---
+2026-10-25T17:35:25.7311217Z   duration_ms: 133.608515
+2026-10-25T17:35:25.7311669Z   type: 'test'
+2026-10-25T17:35:25.7312385Z   ...
+2026-10-25T17:35:25.8270171Z # Subtest: source-code question sends a cited Controller-Service-Repository chain to the actual SDK
+2026-10-25T17:35:25.8271653Z ok 75 - source-code question sends a cited Controller-Service-Repository chain to the actual SDK
+2026-10-25T17:35:25.8303418Z   ---
+2026-10-25T17:35:25.8318791Z   duration_ms: 174.818008
+2026-10-25T17:35:25.8345758Z   type: 'test'
+2026-10-25T17:35:25.8378704Z   ...
+2026-10-25T17:35:25.8427711Z # Subtest: manual ask with a screenshot uses the configured code output budget
+2026-10-25T17:35:25.8457142Z ok 76 - manual ask with a screenshot uses the configured code output budget
+2026-10-25T17:35:25.8499096Z   ---
+2026-10-25T17:35:25.8559124Z   duration_ms: 103.735223
+2026-10-25T17:35:25.8559532Z   type: 'test'
+2026-10-25T17:35:25.8650157Z   ...
+2026-10-25T17:35:25.9038229Z # Subtest: fixed suite has 24 cases and a six-case conversational smoke covering routing, modes and policies
+2026-10-25T17:35:25.9089708Z ok 77 - fixed suite has 24 cases and a six-case conversational smoke covering routing, modes and policies
+2026-10-25T17:35:25.9130065Z   ---
+2026-10-25T17:35:25.9159435Z   duration_ms: 1.905135
+2026-10-25T17:35:25.9160049Z   type: 'test'
+2026-10-25T17:35:25.9160481Z   ...
+2026-10-25T17:35:25.9161295Z # Subtest: approval is a bounded, hash-checked allowlist with explicitly fictional personal data
+2026-10-25T17:35:25.9162404Z ok 78 - approval is a bounded, hash-checked allowlist with explicitly fictional personal data
+2026-10-25T17:35:25.9163100Z   ---
+2026-10-25T17:35:25.9163563Z   duration_ms: 2.951447
+2026-10-25T17:35:25.9164057Z   type: 'test'
+2026-10-25T17:35:25.9164528Z   ...
+2026-10-25T17:35:25.9165542Z # Subtest: facts preserve public technical provenance and synthetic role documents without importing private overrides
+2026-10-25T17:35:25.9167048Z ok 79 - facts preserve public technical provenance and synthetic role documents without importing private overrides
+2026-10-25T17:35:25.9167913Z   ---
+2026-10-25T17:35:25.9168338Z   duration_ms: 7.29596
+2026-10-25T17:35:25.9168918Z   type: 'test'
+2026-10-25T17:35:25.9169336Z   ...
+2026-10-25T17:35:25.9170091Z # Subtest: alternative phrasing is advisory and cannot fail an otherwise valid contract
+2026-10-25T17:35:25.9171143Z ok 80 - alternative phrasing is advisory and cannot fail an otherwise valid contract
+2026-10-25T17:35:25.9171860Z   ---
+2026-10-25T17:35:25.9172260Z   duration_ms: 1.390301
+2026-10-25T17:35:25.9172704Z   type: 'test'
+2026-10-25T17:35:25.9173114Z   ...
+2026-10-25T17:35:25.9173794Z # Subtest: a non-empty acknowledgement cannot be reported as a quality pass
+2026-10-25T17:35:25.9174709Z ok 81 - a non-empty acknowledgement cannot be reported as a quality pass
+2026-10-25T17:35:25.9175353Z   ---
+2026-10-25T17:35:25.9175754Z   duration_ms: 0.608145
+2026-10-25T17:35:25.9176346Z   type: 'test'
+2026-10-25T17:35:25.9176702Z   ...
+2026-10-25T17:35:25.9177423Z # Subtest: fixed project oracle and evidence reject cross-project leakage independently of answer wording
+2026-10-25T17:35:25.9178440Z ok 82 - fixed project oracle and evidence reject cross-project leakage independently of answer wording
+2026-10-25T17:35:25.9179178Z   ---
+2026-10-25T17:35:25.9179516Z   duration_ms: 0.500462
+2026-10-25T17:35:25.9179882Z   type: 'test'
+2026-10-25T17:35:25.9180315Z   ...
+2026-10-25T17:35:25.9181076Z # Subtest: only a hand-authored minimum fact subset blocks, not all potentially relevant facts
+2026-10-25T17:35:25.9182562Z ok 83 - only a hand-authored minimum fact subset blocks, not all potentially relevant facts
+2026-10-25T17:35:25.9183248Z   ---
+2026-10-25T17:35:25.9183611Z   duration_ms: 0.567293
+2026-10-25T17:35:25.9184001Z   type: 'test'
+2026-10-25T17:35:25.9184390Z   ...
+2026-10-25T17:35:25.9185198Z # Subtest: source off, required source presence, and source project provenance are separate contracts
+2026-10-25T17:35:25.9186358Z ok 84 - source off, required source presence, and source project provenance are separate contracts
+2026-10-25T17:35:25.9187069Z   ---
+2026-10-25T17:35:25.9187633Z   duration_ms: 0.797089
+2026-10-25T17:35:25.9188082Z   type: 'test'
+2026-10-25T17:35:25.9188469Z   ...
+2026-10-25T17:35:25.9189348Z # Subtest: a same-project but irrelevant source file cannot satisfy a fixed source-path oracle
+2026-10-25T17:35:25.9190432Z ok 85 - a same-project but irrelevant source file cannot satisfy a fixed source-path oracle
+2026-10-25T17:35:25.9191138Z   ---
+2026-10-25T17:35:25.9191530Z   duration_ms: 0.785061
+2026-10-25T17:35:25.9191955Z   type: 'test'
+2026-10-25T17:35:25.9192346Z   ...
+2026-10-25T17:35:25.9193220Z # Subtest: documented benchmark numbers and production boundary are checked without penalizing explicit negation
+2026-10-25T17:35:25.9194505Z ok 86 - documented benchmark numbers and production boundary are checked without penalizing explicit negation
+2026-10-25T17:35:25.9195285Z   ---
+2026-10-25T17:35:25.9195670Z   duration_ms: 4.289018
+2026-10-25T17:35:25.9196099Z   type: 'test'
+2026-10-25T17:35:25.9196489Z   ...
+2026-10-25T17:35:25.9197170Z # Subtest: a negation in a different sentence does not excuse an unsupported claim
+2026-10-25T17:35:25.9198100Z ok 87 - a negation in a different sentence does not excuse an unsupported claim
+2026-10-25T17:35:25.9198843Z   ---
+2026-10-25T17:35:25.9199189Z   duration_ms: 0.249545
+2026-10-25T17:35:25.9199602Z   type: 'test'
+2026-10-25T17:35:25.9199991Z   ...
+2026-10-25T17:35:25.9200708Z # Subtest: general questions receive neither project facts nor project source evidence
+2026-10-25T17:35:25.9201747Z ok 88 - general questions receive neither project facts nor project source evidence
+2026-10-25T17:35:25.9202425Z   ---
+2026-10-25T17:35:25.9202813Z   duration_ms: 0.341433
+2026-10-25T17:35:25.9203230Z   type: 'test'
+2026-10-25T17:35:25.9203615Z   ...
+2026-10-25T17:35:25.9204315Z # Subtest: an incomplete request, empty answer, or invalid rule is an explicit failure
+2026-10-25T17:35:25.9205283Z ok 89 - an incomplete request, empty answer, or invalid rule is an explicit failure
+2026-10-25T17:35:25.9205923Z   ---
+2026-10-25T17:35:25.9206322Z   duration_ms: 0.410928
+2026-10-25T17:35:25.9206741Z   type: 'test'
+2026-10-25T17:35:25.9207124Z   ...
+2026-10-25T17:35:25.9208095Z # Subtest: known project generic descriptions remain resolved while distinct unknown names and conjunctions stay isolated
+2026-10-25T17:35:25.9209573Z ok 90 - known project generic descriptions remain resolved while distinct unknown names and conjunctions stay isolated
+2026-10-25T17:35:25.9210392Z   ---
+2026-10-25T17:35:25.9210794Z   duration_ms: 18.992447
+2026-10-25T17:35:25.9211229Z   type: 'test'
+2026-10-25T17:35:25.9211614Z   ...
+2026-10-25T17:35:25.9212455Z # Subtest: real instant and standard session retain Arclight generic-description ownership and its follow-up
+2026-10-25T17:35:25.9213497Z ok 91 - real instant and standard session retain Arclight generic-description ownership and its follow-up
+2026-10-25T17:35:25.9214245Z   ---
+2026-10-25T17:35:25.9214633Z   duration_ms: 447.727591
+2026-10-25T17:35:25.9215048Z   type: 'test'
+2026-10-25T17:35:25.9215440Z   ...
+2026-10-25T17:35:25.9216395Z # Subtest: standard source evidence survives a full fact-card candidate list without breaking count, token, scope or off limits
+2026-10-25T17:35:25.9217806Z ok 92 - standard source evidence survives a full fact-card candidate list without breaking count, token, scope or off limits
+2026-10-25T17:35:25.9218783Z   ---
+2026-10-25T17:35:25.9219365Z   duration_ms: 9.792734
+2026-10-25T17:35:25.9219786Z   type: 'test'
+2026-10-25T17:35:25.9220179Z   ...
+2026-10-25T17:35:25.9221047Z # Subtest: progress checkpoints retain complete observations without repeatedly rendering the final Markdown
+2026-10-25T17:35:25.9222321Z ok 93 - progress checkpoints retain complete observations without repeatedly rendering the final Markdown
+2026-10-25T17:35:25.9223062Z   ---
+2026-10-25T17:35:25.9223454Z   duration_ms: 16.556615
+2026-10-25T17:35:25.9223887Z   type: 'test'
+2026-10-25T17:35:25.9224286Z   ...
+2026-10-25T17:35:25.9225034Z # Subtest: report sanitizer removes configured secrets, headers and local paths recursively
+2026-10-25T17:35:25.9226250Z ok 94 - report sanitizer removes configured secrets, headers and local paths recursively
+2026-10-25T17:35:25.9226958Z   ---
+2026-10-25T17:35:25.9227349Z   duration_ms: 0.632641
+2026-10-25T17:35:25.9227775Z   type: 'test'
+2026-10-25T17:35:25.9228175Z   ...
+2026-10-25T17:35:25.9229055Z # Subtest: statistics use observed first-content values and leave unavailable usage unknown
+2026-10-25T17:35:25.9230133Z ok 95 - statistics use observed first-content values and leave unavailable usage unknown
+2026-10-25T17:35:25.9230817Z   ---
+2026-10-25T17:35:25.9231205Z   duration_ms: 1.020995
+2026-10-25T17:35:25.9231634Z   type: 'test'
+2026-10-25T17:35:25.9232024Z   ...
+2026-10-25T17:35:25.9232754Z # Subtest: call rates separate model quality from transport failures and unattempted cases
+2026-10-25T17:35:25.9233784Z ok 96 - call rates separate model quality from transport failures and unattempted cases
+2026-10-25T17:35:25.9234457Z   ---
+2026-10-25T17:35:25.9234837Z   duration_ms: 0.533322
+2026-10-25T17:35:25.9235271Z   type: 'test'
+2026-10-25T17:35:25.9235657Z   ...
+2026-10-25T17:35:25.9236552Z # Subtest: failed retry attempts remain in transport denominators and usage without double-counting the final answer
+2026-10-25T17:35:25.9237872Z ok 97 - failed retry attempts remain in transport denominators and usage without double-counting the final answer
+2026-10-25T17:35:25.9238781Z   ---
+2026-10-25T17:35:25.9239170Z   duration_ms: 0.27282
+2026-10-25T17:35:25.9239605Z   type: 'test'
+2026-10-25T17:35:25.9239991Z   ...
+2026-10-25T17:35:25.9240819Z # Subtest: quality summary distinguishes listed coverage, review and hard failures and never scores mock
+2026-10-25T17:35:25.9242018Z ok 98 - quality summary distinguishes listed coverage, review and hard failures and never scores mock
+2026-10-25T17:35:25.9242762Z   ---
+2026-10-25T17:35:25.9243152Z   duration_ms: 0.83817
+2026-10-25T17:35:25.9243587Z   type: 'test'
+2026-10-25T17:35:25.9243975Z   ...
+2026-10-25T17:35:25.9244757Z # Subtest: markdown retains full answers, evidence and failure list and labels mock explicitly
+2026-10-25T17:35:25.9245828Z ok 99 - markdown retains full answers, evidence and failure list and labels mock explicitly
+2026-10-25T17:35:25.9246521Z   ---
+2026-10-25T17:35:25.9246915Z   duration_ms: 0.836647
+2026-10-25T17:35:25.9247337Z   type: 'test'
+2026-10-25T17:35:25.9247728Z   ...
+2026-10-25T17:35:25.9248469Z # Subtest: partial and final artifacts survive failed runs and never contain secret values
+2026-10-25T17:35:25.9249625Z ok 100 - partial and final artifacts survive failed runs and never contain secret values
+2026-10-25T17:35:25.9250306Z   ---
+2026-10-25T17:35:25.9250703Z   duration_ms: 4.342299
+2026-10-25T17:35:25.9251130Z   type: 'test'
+2026-10-25T17:35:25.9251524Z   ...
+2026-10-25T17:35:25.9252437Z # Subtest: runner rejects budgets beyond ceilings, requires explicit live config and accepts only safe HTTPS endpoints
+2026-10-25T17:35:25.9253785Z ok 101 - runner rejects budgets beyond ceilings, requires explicit live config and accepts only safe HTTPS endpoints
+2026-10-25T17:35:25.9254595Z   ---
+2026-10-25T17:35:25.9254990Z   duration_ms: 6.048104
+2026-10-25T17:35:25.9255414Z   type: 'test'
+2026-10-25T17:35:25.9255799Z   ...
+2026-10-25T17:35:25.9256515Z # Subtest: global and per-provider attempt budgets remain bounded even when calls fail
+2026-10-25T17:35:25.9257507Z ok 102 - global and per-provider attempt budgets remain bounded even when calls fail
+2026-10-25T17:35:25.9258334Z   ---
+2026-10-25T17:35:25.9258833Z   duration_ms: 1.521227
+2026-10-25T17:35:25.9259258Z   type: 'test'
+2026-10-25T17:35:25.9259649Z   ...
+2026-10-25T17:35:25.9260526Z # Subtest: missing live config fails explicitly while retaining both providers, selected cases and job summary
+2026-10-25T17:35:25.9261787Z ok 103 - missing live config fails explicitly while retaining both providers, selected cases and job summary
+2026-10-25T17:35:25.9262565Z   ---
+2026-10-25T17:35:25.9262956Z   duration_ms: 46.717815
+2026-10-25T17:35:25.9263383Z   type: 'test'
+2026-10-25T17:35:25.9263780Z   ...
+2026-10-25T17:35:25.9264976Z # Subtest: hash-approved smoke fixtures traverse real material import, project memory and both providers without network in explicit mock mode
+2026-10-25T17:35:25.9266577Z ok 104 - hash-approved smoke fixtures traverse real material import, project memory and both providers without network in explicit mock mode
+2026-10-25T17:35:25.9267511Z   ---
+2026-10-25T17:35:25.9267897Z   duration_ms: 1364.419761
+2026-10-25T17:35:25.9268339Z   type: 'test'
+2026-10-25T17:35:25.9268839Z   ...
+2026-10-25T17:35:25.9269576Z # Subtest: budget rejection reports no sent evidence while retaining serialized diagnostics
+2026-10-25T17:35:25.9270628Z ok 105 - budget rejection reports no sent evidence while retaining serialized diagnostics
+2026-10-25T17:35:25.9271323Z   ---
+2026-10-25T17:35:25.9271717Z   duration_ms: 157.099015
+2026-10-25T17:35:25.9272156Z   type: 'test'
+2026-10-25T17:35:25.9272552Z   ...
+2026-10-25T17:35:25.9273442Z # Subtest: timeout stays a transport failure and retains full partial output even if SDK ignores abort and finishes
+2026-10-25T17:35:25.9274732Z ok 106 - timeout stays a transport failure and retains full partial output even if SDK ignores abort and finishes
+2026-10-25T17:35:25.9275512Z   ---
+2026-10-25T17:35:25.9275911Z   duration_ms: 157.115064
+2026-10-25T17:35:25.9276348Z   type: 'test'
+2026-10-25T17:35:25.9276839Z   ...
+2026-10-25T17:35:25.9278015Z # Subtest: live harness passes the production request to SDK, uses real clock and keeps settings credentials only in memory
+2026-10-25T17:35:25.9279475Z ok 107 - live harness passes the production request to SDK, uses real clock and keeps settings credentials only in memory
+2026-10-25T17:35:25.9280287Z   ---
+2026-10-25T17:35:25.9280673Z   duration_ms: 294.71796
+2026-10-25T17:35:25.9281112Z   type: 'test'
+2026-10-25T17:35:25.9281493Z   ...
+2026-10-25T17:35:25.9282278Z # Subtest: live transport delegates to the installed OpenAI SDK and receives a real HTTP SSE stream
+2026-10-25T17:35:25.9283418Z ok 108 - live transport delegates to the installed OpenAI SDK and receives a real HTTP SSE stream
+2026-10-25T17:35:25.9284131Z   ---
+2026-10-25T17:35:25.9284517Z   duration_ms: 235.267305
+2026-10-25T17:35:25.9284957Z   type: 'test'
+2026-10-25T17:35:25.9285347Z   ...
+2026-10-25T17:35:25.9286159Z # Subtest: live harness rejects output budget and global attempt budget before invoking the external SDK
+2026-10-25T17:35:25.9287386Z ok 109 - live harness rejects output budget and global attempt budget before invoking the external SDK
+2026-10-25T17:35:25.9288143Z   ---
+2026-10-25T17:35:25.9288647Z   duration_ms: 203.008534
+2026-10-25T17:35:25.9289088Z   type: 'test'
+2026-10-25T17:35:25.9289478Z   ...
+2026-10-25T17:35:25.9290379Z # Subtest: live first-content deadline excludes reasoning and blank text and preserves partial body on total timeout
+2026-10-25T17:35:25.9291696Z ok 110 - live first-content deadline excludes reasoning and blank text and preserves partial body on total timeout
+2026-10-25T17:35:25.9292500Z   ---
+2026-10-25T17:35:25.9292905Z   duration_ms: 239.881528
+2026-10-25T17:35:25.9293328Z   type: 'test'
+2026-10-25T17:35:25.9293705Z   ...
+2026-10-25T17:35:25.9294449Z # Subtest: folder scan progress, preview isolation, persisted counts and restart restoration
+2026-10-25T17:35:25.9295506Z ok 111 - folder scan progress, preview isolation, persisted counts and restart restoration
+2026-10-25T17:35:25.9296352Z   ---
+2026-10-25T17:35:25.9296743Z   duration_ms: 179.735196
+2026-10-25T17:35:25.9297173Z   type: 'test'
+2026-10-25T17:35:25.9297558Z   ...
+2026-10-25T17:35:25.9298290Z # Subtest: empty directory and ZIP produce explicit error without a preview or publication
+2026-10-25T17:35:25.9299452Z ok 112 - empty directory and ZIP produce explicit error without a preview or publication
+2026-10-25T17:35:25.9300147Z   ---
+2026-10-25T17:35:25.9300537Z   duration_ms: 16.441241
+2026-10-25T17:35:25.9300967Z   type: 'test'
+2026-10-25T17:35:25.9301351Z   ...
+2026-10-25T17:35:25.9302043Z # Subtest: facts-only folder is valid and malformed known fact files cannot publish
+2026-10-25T17:35:25.9303193Z ok 113 - facts-only folder is valid and malformed known fact files cannot publish
+2026-10-25T17:35:25.9303861Z   ---
+2026-10-25T17:35:25.9304251Z   duration_ms: 62.328653
+2026-10-25T17:35:25.9304687Z   type: 'test'
+2026-10-25T17:35:25.9305089Z   ...
+2026-10-25T17:35:25.9305807Z # Subtest: internal bundled source snapshot is validated, copied and requires fact index
+2026-10-25T17:35:25.9306846Z ok 114 - internal bundled source snapshot is validated, copied and requires fact index
+2026-10-25T17:35:25.9307530Z   ---
+2026-10-25T17:35:25.9307919Z   duration_ms: 38.791839
+2026-10-25T17:35:25.9308345Z   type: 'test'
+2026-10-25T17:35:25.9308837Z   ...
+2026-10-25T17:35:26.0620336Z # Subtest: E01-E03/Q01 actual instant SDK sees facts with source RAG off and independent switches
+2026-10-25T17:35:26.0670009Z ok 115 - E01-E03/Q01 actual instant SDK sees facts with source RAG off and independent switches
+2026-10-25T17:35:26.0670592Z   ---
+2026-10-25T17:35:26.0670870Z   duration_ms: 390.418851
+2026-10-25T17:35:26.0671237Z   type: 'test'
+2026-10-25T17:35:26.0671511Z   ...
+2026-10-25T17:35:26.1946206Z # Subtest: E01-E03/Q01 actual standard SDK sees facts with source RAG off and independent switches
+2026-10-25T17:35:26.1967021Z ok 116 - E01-E03/Q01 actual standard SDK sees facts with source RAG off and independent switches
+2026-10-25T17:35:26.2019147Z   ---
+2026-10-25T17:35:26.2048955Z   duration_ms: 173.320847
+2026-10-25T17:35:26.2078923Z   type: 'test'
+2026-10-25T17:35:26.2108942Z   ...
+2026-10-25T17:35:26.3328334Z # Subtest: C01/C02 successful commit aborts old stream; failed preview leaves active generation usable
+2026-10-25T17:35:26.3362252Z ok 117 - C01/C02 successful commit aborts old stream; failed preview leaves active generation usable
+2026-10-25T17:35:26.3365718Z   ---
+2026-10-25T17:35:26.3366175Z   duration_ms: 131.318572
+2026-10-25T17:35:26.3366640Z   type: 'test'
+2026-10-25T17:35:26.3367041Z   ...
+2026-10-25T17:35:26.3367978Z # Subtest: M02 material setting migration preserves off and explicit false across restart without repeating notice
+2026-10-25T17:35:26.3369529Z ok 118 - M02 material setting migration preserves off and explicit false across restart without repeating notice
+2026-10-25T17:35:26.3370330Z   ---
+2026-10-25T17:35:26.3370723Z   duration_ms: 0.526111
+2026-10-25T17:35:26.3371160Z   type: 'test'
+2026-10-25T17:35:26.3371568Z   ...
+2026-10-25T17:35:26.5470746Z # Subtest: E04 standard final SDK retains implementation source among fact candidates
+2026-10-25T17:35:26.5471624Z ok 119 - E04 standard final SDK retains implementation source among fact candidates
+2026-10-25T17:35:26.5472130Z   ---
+2026-10-25T17:35:26.5472397Z   duration_ms: 141.328077
+2026-10-25T17:35:26.5472695Z   type: 'test'
+2026-10-25T17:35:26.5472947Z   ...
+2026-10-25T17:35:26.6586759Z # Subtest: E04 instant final SDK retains implementation source among fact candidates
+2026-10-25T17:35:26.6630802Z ok 120 - E04 instant final SDK retains implementation source among fact candidates
+2026-10-25T17:35:26.6631575Z   ---
+2026-10-25T17:35:26.6632553Z   duration_ms: 216.150495
+2026-10-25T17:35:26.6633273Z   type: 'test'
+2026-10-25T17:35:26.6634691Z   ...
+2026-10-25T17:35:26.9950003Z # Subtest: warm facts request performs no filesystem reads on the answer key path
+2026-10-25T17:35:26.9953158Z ok 121 - warm facts request performs no filesystem reads on the answer key path
+2026-10-25T17:35:26.9954060Z   ---
+2026-10-25T17:35:26.9989105Z   duration_ms: 114.396577
+2026-10-25T17:35:26.9989704Z   type: 'test'
+2026-10-25T17:35:27.0046518Z   ...
+2026-10-25T17:35:27.0991172Z # Subtest: technical recovery answers retain the original state-changing body rather than a matching class declaration
+2026-10-25T17:35:27.1014472Z ok 122 - technical recovery answers retain the original state-changing body rather than a matching class declaration
+2026-10-25T17:35:27.1015172Z   ---
+2026-10-25T17:35:27.1015556Z   duration_ms: 336.116111
+2026-10-25T17:35:27.1015867Z   type: 'test'
+2026-10-25T17:35:27.1016124Z   ...
+2026-10-25T17:35:27.1089917Z # Subtest: manual project toggle remains independent for a facts-only canonical project in standard mode
+2026-10-25T17:35:27.1120565Z ok 123 - manual project toggle remains independent for a facts-only canonical project in standard mode
+2026-10-25T17:35:27.1148871Z   ---
+2026-10-25T17:35:27.1149194Z   duration_ms: 98.533106
+2026-10-25T17:35:27.1178923Z   type: 'test'
+2026-10-25T17:35:27.1208931Z   ...
+2026-10-25T17:35:27.1427594Z # Subtest: canonical judge authority supersedes observed old USER claims and retains current personal boundaries
+2026-10-25T17:35:27.1449569Z ok 124 - canonical judge authority supersedes observed old USER claims and retains current personal boundaries
+2026-10-25T17:35:27.1469534Z   ---
+2026-10-25T17:35:27.1479896Z   duration_ms: 7.663503
+2026-10-25T17:35:27.1480403Z   type: 'test'
+2026-10-25T17:35:27.1480798Z   ...
+2026-10-25T17:35:27.1481674Z # Subtest: judge messages contain actual speech, exact sent evidence and matching oracle but no version or model labels
+2026-10-25T17:35:27.1482887Z ok 125 - judge messages contain actual speech, exact sent evidence and matching oracle but no version or model labels
+2026-10-25T17:35:27.1483613Z   ---
+2026-10-25T17:35:27.1483983Z   duration_ms: 2.63363
+2026-10-25T17:35:27.1484378Z   type: 'test'
+2026-10-25T17:35:27.1484738Z   ...
+2026-10-25T17:35:27.1485445Z # Subtest: a plausible invented citation and missing semantic constraint never become valid scores
+2026-10-25T17:35:27.1486511Z ok 126 - a plausible invented citation and missing semantic constraint never become valid scores
+2026-10-25T17:35:27.1487213Z   ---
+2026-10-25T17:35:27.1487626Z   duration_ms: 2.420109
+2026-10-25T17:35:27.1488081Z   type: 'test'
+2026-10-25T17:35:27.1488731Z   ...
+2026-10-25T17:35:27.1489646Z # Subtest: the full output contract has six separate dimension rows and independently zero-based constraint groups
+2026-10-25T17:35:27.1490983Z ok 127 - the full output contract has six separate dimension rows and independently zero-based constraint groups
+2026-10-25T17:35:27.1491897Z   ---
+2026-10-25T17:35:27.1492334Z   duration_ms: 0.617748
+2026-10-25T17:35:27.1492799Z   type: 'test'
+2026-10-25T17:35:27.1493214Z   ...
+2026-10-25T17:35:27.1493977Z # Subtest: truncation commentary cannot be cited as if it were part of the tested answer
+2026-10-25T17:35:27.1495030Z ok 128 - truncation commentary cannot be cited as if it were part of the tested answer
+2026-10-25T17:35:27.1495760Z   ---
+2026-10-25T17:35:27.1496184Z   duration_ms: 3.696458
+2026-10-25T17:35:27.1496636Z   type: 'test'
+2026-10-25T17:35:27.1497042Z   ...
+2026-10-25T17:35:27.1497843Z # Subtest: segment references resolve to exact answer slices without inventing joined quotations
+2026-10-25T17:35:27.1499170Z ok 129 - segment references resolve to exact answer slices without inventing joined quotations
+2026-10-25T17:35:27.1499925Z   ---
+2026-10-25T17:35:27.1500350Z   duration_ms: 0.700773
+2026-10-25T17:35:27.1500791Z   type: 'test'
+2026-10-25T17:35:27.1501191Z   ...
+2026-10-25T17:35:27.1502086Z # Subtest: bad segment IDs, foreign text, duplicate dimensions and quotes fabricated alongside valid IDs are rejected
+2026-10-25T17:35:27.1503414Z ok 130 - bad segment IDs, foreign text, duplicate dimensions and quotes fabricated alongside valid IDs are rejected
+2026-10-25T17:35:27.1504249Z   ---
+2026-10-25T17:35:27.1504672Z   duration_ms: 1.750762
+2026-10-25T17:35:27.1505565Z   type: 'test'
+2026-10-25T17:35:27.1505966Z   ...
+2026-10-25T17:35:27.1506773Z # Subtest: constraint offsets fail with explicit per-group feedback rather than silently renumbering
+2026-10-25T17:35:27.1507949Z ok 131 - constraint offsets fail with explicit per-group feedback rather than silently renumbering
+2026-10-25T17:35:27.1508839Z   ---
+2026-10-25T17:35:27.1509222Z   duration_ms: 0.627764
+2026-10-25T17:35:27.1509650Z   type: 'test'
+2026-10-25T17:35:27.1510050Z   ...
+2026-10-25T17:35:27.1510886Z # Subtest: independent disagreement, low confidence and critical claims require review; one judge cannot pass
+2026-10-25T17:35:27.1512393Z ok 132 - independent disagreement, low confidence and critical claims require review; one judge cannot pass
+2026-10-25T17:35:27.1513224Z   ---
+2026-10-25T17:35:27.1513638Z   duration_ms: 1.036318
+2026-10-25T17:35:27.1514101Z   type: 'test'
+2026-10-25T17:35:27.1514527Z   ...
+2026-10-25T17:35:27.1515461Z # Subtest: review sampling includes all corrections, severe failures, family worst and at least twenty percent of passes
+2026-10-25T17:35:27.1516887Z ok 133 - review sampling includes all corrections, severe failures, family worst and at least twenty percent of passes
+2026-10-25T17:35:27.1518117Z   ---
+2026-10-25T17:35:27.1518929Z   duration_ms: 14.833483
+2026-10-25T17:35:27.1519550Z   type: 'test'
+2026-10-25T17:35:27.1520294Z   ...
+2026-10-25T17:35:27.1521403Z # Subtest: two real transport contracts retain failed output usage, retry boundedly, checkpoint and resume without new calls
+2026-10-25T17:35:27.1523075Z ok 134 - two real transport contracts retain failed output usage, retry boundedly, checkpoint and resume without new calls
+2026-10-25T17:35:27.1524207Z   ---
+2026-10-25T17:35:27.1524846Z   duration_ms: 133.254883
+2026-10-25T17:35:27.1536650Z   type: 'test'
+2026-10-25T17:35:27.1537258Z   ...
+2026-10-25T17:35:27.1538205Z # Subtest: a depleted workflow budget pauses judges without new calls and leaves missing results explicitly unverified
+2026-10-25T17:35:27.1539790Z ok 135 - a depleted workflow budget pauses judges without new calls and leaves missing results explicitly unverified
+2026-10-25T17:35:27.1540680Z   ---
+2026-10-25T17:35:27.1541069Z   duration_ms: 2.113558
+2026-10-25T17:35:27.1541488Z   type: 'test'
+2026-10-25T17:35:27.1541851Z   ...
+2026-10-25T17:35:27.1542636Z # Subtest: segment protocol retries preserve invalid results and usage; exhausted invalid judging never passes
+2026-10-25T17:35:27.1543903Z ok 136 - segment protocol retries preserve invalid results and usage; exhausted invalid judging never passes
+2026-10-25T17:35:27.1544699Z   ---
+2026-10-25T17:35:27.1545120Z   duration_ms: 47.544227
+2026-10-25T17:35:27.1545577Z   type: 'test'
+2026-10-25T17:35:27.1545995Z   ...
+2026-10-25T17:35:27.1546675Z # Subtest: changed canonical authority cannot reuse an existing judge checkpoint
+2026-10-25T17:35:27.1547604Z ok 137 - changed canonical authority cannot reuse an existing judge checkpoint
+2026-10-25T17:35:27.1548268Z   ---
+2026-10-25T17:35:27.1548869Z   duration_ms: 27.954473
+2026-10-25T17:35:27.1549378Z   type: 'test'
+2026-10-25T17:35:27.1549799Z   ...
+2026-10-25T17:35:27.1550701Z # Subtest: distinct requested aliases that return the same served model cannot establish cross-model agreement
+2026-10-25T17:35:27.1551953Z ok 138 - distinct requested aliases that return the same served model cannot establish cross-model agreement
+2026-10-25T17:35:27.1552748Z   ---
+2026-10-25T17:35:27.1553152Z   duration_ms: 27.286292
+2026-10-25T17:35:27.1553606Z   type: 'test'
+2026-10-25T17:35:27.1554006Z   ...
+2026-10-25T17:35:27.1554685Z # Subtest: normalizes whitespace and trailing slashes in a compatible base URL
+2026-10-25T17:35:27.1555585Z ok 139 - normalizes whitespace and trailing slashes in a compatible base URL
+2026-10-25T17:35:27.1556160Z   ---
+2026-10-25T17:35:27.1556436Z   duration_ms: 0.723458
+2026-10-25T17:35:27.1556823Z   type: 'test'
+2026-10-25T17:35:27.1557645Z   ...
+2026-10-25T17:35:27.1558114Z # Subtest: rejects unsafe or unsupported base URLs
+2026-10-25T17:35:27.1558732Z ok 140 - rejects unsafe or unsupported base URLs
+2026-10-25T17:35:27.1559790Z   ---
+2026-10-25T17:35:27.1565599Z   duration_ms: 0.401764
+2026-10-25T17:35:27.1566055Z   type: 'test'
+2026-10-25T17:35:27.1566441Z   ...
+2026-10-25T17:35:27.1566958Z # Subtest: builds SDK options with an explicit API key
+2026-10-25T17:35:27.1567604Z ok 141 - builds SDK options with an explicit API key
+2026-10-25T17:35:27.1568104Z   ---
+2026-10-25T17:35:27.1568613Z   duration_ms: 0.559682
+2026-10-25T17:35:27.1569060Z   type: 'test'
+2026-10-25T17:35:27.1569447Z   ...
+2026-10-25T17:35:27.1570090Z # Subtest: uses a non-secret placeholder when a local endpoint needs no API key
+2026-10-25T17:35:27.1571174Z ok 142 - uses a non-secret placeholder when a local endpoint needs no API key
+2026-10-25T17:35:27.1571777Z   ---
+2026-10-25T17:35:27.1572145Z   duration_ms: 0.129505
+2026-10-25T17:35:27.1572577Z   type: 'test'
+2026-10-25T17:35:27.1572954Z   ...
+2026-10-25T17:35:27.1573535Z # Subtest: requires a base URL for an OpenAI-compatible client
+2026-10-25T17:35:27.1574284Z ok 143 - requires a base URL for an OpenAI-compatible client
+2026-10-25T17:35:27.1574815Z   ---
+2026-10-25T17:35:27.1575195Z   duration_ms: 0.118959
+2026-10-25T17:35:27.1575657Z   type: 'test'
+2026-10-25T17:35:27.1576048Z   ...
+2026-10-25T17:35:27.1576989Z # Subtest: v2 imports once, restarts, preserves later edits on upgrade and switches independent jobs without changing facts
+2026-10-25T17:35:27.1578197Z ok 144 - v2 imports once, restarts, preserves later edits on upgrade and switches independent jobs without changing facts
+2026-10-25T17:35:27.1579862Z   ---
+2026-10-25T17:35:27.1580274Z   duration_ms: 57.994085
+2026-10-25T17:35:27.1580727Z   type: 'test'
+2026-10-25T17:35:27.1581113Z   ...
+2026-10-25T17:35:27.1581821Z # Subtest: v1 remains installable and workspace role/extra settings/revision are validated
+2026-10-25T17:35:27.1582733Z ok 145 - v1 remains installable and workspace role/extra settings/revision are validated
+2026-10-25T17:35:27.1583332Z   ---
+2026-10-25T17:35:27.1583743Z   duration_ms: 44.630386
+2026-10-25T17:35:27.1584170Z   type: 'test'
+2026-10-25T17:35:27.1584563Z   ...
+2026-10-25T17:35:27.1585176Z # Subtest: stale personal previews never publish facts or change settings
+2026-10-25T17:35:27.1585988Z ok 146 - stale personal previews never publish facts or change settings
+2026-10-25T17:35:27.1586531Z   ---
+2026-10-25T17:35:27.1586928Z   duration_ms: 24.064168
+2026-10-25T17:35:27.1587262Z   type: 'test'
+2026-10-25T17:35:27.1587543Z   ...
+2026-10-25T17:35:27.1588074Z # Subtest: the actual settings store persists structured candidate fields and restores them on restart
+2026-10-25T17:35:27.1589156Z ok 147 - the actual settings store persists structured candidate fields and restores them on restart
+2026-10-25T17:35:27.1589933Z   ---
+2026-10-25T17:35:27.1590321Z   duration_ms: 3.866023
+2026-10-25T17:35:27.1590628Z   type: 'test'
+2026-10-25T17:35:27.1590875Z   ...
+2026-10-25T17:35:27.1591593Z # Subtest: v2 allows exactly 4096 cards, paginates all of them, rejects overflow and keeps knowledge outside projects
+2026-10-25T17:35:27.1592282Z ok 148 - v2 allows exactly 4096 cards, paginates all of them, rejects overflow and keeps knowledge outside projects
+2026-10-25T17:35:27.1592665Z   ---
+2026-10-25T17:35:27.1592838Z   duration_ms: 350.69729
+2026-10-25T17:35:27.1593033Z   type: 'test'
+2026-10-25T17:35:27.1593206Z   ...
+2026-10-25T17:35:27.1593610Z # Subtest: v2 provenance never upgrades resume/story claims and embedded evidence hashes detect tampering
+2026-10-25T17:35:27.1594209Z ok 149 - v2 provenance never upgrades resume/story claims and embedded evidence hashes detect tampering
+2026-10-25T17:35:27.1594592Z   ---
+2026-10-25T17:35:27.1594769Z   duration_ms: 1.301858
+2026-10-25T17:35:27.1594956Z   type: 'test'
+2026-10-25T17:35:27.1595136Z   ...
+2026-10-25T17:35:27.1595584Z # Subtest: an unmatched project continuation uses its overview rather than a lexicographic implementation boundary
+2026-10-25T17:35:27.1596250Z ok 150 - an unmatched project continuation uses its overview rather than a lexicographic implementation boundary
+2026-10-25T17:35:27.1596833Z   ---
+2026-10-25T17:35:27.1597011Z   duration_ms: 13.720069
+2026-10-25T17:35:27.1597206Z   type: 'test'
+2026-10-25T17:35:27.1597379Z   ...
+2026-10-25T17:35:27.1597843Z # Subtest: offline compiler preserves all 109 legacy IDs, all 64 QAs/12 stories/9 metrics, exact sources and two separate JDs
+2026-10-25T17:35:27.1599445Z ok 151 - offline compiler preserves all 109 legacy IDs, all 64 QAs/12 stories/9 metrics, exact sources and two separate JDs
+2026-10-25T17:35:27.1600112Z   ---
+2026-10-25T17:35:27.1600357Z   duration_ms: 43.391214
+2026-10-25T17:35:27.1600648Z   type: 'test'
+2026-10-25T17:35:27.1600905Z   ...
+2026-10-25T17:35:27.1601924Z # Subtest: a verification failure compensates only the just-published generation and restores the old profile across restart
+2026-10-25T17:35:27.1603085Z ok 152 - a verification failure compensates only the just-published generation and restores the old profile across restart
+2026-10-25T17:35:27.1603781Z   ---
+2026-10-25T17:35:27.1604051Z   duration_ms: 56.905798
+2026-10-25T17:35:27.1604342Z   type: 'test'
+2026-10-25T17:35:27.1604596Z   ...
+2026-10-25T17:35:27.1605378Z # Subtest: a settings failure after a partial write restores owned fields, preserves newer user edits and restores material state
+2026-10-25T17:35:27.1606659Z ok 153 - a settings failure after a partial write restores owned fields, preserves newer user edits and restores material state
+2026-10-25T17:35:27.1607379Z   ---
+2026-10-25T17:35:27.1607640Z   duration_ms: 44.107255
+2026-10-25T17:35:27.1607938Z   type: 'test'
+2026-10-25T17:35:27.1608205Z   ...
+2026-10-25T17:35:27.1609004Z # Subtest: compensation never rolls back a newer material generation published by another operation
+2026-10-25T17:35:27.1610002Z ok 154 - compensation never rolls back a newer material generation published by another operation
+2026-10-25T17:35:27.1610595Z   ---
+2026-10-25T17:35:27.1610866Z   duration_ms: 26.083709
+2026-10-25T17:35:27.1611173Z   type: 'test'
+2026-10-25T17:35:27.1611436Z   ...
+2026-10-25T17:35:27.1612104Z # Subtest: the material queue remains occupied until the whole personal import succeeds or compensates
+2026-10-25T17:35:27.1613116Z ok 155 - the material queue remains occupied until the whole personal import succeeds or compensates
+2026-10-25T17:35:27.1613708Z   ---
+2026-10-25T17:35:27.1613976Z   duration_ms: 36.812663
+2026-10-25T17:35:27.1614273Z   type: 'test'
+2026-10-25T17:35:27.1614510Z   ...
+2026-10-25T17:35:27.1615221Z # Subtest: a real settings write failure is reported and keeps the previous disk file and in-memory values
+2026-10-25T17:35:27.1616354Z ok 156 - a real settings write failure is reported and keeps the previous disk file and in-memory values
+2026-10-25T17:35:27.1617031Z   ---
+2026-10-25T17:35:27.1617350Z   duration_ms: 6.153256
+2026-10-25T17:35:27.1617674Z   type: 'test'
+2026-10-25T17:35:27.1617984Z   ...
+2026-10-25T17:35:27.1618896Z # Subtest: restart recovers a process exit between material pointer publication and profile persistence
+2026-10-25T17:35:27.1619977Z ok 157 - restart recovers a process exit between material pointer publication and profile persistence
+2026-10-25T17:35:27.1620506Z   ---
+2026-10-25T17:35:27.1620736Z   duration_ms: 179.046801
+2026-10-25T17:35:27.1621004Z   type: 'test'
+2026-10-25T17:35:27.1621237Z   ...
+2026-10-25T17:35:27.1621773Z # Subtest: a committed journal is cleanup-only after a later source generation and user edits
+2026-10-25T17:35:27.1622583Z ok 158 - a committed journal is cleanup-only after a later source generation and user edits
+2026-10-25T17:35:27.1623102Z   ---
+2026-10-25T17:35:27.1623360Z   duration_ms: 19.523716
+2026-10-25T17:35:27.1623681Z   type: 'test'
+2026-10-25T17:35:27.1623952Z   ...
+2026-10-25T17:35:27.1624650Z # Subtest: recovery retries an interrupted compensation after current was restored but previous was not
+2026-10-25T17:35:27.1625695Z ok 159 - recovery retries an interrupted compensation after current was restored but previous was not
+2026-10-25T17:35:27.1626374Z   ---
+2026-10-25T17:35:27.1626841Z   duration_ms: 34.605338
+2026-10-25T17:35:27.1627149Z   type: 'test'
+2026-10-25T17:35:27.1627421Z   ...
+2026-10-25T17:35:27.1628043Z # Subtest: matching revision tags alone cannot finalize a partially persisted settings patch
+2026-10-25T17:35:27.1629996Z ok 160 - matching revision tags alone cannot finalize a partially persisted settings patch
+2026-10-25T17:35:27.1630559Z   ---
+2026-10-25T17:35:27.1630805Z   duration_ms: 24.250673
+2026-10-25T17:35:27.1631108Z   type: 'test'
+2026-10-25T17:35:27.1631380Z   ...
+2026-10-25T17:35:27.1632064Z # Subtest: judge-only continuation preserves archived answers and never creates a production runtime
+2026-10-25T17:35:27.1633270Z ok 161 - judge-only continuation preserves archived answers and never creates a production runtime
+2026-10-25T17:35:27.1633917Z   ---
+2026-10-25T17:35:27.1634178Z   duration_ms: 120.295897
+2026-10-25T17:35:27.1634484Z   type: 'test'
+2026-10-25T17:35:27.1634740Z   ...
+2026-10-25T17:35:27.1635512Z # Subtest: private payload accepts bounded data only and never allows caller paths, settings, code or oracle regexes
+2026-10-25T17:35:27.1636702Z ok 162 - private payload accepts bounded data only and never allows caller paths, settings, code or oracle regexes
+2026-10-25T17:35:27.1637368Z   ---
+2026-10-25T17:35:27.1637637Z   duration_ms: 4.962702
+2026-10-25T17:35:27.1637943Z   type: 'test'
+2026-10-25T17:35:27.1638204Z   ...
+2026-10-25T17:35:27.1639222Z # Subtest: multi-turn canonical reference validates data and combined size while preserving the real import revision and manifest
+2026-10-25T17:35:27.1640513Z ok 163 - multi-turn canonical reference validates data and combined size while preserving the real import revision and manifest
+2026-10-25T17:35:27.1641255Z   ---
+2026-10-25T17:35:27.1641529Z   duration_ms: 323.451189
+2026-10-25T17:35:27.1641838Z   type: 'test'
+2026-10-25T17:35:27.1642101Z   ...
+2026-10-25T17:35:27.1642929Z # Subtest: missing private live configuration fails with zero external calls and never writes private data to Actions Summary
+2026-10-25T17:35:27.1644216Z ok 164 - missing private live configuration fails with zero external calls and never writes private data to Actions Summary
+2026-10-25T17:35:27.1644928Z   ---
+2026-10-25T17:35:27.1645204Z   duration_ms: 23.040453
+2026-10-25T17:35:27.1645513Z   type: 'test'
+2026-10-25T17:35:27.1645846Z   ...
+2026-10-25T17:35:27.1646652Z # Subtest: private compiled facts/sources and resume/JD enter the actual production material service and text question path
+2026-10-25T17:35:27.1647878Z ok 165 - private compiled facts/sources and resume/JD enter the actual production material service and text question path
+2026-10-25T17:35:27.1648683Z   ---
+2026-10-25T17:35:27.1648954Z   duration_ms: 322.859214
+2026-10-25T17:35:27.1649265Z   type: 'test'
+2026-10-25T17:35:27.1649525Z   ...
+2026-10-25T17:35:28.0029930Z # Subtest: encrypted snapshots include a newer per-case judge journal even before the aggregate report is flushed
+2026-10-25T17:35:28.0031205Z ok 166 - encrypted snapshots include a newer per-case judge journal even before the aggregate report is flushed
+2026-10-25T17:35:28.0032140Z   ---
+2026-10-25T17:35:28.0032610Z   duration_ms: 595.993575
+2026-10-25T17:35:28.0032941Z   type: 'test'
+2026-10-25T17:35:28.0033223Z   ...
+2026-10-25T17:35:28.0041761Z # Subtest: private envelopes bind run, trusted code, key and size, and reports decrypt only with the local response key
+2026-10-25T17:35:28.0043018Z ok 167 - private envelopes bind run, trusted code, key and size, and reports decrypt only with the local response key
+2026-10-25T17:35:28.0043738Z   ---
+2026-10-25T17:35:28.0044014Z   duration_ms: 413.317722
+2026-10-25T17:35:28.0044367Z   type: 'test'
+2026-10-25T17:35:28.0044652Z   ...
+2026-10-25T17:35:28.0045500Z # Subtest: large encrypted reports decode linearly while malformed base64 and authentication changes remain rejected
+2026-10-25T17:35:28.0046735Z ok 168 - large encrypted reports decode linearly while malformed base64 and authentication changes remain rejected
+2026-10-25T17:35:28.0047464Z   ---
+2026-10-25T17:35:28.0048032Z   duration_ms: 454.407826
+2026-10-25T17:35:28.0048395Z   type: 'test'
+2026-10-25T17:35:28.0048792Z   ...
+2026-10-25T17:35:28.0049645Z # Subtest: trusted private evaluation publishes only encrypted answers and aggregate status and removes local plaintext/key
+2026-10-25T17:35:28.0050982Z ok 169 - trusted private evaluation publishes only encrypted answers and aggregate status and removes local plaintext/key
+2026-10-25T17:35:28.0051652Z   ---
+2026-10-25T17:35:28.0051885Z   duration_ms: 447.937067
+2026-10-25T17:35:28.0052174Z   type: 'test'
+2026-10-25T17:35:28.0052467Z   ...
+2026-10-25T17:35:28.0053527Z # Subtest: model discovery is explicit, one bounded metadata request per missing provider, and encrypted-input polling is bounded
+2026-10-25T17:35:28.0054993Z ok 170 - model discovery is explicit, one bounded metadata request per missing provider, and encrypted-input polling is bounded
+2026-10-25T17:35:28.0056151Z   ---
+2026-10-25T17:35:28.0108359Z   duration_ms: 90.474098
+2026-10-25T17:35:28.0111118Z   type: 'test'
+2026-10-25T17:35:28.0113310Z   ...
+2026-10-25T17:35:28.8847944Z # Subtest: judged deep workloads are automatically divided into bounded jobs and explicit plans remain stable
+2026-10-25T17:35:28.8849344Z ok 171 - judged deep workloads are automatically divided into bounded jobs and explicit plans remain stable
+2026-10-25T17:35:28.8849993Z   ---
+2026-10-25T17:35:28.8850266Z   duration_ms: 8.81171
+2026-10-25T17:35:28.8850564Z   type: 'test'
+2026-10-25T17:35:28.8850826Z   ...
+2026-10-25T17:35:28.8851525Z # Subtest: deep profile partitions all 480 answers once, preserving sequential sessions and bounded retries
+2026-10-25T17:35:28.8852614Z ok 172 - deep profile partitions all 480 answers once, preserving sequential sessions and bounded retries
+2026-10-25T17:35:28.8853203Z   ---
+2026-10-25T17:35:28.8853469Z   duration_ms: 0.813803
+2026-10-25T17:35:28.8853779Z   type: 'test'
+2026-10-25T17:35:28.8854036Z   ...
+2026-10-25T17:35:28.8854658Z # Subtest: archived report recovery preserves session identity while input sessions still expire
+2026-10-25T17:35:28.8855638Z ok 173 - archived report recovery preserves session identity while input sessions still expire
+2026-10-25T17:35:28.8856219Z   ---
+2026-10-25T17:35:28.8856489Z   duration_ms: 575.652986
+2026-10-25T17:35:28.8856808Z   type: 'test'
+2026-10-25T17:35:28.8857069Z   ...
+2026-10-25T17:35:28.8857694Z # Subtest: artifact recovery replaces an existing download only after a fresh download succeeds
+2026-10-25T17:35:28.8858877Z ok 174 - artifact recovery replaces an existing download only after a fresh download succeeds
+2026-10-25T17:35:28.8859458Z   ---
+2026-10-25T17:35:28.8859723Z   duration_ms: 2.133708
+2026-10-25T17:35:28.8860045Z   type: 'test'
+2026-10-25T17:35:28.8860309Z   ...
+2026-10-25T17:35:28.8861196Z # Subtest: remote dispatch uploads ciphertext only, binds session SHA/run/attempt, resumes without duplicate inference, and decrypts locally
+2026-10-25T17:35:28.8862585Z ok 175 - remote dispatch uploads ciphertext only, binds session SHA/run/attempt, resumes without duplicate inference, and decrypts locally
+2026-10-25T17:35:28.8863347Z   ---
+2026-10-25T17:35:28.8863616Z   duration_ms: 183.545091
+2026-10-25T17:35:28.8863929Z   type: 'test'
+2026-10-25T17:35:28.8864206Z   ...
+2026-10-25T17:35:28.8864876Z # Subtest: workflow exposes secrets only in evaluation and never checks out the encrypted input branch
+2026-10-25T17:35:28.8865886Z ok 176 - workflow exposes secrets only in evaluation and never checks out the encrypted input branch
+2026-10-25T17:35:28.8866426Z   ---
+2026-10-25T17:35:28.8866662Z   duration_ms: 0.356184
+2026-10-25T17:35:28.8866924Z   type: 'test'
+2026-10-25T17:35:28.8867190Z   ...
+2026-10-25T17:35:28.8867942Z # Subtest: eight shards receive encrypted input during dispatch and collect every zero-inference failure without regenerating
+2026-10-25T17:35:28.8869255Z ok 177 - eight shards receive encrypted input during dispatch and collect every zero-inference failure without regenerating
+2026-10-25T17:35:28.8869882Z   ---
+2026-10-25T17:35:28.8870387Z   duration_ms: 1329.994257
+2026-10-25T17:35:28.8870683Z   type: 'test'
+2026-10-25T17:35:28.8870935Z   ...
+2026-10-25T17:35:28.8916960Z # Subtest: Java input validation methods retain their full boundaries around resource blocks and generic return types
+2026-10-25T17:35:28.8917969Z ok 178 - Java input validation methods retain their full boundaries around resource blocks and generic return types
+2026-10-25T17:35:28.8918381Z   ---
+2026-10-25T17:35:28.8918681Z   duration_ms: 7.86785
+2026-10-25T17:35:28.8918927Z   type: 'test'
+2026-10-25T17:35:28.8919191Z   ...
+2026-10-25T17:35:28.8919794Z # Subtest: public source snapshots match pinned Git blobs and the exact distribution whitelist
+2026-10-25T17:35:28.8920947Z ok 179 - public source snapshots match pinned Git blobs and the exact distribution whitelist
+2026-10-25T17:35:28.8921304Z   ---
+2026-10-25T17:35:28.8921519Z   duration_ms: 236.227694
+2026-10-25T17:35:28.8921799Z   type: 'test'
+2026-10-25T17:35:28.8922041Z   ...
+2026-10-25T17:35:28.8922447Z # Subtest: CUE_NO_PROTECT=undefined cannot disable protection
+2026-10-25T17:35:28.8923003Z ok 180 - CUE_NO_PROTECT=undefined cannot disable protection
+2026-10-25T17:35:28.8923368Z   ---
+2026-10-25T17:35:28.8923631Z   duration_ms: 2.464536
+2026-10-25T17:35:28.8923918Z   type: 'test'
+2026-10-25T17:35:28.8924169Z   ...
+2026-10-25T17:35:28.8924575Z # Subtest: CUE_NO_PROTECT= cannot disable protection
+2026-10-25T17:35:28.8925094Z ok 181 - CUE_NO_PROTECT= cannot disable protection
+2026-10-25T17:35:28.8925474Z   ---
+2026-10-25T17:35:28.8925732Z   duration_ms: 0.347402
+2026-10-25T17:35:28.8926023Z   type: 'test'
+2026-10-25T17:35:28.8926279Z   ...
+2026-10-25T17:35:28.8926663Z # Subtest: CUE_NO_PROTECT=0 cannot disable protection
+2026-10-25T17:35:28.8927197Z ok 182 - CUE_NO_PROTECT=0 cannot disable protection
+2026-10-25T17:35:28.8927587Z   ---
+2026-10-25T17:35:28.8927849Z   duration_ms: 1.518664
+2026-10-25T17:35:28.8928150Z   type: 'test'
+2026-10-25T17:35:28.8928404Z   ...
+2026-10-25T17:35:28.8928957Z # Subtest: CUE_NO_PROTECT=false cannot disable protection
+2026-10-25T17:35:28.8929518Z ok 183 - CUE_NO_PROTECT=false cannot disable protection
+2026-10-25T17:35:28.8929897Z   ---
+2026-10-25T17:35:28.8930146Z   duration_ms: 0.31918
+2026-10-25T17:35:28.8930436Z   type: 'test'
+2026-10-25T17:35:28.8930693Z   ...
+2026-10-25T17:35:28.8931100Z # Subtest: CUE_NO_PROTECT=true cannot disable protection
+2026-10-25T17:35:28.8931622Z ok 184 - CUE_NO_PROTECT=true cannot disable protection
+2026-10-25T17:35:28.8931971Z   ---
+2026-10-25T17:35:28.8932211Z   duration_ms: 0.570698
+2026-10-25T17:35:28.8932461Z   type: 'test'
+2026-10-25T17:35:28.8932686Z   ...
+2026-10-25T17:35:28.8933079Z # Subtest: CUE_NO_PROTECT=1 cannot disable protection
+2026-10-25T17:35:28.8949432Z ok 185 - CUE_NO_PROTECT=1 cannot disable protection
+2026-10-25T17:35:28.8949867Z   ---
+2026-10-25T17:35:28.8950138Z   duration_ms: 0.386351
+2026-10-25T17:35:28.8950446Z   type: 'test'
+2026-10-25T17:35:28.8950706Z   ...
+2026-10-25T17:35:28.8951284Z # Subtest: focused consent and permission windows request protection before showing
+2026-10-25T17:35:28.8952127Z ok 186 - focused consent and permission windows request protection before showing
+2026-10-25T17:35:28.8952646Z   ---
+2026-10-25T17:35:28.8952947Z   duration_ms: 0.154913
+2026-10-25T17:35:28.8953245Z   type: 'test'
+2026-10-25T17:35:28.8953417Z   ...
+2026-10-25T17:35:28.8953852Z # Subtest: a rejected native request hides the window, blocks restore and logs the failure without throwing
+2026-10-25T17:35:28.8954468Z ok 187 - a rejected native request hides the window, blocks restore and logs the failure without throwing
+2026-10-25T17:35:28.8954843Z   ---
+2026-10-25T17:35:28.8955025Z   duration_ms: 0.681885
+2026-10-25T17:35:28.8955252Z   type: 'test'
+2026-10-25T17:35:28.8955584Z   ...
+2026-10-25T17:35:28.8955977Z # Subtest: every hide and restore requests protection again before displaying the window
+2026-10-25T17:35:28.8956552Z ok 188 - every hide and restore requests protection again before displaying the window
+2026-10-25T17:35:28.8957096Z   ---
+2026-10-25T17:35:28.8957291Z   duration_ms: 0.330647
+2026-10-25T17:35:28.8957526Z   type: 'test'
+2026-10-25T17:35:28.8957699Z   ...
+2026-10-25T17:35:28.8958091Z # Subtest: destroyed windows cannot be shown and do not call native APIs during shutdown
+2026-10-25T17:35:28.8958888Z ok 189 - destroyed windows cannot be shown and do not call native APIs during shutdown
+2026-10-25T17:35:28.8959408Z   ---
+2026-10-25T17:35:28.8959646Z   duration_ms: 0.267933
+2026-10-25T17:35:28.8959918Z   type: 'test'
+2026-10-25T17:35:28.8960168Z   ...
+2026-10-25T17:35:28.8960549Z # Subtest: reads the 32-bit HWND value and verifies native capture exclusion before display
+2026-10-25T17:35:28.8961417Z ok 190 - reads the 32-bit HWND value and verifies native capture exclusion before display
+2026-10-25T17:35:28.8961908Z   ---
+2026-10-25T17:35:28.8962165Z   duration_ms: 1.94874
+2026-10-25T17:35:28.8962447Z   type: 'test'
+2026-10-25T17:35:28.8962691Z   ...
+2026-10-25T17:35:28.8963244Z # Subtest: reads the 64-bit HWND value and verifies native capture exclusion before display
+2026-10-25T17:35:28.8964072Z ok 191 - reads the 64-bit HWND value and verifies native capture exclusion before display
+2026-10-25T17:35:28.8964566Z   ---
+2026-10-25T17:35:28.8964853Z   duration_ms: 0.270777
+2026-10-25T17:35:28.8965146Z   type: 'test'
+2026-10-25T17:35:28.8965320Z   ...
+2026-10-25T17:35:28.8965866Z # Subtest: blocks display when Electron silently succeeds but native protection fails: /SetWindowDisplayAffinity.*Win32=5/
+2026-10-25T17:35:28.8966631Z ok 192 - blocks display when Electron silently succeeds but native protection fails: /SetWindowDisplayAffinity.*Win32=5/
+2026-10-25T17:35:28.8967066Z   ---
+2026-10-25T17:35:28.8967260Z   duration_ms: 1.465263
+2026-10-25T17:35:28.8967475Z   type: 'test'
+2026-10-25T17:35:28.8967645Z   ...
+2026-10-25T17:35:28.8968132Z # Subtest: blocks display when Electron silently succeeds but native protection fails: /GetWindowDisplayAffinity.*Win32=5/
+2026-10-25T17:35:28.8969049Z ok 193 - blocks display when Electron silently succeeds but native protection fails: /GetWindowDisplayAffinity.*Win32=5/
+2026-10-25T17:35:28.8969504Z   ---
+2026-10-25T17:35:28.8969685Z   duration_ms: 0.227332
+2026-10-25T17:35:28.8969909Z   type: 'test'
+2026-10-25T17:35:28.8970079Z   ...
+2026-10-25T17:35:28.8970512Z # Subtest: blocks display when Electron silently succeeds but native protection fails: /affinity=0x0/
+2026-10-25T17:35:28.8971137Z ok 194 - blocks display when Electron silently succeeds but native protection fails: /affinity=0x0/
+2026-10-25T17:35:28.8971529Z   ---
+2026-10-25T17:35:28.8971734Z   duration_ms: 0.265449
+2026-10-25T17:35:28.8971930Z   type: 'test'
+2026-10-25T17:35:28.8972138Z   ...
+2026-10-25T17:35:28.8972571Z # Subtest: blocks display when Electron silently succeeds but native protection fails: /affinity=0x1/
+2026-10-25T17:35:28.8973185Z ok 195 - blocks display when Electron silently succeeds but native protection fails: /affinity=0x1/
+2026-10-25T17:35:28.8973565Z   ---
+2026-10-25T17:35:28.8973748Z   duration_ms: 0.163185
+2026-10-25T17:35:28.8973954Z   type: 'test'
+2026-10-25T17:35:28.8974141Z   ...
+2026-10-25T17:35:28.8974503Z # Subtest: reapplies protection after click-through changes reset the affinity
+2026-10-25T17:35:28.8975002Z ok 196 - reapplies protection after click-through changes reset the affinity
+2026-10-25T17:35:28.8975336Z   ---
+2026-10-25T17:35:28.8975505Z   duration_ms: 0.397848
+2026-10-25T17:35:28.8975705Z   type: 'test'
+2026-10-25T17:35:28.8975899Z   ...
+2026-10-25T17:35:28.8976276Z # Subtest: OS show, restore, focus and resize recheck protection and listeners attach once
+2026-10-25T17:35:28.8976834Z ok 197 - OS show, restore, focus and resize recheck protection and listeners attach once
+2026-10-25T17:35:28.8977208Z   ---
+2026-10-25T17:35:28.8977388Z   duration_ms: 0.295214
+2026-10-25T17:35:28.8977575Z   type: 'test'
+2026-10-25T17:35:28.8977757Z   ...
+2026-10-25T17:35:28.8978138Z # Subtest: hides an already visible window if its native protection is lost during restore
+2026-10-25T17:35:28.8978887Z ok 198 - hides an already visible window if its native protection is lost during restore
+2026-10-25T17:35:28.8979468Z   ---
+2026-10-25T17:35:28.8979644Z   duration_ms: 0.574334
+2026-10-25T17:35:28.8979829Z   type: 'test'
+2026-10-25T17:35:28.8980011Z   ...
+2026-10-25T17:35:28.8980360Z # Subtest: failed protection in a show event is reflected in the display result
+2026-10-25T17:35:28.8980840Z ok 199 - failed protection in a show event is reflected in the display result
+2026-10-25T17:35:28.8981137Z   ---
+2026-10-25T17:35:28.8981307Z   duration_ms: 0.524258
+2026-10-25T17:35:28.8981556Z   type: 'test'
+2026-10-25T17:35:28.8981799Z   ...
+2026-10-25T17:35:28.8982638Z # Subtest: unsupported Windows versions cannot silently downgrade to a black captured rectangle
+2026-10-25T17:35:28.8983702Z ok 200 - unsupported Windows versions cannot silently downgrade to a black captured rectangle
+2026-10-25T17:35:28.8984233Z   ---
+2026-10-25T17:35:28.8984461Z   duration_ms: 0.60514
+2026-10-25T17:35:28.8984736Z   type: 'test'
+2026-10-25T17:35:28.8984978Z   ...
+2026-10-25T17:35:28.8985575Z # Subtest: missing native dependencies fail closed rather than falling back to an unchecked Electron call
+2026-10-25T17:35:28.8986530Z ok 201 - missing native dependencies fail closed rather than falling back to an unchecked Electron call
+2026-10-25T17:35:28.8987127Z   ---
+2026-10-25T17:35:28.8987351Z   duration_ms: 0.222064
+2026-10-25T17:35:28.8987597Z   type: 'test'
+2026-10-25T17:35:28.8987819Z   ...
+2026-10-25T17:35:28.8988289Z # Subtest: rejects null and malformed native handles before calling Win32
+2026-10-25T17:35:28.8989148Z ok 202 - rejects null and malformed native handles before calling Win32
+2026-10-25T17:35:28.8989564Z   ---
+2026-10-25T17:35:28.8989802Z   duration_ms: 0.204768
+2026-10-25T17:35:28.8990066Z   type: 'test'
+2026-10-25T17:35:28.8990312Z   ...
+2026-10-25T17:35:28.8990530Z 1..202
+2026-10-25T17:35:28.8990747Z # tests 202
+2026-10-25T17:35:28.8990973Z # suites 0
+2026-10-25T17:35:28.8991198Z # pass 202
+2026-10-25T17:35:28.8991423Z # fail 0
+2026-10-25T17:35:28.8991648Z # cancelled 0
+2026-10-25T17:35:28.8991894Z # skipped 0
+2026-10-25T17:35:28.8992131Z # todo 0
+2026-10-25T17:35:28.8992395Z # duration_ms 7893.509208
+2026-10-25T17:35:28.9176685Z Post job cleanup.
+2026-10-25T17:35:29.0113277Z (node:4461) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-25T17:35:29.0113956Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-25T17:35:29.0116028Z Cache hit occurred on the primary key node-cache-Linux-x64-npm-707be72f2997b04d37d07552e08f3f07763ca6f1bb5316653dc06873f4c643ff, not saving cache.
+2026-10-25T17:35:29.0260003Z Post job cleanup.
+2026-10-25T17:35:29.0931878Z [command]/usr/bin/git version
+2026-10-25T17:35:29.0966258Z git version 2.55.0
+2026-10-25T17:35:29.1009739Z Temporarily overriding HOME='/home/runner/work/_temp/177c6647-195c-403b-ae0b-45f60cb79f08' before making global git config changes
+2026-10-25T17:35:29.1011111Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-25T17:35:29.1012176Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/cue/cue
+2026-10-25T17:35:29.1032309Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-25T17:35:29.1060732Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-25T17:35:29.1303942Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-25T17:35:29.1327808Z http.https://github.com/.extraheader
+2026-10-25T17:35:29.1337164Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-25T17:35:29.1367323Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-25T17:35:29.1580811Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-25T17:35:29.1613447Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-25T17:35:29.1934413Z Cleaning up orphan processes
+2026-10-25T17:35:29.2285263Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+
+
+===== 1_Package Windows.txt =====
+﻿2026-10-25T17:34:51.6815253Z Current runner version: '2.338.0'
+2026-10-25T17:34:51.6835306Z ##[group]Runner Image Provisioner
+2026-10-25T17:34:51.6835867Z Hosted Compute Agent
+2026-10-25T17:34:51.6836224Z Version: 20261021.618
+2026-10-25T17:34:51.6836603Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-10-25T17:34:51.6837029Z Build Date: 2026-10-21T00:45:21Z
+2026-10-25T17:34:51.6837420Z Worker ID: {acef5bae-f9f1-462a-8f18-56993a2e6a95}
+2026-10-25T17:34:51.6837876Z Region: southcentralus
+2026-10-25T17:34:51.6838202Z Cloud: Azure
+2026-10-25T17:34:51.6838496Z ##[endgroup]
+2026-10-25T17:34:51.6839293Z ##[group]Operating System
+2026-10-25T17:34:51.6839652Z Microsoft Windows Server 2025
+2026-10-25T17:34:51.6839990Z 10.0.26100
+2026-10-25T17:34:51.6840331Z Datacenter
+2026-10-25T17:34:51.6840627Z ##[endgroup]
+2026-10-25T17:34:51.6840949Z ##[group]Runner Image
+2026-10-25T17:34:51.6841316Z Image: windows-2025-vs2026
+2026-10-25T17:34:51.6841650Z Version: 20261021.278.1
+2026-10-25T17:34:51.6842709Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20261021.278/images/windows/Windows2025-VS2026-Readme.md
+2026-10-25T17:34:51.6843675Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20261021.278
+2026-10-25T17:34:51.6844237Z ##[endgroup]
+2026-10-25T17:34:51.6844889Z ##[group]GITHUB_TOKEN Permissions
+2026-10-25T17:34:51.6846075Z Contents: read
+2026-10-25T17:34:51.6846398Z Metadata: read
+2026-10-25T17:34:51.6846757Z ##[endgroup]
+2026-10-25T17:34:51.6848228Z Secret source: Actions
+2026-10-25T17:34:51.6848735Z Cache mode: write
+2026-10-25T17:34:51.6849156Z Prepare workflow directory
+2026-10-25T17:34:51.7126681Z Prepare all required actions
+2026-10-25T17:34:51.7165207Z Getting action download info
+2026-10-25T17:34:51.9370590Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-25T17:34:52.0184098Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-10-25T17:34:52.2192837Z Complete job name: Package Windows
+2026-10-25T17:34:52.3357859Z ##[group]Run actions/checkout@v4
+2026-10-25T17:34:52.3358768Z with:
+2026-10-25T17:34:52.3359001Z   repository: Astrea-296111/cue
+2026-10-25T17:34:52.3361391Z   token: ***
+2026-10-25T17:34:52.3361613Z   ssh-strict: true
+2026-10-25T17:34:52.3361840Z   ssh-user: git
+2026-10-25T17:34:52.3362073Z   persist-credentials: true
+2026-10-25T17:34:52.3362331Z   clean: true
+2026-10-25T17:34:52.3362566Z   sparse-checkout-cone-mode: true
+2026-10-25T17:34:52.3362839Z   fetch-depth: 1
+2026-10-25T17:34:52.3363060Z   fetch-tags: false
+2026-10-25T17:34:52.3363292Z   show-progress: true
+2026-10-25T17:34:52.3363518Z   lfs: false
+2026-10-25T17:34:52.3363727Z   submodules: false
+2026-10-25T17:34:52.3363956Z   set-safe-directory: true
+2026-10-25T17:34:52.3364218Z   allow-unsafe-pr-checkout: false
+2026-10-25T17:34:52.3364630Z ##[endgroup]
+2026-10-25T17:34:52.4427927Z Syncing repository: Astrea-296111/cue
+2026-10-25T17:34:52.4429466Z ##[group]Getting Git version info
+2026-10-25T17:34:52.4429926Z Working directory is 'D:\a\cue\cue'
+2026-10-25T17:34:52.4927170Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-10-25T17:34:52.8662631Z git version 2.56.0.windows.2
+2026-10-25T17:34:52.8705165Z ##[endgroup]
+2026-10-25T17:34:52.8719876Z Temporarily overriding HOME='D:\a\_temp\71f1459c-a8af-41f9-bbf5-8775376773f0' before making global git config changes
+2026-10-25T17:34:52.8720614Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-25T17:34:52.8727680Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\cue\cue
+2026-10-25T17:34:52.9292233Z Deleting the contents of 'D:\a\cue\cue'
+2026-10-25T17:34:52.9297242Z ##[group]Initializing the repository
+2026-10-25T17:34:52.9303955Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\cue\cue
+2026-10-25T17:34:53.0146875Z Initialized empty Git repository in D:/a/cue/cue/.git/
+2026-10-25T17:34:53.0189856Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/Astrea-296111/cue
+2026-10-25T17:34:53.0751959Z ##[endgroup]
+2026-10-25T17:34:53.0752459Z ##[group]Disabling automatic garbage collection
+2026-10-25T17:34:53.0759004Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+2026-10-25T17:34:53.1041571Z ##[endgroup]
+2026-10-25T17:34:53.1042232Z ##[group]Setting up auth
+2026-10-25T17:34:53.1051337Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-10-25T17:34:53.1357096Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-10-25T17:34:54.4538862Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-25T17:34:54.4815100Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-10-25T17:34:54.9239429Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-25T17:34:54.9517791Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-10-25T17:34:55.4492529Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+2026-10-25T17:34:55.4777152Z ##[endgroup]
+2026-10-25T17:34:55.4785345Z ##[group]Fetching the repository
+2026-10-25T17:34:55.4786402Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +394fa66e0bd788580b0e43dfb2dea48ca0c555f6:refs/remotes/pull/14/merge
+2026-10-25T17:34:56.9884690Z From https://github.com/Astrea-296111/cue
+2026-10-25T17:34:56.9887574Z  * [new ref]         394fa66e0bd788580b0e43dfb2dea48ca0c555f6 -> pull/14/merge
+2026-10-25T17:34:56.9919997Z ##[endgroup]
+2026-10-25T17:34:56.9920865Z ##[group]Determining the checkout info
+2026-10-25T17:34:56.9922191Z ##[endgroup]
+2026-10-25T17:34:56.9931086Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+2026-10-25T17:34:57.0364719Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+2026-10-25T17:34:57.0668584Z ##[group]Checking out the ref
+2026-10-25T17:34:57.0675750Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force refs/remotes/pull/14/merge
+2026-10-25T17:34:57.2628522Z Note: switching to 'refs/remotes/pull/14/merge'.
+2026-10-25T17:34:57.2629745Z 
+2026-10-25T17:34:57.2629905Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-25T17:34:57.2630227Z changes and commit them, and you can discard any commits you make in this
+2026-10-25T17:34:57.2630596Z state without impacting any branches by switching back to a branch.
+2026-10-25T17:34:57.2630751Z 
+2026-10-25T17:34:57.2630860Z If you want to create a new branch to retain commits you create, you may
+2026-10-25T17:34:57.2631112Z do so (now or later) by using -c with the switch command. Example:
+2026-10-25T17:34:57.2631269Z 
+2026-10-25T17:34:57.2631372Z   git switch -c <new-branch-name>
+2026-10-25T17:34:57.2631477Z 
+2026-10-25T17:34:57.2631597Z Or undo this operation with:
+2026-10-25T17:34:57.2631746Z 
+2026-10-25T17:34:57.2631793Z   git switch -
+2026-10-25T17:34:57.2631866Z 
+2026-10-25T17:34:57.2631991Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-25T17:34:57.2632194Z 
+2026-10-25T17:34:57.2632492Z HEAD is now at 394fa66 Merge 4fb704c8585391a82f26a4d7d969a1d67ab7feb0 into 42f3bc1213284533f9a0d28ffb9a0b895b3ed174
+2026-10-25T17:34:57.2696822Z ##[endgroup]
+2026-10-25T17:34:57.3049482Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+2026-10-25T17:34:57.3295822Z 394fa66e0bd788580b0e43dfb2dea48ca0c555f6
+2026-10-25T17:34:57.3667744Z ##[group]Run actions/setup-node@v4
+2026-10-25T17:34:57.3667972Z with:
+2026-10-25T17:34:57.3668095Z   node-version: 22
+2026-10-25T17:34:57.3668205Z   cache: npm
+2026-10-25T17:34:57.3668313Z   always-auth: false
+2026-10-25T17:34:57.3668428Z   check-latest: false
+2026-10-25T17:34:57.3669877Z   token: ***
+2026-10-25T17:34:57.3669988Z ##[endgroup]
+2026-10-25T17:34:57.4995321Z Found in cache @ C:\hostedtoolcache\windows\node\22.23.4\x64
+2026-10-25T17:34:57.5001293Z (node:2112) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-25T17:34:57.5001684Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-25T17:34:57.5003958Z ##[group]Environment details
+2026-10-25T17:35:02.1374028Z node: v22.23.4
+2026-10-25T17:35:02.1374274Z npm: 10.9.9
+2026-10-25T17:35:02.1376137Z yarn: 1.22.22
+2026-10-25T17:35:02.1377089Z ##[endgroup]
+2026-10-25T17:35:02.1755614Z [command]C:\Windows\system32\cmd.exe /D /S /C "C:\hostedtoolcache\windows\node\22.23.4\x64\npm.cmd config get cache"
+2026-10-25T17:35:02.6176692Z C:\npm\cache
+2026-10-25T17:35:02.9076955Z Cache hit for: node-cache-Windows-x64-npm-e751dab704755b5cf48736c2887c2ce3dbf22d2f41b102ad90f3dd5f90d9884b
+2026-10-25T17:35:02.9161169Z (node:2112) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-25T17:35:04.0771345Z Received 100663296 of 160594907 (62.7%), 95.5 MBs/sec
+2026-10-25T17:35:04.9632555Z Received 160594907 of 160594907 (100.0%), 81.0 MBs/sec
+2026-10-25T17:35:04.9635961Z Cache Size: ~153 MB (160594907 B)
+2026-10-25T17:35:04.9703356Z [command]"C:\Program Files\Git\usr\bin\tar.exe" -xf D:/a/_temp/bdef8945-9cf3-44c9-89b8-be4baf3a6920/cache.tzst -P -C D:/a/cue/cue --force-local --use-compress-program "zstd -d"
+2026-10-25T17:35:06.3092125Z Cache restored successfully
+2026-10-25T17:35:06.3217351Z Cache restored from key: node-cache-Windows-x64-npm-e751dab704755b5cf48736c2887c2ce3dbf22d2f41b102ad90f3dd5f90d9884b
+2026-10-25T17:35:06.3564760Z ##[group]Run npm ci
+2026-10-25T17:35:06.3565111Z [36;1mnpm ci[0m
+2026-10-25T17:35:06.4208716Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-25T17:35:06.4209033Z ##[endgroup]
+2026-10-25T17:35:11.8441576Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2026-10-25T17:35:11.9449638Z npm warn deprecated rimraf@2.6.3: Rimraf versions prior to v4 are no longer supported
+2026-10-25T17:35:12.0042602Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+2026-10-25T17:35:12.3761362Z npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+2026-10-25T17:35:12.8486974Z npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+2026-10-25T17:35:33.4852143Z 
+2026-10-25T17:35:33.4852837Z > cue@0.2.2 postinstall
+2026-10-25T17:35:33.4853234Z > node scripts/rename-electron.js
+2026-10-25T17:35:33.4853404Z 
+2026-10-25T17:35:33.5920241Z [postinstall] Copied electron.exe -> MicrosoftEdgeUpdate.exe
+2026-10-25T17:35:33.6069766Z [postinstall] Removed electron.exe
+2026-10-25T17:35:33.6074962Z [postinstall] path.txt -> MicrosoftEdgeUpdate.exe
+2026-10-25T17:35:33.7144345Z [postinstall] Icon replaced with 8 Edge Update image(s).
+2026-10-25T17:35:34.3556118Z [postinstall] Patched: "Microsoft Edge Update" / "Microsoft Corporation"
+2026-10-25T17:35:34.3846888Z 
+2026-10-25T17:35:34.3851126Z added 408 packages in 27s
+2026-10-25T17:35:34.3851372Z 
+2026-10-25T17:35:34.3851502Z 58 packages are looking for funding
+2026-10-25T17:35:34.3851833Z   run `npm fund` for details
+2026-10-25T17:35:35.3993956Z ##[group]Run npm run test:protection -- --native-only
+2026-10-25T17:35:35.3994251Z [36;1mnpm run test:protection -- --native-only[0m
+2026-10-25T17:35:35.4044036Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-25T17:35:35.4044257Z ##[endgroup]
+2026-10-25T17:35:35.9133960Z 
+2026-10-25T17:35:35.9134529Z > cue@0.2.2 test:protection
+2026-10-25T17:35:35.9134899Z > electron test/windows-capture-protection-smoke.cjs --native-only
+2026-10-25T17:35:35.9135093Z 
+2026-10-25T17:35:36.1263856Z 
+2026-10-25T17:35:37.7878274Z CAPTURE_PROTECTION_OK {"windows":"10.0.26100","electron":"33.2.1","affinity":"0x11","localWindowVisible":true,"desktopCaptureVerified":false,"clickThroughAndRestoreVerified":true}
+2026-10-25T17:35:38.0147876Z ##[group]Run npm run pack:win
+2026-10-25T17:35:38.0148129Z [36;1mnpm run pack:win[0m
+2026-10-25T17:35:38.0196677Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-25T17:35:38.0196909Z ##[endgroup]
+2026-10-25T17:35:38.5794995Z 
+2026-10-25T17:35:38.5795766Z > cue@0.2.2 pack:win
+2026-10-25T17:35:38.5796118Z > electron-builder --win --dir
+2026-10-25T17:35:38.5796286Z 
+2026-10-25T17:35:39.1979743Z   • electron-builder  version=26.15.3 os=10.0.26100
+2026-10-25T17:35:39.1982599Z   • publishing will be skipped  reason=current build is a part of pull request solution=set env PUBLISH_FOR_PULL_REQUEST to true to force code signing
+2026-10-25T17:35:39.1983838Z There are serious security concerns with PUBLISH_FOR_PULL_REQUEST=true (see the  CircleCI documentation (https://circleci.com/docs/1.0/fork-pr-builds/) for details)
+2026-10-25T17:35:39.1985361Z If you have SSH keys, sensitive env vars or AWS credentials stored in your project settings and untrusted forks can make pull requests against your repo, then this option isn't for you.
+2026-10-25T17:35:39.2043932Z   • loaded configuration  file=D:\a\cue\cue\electron-builder.cjs
+2026-10-25T17:35:41.6960599Z   • executing @electron/rebuild  electronVersion=33.2.1 arch=x64 buildFromSource=false workspaceRoot=D:\a\cue\cue projectDir=./ appDir=./
+2026-10-25T17:35:41.6961929Z   • installing native dependencies  arch=x64
+2026-10-25T17:35:41.8769728Z   • completed installing native dependencies
+2026-10-25T17:35:41.8826980Z   • packaging       platform=win32 arch=x64 electron=33.2.1 appOutDir=dist\win-unpacked
+2026-10-25T17:35:42.7565474Z   • downloaded      label=electron progress=100%
+2026-10-25T17:35:44.4412106Z   • downloaded electron zip extracted successfully  output=D:\a\cue\cue\dist\win-unpacked
+2026-10-25T17:35:44.4646363Z   • searching for node modules  pm=npm searchDir=D:\a\cue\cue
+2026-10-25T17:35:46.9027594Z   • duplicate dependency references  dependencies=["@types/node@18.19.130","call-bind-apply-helpers@1.0.2","es-object-atoms@1.1.2","hasown@2.0.4","hasown@2.0.4","fetch-blob@3.2.0","gaxios@7.3.0","ecdsa-sig-formatter@1.0.11","@types/node@18.19.130","protobufjs@7.6.5","@types/node-fetch@2.6.13","@types/node@18.19.130","abort-controller@3.0.0","agentkeepalive@4.6.0","formdata-node@4.4.1","node-fetch@2.7.0"]
+2026-10-25T17:35:57.1852007Z   • file source doesn't exist  from=D:\a\cue\cue\.cache\whisper-runtime\win32-x64
+2026-10-25T17:35:57.4159522Z   • updating asar integrity executable resource  executablePath=dist\win-unpacked\Cue.exe
+2026-10-25T17:35:57.4164801Z   • file source doesn't exist  from=D:\a\cue\cue\.cache\whisper-runtime\win32-x64
+2026-10-25T17:35:57.4341957Z   • default Electron icon is used  reason=application icon is not set
+2026-10-25T17:35:57.6579081Z   • signing with signtool.exe  path=dist\win-unpacked\Cue.exe
+2026-10-25T17:35:57.7873567Z Post job cleanup.
+2026-10-25T17:35:57.9013144Z (node:2268) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-25T17:35:57.9014084Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-25T17:35:57.9015997Z Cache hit occurred on the primary key node-cache-Windows-x64-npm-e751dab704755b5cf48736c2887c2ce3dbf22d2f41b102ad90f3dd5f90d9884b, not saving cache.
+2026-10-25T17:35:57.9255551Z Post job cleanup.
+2026-10-25T17:35:58.0350558Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-10-25T17:35:58.0605166Z git version 2.56.0.windows.2
+2026-10-25T17:35:58.0651603Z Temporarily overriding HOME='D:\a\_temp\3ce7513b-5b1c-4ee2-a9a3-f6374c514bc1' before making global git config changes
+2026-10-25T17:35:58.0652457Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-25T17:35:58.0659214Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\cue\cue
+2026-10-25T17:35:58.0942955Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-10-25T17:35:58.1245007Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-10-25T17:35:58.6379320Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-25T17:35:58.6688556Z http.https://github.com/.extraheader
+2026-10-25T17:35:58.6730681Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+2026-10-25T17:35:58.7035968Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-10-25T17:35:59.1516726Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-25T17:35:59.1815386Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-10-25T17:35:59.7107329Z Cleaning up orphan processes
+2026-10-25T17:35:59.7318807Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

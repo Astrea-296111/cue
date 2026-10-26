@@ -1,0 +1,312 @@
+===== 0_Mock production chain and Electron UI.txt =====
+﻿2026-10-26T00:52:00.0457241Z Current runner version: '2.338.0'
+2026-10-26T00:52:00.0482173Z ##[group]Runner Image Provisioner
+2026-10-26T00:52:00.0483658Z Hosted Compute Agent
+2026-10-26T00:52:00.0484656Z Version: 20261021.618
+2026-10-26T00:52:00.0485651Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-10-26T00:52:00.0486449Z Build Date: 2026-10-21T00:45:21Z
+2026-10-26T00:52:00.0487187Z Worker ID: {f2a6ba36-5104-490d-9003-7c3cdb492132}
+2026-10-26T00:52:00.0487976Z Region: eastus2
+2026-10-26T00:52:00.0488530Z Cloud: Azure
+2026-10-26T00:52:00.0489052Z ##[endgroup]
+2026-10-26T00:52:00.0490706Z ##[group]Operating System
+2026-10-26T00:52:00.0491391Z Ubuntu
+2026-10-26T00:52:00.0492001Z 24.04.5
+2026-10-26T00:52:00.0492757Z LTS
+2026-10-26T00:52:00.0493297Z ##[endgroup]
+2026-10-26T00:52:00.0493934Z ##[group]Runner Image
+2026-10-26T00:52:00.0494572Z Image: ubuntu-24.04
+2026-10-26T00:52:00.0495201Z Version: 20261012.334.1
+2026-10-26T00:52:00.0496489Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-26T00:52:00.0498130Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-26T00:52:00.0499141Z ##[endgroup]
+2026-10-26T00:52:00.0500319Z ##[group]GITHUB_TOKEN Permissions
+2026-10-26T00:52:00.0502842Z Contents: read
+2026-10-26T00:52:00.0503877Z Metadata: read
+2026-10-26T00:52:00.0504866Z ##[endgroup]
+2026-10-26T00:52:00.0507695Z Secret source: Actions
+2026-10-26T00:52:00.0509017Z Cache mode: write
+2026-10-26T00:52:00.0509739Z Prepare workflow directory
+2026-10-26T00:52:00.0845257Z Prepare all required actions
+2026-10-26T00:52:00.0893680Z Getting action download info
+2026-10-26T00:52:00.3329695Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-26T00:52:00.4495609Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-10-26T00:52:00.5474624Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-10-26T00:52:00.7514560Z Complete job name: Mock production chain and Electron UI
+2026-10-26T00:52:00.8477398Z ##[group]Run actions/checkout@v4
+2026-10-26T00:52:00.8478296Z with:
+2026-10-26T00:52:00.8478753Z   persist-credentials: false
+2026-10-26T00:52:00.8479288Z   repository: Astrea-296111/cue
+2026-10-26T00:52:00.8483422Z   token: ***
+2026-10-26T00:52:00.8483874Z   ssh-strict: true
+2026-10-26T00:52:00.8484320Z   ssh-user: git
+2026-10-26T00:52:00.8484741Z   clean: true
+2026-10-26T00:52:00.8485178Z   sparse-checkout-cone-mode: true
+2026-10-26T00:52:00.8485701Z   fetch-depth: 1
+2026-10-26T00:52:00.8486129Z   fetch-tags: false
+2026-10-26T00:52:00.8486569Z   show-progress: true
+2026-10-26T00:52:00.8487016Z   lfs: false
+2026-10-26T00:52:00.8487430Z   submodules: false
+2026-10-26T00:52:00.8487878Z   set-safe-directory: true
+2026-10-26T00:52:00.8488387Z   allow-unsafe-pr-checkout: false
+2026-10-26T00:52:00.8489215Z ##[endgroup]
+2026-10-26T00:52:00.9529311Z Syncing repository: Astrea-296111/cue
+2026-10-26T00:52:00.9532016Z ##[group]Getting Git version info
+2026-10-26T00:52:00.9534708Z Working directory is '/home/runner/work/cue/cue'
+2026-10-26T00:52:00.9536284Z [command]/usr/bin/git version
+2026-10-26T00:52:00.9654796Z git version 2.55.0
+2026-10-26T00:52:00.9676459Z ##[endgroup]
+2026-10-26T00:52:00.9687218Z Temporarily overriding HOME='/home/runner/work/_temp/e41d1b16-8a10-44db-815e-f91db1bb3f56' before making global git config changes
+2026-10-26T00:52:00.9689644Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-26T00:52:00.9694112Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/cue/cue
+2026-10-26T00:52:00.9754605Z Deleting the contents of '/home/runner/work/cue/cue'
+2026-10-26T00:52:00.9758486Z ##[group]Initializing the repository
+2026-10-26T00:52:00.9763910Z [command]/usr/bin/git init /home/runner/work/cue/cue
+2026-10-26T00:52:00.9889222Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-26T00:52:00.9891364Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-26T00:52:00.9893111Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-26T00:52:00.9894368Z hint: call:
+2026-10-26T00:52:00.9895357Z hint:
+2026-10-26T00:52:00.9896151Z hint: 	git config --global init.defaultBranch <name>
+2026-10-26T00:52:00.9897119Z hint:
+2026-10-26T00:52:00.9898112Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-26T00:52:00.9899671Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-26T00:52:00.9900856Z hint:
+2026-10-26T00:52:00.9901535Z hint: 	git branch -m <name>
+2026-10-26T00:52:00.9902338Z hint:
+2026-10-26T00:52:00.9903795Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-26T00:52:00.9905334Z Initialized empty Git repository in /home/runner/work/cue/cue/.git/
+2026-10-26T00:52:00.9908020Z [command]/usr/bin/git remote add origin https://github.com/Astrea-296111/cue
+2026-10-26T00:52:00.9965050Z ##[endgroup]
+2026-10-26T00:52:00.9966332Z ##[group]Disabling automatic garbage collection
+2026-10-26T00:52:00.9968901Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-26T00:52:01.0026982Z ##[endgroup]
+2026-10-26T00:52:01.0028931Z ##[group]Setting up auth
+2026-10-26T00:52:01.0035522Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-26T00:52:01.0087068Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-26T00:52:01.0521241Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-26T00:52:01.0561816Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-26T00:52:01.0817206Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-26T00:52:01.0859526Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-26T00:52:01.1120907Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-26T00:52:01.1178117Z ##[endgroup]
+2026-10-26T00:52:01.1179843Z ##[group]Fetching the repository
+2026-10-26T00:52:01.1187356Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +5c1868216598e077819cc7db53b2d4c27f080fec:refs/remotes/pull/18/merge
+2026-10-26T00:52:01.8328460Z From https://github.com/Astrea-296111/cue
+2026-10-26T00:52:01.8330546Z  * [new ref]         5c1868216598e077819cc7db53b2d4c27f080fec -> pull/18/merge
+2026-10-26T00:52:01.8365614Z ##[endgroup]
+2026-10-26T00:52:01.8367019Z ##[group]Determining the checkout info
+2026-10-26T00:52:01.8368642Z ##[endgroup]
+2026-10-26T00:52:01.8369588Z [command]/usr/bin/git sparse-checkout disable
+2026-10-26T00:52:01.8425753Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-26T00:52:01.8467075Z ##[group]Checking out the ref
+2026-10-26T00:52:01.8472343Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/18/merge
+2026-10-26T00:52:01.9447426Z Note: switching to 'refs/remotes/pull/18/merge'.
+2026-10-26T00:52:01.9448409Z 
+2026-10-26T00:52:01.9449006Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-26T00:52:01.9450322Z changes and commit them, and you can discard any commits you make in this
+2026-10-26T00:52:01.9451616Z state without impacting any branches by switching back to a branch.
+2026-10-26T00:52:01.9452692Z 
+2026-10-26T00:52:01.9453706Z If you want to create a new branch to retain commits you create, you may
+2026-10-26T00:52:01.9455856Z do so (now or later) by using -c with the switch command. Example:
+2026-10-26T00:52:01.9457373Z 
+2026-10-26T00:52:01.9457955Z   git switch -c <new-branch-name>
+2026-10-26T00:52:01.9458804Z 
+2026-10-26T00:52:01.9459411Z Or undo this operation with:
+2026-10-26T00:52:01.9460221Z 
+2026-10-26T00:52:01.9460766Z   git switch -
+2026-10-26T00:52:01.9461462Z 
+2026-10-26T00:52:01.9462740Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-26T00:52:01.9544325Z 
+2026-10-26T00:52:01.9546229Z HEAD is now at 5c18682 Merge 7ff34561fc6d0c80cb33b014c0b1ce1403d07836 into 7db02490d292c2a57a118f801762b909bf447344
+2026-10-26T00:52:01.9552098Z ##[endgroup]
+2026-10-26T00:52:01.9555584Z [command]/usr/bin/git log -1 --format=%H
+2026-10-26T00:52:01.9557436Z 5c1868216598e077819cc7db53b2d4c27f080fec
+2026-10-26T00:52:01.9563331Z ##[group]Removing auth
+2026-10-26T00:52:01.9568756Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-26T00:52:01.9608122Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-26T00:52:01.9840756Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-26T00:52:01.9874303Z http.https://github.com/.extraheader
+2026-10-26T00:52:01.9882666Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-26T00:52:01.9923035Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-26T00:52:02.0155034Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-26T00:52:02.0192827Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-26T00:52:02.0419721Z ##[endgroup]
+2026-10-26T00:52:02.0786870Z ##[group]Run actions/setup-node@v4
+2026-10-26T00:52:02.0788071Z with:
+2026-10-26T00:52:02.0788944Z   node-version: 22
+2026-10-26T00:52:02.0789871Z   cache: npm
+2026-10-26T00:52:02.0790756Z   always-auth: false
+2026-10-26T00:52:02.0791727Z   check-latest: false
+2026-10-26T00:52:02.0800092Z   token: ***
+2026-10-26T00:52:02.0801001Z ##[endgroup]
+2026-10-26T00:52:02.2244871Z Found in cache @ /opt/hostedtoolcache/node/22.23.3/x64
+2026-10-26T00:52:02.2249466Z (node:2366) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-26T00:52:02.2252781Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-26T00:52:02.2255130Z ##[group]Environment details
+2026-10-26T00:52:02.6563693Z node: v22.23.3
+2026-10-26T00:52:02.6565218Z npm: 10.9.9
+2026-10-26T00:52:02.6565485Z yarn: 1.22.22
+2026-10-26T00:52:02.6566280Z ##[endgroup]
+2026-10-26T00:52:02.6587281Z [command]/opt/hostedtoolcache/node/22.23.3/x64/bin/npm config get cache
+2026-10-26T00:52:02.7793159Z /home/runner/.npm
+2026-10-26T00:52:02.8606076Z Cache hit for: node-cache-Linux-x64-npm-707be72f2997b04d37d07552e08f3f07763ca6f1bb5316653dc06873f4c643ff
+2026-10-26T00:52:02.8723458Z (node:2366) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-26T00:52:03.7183903Z Received 167393035 of 167393035 (100.0%), 193.7 MBs/sec
+2026-10-26T00:52:03.7194107Z Cache Size: ~160 MB (167393035 B)
+2026-10-26T00:52:03.7294111Z [command]/usr/bin/tar -xf /home/runner/work/_temp/e1cc9242-cdfd-4377-90ab-39ca8a0b904d/cache.tzst -P -C /home/runner/work/cue/cue --use-compress-program unzstd
+2026-10-26T00:52:04.0370195Z Cache restored successfully
+2026-10-26T00:52:04.0455154Z Cache restored from key: node-cache-Linux-x64-npm-707be72f2997b04d37d07552e08f3f07763ca6f1bb5316653dc06873f4c643ff
+2026-10-26T00:52:04.0700337Z ##[group]Run npm ci
+2026-10-26T00:52:04.0700656Z [36;1mnpm ci[0m
+2026-10-26T00:52:04.0999530Z shell: /usr/bin/bash -e {0}
+2026-10-26T00:52:04.0999914Z ##[endgroup]
+2026-10-26T00:52:07.6617948Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2026-10-26T00:52:07.7056059Z npm warn deprecated rimraf@2.6.3: Rimraf versions prior to v4 are no longer supported
+2026-10-26T00:52:07.7934185Z npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+2026-10-26T00:52:08.0756917Z npm warn deprecated boolean@3.2.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+2026-10-26T00:52:08.3576853Z npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+2026-10-26T00:52:20.2127005Z 
+2026-10-26T00:52:20.2127670Z > cue@0.2.2 postinstall
+2026-10-26T00:52:20.2128369Z > node scripts/rename-electron.js
+2026-10-26T00:52:20.2128760Z 
+2026-10-26T00:52:20.2595312Z 
+2026-10-26T00:52:20.2595978Z added 411 packages in 16s
+2026-10-26T00:52:20.2596582Z 
+2026-10-26T00:52:20.2597296Z 61 packages are looking for funding
+2026-10-26T00:52:20.2598314Z   run `npm fund` for details
+2026-10-26T00:52:20.3547848Z ##[group]Run npm run compile:materials
+2026-10-26T00:52:20.3548218Z [36;1mnpm run compile:materials[0m
+2026-10-26T00:52:20.3613425Z shell: /usr/bin/bash -e {0}
+2026-10-26T00:52:20.3613719Z ##[endgroup]
+2026-10-26T00:52:20.4661297Z 
+2026-10-26T00:52:20.4661903Z > cue@0.2.2 compile:materials
+2026-10-26T00:52:20.4662783Z > node scripts/bundle-project-materials.cjs
+2026-10-26T00:52:20.4663055Z 
+2026-10-26T00:52:22.1370912Z 材料已编译：fffacc199f044c50fa0922337da10c8745a325d620f105edab2aea522e51b683，0 事实，2519 源码片段
+2026-10-26T00:52:22.1613586Z ##[group]Run npm run test:llm:mock -- --mode smoke --provider qwen --output-dir artifacts/llm-mock
+2026-10-26T00:52:22.1614337Z [36;1mnpm run test:llm:mock -- --mode smoke --provider qwen --output-dir artifacts/llm-mock[0m
+2026-10-26T00:52:22.1678117Z shell: /usr/bin/bash -e {0}
+2026-10-26T00:52:22.1678379Z ##[endgroup]
+2026-10-26T00:52:22.2705726Z 
+2026-10-26T00:52:22.2706425Z > cue@0.2.2 test:llm:mock
+2026-10-26T00:52:22.2707668Z > node scripts/e2e-live-llm.cjs --mock --mode smoke --provider qwen --output-dir artifacts/llm-mock
+2026-10-26T00:52:22.2708438Z 
+2026-10-26T00:52:22.8996263Z CUE MOCK smoke: passed; attempted calls 6. Reports: report.json / report.md
+2026-10-26T00:52:22.9223388Z ##[group]Run mkdir -p artifacts/electron
+2026-10-26T00:52:22.9223786Z [36;1mmkdir -p artifacts/electron[0m
+2026-10-26T00:52:22.9224089Z [36;1mset -o pipefail[0m
+2026-10-26T00:52:22.9224495Z [36;1mxvfb-run -a npm run test:ui -- --no-sandbox 2>&1 | tee artifacts/electron/ui.log[0m
+2026-10-26T00:52:22.9287137Z shell: /usr/bin/bash -e {0}
+2026-10-26T00:52:22.9287412Z env:
+2026-10-26T00:52:22.9287698Z   CUE_UI_SETTINGS_SCREENSHOT: artifacts/electron/settings.png
+2026-10-26T00:52:22.9288046Z ##[endgroup]
+2026-10-26T00:52:23.4168791Z 
+2026-10-26T00:52:23.4169453Z > cue@0.2.2 test:ui
+2026-10-26T00:52:23.4170227Z > electron test/core-ui-smoke.cjs --no-sandbox
+2026-10-26T00:52:23.4170676Z 
+2026-10-26T00:52:24.8467302Z [2598:1026/005224.846059:ERROR:bus.cc(407)] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+2026-10-26T00:52:24.8481048Z [2598:1026/005224.846124:ERROR:bus.cc(407)] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+2026-10-26T00:52:24.8484883Z [2598:1026/005224.846136:ERROR:bus.cc(407)] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+2026-10-26T00:52:24.8488168Z [2598:1026/005224.846146:ERROR:bus.cc(407)] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+2026-10-26T00:52:24.8493026Z [2598:1026/005224.846154:ERROR:bus.cc(407)] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+2026-10-26T00:52:26.5081419Z [2598:1026/005226.507902:ERROR:bus.cc(407)] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")
+2026-10-26T00:52:26.9001369Z [2629:1026/005226.899439:ERROR:viz_main_impl.cc(181)] Exiting GPU process due to errors during initialization
+2026-10-26T00:52:27.0336556Z [2669:1026/005227.033317:ERROR:viz_main_impl.cc(181)] Exiting GPU process due to errors during initialization
+2026-10-26T00:52:27.1145836Z [2655:1026/005227.114301:ERROR:shared_image_interface_proxy.cc(134)] Buffer handle is null. Not creating a mailbox from it.
+2026-10-26T00:52:27.1147604Z [2655:1026/005227.114301:ERROR:shared_image_interface_proxy.cc(134)] Buffer handle is null. Not creating a mailbox from it.
+2026-10-26T00:52:27.1149238Z [2655:1026/005227.114358:ERROR:one_copy_raster_buffer_provider.cc(348)] Creation of StagingBuffer's SharedImage failed.
+2026-10-26T00:52:27.1150829Z [2655:1026/005227.114360:ERROR:one_copy_raster_buffer_provider.cc(348)] Creation of StagingBuffer's SharedImage failed.
+2026-10-26T00:52:27.1152655Z [2655:1026/005227.114430:ERROR:shared_image_interface_proxy.cc(134)] Buffer handle is null. Not creating a mailbox from it.
+2026-10-26T00:52:27.1154326Z [2655:1026/005227.114456:ERROR:shared_image_interface_proxy.cc(134)] Buffer handle is null. Not creating a mailbox from it.
+2026-10-26T00:52:27.1155977Z [2655:1026/005227.114475:ERROR:one_copy_raster_buffer_provider.cc(348)] Creation of StagingBuffer's SharedImage failed.
+2026-10-26T00:52:27.1157327Z [2655:1026/005227.114507:ERROR:one_copy_raster_buffer_provider.cc(348)] Creation of StagingBuffer's SharedImage failed.
+2026-10-26T00:52:27.1158268Z [2655:1026/005227.114580:ERROR:shared_image_interface_proxy.cc(134)] Buffer handle is null. Not creating a mailbox from it.
+2026-10-26T00:52:27.1159183Z [2655:1026/005227.114610:ERROR:shared_image_interface_proxy.cc(134)] Buffer handle is null. Not creating a mailbox from it.
+2026-10-26T00:52:27.1160090Z [2655:1026/005227.114637:ERROR:one_copy_raster_buffer_provider.cc(348)] Creation of StagingBuffer's SharedImage failed.
+2026-10-26T00:52:27.1160977Z [2655:1026/005227.114663:ERROR:one_copy_raster_buffer_provider.cc(348)] Creation of StagingBuffer's SharedImage failed.
+2026-10-26T00:52:27.1162132Z [2655:1026/005227.114737:ERROR:shared_image_interface_proxy.cc(134)] Buffer handle is null. Not creating a mailbox from it.
+2026-10-26T00:52:27.1163408Z [2655:1026/005227.114769:ERROR:shared_image_interface_proxy.cc(134)] Buffer handle is null. Not creating a mailbox from it.
+2026-10-26T00:52:27.1164317Z [2655:1026/005227.114799:ERROR:one_copy_raster_buffer_provider.cc(348)] Creation of StagingBuffer's SharedImage failed.
+2026-10-26T00:52:27.1165225Z [2655:1026/005227.114826:ERROR:one_copy_raster_buffer_provider.cc(348)] Creation of StagingBuffer's SharedImage failed.
+2026-10-26T00:52:27.1166147Z [2655:1026/005227.114899:ERROR:shared_image_interface_proxy.cc(134)] Buffer handle is null. Not creating a mailbox from it.
+2026-10-26T00:52:27.1167042Z [2655:1026/005227.114907:ERROR:one_copy_raster_buffer_provider.cc(348)] Creation of StagingBuffer's SharedImage failed.
+2026-10-26T00:52:27.1167941Z [2655:1026/005227.114932:ERROR:shared_image_interface_proxy.cc(134)] Buffer handle is null. Not creating a mailbox from it.
+2026-10-26T00:52:27.1168833Z [2655:1026/005227.114937:ERROR:one_copy_raster_buffer_provider.cc(348)] Creation of StagingBuffer's SharedImage failed.
+2026-10-26T00:52:27.1169933Z [2655:1026/005227.114991:ERROR:shared_image_interface_proxy.cc(134)] Buffer handle is null. Not creating a mailbox from it.
+2026-10-26T00:52:27.1170915Z [2655:1026/005227.114999:ERROR:one_copy_raster_buffer_provider.cc(348)] Creation of StagingBuffer's SharedImage failed.
+2026-10-26T00:52:27.1172044Z [2655:1026/005227.115024:ERROR:shared_image_interface_proxy.cc(134)] Buffer handle is null. Not creating a mailbox from it.
+2026-10-26T00:52:27.1174246Z [2655:1026/005227.115029:ERROR:one_copy_raster_buffer_provider.cc(348)] Creation of StagingBuffer's SharedImage failed.
+2026-10-26T00:52:27.1175847Z [2655:1026/005227.115093:ERROR:shared_image_interface_proxy.cc(134)] Buffer handle is null. Not creating a mailbox from it.
+2026-10-26T00:52:27.1177527Z [2655:1026/005227.115101:ERROR:one_copy_raster_buffer_provider.cc(348)] Creation of StagingBuffer's SharedImage failed.
+2026-10-26T00:52:27.1179294Z [2655:1026/005227.115119:ERROR:shared_image_interface_proxy.cc(134)] Buffer handle is null. Not creating a mailbox from it.
+2026-10-26T00:52:27.1180998Z [2655:1026/005227.115124:ERROR:one_copy_raster_buffer_provider.cc(348)] Creation of StagingBuffer's SharedImage failed.
+2026-10-26T00:52:27.1182980Z [2655:1026/005227.115204:ERROR:shared_image_interface_proxy.cc(134)] Buffer handle is null. Not creating a mailbox from it.
+2026-10-26T00:52:27.1184684Z [2655:1026/005227.115234:ERROR:one_copy_raster_buffer_provider.cc(348)] Creation of StagingBuffer's SharedImage failed.
+2026-10-26T00:52:27.2134147Z Error occurred in handler for 'materials:prepare': Error: 所选目录中没有可导入的源码或有效事实资料。请检查文件类型、内容及忽略规则。
+2026-10-26T00:52:27.2144261Z     at importProjectFolder (/home/runner/work/cue/cue/src/project-knowledge.js:653:77)
+2026-10-26T00:52:27.2145821Z     at async ProjectMaterialService.prepareImport (/home/runner/work/cue/cue/src/project-material-service.js:143:38)
+2026-10-26T00:52:27.2147183Z     at async WebContents.<anonymous> (node:electron/js2c/browser_init:2:87021) {
+2026-10-26T00:52:27.2147936Z   code: 'empty-materials'
+2026-10-26T00:52:27.2148384Z }
+2026-10-26T00:52:27.2694756Z Error occurred in handler for 'materials:prepare': Error: interview/facts.json：事实包 schema/version 或数量无效
+2026-10-26T00:52:27.2696442Z     at accept (/home/runner/work/cue/cue/src/project-material-service.js:108:188)
+2026-10-26T00:52:27.2698012Z     at ProjectMaterialService.discover (/home/runner/work/cue/cue/src/project-material-service.js:114:71)
+2026-10-26T00:52:27.2699860Z     at async ProjectMaterialService.prepareImport (/home/runner/work/cue/cue/src/project-material-service.js:139:83)
+2026-10-26T00:52:27.2701407Z     at async WebContents.<anonymous> (node:electron/js2c/browser_init:2:87021)
+2026-10-26T00:52:30.1542223Z [latency][prompt] {"requestId":"mvojl5bh-1","mode":"ask","epoch":6,"questionId":"manual6-3","questionRevision":1,"executionProfile":"instant","modelProfile":"instant","buildCommit":"5c1868216598e077819cc7db53b2d4c27f080fec","sourceDirty":false,"identitySource":"checkout-startup","ragPolicy":"ready-only","readyEvidenceHit":false,"skippedReason":"disabled","optionalContextTokensEstimate":0,"instantContext":{"fixedInstructionTokensEstimate":1915,"userStyleTokensEstimate":0,"protectedSpeechTokensEstimate":0,"optionalContextTokensEstimate":0,"readyEvidenceTokensEstimate":0,"historyTokensEstimate":0,"estimate":true,"referenceDraft":true,"softInputTarget":3800},"queueDelayMs":0,"screenMs":0,"contextMs":9.3,"provider":"custom","model":"test-model","smart":false,"promptChars":1062,"systemChars":1033,"hasImage":false,"maxTokens":640,"answerComplexity":"standard","questionVersion":"c53064d2075d1d05","projectRevision":"5-f04e18d0-9b9e-47ad-abf9-94b47b692684:18198b9444173bf46920795453d03767600ef11c18ac8556afa0be83f33edc3e","retrieval":{"ragPolicy":"off","readyEvidenceHit":false,"sourceCount":0,"candidateCount":0,"searchCalls":0,"queryEmbeddingCalls":0,"retrievalPath":"ready-only","poolSufficientHit":false,"readyEvidenceMs":0.051816999999573454,"skippedReason":"disabled"},"finalBudget":{"contextWindowTokens":16384,"estimatedTokens":1957,"estimatedInputTokens":1957,"reservedOutputTokens":640,"safetyTokens":820,"estimatedImageTokens":0,"droppedHistoryTurns":0,"droppedSections":[],"droppedEvidence":0,"budgetGapNoteTokens":0,"selectedSourceCount":0,"overBudget":false},"policy":"instant-independent","recentPairs":0,"recalledPairs":0,"storedPairs":0,"historyChars":0,"budget":250,"estimate":true,"prepareMs":34.27}
+2026-10-26T00:52:30.1570616Z [latency][model] {"requestId":"mvojl5bh-1","mode":"ask","epoch":6,"questionId":"manual6-3","questionRevision":1,"executionProfile":"instant","model":"test-model","buildCommit":"5c1868216598e077819cc7db53b2d4c27f080fec","ragPolicy":"ready-only","readyEvidenceHit":false,"skippedReason":"disabled","optionalContextTokensEstimate":0,"sourceCount":0,"queueDelayMs":0,"sourceDirty":false,"identitySource":"checkout-startup","provider":"custom","endpointClass":"custom-compatible","thinkingStatus":"unknown","thinkingSource":"unknown","enableThinking":null,"reasoningEffort":null,"thinkingConfig":null,"automaticRetriesDisabled":true,"transportRetryPolicy":"one-attempt","responseBoundary":"sdk-stream-resolved","thinkingRequest":null,"packRevision":"f18ca525d04e3dca8473ed3548b0fe5dc27169f4aad78e9c2b151e760121a418","selectedCardCount":0,"input":"manual-or-transcript","questionSource":"manual","questionAgeMs":0,"triggerToDispatchMs":36.99,"prepareMs":36.99,"providerResponseMs":null,"firstProviderEventMs":null,"firstReasoningMs":null,"reasoningStartedMs":null,"firstContentMs":null,"llmFirstTokenMs":null,"triggerToFirstContentMs":null,"requestToFirstTokenMs":null,"triggerToFirstUsefulSentenceMs":null,"usefulSentenceHeuristic":"first-non-placeholder-clause-ending-in-punctuation-or-newline","reasoningToFirstTokenMs":null,"finalAgeAtRequestMs":null,"finalToFirstTokenMs":null,"asrLagMs":null,"asrAssociation":null,"vadEndToFinalMs":null,"renderAckMs":null,"paintApproxMs":null,"rendererFrameDelayMs":null,"paintMeasurement":null,"tokenToRenderAckMs":null,"aborted":false,"actualInputTokens":null,"actualOutputTokens":null,"actualTotalTokens":null,"cachedInputTokens":null,"actualReasoningTokens":null,"smart":false,"thinkingBudget":null}
+2026-10-26T00:52:30.1597050Z [latency][reply] {"requestId":"mvojl5bh-1","mode":"ask","epoch":6,"questionId":"manual6-3","questionRevision":1,"executionProfile":"instant","model":"test-model","buildCommit":"5c1868216598e077819cc7db53b2d4c27f080fec","ragPolicy":"ready-only","readyEvidenceHit":false,"skippedReason":"disabled","optionalContextTokensEstimate":0,"sourceCount":0,"queueDelayMs":0,"sourceDirty":false,"identitySource":"checkout-startup","provider":"custom","endpointClass":"custom-compatible","thinkingStatus":"unknown","thinkingSource":"unknown","enableThinking":null,"reasoningEffort":null,"thinkingConfig":null,"automaticRetriesDisabled":true,"transportRetryPolicy":"one-attempt","responseBoundary":"sdk-stream-resolved","thinkingRequest":null,"packRevision":"f18ca525d04e3dca8473ed3548b0fe5dc27169f4aad78e9c2b151e760121a418","selectedCardCount":0,"input":"manual-or-transcript","questionSource":"manual","questionAgeMs":0,"triggerToDispatchMs":36.99,"prepareMs":36.99,"providerResponseMs":0.71,"firstProviderEventMs":0.85,"firstReasoningMs":null,"reasoningStartedMs":null,"firstContentMs":1.31,"llmFirstTokenMs":1.31,"triggerToFirstContentMs":38.29,"requestToFirstTokenMs":38.29,"triggerToFirstUsefulSentenceMs":null,"usefulSentenceHeuristic":"first-non-placeholder-clause-ending-in-punctuation-or-newline","reasoningToFirstTokenMs":null,"finalAgeAtRequestMs":null,"finalToFirstTokenMs":null,"asrLagMs":null,"asrAssociation":null,"vadEndToFinalMs":null,"renderAckMs":null,"paintApproxMs":null,"rendererFrameDelayMs":null,"paintMeasurement":null,"tokenToRenderAckMs":null,"aborted":false,"actualInputTokens":null,"actualOutputTokens":null,"actualTotalTokens":null,"cachedInputTokens":null,"actualReasoningTokens":null,"event":"first-content"}
+2026-10-26T00:52:30.1656383Z [latency][reply] {"requestId":"mvojl5bh-1","mode":"ask","epoch":6,"questionId":"manual6-3","questionRevision":1,"executionProfile":"instant","model":"test-model","buildCommit":"5c1868216598e077819cc7db53b2d4c27f080fec","ragPolicy":"ready-only","readyEvidenceHit":false,"skippedReason":"disabled","optionalContextTokensEstimate":0,"sourceCount":0,"queueDelayMs":0,"sourceDirty":false,"identitySource":"checkout-startup","provider":"custom","endpointClass":"custom-compatible","thinkingStatus":"unknown","thinkingSource":"unknown","enableThinking":null,"reasoningEffort":null,"thinkingConfig":null,"automaticRetriesDisabled":true,"transportRetryPolicy":"one-attempt","responseBoundary":"sdk-stream-resolved","thinkingRequest":null,"packRevision":"f18ca525d04e3dca8473ed3548b0fe5dc27169f4aad78e9c2b151e760121a418","selectedCardCount":0,"input":"manual-or-transcript","questionSource":"manual","questionAgeMs":0,"triggerToDispatchMs":36.99,"prepareMs":36.99,"providerResponseMs":0.71,"firstProviderEventMs":0.85,"firstReasoningMs":null,"reasoningStartedMs":null,"firstContentMs":1.31,"llmFirstTokenMs":1.31,"triggerToFirstContentMs":38.29,"requestToFirstTokenMs":38.29,"triggerToFirstUsefulSentenceMs":39.67,"usefulSentenceHeuristic":"first-non-placeholder-clause-ending-in-punctuation-or-newline","reasoningToFirstTokenMs":null,"finalAgeAtRequestMs":null,"finalToFirstTokenMs":null,"asrLagMs":null,"asrAssociation":null,"vadEndToFinalMs":null,"renderAckMs":null,"paintApproxMs":null,"rendererFrameDelayMs":null,"paintMeasurement":null,"tokenToRenderAckMs":null,"aborted":false,"actualInputTokens":null,"actualOutputTokens":null,"actualTotalTokens":null,"cachedInputTokens":null,"actualReasoningTokens":null,"event":"first-useful-sentence"}
+2026-10-26T00:52:30.1684183Z [latency][reply] {"requestId":"mvojl5bh-1","mode":"ask","epoch":6,"questionId":"manual6-3","questionRevision":1,"executionProfile":"instant","model":"test-model","buildCommit":"5c1868216598e077819cc7db53b2d4c27f080fec","ragPolicy":"ready-only","readyEvidenceHit":false,"skippedReason":"disabled","optionalContextTokensEstimate":0,"sourceCount":0,"queueDelayMs":0,"sourceDirty":false,"identitySource":"checkout-startup","provider":"custom","endpointClass":"custom-compatible","thinkingStatus":"unknown","thinkingSource":"unknown","enableThinking":null,"reasoningEffort":null,"thinkingConfig":null,"automaticRetriesDisabled":true,"transportRetryPolicy":"one-attempt","responseBoundary":"sdk-stream-resolved","thinkingRequest":null,"packRevision":"f18ca525d04e3dca8473ed3548b0fe5dc27169f4aad78e9c2b151e760121a418","selectedCardCount":0,"input":"manual-or-transcript","questionSource":"manual","questionAgeMs":0,"triggerToDispatchMs":36.99,"prepareMs":36.99,"providerResponseMs":0.71,"firstProviderEventMs":0.85,"firstReasoningMs":null,"reasoningStartedMs":null,"firstContentMs":1.31,"llmFirstTokenMs":1.31,"triggerToFirstContentMs":38.29,"requestToFirstTokenMs":38.29,"triggerToFirstUsefulSentenceMs":39.67,"usefulSentenceHeuristic":"first-non-placeholder-clause-ending-in-punctuation-or-newline","reasoningToFirstTokenMs":null,"finalAgeAtRequestMs":null,"finalToFirstTokenMs":null,"asrLagMs":null,"asrAssociation":null,"vadEndToFinalMs":null,"renderAckMs":null,"paintApproxMs":null,"rendererFrameDelayMs":null,"paintMeasurement":null,"tokenToRenderAckMs":null,"aborted":false,"actualInputTokens":null,"actualOutputTokens":null,"actualTotalTokens":null,"cachedInputTokens":null,"actualReasoningTokens":null,"event":"finished","doneMs":43.64}
+2026-10-26T00:52:30.1713185Z [latency][ui] {"requestId":"mvojl5bh-1","mode":"ask","epoch":6,"questionId":"manual6-3","questionRevision":1,"executionProfile":"instant","model":"test-model","buildCommit":"5c1868216598e077819cc7db53b2d4c27f080fec","ragPolicy":"ready-only","readyEvidenceHit":false,"skippedReason":"disabled","optionalContextTokensEstimate":0,"sourceCount":0,"queueDelayMs":0,"sourceDirty":false,"identitySource":"checkout-startup","provider":"custom","endpointClass":"custom-compatible","thinkingStatus":"unknown","thinkingSource":"unknown","enableThinking":null,"reasoningEffort":null,"thinkingConfig":null,"automaticRetriesDisabled":true,"transportRetryPolicy":"one-attempt","responseBoundary":"sdk-stream-resolved","thinkingRequest":null,"packRevision":"f18ca525d04e3dca8473ed3548b0fe5dc27169f4aad78e9c2b151e760121a418","selectedCardCount":0,"input":"manual-or-transcript","questionSource":"manual","questionAgeMs":0,"triggerToDispatchMs":36.99,"prepareMs":36.99,"providerResponseMs":0.71,"firstProviderEventMs":0.85,"firstReasoningMs":null,"reasoningStartedMs":null,"firstContentMs":1.31,"llmFirstTokenMs":1.31,"triggerToFirstContentMs":38.29,"requestToFirstTokenMs":38.29,"triggerToFirstUsefulSentenceMs":39.67,"usefulSentenceHeuristic":"first-non-placeholder-clause-ending-in-punctuation-or-newline","reasoningToFirstTokenMs":null,"finalAgeAtRequestMs":null,"finalToFirstTokenMs":null,"asrLagMs":null,"asrAssociation":null,"vadEndToFinalMs":null,"renderAckMs":46.9,"paintApproxMs":null,"rendererFrameDelayMs":null,"paintMeasurement":null,"tokenToRenderAckMs":8.61,"aborted":false,"actualInputTokens":null,"actualOutputTokens":null,"actualTotalTokens":null,"cachedInputTokens":null,"actualReasoningTokens":null,"event":"dom-ack"}
+2026-10-26T00:52:30.1817369Z [latency][prompt] {"requestId":"mvojl5cv-2","mode":"ask","epoch":6,"questionId":"manual6-4","questionRevision":1,"executionProfile":"instant","modelProfile":"instant","buildCommit":"5c1868216598e077819cc7db53b2d4c27f080fec","sourceDirty":false,"identitySource":"checkout-startup","ragPolicy":"ready-only","readyEvidenceHit":false,"skippedReason":"disabled","optionalContextTokensEstimate":0,"instantContext":{"fixedInstructionTokensEstimate":1915,"userStyleTokensEstimate":0,"protectedSpeechTokensEstimate":0,"optionalContextTokensEstimate":0,"readyEvidenceTokensEstimate":0,"historyTokensEstimate":0,"estimate":true,"referenceDraft":true,"softInputTarget":3800},"queueDelayMs":0,"screenMs":0,"contextMs":1.47,"provider":"custom","model":"test-model","smart":false,"promptChars":1062,"systemChars":1033,"hasImage":false,"maxTokens":640,"answerComplexity":"standard","questionVersion":"9f8d32f4fe1dd0e3","projectRevision":"5-f04e18d0-9b9e-47ad-abf9-94b47b692684:18198b9444173bf46920795453d03767600ef11c18ac8556afa0be83f33edc3e","retrieval":{"ragPolicy":"off","readyEvidenceHit":false,"sourceCount":0,"candidateCount":0,"searchCalls":0,"queryEmbeddingCalls":0,"retrievalPath":"ready-only","poolSufficientHit":false,"readyEvidenceMs":0.0035369999995964463,"skippedReason":"disabled"},"finalBudget":{"contextWindowTokens":16384,"estimatedTokens":1957,"estimatedInputTokens":1957,"reservedOutputTokens":640,"safetyTokens":820,"estimatedImageTokens":0,"droppedHistoryTurns":0,"droppedSections":[],"droppedEvidence":0,"budgetGapNoteTokens":0,"selectedSourceCount":0,"overBudget":false},"policy":"instant-independent","recentPairs":0,"recalledPairs":0,"storedPairs":1,"historyChars":0,"budget":250,"estimate":true,"prepareMs":4.93}
+2026-10-26T00:52:30.1844041Z [latency][model] {"requestId":"mvojl5cv-2","mode":"ask","epoch":6,"questionId":"manual6-4","questionRevision":1,"executionProfile":"instant","model":"test-model","buildCommit":"5c1868216598e077819cc7db53b2d4c27f080fec","ragPolicy":"ready-only","readyEvidenceHit":false,"skippedReason":"disabled","optionalContextTokensEstimate":0,"sourceCount":0,"queueDelayMs":0,"sourceDirty":false,"identitySource":"checkout-startup","provider":"custom","endpointClass":"custom-compatible","thinkingStatus":"unknown","thinkingSource":"unknown","enableThinking":null,"reasoningEffort":null,"thinkingConfig":null,"automaticRetriesDisabled":true,"transportRetryPolicy":"one-attempt","responseBoundary":"sdk-stream-resolved","thinkingRequest":null,"packRevision":"f18ca525d04e3dca8473ed3548b0fe5dc27169f4aad78e9c2b151e760121a418","selectedCardCount":0,"input":"manual-or-transcript","questionSource":"manual","questionAgeMs":0,"triggerToDispatchMs":6.19,"prepareMs":6.19,"providerResponseMs":null,"firstProviderEventMs":null,"firstReasoningMs":null,"reasoningStartedMs":null,"firstContentMs":null,"llmFirstTokenMs":null,"triggerToFirstContentMs":null,"requestToFirstTokenMs":null,"triggerToFirstUsefulSentenceMs":null,"usefulSentenceHeuristic":"first-non-placeholder-clause-ending-in-punctuation-or-newline","reasoningToFirstTokenMs":null,"finalAgeAtRequestMs":null,"finalToFirstTokenMs":null,"asrLagMs":null,"asrAssociation":null,"vadEndToFinalMs":null,"renderAckMs":null,"paintApproxMs":null,"rendererFrameDelayMs":null,"paintMeasurement":null,"tokenToRenderAckMs":null,"aborted":false,"actualInputTokens":null,"actualOutputTokens":null,"actualTotalTokens":null,"cachedInputTokens":null,"actualReasoningTokens":null,"smart":false,"thinkingBudget":null}
+2026-10-26T00:52:30.1859940Z [latency][reply] {"requestId":"mvojl5cv-2","mode":"ask","epoch":6,"questionId":"manual6-4","questionRevision":1,"executionProfile":"instant","model":"test-model","buildCommit":"5c1868216598e077819cc7db53b2d4c27f080fec","ragPolicy":"ready-only","readyEvidenceHit":false,"skippedReason":"disabled","optionalContextTokensEstimate":0,"sourceCount":0,"queueDelayMs":0,"sourceDirty":false,"identitySource":"checkout-startup","provider":"custom","endpointClass":"custom-compatible","thinkingStatus":"unknown","thinkingSource":"unknown","enableThinking":null,"reasoningEffort":null,"thinkingConfig":null,"automaticRetriesDisabled":true,"transportRetryPolicy":"one-attempt","responseBoundary":"sdk-stream-resolved","thinkingRequest":null,"packRevision":"f18ca525d04e3dca8473ed3548b0fe5dc27169f4aad78e9c2b151e760121a418","selectedCardCount":0,"input":"manual-or-transcript","questionSource":"manual","questionAgeMs":0,"triggerToDispatchMs":6.19,"prepareMs":6.19,"providerResponseMs":null,"firstProviderEventMs":null,"firstReasoningMs":null,"reasoningStartedMs":null,"firstContentMs":null,"llmFirstTokenMs":null,"triggerToFirstContentMs":null,"requestToFirstTokenMs":null,"triggerToFirstUsefulSentenceMs":null,"usefulSentenceHeuristic":"first-non-placeholder-clause-ending-in-punctuation-or-newline","reasoningToFirstTokenMs":null,"finalAgeAtRequestMs":null,"finalToFirstTokenMs":null,"asrLagMs":null,"asrAssociation":null,"vadEndToFinalMs":null,"renderAckMs":null,"paintApproxMs":null,"rendererFrameDelayMs":null,"paintMeasurement":null,"tokenToRenderAckMs":null,"aborted":false,"actualInputTokens":null,"actualOutputTokens":null,"actualTotalTokens":null,"cachedInputTokens":null,"actualReasoningTokens":null,"event":"finished","doneMs":7.02}
+2026-10-26T00:52:30.1873659Z UI_CORE_OK {"boot":true,"textReply":true,"providerError":true,"createdHidden":true,"protectionRequested":true,"profileAndJdRetained":true,"materialImport":{"sourceFolderGlobalDialog":true,"emptyAndInvalidMaterialErrors":true,"sourceIndexRestartRecovery":true,"scanProgress":true,"commitDeduplication":true,"canonicalFactProjectsPreserved":true,"protectedPreviewChoices":true,"previewCancelFocusRestored":true},"personalImport":{"singleFileImport":true,"separateJobs":true,"duplicatePreservesEdits":true,"restartPersistence":true,"speakerCorrection":true,"newSessionClearsSpeech":true}}
+2026-10-26T00:52:30.2971384Z ##[group]Run echo 'Electron uses virtual display/devices. This run does not verify a physical Windows device or real LLM quality.' >> "$GITHUB_STEP_SUMMARY"
+2026-10-26T00:52:30.2972842Z [36;1mecho 'Electron uses virtual display/devices. This run does not verify a physical Windows device or real LLM quality.' >> "$GITHUB_STEP_SUMMARY"[0m
+2026-10-26T00:52:30.3035897Z shell: /usr/bin/bash -e {0}
+2026-10-26T00:52:30.3036171Z ##[endgroup]
+2026-10-26T00:52:30.3198968Z ##[group]Run actions/upload-artifact@v4
+2026-10-26T00:52:30.3199273Z with:
+2026-10-26T00:52:30.3199479Z   name: offline-e2e-40251395830-1
+2026-10-26T00:52:30.3199742Z   path: artifacts/
+2026-10-26T00:52:30.3199961Z   if-no-files-found: warn
+2026-10-26T00:52:30.3200195Z   retention-days: 14
+2026-10-26T00:52:30.3200409Z   compression-level: 6
+2026-10-26T00:52:30.3200629Z   overwrite: false
+2026-10-26T00:52:30.3200840Z   include-hidden-files: false
+2026-10-26T00:52:30.3201081Z ##[endgroup]
+2026-10-26T00:52:30.4802752Z (node:2708) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-26T00:52:30.4803633Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-26T00:52:30.4982986Z With the provided path, there will be 4 files uploaded
+2026-10-26T00:52:30.4983903Z Artifact name is valid!
+2026-10-26T00:52:30.4984398Z Root directory input is valid!
+2026-10-26T00:52:30.6904527Z Beginning upload of artifact content to blob storage
+2026-10-26T00:52:30.7249135Z (node:2708) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-10-26T00:52:30.7497034Z Uploaded bytes 124420
+2026-10-26T00:52:30.7616547Z Finished uploading artifact content to blob storage!
+2026-10-26T00:52:30.7618189Z SHA256 digest of uploaded artifact zip is a15537574b1f227362189d49d914bb53df027d3ac257b7bba4397ff27d204b82
+2026-10-26T00:52:30.7619620Z Finalizing artifact upload
+2026-10-26T00:52:31.1722008Z Artifact offline-e2e-40251395830-1.zip successfully finalized. Artifact ID 12620636180
+2026-10-26T00:52:31.1724152Z Artifact offline-e2e-40251395830-1 has been successfully uploaded! Final size is 124420 bytes. Artifact ID is 12620636180
+2026-10-26T00:52:31.1729303Z Artifact download URL: https://github.com/Astrea-296111/cue/actions/runs/40251395830/artifacts/12620636180
+2026-10-26T00:52:31.1921917Z Post job cleanup.
+2026-10-26T00:52:31.3157356Z (node:2720) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-26T00:52:31.3158368Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-26T00:52:31.3162845Z Cache hit occurred on the primary key node-cache-Linux-x64-npm-707be72f2997b04d37d07552e08f3f07763ca6f1bb5316653dc06873f4c643ff, not saving cache.
+2026-10-26T00:52:31.3292611Z Post job cleanup.
+2026-10-26T00:52:31.4147694Z [command]/usr/bin/git version
+2026-10-26T00:52:31.4191387Z git version 2.55.0
+2026-10-26T00:52:31.4232812Z Temporarily overriding HOME='/home/runner/work/_temp/340f3b5d-9caf-4c7e-ba46-3d53255b744f' before making global git config changes
+2026-10-26T00:52:31.4235870Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-26T00:52:31.4238803Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/cue/cue
+2026-10-26T00:52:31.4279083Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-26T00:52:31.4318970Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-26T00:52:31.4573258Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-26T00:52:31.4612142Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-26T00:52:31.4913794Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-26T00:52:31.4934132Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-26T00:52:31.5366470Z Cleaning up orphan processes
+2026-10-26T00:52:31.5762221Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

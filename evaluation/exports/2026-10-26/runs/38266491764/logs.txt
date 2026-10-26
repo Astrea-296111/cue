@@ -1,0 +1,904 @@
+===== 0_Local runtime (ubuntu-latest).txt =====
+﻿2026-10-12T14:55:55.4615236Z Current runner version: '2.337.0'
+2026-10-12T14:55:55.4651403Z ##[group]Runner Image Provisioner
+2026-10-12T14:55:55.4652563Z Hosted Compute Agent
+2026-10-12T14:55:55.4653532Z Version: 20261002.596
+2026-10-12T14:55:55.4654742Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+2026-10-12T14:55:55.4655751Z Build Date: 2026-10-02T22:28:27Z
+2026-10-12T14:55:55.4656841Z Worker ID: {3a35ccab-d4b4-4f4b-ae18-faacb8cc38db}
+2026-10-12T14:55:55.4657855Z Region: centralus
+2026-10-12T14:55:55.4658641Z Cloud: Azure
+2026-10-12T14:55:55.4659414Z ##[endgroup]
+2026-10-12T14:55:55.4661452Z ##[group]Operating System
+2026-10-12T14:55:55.4662910Z Ubuntu
+2026-10-12T14:55:55.4663633Z 24.04.5
+2026-10-12T14:55:55.4664676Z LTS
+2026-10-12T14:55:55.4665411Z ##[endgroup]
+2026-10-12T14:55:55.4666213Z ##[group]Runner Image
+2026-10-12T14:55:55.4667075Z Image: ubuntu-24.04
+2026-10-12T14:55:55.4667864Z Version: 20261004.327.1
+2026-10-12T14:55:55.4669679Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-12T14:55:55.4671858Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+2026-10-12T14:55:55.4673216Z ##[endgroup]
+2026-10-12T14:55:55.4675331Z ##[group]GITHUB_TOKEN Permissions
+2026-10-12T14:55:55.4678159Z Contents: read
+2026-10-12T14:55:55.4678956Z Metadata: read
+2026-10-12T14:55:55.4679727Z ##[endgroup]
+2026-10-12T14:55:55.4683311Z Secret source: Actions
+2026-10-12T14:55:55.4684979Z Cache mode: write
+2026-10-12T14:55:55.4686317Z Prepare workflow directory
+2026-10-12T14:55:55.5635327Z Prepare all required actions
+2026-10-12T14:55:55.5770909Z Getting action download info
+2026-10-12T14:55:55.8558325Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-12T14:55:55.9830147Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-10-12T14:55:56.1655062Z Download action repository 'actions/cache@v4' (SHA:0057852bfaa89a56745cba8c7296529d2fc39830)
+2026-10-12T14:55:56.5109429Z Complete job name: Local runtime (ubuntu-latest)
+2026-10-12T14:55:56.5850595Z ##[group]Run actions/checkout@v4
+2026-10-12T14:55:56.5851670Z with:
+2026-10-12T14:55:56.5852272Z   repository: Astrea-296111/cue
+2026-10-12T14:55:56.5856959Z   token: ***
+2026-10-12T14:55:56.5857546Z   ssh-strict: true
+2026-10-12T14:55:56.5858104Z   ssh-user: git
+2026-10-12T14:55:56.5858728Z   persist-credentials: true
+2026-10-12T14:55:56.5859401Z   clean: true
+2026-10-12T14:55:56.5860018Z   sparse-checkout-cone-mode: true
+2026-10-12T14:55:56.5860682Z   fetch-depth: 1
+2026-10-12T14:55:56.5861233Z   fetch-tags: false
+2026-10-12T14:55:56.5861837Z   show-progress: true
+2026-10-12T14:55:56.5862412Z   lfs: false
+2026-10-12T14:55:56.5862994Z   submodules: false
+2026-10-12T14:55:56.5863598Z   set-safe-directory: true
+2026-10-12T14:55:56.5864602Z   allow-unsafe-pr-checkout: false
+2026-10-12T14:55:56.5865552Z ##[endgroup]
+2026-10-12T14:55:56.7012185Z Syncing repository: Astrea-296111/cue
+2026-10-12T14:55:56.7016613Z ##[group]Getting Git version info
+2026-10-12T14:55:56.7018677Z Working directory is '/home/runner/work/cue/cue'
+2026-10-12T14:55:56.7020905Z [command]/usr/bin/git version
+2026-10-12T14:55:56.7153167Z git version 2.55.0
+2026-10-12T14:55:56.7266591Z ##[endgroup]
+2026-10-12T14:55:56.7284542Z Temporarily overriding HOME='/home/runner/work/_temp/8024cd37-61f1-424f-bcab-ffa30ada3bd6' before making global git config changes
+2026-10-12T14:55:56.7286962Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T14:55:56.7288685Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/cue/cue
+2026-10-12T14:55:56.7343572Z Deleting the contents of '/home/runner/work/cue/cue'
+2026-10-12T14:55:56.7347764Z ##[group]Initializing the repository
+2026-10-12T14:55:56.7376401Z [command]/usr/bin/git init /home/runner/work/cue/cue
+2026-10-12T14:55:56.7473298Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-12T14:55:56.7476188Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-12T14:55:56.7477765Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-12T14:55:56.7479397Z hint: call:
+2026-10-12T14:55:56.7481097Z hint:
+2026-10-12T14:55:56.7482785Z hint: 	git config --global init.defaultBranch <name>
+2026-10-12T14:55:56.7484515Z hint:
+2026-10-12T14:55:56.7486339Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-12T14:55:56.7488169Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-12T14:55:56.7489560Z hint:
+2026-10-12T14:55:56.7490446Z hint: 	git branch -m <name>
+2026-10-12T14:55:56.7491369Z hint:
+2026-10-12T14:55:56.7492562Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-12T14:55:56.7514416Z Initialized empty Git repository in /home/runner/work/cue/cue/.git/
+2026-10-12T14:55:56.7521689Z [command]/usr/bin/git remote add origin https://github.com/Astrea-296111/cue
+2026-10-12T14:55:56.7591519Z ##[endgroup]
+2026-10-12T14:55:56.7593731Z ##[group]Disabling automatic garbage collection
+2026-10-12T14:55:56.7595304Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-12T14:55:56.7674728Z ##[endgroup]
+2026-10-12T14:55:56.7676349Z ##[group]Setting up auth
+2026-10-12T14:55:56.7677566Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T14:55:56.7681922Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T14:55:56.8317060Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T14:55:56.8323126Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T14:55:56.8456254Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T14:55:56.8489613Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T14:55:56.8690832Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-12T14:55:56.8737749Z ##[endgroup]
+2026-10-12T14:55:56.8740403Z ##[group]Fetching the repository
+2026-10-12T14:55:56.8749405Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +df60e39b757e1904314edbb316c10630e725fe28:refs/remotes/origin/main
+2026-10-12T14:55:57.6201979Z From https://github.com/Astrea-296111/cue
+2026-10-12T14:55:57.6205646Z  * [new ref]         df60e39b757e1904314edbb316c10630e725fe28 -> origin/main
+2026-10-12T14:55:57.6210770Z ##[endgroup]
+2026-10-12T14:55:57.6212980Z ##[group]Determining the checkout info
+2026-10-12T14:55:57.6215724Z ##[endgroup]
+2026-10-12T14:55:57.6217351Z [command]/usr/bin/git sparse-checkout disable
+2026-10-12T14:55:57.6325473Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-12T14:55:57.6364419Z ##[group]Checking out the ref
+2026-10-12T14:55:57.6367699Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-10-12T14:55:57.6586405Z Switched to a new branch 'main'
+2026-10-12T14:55:57.6594938Z branch 'main' set up to track 'origin/main'.
+2026-10-12T14:55:57.6601037Z ##[endgroup]
+2026-10-12T14:55:57.6640225Z [command]/usr/bin/git log -1 --format=%H
+2026-10-12T14:55:57.6664655Z df60e39b757e1904314edbb316c10630e725fe28
+2026-10-12T14:55:57.7140711Z ##[group]Run actions/setup-node@v4
+2026-10-12T14:55:57.7142778Z with:
+2026-10-12T14:55:57.7144513Z   node-version: 22
+2026-10-12T14:55:57.7146059Z   cache: npm
+2026-10-12T14:55:57.7147717Z   always-auth: false
+2026-10-12T14:55:57.7149317Z   check-latest: false
+2026-10-12T14:55:57.7164771Z   token: ***
+2026-10-12T14:55:57.7166357Z ##[endgroup]
+2026-10-12T14:55:57.8897458Z Found in cache @ /opt/hostedtoolcache/node/22.23.3/x64
+2026-10-12T14:55:57.8902664Z (node:2079) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-12T14:55:57.8908686Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-12T14:55:57.8912427Z ##[group]Environment details
+2026-10-12T14:56:00.8715177Z node: v22.23.3
+2026-10-12T14:56:00.8716098Z npm: 10.9.9
+2026-10-12T14:56:00.8716666Z yarn: 1.22.22
+2026-10-12T14:56:00.8717772Z ##[endgroup]
+2026-10-12T14:56:00.8784258Z [command]/opt/hostedtoolcache/node/22.23.3/x64/bin/npm config get cache
+2026-10-12T14:56:01.1757334Z /home/runner/.npm
+2026-10-12T14:56:01.3510479Z npm cache is not found
+2026-10-12T14:56:01.3652176Z ##[group]Run npm ci
+2026-10-12T14:56:01.3652644Z [36;1mnpm ci[0m
+2026-10-12T14:56:01.3888800Z shell: /usr/bin/bash -e {0}
+2026-10-12T14:56:01.3889305Z ##[endgroup]
+2026-10-12T14:56:03.2426571Z npm error code ETARGET
+2026-10-12T14:56:03.2434362Z npm error notarget No matching version found for resedit@^0.0.1.
+2026-10-12T14:56:03.2435817Z npm error notarget In most cases you or one of your dependencies are requesting
+2026-10-12T14:56:03.2437002Z npm error notarget a package version that doesn't exist.
+2026-10-12T14:56:03.2438375Z npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-10-12T14_56_01_445Z-debug-0.log
+2026-10-12T14:56:03.2639426Z ##[error]Process completed with exit code 1.
+2026-10-12T14:56:03.2810074Z Post job cleanup.
+2026-10-12T14:56:03.3761766Z [command]/usr/bin/git version
+2026-10-12T14:56:03.3835227Z git version 2.55.0
+2026-10-12T14:56:03.3877422Z Temporarily overriding HOME='/home/runner/work/_temp/36495a13-62c0-4d24-8d59-32833d561661' before making global git config changes
+2026-10-12T14:56:03.3885487Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T14:56:03.3898724Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/cue/cue
+2026-10-12T14:56:03.3946966Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T14:56:03.3990515Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T14:56:03.4308393Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T14:56:03.4355148Z http.https://github.com/.extraheader
+2026-10-12T14:56:03.4360391Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-12T14:56:03.4444828Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T14:56:03.4788845Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T14:56:03.4865342Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T14:56:03.5336327Z Cleaning up orphan processes
+2026-10-12T14:56:03.5546349Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+
+
+===== 1_Local runtime (windows-latest).txt =====
+﻿2026-10-12T14:55:55.1415579Z Current runner version: '2.337.0'
+2026-10-12T14:55:55.1451210Z ##[group]Runner Image Provisioner
+2026-10-12T14:55:55.1452291Z Hosted Compute Agent
+2026-10-12T14:55:55.1453092Z Version: 20260901.588
+2026-10-12T14:55:55.1454021Z Commit: f88ec8081b781fac6c440065ac7ff9e710ce3d0b
+2026-10-12T14:55:55.1455096Z Build Date: 2026-09-01T19:56:44Z
+2026-10-12T14:55:55.1456150Z Worker ID: {0b286069-ecbc-45cf-954c-984a90ca5dbe}
+2026-10-12T14:55:55.1458058Z Azure Region: eastus
+2026-10-12T14:55:55.1459093Z ##[endgroup]
+2026-10-12T14:55:55.1461343Z ##[group]Operating System
+2026-10-12T14:55:55.1462457Z Microsoft Windows Server 2025
+2026-10-12T14:55:55.1463754Z 10.0.26100
+2026-10-12T14:55:55.1464780Z Datacenter
+2026-10-12T14:55:55.1465717Z ##[endgroup]
+2026-10-12T14:55:55.1466632Z ##[group]Runner Image
+2026-10-12T14:55:55.1467812Z Image: windows-2025-vs2026
+2026-10-12T14:55:55.1468852Z Version: 20260925.250.1
+2026-10-12T14:55:55.1471820Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20260925.250/images/windows/Windows2025-VS2026-Readme.md
+2026-10-12T14:55:55.1475014Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20260925.250
+2026-10-12T14:55:55.1476951Z ##[endgroup]
+2026-10-12T14:55:55.1478829Z ##[group]GITHUB_TOKEN Permissions
+2026-10-12T14:55:55.1486473Z Contents: read
+2026-10-12T14:55:55.1487484Z Metadata: read
+2026-10-12T14:55:55.1488489Z ##[endgroup]
+2026-10-12T14:55:55.1491354Z Secret source: Actions
+2026-10-12T14:55:55.1492878Z Cache mode: write
+2026-10-12T14:55:55.1494170Z Prepare workflow directory
+2026-10-12T14:55:55.2026008Z Prepare all required actions
+2026-10-12T14:55:55.2098488Z Getting action download info
+2026-10-12T14:55:55.4402478Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-12T14:55:55.6276652Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-10-12T14:55:55.8167773Z Download action repository 'actions/cache@v4' (SHA:0057852bfaa89a56745cba8c7296529d2fc39830)
+2026-10-12T14:55:56.1188277Z Complete job name: Local runtime (windows-latest)
+2026-10-12T14:55:56.2890815Z ##[group]Run actions/checkout@v4
+2026-10-12T14:55:56.2892395Z with:
+2026-10-12T14:55:56.2893216Z   repository: Astrea-296111/cue
+2026-10-12T14:55:56.2902659Z   token: ***
+2026-10-12T14:55:56.2903514Z   ssh-strict: true
+2026-10-12T14:55:56.2904320Z   ssh-user: git
+2026-10-12T14:55:56.2905200Z   persist-credentials: true
+2026-10-12T14:55:56.2906095Z   clean: true
+2026-10-12T14:55:56.2906912Z   sparse-checkout-cone-mode: true
+2026-10-12T14:55:56.2907903Z   fetch-depth: 1
+2026-10-12T14:55:56.2908677Z   fetch-tags: false
+2026-10-12T14:55:56.2909506Z   show-progress: true
+2026-10-12T14:55:56.2910345Z   lfs: false
+2026-10-12T14:55:56.2911155Z   submodules: false
+2026-10-12T14:55:56.2912017Z   set-safe-directory: true
+2026-10-12T14:55:56.2913007Z   allow-unsafe-pr-checkout: false
+2026-10-12T14:55:56.2914525Z ##[endgroup]
+2026-10-12T14:55:56.5455365Z Syncing repository: Astrea-296111/cue
+2026-10-12T14:55:56.5458007Z ##[group]Getting Git version info
+2026-10-12T14:55:56.5459120Z Working directory is 'D:\a\cue\cue'
+2026-10-12T14:55:57.1389215Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-10-12T14:55:57.6118803Z git version 2.55.0.windows.5
+2026-10-12T14:55:57.6418745Z ##[endgroup]
+2026-10-12T14:55:57.6429717Z Temporarily overriding HOME='D:\a\_temp\85942176-49ba-4745-89e7-77761fa7ce2e' before making global git config changes
+2026-10-12T14:55:57.6435128Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T14:55:57.6439810Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\cue\cue
+2026-10-12T14:55:57.7482740Z Deleting the contents of 'D:\a\cue\cue'
+2026-10-12T14:55:57.7486425Z ##[group]Initializing the repository
+2026-10-12T14:55:57.7489709Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\cue\cue
+2026-10-12T14:55:57.8159509Z Initialized empty Git repository in D:/a/cue/cue/.git/
+2026-10-12T14:55:58.9324695Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/Astrea-296111/cue
+2026-10-12T14:55:58.9326737Z ##[endgroup]
+2026-10-12T14:55:58.9327533Z ##[group]Disabling automatic garbage collection
+2026-10-12T14:55:58.9328387Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+2026-10-12T14:55:58.9330090Z ##[endgroup]
+2026-10-12T14:55:58.9330740Z ##[group]Setting up auth
+2026-10-12T14:55:58.9331645Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T14:55:58.9334395Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-10-12T14:56:00.0803502Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T14:56:00.1452976Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-10-12T14:56:00.9565213Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T14:56:00.9969680Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-10-12T14:56:02.0138730Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+2026-10-12T14:56:02.0141219Z ##[endgroup]
+2026-10-12T14:56:02.0142057Z ##[group]Fetching the repository
+2026-10-12T14:56:02.0144347Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +df60e39b757e1904314edbb316c10630e725fe28:refs/remotes/origin/main
+2026-10-12T14:56:02.7256978Z From https://github.com/Astrea-296111/cue
+2026-10-12T14:56:02.7265192Z  * [new ref]         df60e39b757e1904314edbb316c10630e725fe28 -> origin/main
+2026-10-12T14:56:02.7313576Z ##[endgroup]
+2026-10-12T14:56:02.7319787Z ##[group]Determining the checkout info
+2026-10-12T14:56:02.7320963Z ##[endgroup]
+2026-10-12T14:56:02.7360386Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+2026-10-12T14:56:02.7791821Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+2026-10-12T14:56:02.8252960Z ##[group]Checking out the ref
+2026-10-12T14:56:02.8262715Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force -B main refs/remotes/origin/main
+2026-10-12T14:56:02.9325726Z Switched to a new branch 'main'
+2026-10-12T14:56:02.9405036Z branch 'main' set up to track 'origin/main'.
+2026-10-12T14:56:02.9457115Z ##[endgroup]
+2026-10-12T14:56:02.9962442Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+2026-10-12T14:56:03.0475997Z df60e39b757e1904314edbb316c10630e725fe28
+2026-10-12T14:56:03.1201694Z ##[group]Run actions/setup-node@v4
+2026-10-12T14:56:03.1202055Z with:
+2026-10-12T14:56:03.1202267Z   node-version: 22
+2026-10-12T14:56:03.1202478Z   cache: npm
+2026-10-12T14:56:03.1202676Z   always-auth: false
+2026-10-12T14:56:03.1202896Z   check-latest: false
+2026-10-12T14:56:03.1205861Z   token: ***
+2026-10-12T14:56:03.1206079Z ##[endgroup]
+2026-10-12T14:56:03.3290964Z (node:8608) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-12T14:56:03.3295335Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-12T14:56:03.3296144Z Found in cache @ C:\hostedtoolcache\windows\node\22.23.3\x64
+2026-10-12T14:56:03.3298984Z ##[group]Environment details
+2026-10-12T14:56:08.9030241Z node: v22.23.3
+2026-10-12T14:56:08.9031142Z npm: 10.9.9
+2026-10-12T14:56:08.9034824Z yarn: 1.22.22
+2026-10-12T14:56:08.9036338Z ##[endgroup]
+2026-10-12T14:56:09.0245333Z [command]C:\Windows\system32\cmd.exe /D /S /C "C:\hostedtoolcache\windows\node\22.23.3\x64\npm.cmd config get cache"
+2026-10-12T14:56:09.6693785Z C:\npm\cache
+2026-10-12T14:56:09.9938449Z npm cache is not found
+2026-10-12T14:56:10.0287131Z ##[group]Run npm ci
+2026-10-12T14:56:10.0287449Z [36;1mnpm ci[0m
+2026-10-12T14:56:10.0895055Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-12T14:56:10.0895700Z ##[endgroup]
+2026-10-12T14:56:15.7127605Z npm error code ETARGET
+2026-10-12T14:56:16.7345667Z npm error notarget No matching version found for resedit@^0.0.1.
+2026-10-12T14:56:16.7346732Z npm error notarget In most cases you or one of your dependencies are requesting
+2026-10-12T14:56:16.7347719Z npm error notarget a package version that doesn't exist.
+2026-10-12T14:56:16.7348885Z npm error A complete log of this run can be found in: C:\npm\cache\_logs\2026-10-12T14_56_11_008Z-debug-0.log
+2026-10-12T14:56:18.1896803Z ##[error]Process completed with exit code 1.
+2026-10-12T14:56:18.2284179Z Post job cleanup.
+2026-10-12T14:56:18.7184574Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-10-12T14:56:18.7603833Z git version 2.55.0.windows.5
+2026-10-12T14:56:18.8040613Z Temporarily overriding HOME='D:\a\_temp\52dd169c-dd43-4da4-9a43-caa03080f28d' before making global git config changes
+2026-10-12T14:56:18.8275582Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T14:56:18.8335619Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\cue\cue
+2026-10-12T14:56:18.8504583Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T14:56:18.9233517Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-10-12T14:56:19.8357019Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T14:56:19.8680263Z http.https://github.com/.extraheader
+2026-10-12T14:56:19.8879368Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+2026-10-12T14:56:19.9270129Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-10-12T14:56:20.6655938Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T14:56:20.7086963Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-10-12T14:56:21.5383723Z Cleaning up orphan processes
+2026-10-12T14:56:21.5434755Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+
+
+===== 2_Test (Node 20).txt =====
+﻿2026-10-12T14:55:55.7310147Z Current runner version: '2.337.0'
+2026-10-12T14:55:55.7345218Z ##[group]Runner Image Provisioner
+2026-10-12T14:55:55.7346730Z Hosted Compute Agent
+2026-10-12T14:55:55.7348051Z Version: 20261002.596
+2026-10-12T14:55:55.7349251Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+2026-10-12T14:55:55.7350457Z Build Date: 2026-10-02T22:28:27Z
+2026-10-12T14:55:55.7351535Z Worker ID: {368a5180-e5f4-49d7-b9fb-dd8640680348}
+2026-10-12T14:55:55.7352802Z Region: westus2
+2026-10-12T14:55:55.7353697Z Cloud: Azure
+2026-10-12T14:55:55.7354580Z ##[endgroup]
+2026-10-12T14:55:55.7357157Z ##[group]Operating System
+2026-10-12T14:55:55.7358443Z Ubuntu
+2026-10-12T14:55:55.7359403Z 24.04.5
+2026-10-12T14:55:55.7360277Z LTS
+2026-10-12T14:55:55.7361049Z ##[endgroup]
+2026-10-12T14:55:55.7362545Z ##[group]Runner Image
+2026-10-12T14:55:55.7363553Z Image: ubuntu-24.04
+2026-10-12T14:55:55.7364642Z Version: 20261004.327.1
+2026-10-12T14:55:55.7367265Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-12T14:55:55.7371430Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+2026-10-12T14:55:55.7373377Z ##[endgroup]
+2026-10-12T14:55:55.7375398Z ##[group]GITHUB_TOKEN Permissions
+2026-10-12T14:55:55.7378760Z Contents: read
+2026-10-12T14:55:55.7379786Z Metadata: read
+2026-10-12T14:55:55.7380769Z ##[endgroup]
+2026-10-12T14:55:55.7383721Z Secret source: Actions
+2026-10-12T14:55:55.7385444Z Cache mode: write
+2026-10-12T14:55:55.7386638Z Prepare workflow directory
+2026-10-12T14:55:55.8250987Z Prepare all required actions
+2026-10-12T14:55:55.8320741Z Getting action download info
+2026-10-12T14:55:56.3235817Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-12T14:55:57.5655180Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-10-12T14:55:57.7836634Z Complete job name: Test (Node 20)
+2026-10-12T14:55:57.8931700Z ##[group]Run actions/checkout@v4
+2026-10-12T14:55:57.8933126Z with:
+2026-10-12T14:55:57.8933967Z   repository: Astrea-296111/cue
+2026-10-12T14:55:57.8943398Z   token: ***
+2026-10-12T14:55:57.8944244Z   ssh-strict: true
+2026-10-12T14:55:57.8945075Z   ssh-user: git
+2026-10-12T14:55:57.8945926Z   persist-credentials: true
+2026-10-12T14:55:57.8946883Z   clean: true
+2026-10-12T14:55:57.8947905Z   sparse-checkout-cone-mode: true
+2026-10-12T14:55:57.8948944Z   fetch-depth: 1
+2026-10-12T14:55:57.8949777Z   fetch-tags: false
+2026-10-12T14:55:57.8950640Z   show-progress: true
+2026-10-12T14:55:57.8951519Z   lfs: false
+2026-10-12T14:55:57.8952327Z   submodules: false
+2026-10-12T14:55:57.8953187Z   set-safe-directory: true
+2026-10-12T14:55:57.8954188Z   allow-unsafe-pr-checkout: false
+2026-10-12T14:55:57.8955542Z ##[endgroup]
+2026-10-12T14:55:58.0315820Z Syncing repository: Astrea-296111/cue
+2026-10-12T14:55:58.0321153Z ##[group]Getting Git version info
+2026-10-12T14:55:58.0323261Z Working directory is '/home/runner/work/cue/cue'
+2026-10-12T14:55:58.0328351Z [command]/usr/bin/git version
+2026-10-12T14:55:58.0359014Z git version 2.55.0
+2026-10-12T14:55:58.0404752Z ##[endgroup]
+2026-10-12T14:55:58.0415391Z Temporarily overriding HOME='/home/runner/work/_temp/4953616d-002d-407a-97be-604a0caac6f1' before making global git config changes
+2026-10-12T14:55:58.0420714Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T14:55:58.0449793Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/cue/cue
+2026-10-12T14:55:58.0496139Z Deleting the contents of '/home/runner/work/cue/cue'
+2026-10-12T14:55:58.0513229Z ##[group]Initializing the repository
+2026-10-12T14:55:58.0539323Z [command]/usr/bin/git init /home/runner/work/cue/cue
+2026-10-12T14:55:58.0663118Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-12T14:55:58.0688625Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-12T14:55:58.0698475Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-12T14:55:58.0706609Z hint: call:
+2026-10-12T14:55:58.0708596Z hint:
+2026-10-12T14:55:58.0710597Z hint: 	git config --global init.defaultBranch <name>
+2026-10-12T14:55:58.0712884Z hint:
+2026-10-12T14:55:58.0715128Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-12T14:55:58.0718957Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-12T14:55:58.0721785Z hint:
+2026-10-12T14:55:58.0723274Z hint: 	git branch -m <name>
+2026-10-12T14:55:58.0724956Z hint:
+2026-10-12T14:55:58.0727272Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-12T14:55:58.0731387Z Initialized empty Git repository in /home/runner/work/cue/cue/.git/
+2026-10-12T14:55:58.0737467Z [command]/usr/bin/git remote add origin https://github.com/Astrea-296111/cue
+2026-10-12T14:55:58.0779177Z ##[endgroup]
+2026-10-12T14:55:58.0782208Z ##[group]Disabling automatic garbage collection
+2026-10-12T14:55:58.0791556Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-12T14:55:58.0896909Z ##[endgroup]
+2026-10-12T14:55:58.0900103Z ##[group]Setting up auth
+2026-10-12T14:55:58.0920376Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T14:55:58.0982086Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T14:55:58.1501391Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T14:55:58.1579931Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T14:55:58.1849553Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T14:55:58.1892703Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T14:55:58.2139618Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-12T14:55:58.2184655Z ##[endgroup]
+2026-10-12T14:55:58.2187457Z ##[group]Fetching the repository
+2026-10-12T14:55:58.2201952Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +df60e39b757e1904314edbb316c10630e725fe28:refs/remotes/origin/main
+2026-10-12T14:55:58.6970447Z From https://github.com/Astrea-296111/cue
+2026-10-12T14:55:58.6979409Z  * [new ref]         df60e39b757e1904314edbb316c10630e725fe28 -> origin/main
+2026-10-12T14:55:58.6983544Z ##[endgroup]
+2026-10-12T14:55:58.6985045Z ##[group]Determining the checkout info
+2026-10-12T14:55:58.6986648Z ##[endgroup]
+2026-10-12T14:55:58.6988436Z [command]/usr/bin/git sparse-checkout disable
+2026-10-12T14:55:58.7049080Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-12T14:55:58.7099229Z ##[group]Checking out the ref
+2026-10-12T14:55:58.7100448Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-10-12T14:55:58.7316761Z Switched to a new branch 'main'
+2026-10-12T14:55:58.7322776Z branch 'main' set up to track 'origin/main'.
+2026-10-12T14:55:58.7329776Z ##[endgroup]
+2026-10-12T14:55:58.7376191Z [command]/usr/bin/git log -1 --format=%H
+2026-10-12T14:55:58.7408412Z df60e39b757e1904314edbb316c10630e725fe28
+2026-10-12T14:55:58.7719198Z ##[group]Run actions/setup-node@v4
+2026-10-12T14:55:58.7719661Z with:
+2026-10-12T14:55:58.7720013Z   node-version: 20
+2026-10-12T14:55:58.7720366Z   cache: npm
+2026-10-12T14:55:58.7720706Z   always-auth: false
+2026-10-12T14:55:58.7721070Z   check-latest: false
+2026-10-12T14:55:58.7723758Z   token: ***
+2026-10-12T14:55:58.7724116Z ##[endgroup]
+2026-10-12T14:55:58.9608415Z Attempting to download 20...
+2026-10-12T14:55:58.9716776Z (node:2054) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-12T14:55:58.9719934Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-12T14:55:59.5066430Z Acquiring 20.20.2 - x64 from https://github.com/actions/node-versions/releases/download/20.20.2-23521894959/node-20.20.2-linux-x64.tar.gz
+2026-10-12T14:56:00.1388734Z Extracting ...
+2026-10-12T14:56:00.1589887Z [command]/usr/bin/tar xz --strip 1 --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/e2f4f443-a65b-4563-8267-72bc516dfcfd -f /home/runner/work/_temp/b3c1e829-4974-40e0-99eb-fce8b86ec661
+2026-10-12T14:56:01.4366995Z Adding to the cache ...
+2026-10-12T14:56:03.7820198Z ##[group]Environment details
+2026-10-12T14:56:04.0542120Z node: v20.20.2
+2026-10-12T14:56:04.0543056Z npm: 10.8.2
+2026-10-12T14:56:04.0544091Z yarn: 1.22.22
+2026-10-12T14:56:04.0546510Z ##[endgroup]
+2026-10-12T14:56:04.0569826Z [command]/opt/hostedtoolcache/node/20.20.2/x64/bin/npm config get cache
+2026-10-12T14:56:04.1686612Z /home/runner/.npm
+2026-10-12T14:56:04.4299455Z npm cache is not found
+2026-10-12T14:56:04.4647298Z ##[group]Run npm ci
+2026-10-12T14:56:04.4647604Z [36;1mnpm ci[0m
+2026-10-12T14:56:04.4965961Z shell: /usr/bin/bash -e {0}
+2026-10-12T14:56:04.4966363Z ##[endgroup]
+2026-10-12T14:56:05.5854441Z npm error code ETARGET
+2026-10-12T14:56:05.5856146Z npm error notarget No matching version found for resedit@^0.0.1.
+2026-10-12T14:56:05.5858044Z npm error notarget In most cases you or one of your dependencies are requesting
+2026-10-12T14:56:05.5859386Z npm error notarget a package version that doesn't exist.
+2026-10-12T14:56:05.5863748Z npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-10-12T14_56_04_572Z-debug-0.log
+2026-10-12T14:56:05.5928640Z ##[error]Process completed with exit code 1.
+2026-10-12T14:56:05.6076691Z Post job cleanup.
+2026-10-12T14:56:05.7068903Z [command]/usr/bin/git version
+2026-10-12T14:56:05.7122630Z git version 2.55.0
+2026-10-12T14:56:05.7184412Z Temporarily overriding HOME='/home/runner/work/_temp/569bf5c8-8a60-4556-8b01-4821d83e88e4' before making global git config changes
+2026-10-12T14:56:05.7188426Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T14:56:05.7191685Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/cue/cue
+2026-10-12T14:56:05.7268860Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T14:56:05.7324504Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T14:56:05.7669460Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T14:56:05.7708738Z http.https://github.com/.extraheader
+2026-10-12T14:56:05.7729473Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-12T14:56:05.7775977Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T14:56:05.8251095Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T14:56:05.8253866Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T14:56:05.8803535Z Cleaning up orphan processes
+2026-10-12T14:56:05.9071493Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+
+
+===== 3_Test (Node 18).txt =====
+﻿2026-10-12T14:55:55.8996861Z Current runner version: '2.337.0'
+2026-10-12T14:55:55.9036433Z ##[group]Runner Image Provisioner
+2026-10-12T14:55:55.9037806Z Hosted Compute Agent
+2026-10-12T14:55:55.9038836Z Version: 20261002.596
+2026-10-12T14:55:55.9040620Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+2026-10-12T14:55:55.9042033Z Build Date: 2026-10-02T22:28:27Z
+2026-10-12T14:55:55.9043237Z Worker ID: {da337b14-2853-4f05-81da-8f77af285e68}
+2026-10-12T14:55:55.9044728Z Region: westus
+2026-10-12T14:55:55.9045759Z Cloud: Azure
+2026-10-12T14:55:55.9046920Z ##[endgroup]
+2026-10-12T14:55:55.9049999Z ##[group]Operating System
+2026-10-12T14:55:55.9051081Z Ubuntu
+2026-10-12T14:55:55.9052239Z 24.04.5
+2026-10-12T14:55:55.9053127Z LTS
+2026-10-12T14:55:55.9054563Z ##[endgroup]
+2026-10-12T14:55:55.9055729Z ##[group]Runner Image
+2026-10-12T14:55:55.9056831Z Image: ubuntu-24.04
+2026-10-12T14:55:55.9057928Z Version: 20261004.327.1
+2026-10-12T14:55:55.9060591Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-12T14:55:55.9063643Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+2026-10-12T14:55:55.9065366Z ##[endgroup]
+2026-10-12T14:55:55.9067339Z ##[group]GITHUB_TOKEN Permissions
+2026-10-12T14:55:55.9070795Z Contents: read
+2026-10-12T14:55:55.9072051Z Metadata: read
+2026-10-12T14:55:55.9073065Z ##[endgroup]
+2026-10-12T14:55:55.9076306Z Secret source: Actions
+2026-10-12T14:55:55.9077981Z Cache mode: write
+2026-10-12T14:55:55.9079953Z Prepare workflow directory
+2026-10-12T14:55:55.9465876Z Prepare all required actions
+2026-10-12T14:55:55.9513202Z Getting action download info
+2026-10-12T14:55:56.2893932Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-12T14:55:56.4140307Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-10-12T14:55:56.6270824Z Complete job name: Test (Node 18)
+2026-10-12T14:55:56.7320335Z ##[group]Run actions/checkout@v4
+2026-10-12T14:55:56.7321316Z with:
+2026-10-12T14:55:56.7321777Z   repository: Astrea-296111/cue
+2026-10-12T14:55:56.7325966Z   token: ***
+2026-10-12T14:55:56.7326408Z   ssh-strict: true
+2026-10-12T14:55:56.7326839Z   ssh-user: git
+2026-10-12T14:55:56.7327283Z   persist-credentials: true
+2026-10-12T14:55:56.7327767Z   clean: true
+2026-10-12T14:55:56.7328205Z   sparse-checkout-cone-mode: true
+2026-10-12T14:55:56.7328720Z   fetch-depth: 1
+2026-10-12T14:55:56.7329148Z   fetch-tags: false
+2026-10-12T14:55:56.7329801Z   show-progress: true
+2026-10-12T14:55:56.7330256Z   lfs: false
+2026-10-12T14:55:56.7330665Z   submodules: false
+2026-10-12T14:55:56.7331116Z   set-safe-directory: true
+2026-10-12T14:55:56.7331620Z   allow-unsafe-pr-checkout: false
+2026-10-12T14:55:56.7332413Z ##[endgroup]
+2026-10-12T14:55:56.8620059Z Syncing repository: Astrea-296111/cue
+2026-10-12T14:55:56.8751316Z ##[group]Getting Git version info
+2026-10-12T14:55:56.8752745Z Working directory is '/home/runner/work/cue/cue'
+2026-10-12T14:55:56.8755172Z [command]/usr/bin/git version
+2026-10-12T14:55:56.8857249Z git version 2.55.0
+2026-10-12T14:55:56.8918075Z ##[endgroup]
+2026-10-12T14:55:56.8933237Z Temporarily overriding HOME='/home/runner/work/_temp/d8b06c49-489e-4cee-9076-f2c5ecad42ec' before making global git config changes
+2026-10-12T14:55:56.8935686Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T14:55:56.8937526Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/cue/cue
+2026-10-12T14:55:56.9005127Z Deleting the contents of '/home/runner/work/cue/cue'
+2026-10-12T14:55:56.9031740Z ##[group]Initializing the repository
+2026-10-12T14:55:56.9033060Z [command]/usr/bin/git init /home/runner/work/cue/cue
+2026-10-12T14:55:56.9164105Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-12T14:55:56.9180627Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-12T14:55:56.9191782Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-12T14:55:56.9193940Z hint: call:
+2026-10-12T14:55:56.9195318Z hint:
+2026-10-12T14:55:56.9196382Z hint: 	git config --global init.defaultBranch <name>
+2026-10-12T14:55:56.9197486Z hint:
+2026-10-12T14:55:56.9198545Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-12T14:55:56.9200555Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-12T14:55:56.9202041Z hint:
+2026-10-12T14:55:56.9202825Z hint: 	git branch -m <name>
+2026-10-12T14:55:56.9203695Z hint:
+2026-10-12T14:55:56.9204822Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-12T14:55:56.9206819Z Initialized empty Git repository in /home/runner/work/cue/cue/.git/
+2026-10-12T14:55:56.9210111Z [command]/usr/bin/git remote add origin https://github.com/Astrea-296111/cue
+2026-10-12T14:55:56.9305671Z ##[endgroup]
+2026-10-12T14:55:56.9307117Z ##[group]Disabling automatic garbage collection
+2026-10-12T14:55:56.9308475Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-12T14:55:56.9374539Z ##[endgroup]
+2026-10-12T14:55:56.9376152Z ##[group]Setting up auth
+2026-10-12T14:55:56.9377583Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T14:55:56.9420998Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T14:55:57.0918824Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T14:55:57.0943472Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T14:55:57.0948688Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T14:55:57.0953724Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T14:55:57.0959973Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-12T14:55:57.0990985Z ##[endgroup]
+2026-10-12T14:55:57.0992826Z ##[group]Fetching the repository
+2026-10-12T14:55:57.0995737Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +df60e39b757e1904314edbb316c10630e725fe28:refs/remotes/origin/main
+2026-10-12T14:55:57.8746423Z From https://github.com/Astrea-296111/cue
+2026-10-12T14:55:57.8747747Z  * [new ref]         df60e39b757e1904314edbb316c10630e725fe28 -> origin/main
+2026-10-12T14:55:57.8762388Z ##[endgroup]
+2026-10-12T14:55:57.8764016Z ##[group]Determining the checkout info
+2026-10-12T14:55:57.8765762Z ##[endgroup]
+2026-10-12T14:55:57.8766848Z [command]/usr/bin/git sparse-checkout disable
+2026-10-12T14:55:57.8810198Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-12T14:55:57.8847361Z ##[group]Checking out the ref
+2026-10-12T14:55:57.8852562Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-10-12T14:55:57.9086652Z Switched to a new branch 'main'
+2026-10-12T14:55:57.9091590Z branch 'main' set up to track 'origin/main'.
+2026-10-12T14:55:57.9103173Z ##[endgroup]
+2026-10-12T14:55:57.9158287Z [command]/usr/bin/git log -1 --format=%H
+2026-10-12T14:55:57.9190082Z df60e39b757e1904314edbb316c10630e725fe28
+2026-10-12T14:55:57.9520755Z ##[group]Run actions/setup-node@v4
+2026-10-12T14:55:57.9521425Z with:
+2026-10-12T14:55:57.9521876Z   node-version: 18
+2026-10-12T14:55:57.9522342Z   cache: npm
+2026-10-12T14:55:57.9522794Z   always-auth: false
+2026-10-12T14:55:57.9523285Z   check-latest: false
+2026-10-12T14:55:57.9527486Z   token: ***
+2026-10-12T14:55:57.9527955Z ##[endgroup]
+2026-10-12T14:55:58.1224880Z Attempting to download 18...
+2026-10-12T14:55:58.1341711Z (node:2075) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-12T14:55:58.1345786Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-12T14:55:58.8758884Z Acquiring 18.20.8 - x64 from https://github.com/actions/node-versions/releases/download/18.20.8-14110393767/node-18.20.8-linux-x64.tar.gz
+2026-10-12T14:55:59.3563036Z Extracting ...
+2026-10-12T14:55:59.3708211Z [command]/usr/bin/tar xz --strip 1 --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/a7d88ad0-aab3-48ab-812d-9fcfcfdf3f64 -f /home/runner/work/_temp/a480b3ae-b601-4286-84e2-2fd11a939987
+2026-10-12T14:56:00.4947218Z Adding to the cache ...
+2026-10-12T14:56:03.1910660Z ##[group]Environment details
+2026-10-12T14:56:03.4961660Z node: v18.20.8
+2026-10-12T14:56:03.4962668Z npm: 10.8.2
+2026-10-12T14:56:03.4977458Z yarn: 1.22.22
+2026-10-12T14:56:03.4978769Z ##[endgroup]
+2026-10-12T14:56:03.5030935Z [command]/opt/hostedtoolcache/node/18.20.8/x64/bin/npm config get cache
+2026-10-12T14:56:03.6310758Z /home/runner/.npm
+2026-10-12T14:56:03.8931574Z npm cache is not found
+2026-10-12T14:56:03.9145980Z ##[group]Run npm ci
+2026-10-12T14:56:03.9146339Z [36;1mnpm ci[0m
+2026-10-12T14:56:03.9410169Z shell: /usr/bin/bash -e {0}
+2026-10-12T14:56:03.9410672Z ##[endgroup]
+2026-10-12T14:56:05.0307343Z npm error code ETARGET
+2026-10-12T14:56:05.0308818Z npm error notarget No matching version found for resedit@^0.0.1.
+2026-10-12T14:56:05.0310788Z npm error notarget In most cases you or one of your dependencies are requesting
+2026-10-12T14:56:05.0312212Z npm error notarget a package version that doesn't exist.
+2026-10-12T14:56:05.0319129Z npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-10-12T14_56_04_023Z-debug-0.log
+2026-10-12T14:56:05.0392702Z ##[error]Process completed with exit code 1.
+2026-10-12T14:56:05.0556576Z Post job cleanup.
+2026-10-12T14:56:05.1583135Z [command]/usr/bin/git version
+2026-10-12T14:56:05.1660252Z git version 2.55.0
+2026-10-12T14:56:05.1720723Z Temporarily overriding HOME='/home/runner/work/_temp/15ddbc78-5c5b-4689-b202-39d1810e929c' before making global git config changes
+2026-10-12T14:56:05.1740685Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T14:56:05.1741929Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/cue/cue
+2026-10-12T14:56:05.1828382Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T14:56:05.1916878Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T14:56:05.2242212Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T14:56:05.2299666Z http.https://github.com/.extraheader
+2026-10-12T14:56:05.2390536Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-12T14:56:05.2451269Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T14:56:05.3231739Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T14:56:05.3350998Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T14:56:05.4246629Z Cleaning up orphan processes
+2026-10-12T14:56:05.4557502Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+
+
+===== 4_Test (Node 22).txt =====
+﻿2026-10-12T14:55:55.1801084Z Current runner version: '2.337.0'
+2026-10-12T14:55:55.1856965Z ##[group]Runner Image Provisioner
+2026-10-12T14:55:55.1857805Z Hosted Compute Agent
+2026-10-12T14:55:55.1858407Z Version: 20261002.596
+2026-10-12T14:55:55.1859006Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+2026-10-12T14:55:55.1859906Z Build Date: 2026-10-02T22:28:27Z
+2026-10-12T14:55:55.1860622Z Worker ID: {3cef05e9-6e63-42bf-8c0a-10069f4c10cc}
+2026-10-12T14:55:55.1861364Z Region: centralus
+2026-10-12T14:55:55.1861875Z Cloud: Azure
+2026-10-12T14:55:55.1862387Z ##[endgroup]
+2026-10-12T14:55:55.1863980Z ##[group]Operating System
+2026-10-12T14:55:55.1864676Z Ubuntu
+2026-10-12T14:55:55.1865179Z 24.04.5
+2026-10-12T14:55:55.1865700Z LTS
+2026-10-12T14:55:55.1866184Z ##[endgroup]
+2026-10-12T14:55:55.1866750Z ##[group]Runner Image
+2026-10-12T14:55:55.1867323Z Image: ubuntu-24.04
+2026-10-12T14:55:55.1867831Z Version: 20261004.327.1
+2026-10-12T14:55:55.1869125Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-12T14:55:55.1891251Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+2026-10-12T14:55:55.1892326Z ##[endgroup]
+2026-10-12T14:55:55.1893416Z ##[group]GITHUB_TOKEN Permissions
+2026-10-12T14:55:55.1895813Z Contents: read
+2026-10-12T14:55:55.1896384Z Metadata: read
+2026-10-12T14:55:55.1896893Z ##[endgroup]
+2026-10-12T14:55:55.1899220Z Secret source: Actions
+2026-10-12T14:55:55.1900386Z Cache mode: write
+2026-10-12T14:55:55.1901114Z Prepare workflow directory
+2026-10-12T14:55:55.4504905Z Prepare all required actions
+2026-10-12T14:55:55.4543754Z Getting action download info
+2026-10-12T14:55:55.6804054Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-12T14:55:56.3525368Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-10-12T14:55:57.3739555Z Complete job name: Test (Node 22)
+2026-10-12T14:55:57.4541765Z ##[group]Run actions/checkout@v4
+2026-10-12T14:55:57.4542292Z with:
+2026-10-12T14:55:57.4542760Z   repository: Astrea-296111/cue
+2026-10-12T14:55:57.4547909Z   token: ***
+2026-10-12T14:55:57.4548304Z   ssh-strict: true
+2026-10-12T14:55:57.4548646Z   ssh-user: git
+2026-10-12T14:55:57.4548968Z   persist-credentials: true
+2026-10-12T14:55:57.4549279Z   clean: true
+2026-10-12T14:55:57.4549573Z   sparse-checkout-cone-mode: true
+2026-10-12T14:55:57.4550150Z   fetch-depth: 1
+2026-10-12T14:55:57.4550770Z   fetch-tags: false
+2026-10-12T14:55:57.4551141Z   show-progress: true
+2026-10-12T14:55:57.4551564Z   lfs: false
+2026-10-12T14:55:57.4551952Z   submodules: false
+2026-10-12T14:55:57.4552297Z   set-safe-directory: true
+2026-10-12T14:55:57.4552719Z   allow-unsafe-pr-checkout: false
+2026-10-12T14:55:57.4553718Z ##[endgroup]
+2026-10-12T14:55:57.5499474Z Syncing repository: Astrea-296111/cue
+2026-10-12T14:55:57.5502333Z ##[group]Getting Git version info
+2026-10-12T14:55:57.5503286Z Working directory is '/home/runner/work/cue/cue'
+2026-10-12T14:55:57.5504600Z [command]/usr/bin/git version
+2026-10-12T14:55:57.5553083Z git version 2.55.0
+2026-10-12T14:55:57.5589650Z ##[endgroup]
+2026-10-12T14:55:57.5597173Z Temporarily overriding HOME='/home/runner/work/_temp/a232b2d4-6c0c-4640-93d9-a81a6f7c6cb0' before making global git config changes
+2026-10-12T14:55:57.5598282Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T14:55:57.5610855Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/cue/cue
+2026-10-12T14:55:57.6809328Z Deleting the contents of '/home/runner/work/cue/cue'
+2026-10-12T14:55:57.6810955Z ##[group]Initializing the repository
+2026-10-12T14:55:57.6811830Z [command]/usr/bin/git init /home/runner/work/cue/cue
+2026-10-12T14:55:58.0195023Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-12T14:55:58.0227357Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-12T14:55:58.0228377Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-12T14:55:58.0229230Z hint: call:
+2026-10-12T14:55:58.0229945Z hint:
+2026-10-12T14:55:58.0230718Z hint: 	git config --global init.defaultBranch <name>
+2026-10-12T14:55:58.0231296Z hint:
+2026-10-12T14:55:58.0231894Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-12T14:55:58.0232604Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-12T14:55:58.0233170Z hint:
+2026-10-12T14:55:58.0233801Z hint: 	git branch -m <name>
+2026-10-12T14:55:58.0234401Z hint:
+2026-10-12T14:55:58.0234974Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-12T14:55:58.0235784Z Initialized empty Git repository in /home/runner/work/cue/cue/.git/
+2026-10-12T14:55:58.0237841Z [command]/usr/bin/git remote add origin https://github.com/Astrea-296111/cue
+2026-10-12T14:55:58.0717534Z ##[endgroup]
+2026-10-12T14:55:58.0718579Z ##[group]Disabling automatic garbage collection
+2026-10-12T14:55:58.0719540Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-12T14:55:58.1561047Z ##[endgroup]
+2026-10-12T14:55:58.1561653Z ##[group]Setting up auth
+2026-10-12T14:55:58.1562124Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T14:55:58.1563228Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T14:55:58.3224388Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T14:55:58.3226228Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T14:55:58.3227944Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T14:55:58.3229188Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T14:55:58.3230569Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-12T14:55:58.5831391Z ##[endgroup]
+2026-10-12T14:55:58.5841769Z ##[group]Fetching the repository
+2026-10-12T14:55:58.5843615Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +df60e39b757e1904314edbb316c10630e725fe28:refs/remotes/origin/main
+2026-10-12T14:55:59.2415722Z From https://github.com/Astrea-296111/cue
+2026-10-12T14:55:59.2417228Z  * [new ref]         df60e39b757e1904314edbb316c10630e725fe28 -> origin/main
+2026-10-12T14:55:59.2419602Z ##[endgroup]
+2026-10-12T14:55:59.2420650Z ##[group]Determining the checkout info
+2026-10-12T14:55:59.2422509Z ##[endgroup]
+2026-10-12T14:55:59.2428790Z [command]/usr/bin/git sparse-checkout disable
+2026-10-12T14:55:59.2479843Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-12T14:55:59.2507443Z ##[group]Checking out the ref
+2026-10-12T14:55:59.2513122Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-10-12T14:55:59.2678558Z Switched to a new branch 'main'
+2026-10-12T14:55:59.2684277Z branch 'main' set up to track 'origin/main'.
+2026-10-12T14:55:59.2692174Z ##[endgroup]
+2026-10-12T14:55:59.2724051Z [command]/usr/bin/git log -1 --format=%H
+2026-10-12T14:55:59.2744735Z df60e39b757e1904314edbb316c10630e725fe28
+2026-10-12T14:55:59.2978377Z ##[group]Run actions/setup-node@v4
+2026-10-12T14:55:59.2978694Z with:
+2026-10-12T14:55:59.2978931Z   node-version: 22
+2026-10-12T14:55:59.2979153Z   cache: npm
+2026-10-12T14:55:59.2979356Z   always-auth: false
+2026-10-12T14:55:59.2979637Z   check-latest: false
+2026-10-12T14:55:59.2981590Z   token: ***
+2026-10-12T14:55:59.2981825Z ##[endgroup]
+2026-10-12T14:55:59.4147191Z Found in cache @ /opt/hostedtoolcache/node/22.23.3/x64
+2026-10-12T14:55:59.4148927Z (node:1984) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-12T14:55:59.4150576Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-12T14:55:59.4152275Z ##[group]Environment details
+2026-10-12T14:55:59.8848519Z node: v22.23.3
+2026-10-12T14:55:59.8921885Z npm: 10.9.9
+2026-10-12T14:55:59.8930933Z yarn: 1.22.22
+2026-10-12T14:55:59.8932235Z ##[endgroup]
+2026-10-12T14:55:59.8933253Z [command]/opt/hostedtoolcache/node/22.23.3/x64/bin/npm config get cache
+2026-10-12T14:55:59.9781213Z /home/runner/.npm
+2026-10-12T14:56:00.1144251Z npm cache is not found
+2026-10-12T14:56:00.1266363Z ##[group]Run npm ci
+2026-10-12T14:56:00.1266756Z [36;1mnpm ci[0m
+2026-10-12T14:56:00.1454061Z shell: /usr/bin/bash -e {0}
+2026-10-12T14:56:00.1454361Z ##[endgroup]
+2026-10-12T14:56:01.2141092Z npm error code ETARGET
+2026-10-12T14:56:01.2158337Z npm error notarget No matching version found for resedit@^0.0.1.
+2026-10-12T14:56:01.2159438Z npm error notarget In most cases you or one of your dependencies are requesting
+2026-10-12T14:56:01.2160596Z npm error notarget a package version that doesn't exist.
+2026-10-12T14:56:01.2161504Z npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-10-12T14_56_00_190Z-debug-0.log
+2026-10-12T14:56:01.2311249Z ##[error]Process completed with exit code 1.
+2026-10-12T14:56:01.2442949Z Post job cleanup.
+2026-10-12T14:56:01.3150062Z [command]/usr/bin/git version
+2026-10-12T14:56:01.3191681Z git version 2.55.0
+2026-10-12T14:56:01.3278893Z Temporarily overriding HOME='/home/runner/work/_temp/ac184d54-6e0c-4465-9ec2-88d4cea08da5' before making global git config changes
+2026-10-12T14:56:01.3301225Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T14:56:01.3321742Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/cue/cue
+2026-10-12T14:56:01.3323663Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T14:56:01.3325742Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-12T14:56:01.3552212Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T14:56:01.3574841Z http.https://github.com/.extraheader
+2026-10-12T14:56:01.3576198Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-12T14:56:01.3613512Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-12T14:56:01.3898126Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T14:56:01.3943293Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-12T14:56:01.4321659Z Cleaning up orphan processes
+2026-10-12T14:56:01.4481716Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+
+
+===== 5_Package Windows.txt =====
+﻿2026-10-12T14:55:54.8756422Z Current runner version: '2.337.0'
+2026-10-12T14:55:54.8779491Z ##[group]Runner Image Provisioner
+2026-10-12T14:55:54.8780172Z Hosted Compute Agent
+2026-10-12T14:55:54.8780631Z Version: 20260901.588
+2026-10-12T14:55:54.8781129Z Commit: f88ec8081b781fac6c440065ac7ff9e710ce3d0b
+2026-10-12T14:55:54.8781771Z Build Date: 2026-09-01T19:56:44Z
+2026-10-12T14:55:54.8782329Z Worker ID: {66ad471e-7cf6-4c77-b14b-91a837470af6}
+2026-10-12T14:55:54.8782920Z Azure Region: centralus
+2026-10-12T14:55:54.8783498Z ##[endgroup]
+2026-10-12T14:55:54.8784528Z ##[group]Operating System
+2026-10-12T14:55:54.8785032Z Microsoft Windows Server 2025
+2026-10-12T14:55:54.8785531Z 10.0.26100
+2026-10-12T14:55:54.8785929Z Datacenter
+2026-10-12T14:55:54.8786372Z ##[endgroup]
+2026-10-12T14:55:54.8786802Z ##[group]Runner Image
+2026-10-12T14:55:54.8787290Z Image: windows-2025-vs2026
+2026-10-12T14:55:54.8787775Z Version: 20260925.250.1
+2026-10-12T14:55:54.8789044Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20260925.250/images/windows/Windows2025-VS2026-Readme.md
+2026-10-12T14:55:54.8790461Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20260925.250
+2026-10-12T14:55:54.8791317Z ##[endgroup]
+2026-10-12T14:55:54.8792263Z ##[group]GITHUB_TOKEN Permissions
+2026-10-12T14:55:54.8793819Z Contents: read
+2026-10-12T14:55:54.8794259Z Metadata: read
+2026-10-12T14:55:54.8794665Z ##[endgroup]
+2026-10-12T14:55:54.8796507Z Secret source: Actions
+2026-10-12T14:55:54.8797244Z Cache mode: write
+2026-10-12T14:55:54.8798123Z Prepare workflow directory
+2026-10-12T14:55:54.9086674Z Prepare all required actions
+2026-10-12T14:55:54.9149321Z Getting action download info
+2026-10-12T14:55:55.1588914Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-12T14:55:55.2420638Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-10-12T14:55:55.4445835Z Complete job name: Package Windows
+2026-10-12T14:55:55.5551969Z ##[group]Run actions/checkout@v4
+2026-10-12T14:55:55.5552875Z with:
+2026-10-12T14:55:55.5553216Z   repository: Astrea-296111/cue
+2026-10-12T14:55:55.5556677Z   token: ***
+2026-10-12T14:55:55.5556968Z   ssh-strict: true
+2026-10-12T14:55:55.5557182Z   ssh-user: git
+2026-10-12T14:55:55.5557402Z   persist-credentials: true
+2026-10-12T14:55:55.5557645Z   clean: true
+2026-10-12T14:55:55.5557866Z   sparse-checkout-cone-mode: true
+2026-10-12T14:55:55.5558124Z   fetch-depth: 1
+2026-10-12T14:55:55.5558335Z   fetch-tags: false
+2026-10-12T14:55:55.5558559Z   show-progress: true
+2026-10-12T14:55:55.5558780Z   lfs: false
+2026-10-12T14:55:55.5558980Z   submodules: false
+2026-10-12T14:55:55.5559203Z   set-safe-directory: true
+2026-10-12T14:55:55.5559454Z   allow-unsafe-pr-checkout: false
+2026-10-12T14:55:55.5559815Z ##[endgroup]
+2026-10-12T14:55:56.2319686Z Syncing repository: Astrea-296111/cue
+2026-10-12T14:55:56.2321421Z ##[group]Getting Git version info
+2026-10-12T14:55:56.2322021Z Working directory is 'D:\a\cue\cue'
+2026-10-12T14:55:56.2322829Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-10-12T14:55:56.2325988Z git version 2.55.0.windows.5
+2026-10-12T14:55:56.2334131Z ##[endgroup]
+2026-10-12T14:55:56.2339634Z Temporarily overriding HOME='D:\a\_temp\9d94d9e1-2fc9-4752-a407-4fccbe6117a5' before making global git config changes
+2026-10-12T14:55:56.2340917Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T14:55:56.2342046Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\cue\cue
+2026-10-12T14:55:56.2343480Z Deleting the contents of 'D:\a\cue\cue'
+2026-10-12T14:55:56.2344275Z ##[group]Initializing the repository
+2026-10-12T14:55:56.2344896Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\cue\cue
+2026-10-12T14:55:56.2345622Z Initialized empty Git repository in D:/a/cue/cue/.git/
+2026-10-12T14:55:57.2277446Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/Astrea-296111/cue
+2026-10-12T14:55:57.2283006Z ##[endgroup]
+2026-10-12T14:55:57.2284080Z ##[group]Disabling automatic garbage collection
+2026-10-12T14:55:57.2285173Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+2026-10-12T14:55:57.2287487Z ##[endgroup]
+2026-10-12T14:55:57.2288462Z ##[group]Setting up auth
+2026-10-12T14:55:57.2289606Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T14:55:57.2293066Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-10-12T14:55:57.6190441Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T14:55:57.6397658Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-10-12T14:55:58.1961908Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T14:55:58.2208737Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-10-12T14:55:58.6693119Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+2026-10-12T14:55:58.6896712Z ##[endgroup]
+2026-10-12T14:55:58.6897299Z ##[group]Fetching the repository
+2026-10-12T14:55:58.6906442Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +df60e39b757e1904314edbb316c10630e725fe28:refs/remotes/origin/main
+2026-10-12T14:55:59.7835266Z From https://github.com/Astrea-296111/cue
+2026-10-12T14:55:59.7840394Z  * [new ref]         df60e39b757e1904314edbb316c10630e725fe28 -> origin/main
+2026-10-12T14:55:59.7875593Z ##[endgroup]
+2026-10-12T14:55:59.7876107Z ##[group]Determining the checkout info
+2026-10-12T14:55:59.7877984Z ##[endgroup]
+2026-10-12T14:55:59.7885383Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+2026-10-12T14:55:59.8221212Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+2026-10-12T14:55:59.8423816Z ##[group]Checking out the ref
+2026-10-12T14:55:59.8430458Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force -B main refs/remotes/origin/main
+2026-10-12T14:55:59.9207497Z Switched to a new branch 'main'
+2026-10-12T14:55:59.9302844Z branch 'main' set up to track 'origin/main'.
+2026-10-12T14:55:59.9347323Z ##[endgroup]
+2026-10-12T14:55:59.9672534Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+2026-10-12T14:55:59.9855922Z df60e39b757e1904314edbb316c10630e725fe28
+2026-10-12T14:56:00.0286795Z ##[group]Run actions/setup-node@v4
+2026-10-12T14:56:00.0287093Z with:
+2026-10-12T14:56:00.0287255Z   node-version: 22
+2026-10-12T14:56:00.0287416Z   cache: npm
+2026-10-12T14:56:00.0287564Z   always-auth: false
+2026-10-12T14:56:00.0287737Z   check-latest: false
+2026-10-12T14:56:00.0289199Z   token: ***
+2026-10-12T14:56:00.0289312Z ##[endgroup]
+2026-10-12T14:56:00.1732623Z Found in cache @ C:\hostedtoolcache\windows\node\22.23.3\x64
+2026-10-12T14:56:00.1739294Z (node:7672) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-12T14:56:00.1740000Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-12T14:56:00.1741838Z ##[group]Environment details
+2026-10-12T14:56:04.6534541Z node: v22.23.3
+2026-10-12T14:56:04.6535011Z npm: 10.9.9
+2026-10-12T14:56:04.6535300Z yarn: 1.22.22
+2026-10-12T14:56:04.6537115Z ##[endgroup]
+2026-10-12T14:56:04.7020912Z [command]C:\Windows\system32\cmd.exe /D /S /C "C:\hostedtoolcache\windows\node\22.23.3\x64\npm.cmd config get cache"
+2026-10-12T14:56:05.1253759Z C:\npm\cache
+2026-10-12T14:56:05.4257951Z npm cache is not found
+2026-10-12T14:56:05.4543179Z ##[group]Run npm ci
+2026-10-12T14:56:05.4543383Z [36;1mnpm ci[0m
+2026-10-12T14:56:05.5026283Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-12T14:56:05.5026531Z ##[endgroup]
+2026-10-12T14:56:08.0292681Z npm error code ETARGET
+2026-10-12T14:56:08.0293407Z npm error notarget No matching version found for resedit@^0.0.1.
+2026-10-12T14:56:08.0294280Z npm error notarget In most cases you or one of your dependencies are requesting
+2026-10-12T14:56:08.0294902Z npm error notarget a package version that doesn't exist.
+2026-10-12T14:56:08.0295613Z npm error A complete log of this run can be found in: C:\npm\cache\_logs\2026-10-12T14_56_06_058Z-debug-0.log
+2026-10-12T14:56:09.1264716Z ##[error]Process completed with exit code 1.
+2026-10-12T14:56:09.1474606Z Post job cleanup.
+2026-10-12T14:56:09.2685097Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-10-12T14:56:09.2892013Z git version 2.55.0.windows.5
+2026-10-12T14:56:09.2953046Z Temporarily overriding HOME='D:\a\_temp\f30fcdc6-da4b-4569-b0a8-e1df121f2a9b' before making global git config changes
+2026-10-12T14:56:09.2955408Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-12T14:56:09.2961246Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\cue\cue
+2026-10-12T14:56:09.3184096Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-10-12T14:56:09.3405073Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-10-12T14:56:09.9263869Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-12T14:56:09.9460598Z http.https://github.com/.extraheader
+2026-10-12T14:56:09.9502167Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+2026-10-12T14:56:09.9748734Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-10-12T14:56:10.4090204Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-12T14:56:10.4309267Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-10-12T14:56:10.8521029Z Cleaning up orphan processes
+2026-10-12T14:56:10.8547565Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

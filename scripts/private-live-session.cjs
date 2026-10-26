@@ -178,10 +178,16 @@ async function evaluateSession({directory, outputDir, env = process.env, mode = 
       if(name==='judge-checkpoint.json'&&hydrated.checkpoint){artifacts[name]=sanitizeReport(hydrated.checkpoint,sanitize);continue;}
       try {artifacts[name]=sanitizeReport(readJson(path.join(plainDir,name),cipher.MAX_REPORT_BYTES),sanitize);}catch{/* A concurrent checkpoint is collected by the next snapshot. */}
     }
-    writeJson(path.join(outputDir, 'report.encrypted.json'), cipher.encryptReports({session, key,
-      reports:{report:sanitizeReport({...value, modelSelection:discovery,
+    const reports={report:sanitizeReport({...value, modelSelection:discovery,
         reportPersistence:{...reportPersistence,measurement:'Completed prior snapshots; the public final summary includes the final encryption cost.'}}, sanitize),
-        markdown:sanitizeText(markdown, sanitize),artifacts}}));
+        markdown:sanitizeText(markdown, sanitize),artifacts};
+    writeJson(path.join(outputDir, 'report.encrypted.json'), cipher.encryptReports({session, key,reports}));
+    if(env.CUE_PUBLISH_READABLE_REPORTS==='true') {
+      const readable=path.join(outputDir,'readable');
+      writeJson(path.join(readable,'report.json'),reports.report);
+      if(!partial)writeFile(path.join(readable,'report.md'),reports.markdown);
+      for(const [name,data]of Object.entries(artifacts))writeJson(path.join(readable,name),data);
+    }
     reportPersistence.completed++;
     reportPersistence.lastEnvelopeBytes=fs.statSync(path.join(outputDir,'report.encrypted.json')).size;
     return value;
