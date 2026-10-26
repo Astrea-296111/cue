@@ -5,7 +5,7 @@ on:
     inputs:
       phase:
         type: choice
-        options: [smoke, full, baseline, material-control, multiturn, rejudge, replay, baseline-replay, latest]
+        options: [smoke, full, baseline, material-control, multiturn, rejudge, replay, baseline-replay, latest, acceptance, baseline-acceptance]
         default: smoke
       provider:
         type: choice
@@ -41,7 +41,7 @@ jobs:
           ONNXRUNTIME_NODE_INSTALL_CUDA: skip
         run: npm ci --registry=https://registry.npmjs.org --no-audit --no-fund
       - name: Prepare frozen baseline for same-material comparison
-        if: inputs.phase == 'baseline' || inputs.phase == 'baseline-replay'
+        if: startsWith(inputs.phase, 'baseline')
         run: |
           git fetch --depth=1 origin da883000469bfb2cbf16582a3d802a2e65fe2f43
           mkdir -p "$RUNNER_TEMP/cue-public-baseline"

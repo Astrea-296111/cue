@@ -13,6 +13,7 @@ test('oral policy distinguishes explicit detail and complete code from ordinary 
   assert.equal(oral.presentation(raw).displayTruncated,true);
   assert.equal(oral.plan('先问Agent方面，你了解吧？').confirmation,true);
   assert.equal(oral.plan('直接调用API是吧？你有对RAG这些了解吗？').confirmation,false);
+  assert.equal(oral.plan('Claude是你自己买吗？').maxTokens,180);
 });
 for(const mode of ['instant','standard'])test(`${mode}: selected domain and complete metric reach the actual SDK; general excludes project facts`,async t=>{
   const app=createInterviewRuntime(t,{settings:{answerDomain:'arclight',realtimeAnswerMode:mode}});
@@ -87,6 +88,8 @@ test('frozen replay never feeds old AI suggestions to the tested model; semantic
   const result={answer:'1. 做法：正确示例。',transportStatus:'passed',completion:{complete:true}};
   assert.equal(JSON.parse(judgeMessages(suite[0],result,[]).at(-1).content).oldSuggestionForComparisonOnly,undefined);
   assert.equal(automatic({...result,completion:{complete:false}},'怎么做？').complete,false);
+  const acceptance=cases('acceptance');assert.equal(acceptance.length,65);
+  for(const domain of ['arclight','cae','general'])assert.equal(acceptance.filter(c=>c.caseId.startsWith('accept-')&&c.suggestedDomain===domain).length,8);
 });
 
 test('smoke regression: introductory CAE and dual experiment metrics select their own complete cards',()=>{

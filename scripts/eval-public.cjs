@@ -20,9 +20,9 @@ function sourceIdentity(root=ROOT) {
   for(const relative of ['main.js','preload.js','src','renderer','package.json','package-lock.json'])visit(relative);
   return sha(files);
 }
-function cases() {
+function cases(phase='full') {
   const replay=read(path.join(ROOT,'evaluation/cases/interview-2026-10-26.json')).cases;
-  const novel=read(path.join(ROOT,'evaluation/cases/unseen-2026-10-26.json')).cases;
+  const novel=read(path.join(ROOT,'evaluation/cases',phase.endsWith('acceptance')?'acceptance-heldout-2026-10-26.json':'unseen-2026-10-26.json')).cases;
   return [...replay,...novel].map((c,index)=>{
     if(!/^[a-z0-9-]{1,80}$/.test(c.caseId)||typeof c.rawQuestion!=='string'||!['arclight','cae','general'].includes(c.suggestedDomain))throw new Error('Invalid frozen case');
     return {...c,index};
@@ -33,7 +33,7 @@ function automatic(result,question) {
   const points=(result.answer.match(/(?:^|\n)\s*(?:\d+[.、)]|[-*]\s+(?:\*\*)?[^：:\n]{2,16}(?:\*\*)?[：:]|(?:\*\*)?[^：:\n]{2,12}(?:\*\*)?[：:])/gu)||[]).length;
   return {visibleCharacters:count,limit:p.maxVisibleCharacters,lengthPassed:p.code||count<=p.maxVisibleCharacters,
     complete:result.transportStatus==='passed'&&result.completion?.complete===true,
-    formatPassed:(p.code||p.confirmation||points>=1&&points<=(p.detailed?4:3))&&!result.completion?.truncated,
+    formatPassed:(p.code||p.confirmation||p.personalDetail||points>=1&&points<=(p.detailed?4:3))&&!result.completion?.truncated,
     caveat:'Presentation clipping never changes raw-answer quality. Semantics require the separate judge and human source review.'};
 }
 function judgeMessages(testCase,result,evidence,referenceFacts=[]) {
@@ -54,8 +54,8 @@ function distribution(values) {
   return {count:sorted.length,p50:at(.5),p95:at(.95),max:sorted.at(-1)??null};
 }
 async function evaluate({phase='smoke',provider='all',outputDir,runId,targetRoot,sourceDir,mock=false,env=process.env}={}) {
-  if(!['smoke','full','baseline','material-control','multiturn','rejudge','replay','baseline-replay','latest'].includes(phase)||!['all','qwen','deepseek'].includes(provider))throw new Error('Invalid public evaluation phase/provider');
-  const suite=phase==='latest'?read(path.join(ROOT,'evaluation/cases/latest-interview-2026-10-26.json')).cases.map((c,index)=>({...c,index})):cases();
+  if(!['smoke','full','baseline','material-control','multiturn','rejudge','replay','baseline-replay','latest','acceptance','baseline-acceptance'].includes(phase)||!['all','qwen','deepseek'].includes(provider))throw new Error('Invalid public evaluation phase/provider');
+  const suite=phase==='latest'?read(path.join(ROOT,'evaluation/cases/latest-interview-2026-10-26.json')).cases.map((c,index)=>({...c,index})):cases(phase);
   const sourceEvents=read(path.join(ROOT,phase==='latest'?'evaluation/cases/latest-technical-events.json':'materials/personal/data/transcript-events.json')).events;let selected=['smoke','material-control','rejudge'].includes(phase)?[suite[0],suite[10],suite[23],suite[33],suite[42],suite[60]]:suite;
   if(['replay','baseline-replay'].includes(phase))selected=suite.filter(c=>c.caseId.startsWith('interview-'));
   let workspace=read(path.join(ROOT,'materials/personal/workspace.json'));
@@ -69,6 +69,8 @@ async function evaluate({phase='smoke',provider='all',outputDir,runId,targetRoot
       [['cae','如何防止同一执行身份重复启动Solver？'],['cae','如果启动后的响应丢失呢？']],
       [['general','解释采样参数temperature、top-p和top-k。'],['general','这些是什么，分别控制什么？']]
     ];
+    const heldout=read(path.join(ROOT,'evaluation/cases/acceptance-heldout-2026-10-26.json'));
+    for(const ids of heldout.multiTurnGroups)groups.push(ids.map(id=>{const c=heldout.cases.find(c=>c.caseId===id);return [c.suggestedDomain,c.rawQuestion];}));
     selected=groups.flatMap((pair,g)=>pair.map(([domain,question],turn)=>({caseId:'multi-'+(g+1)+'-'+(turn+1),index:g*2+turn,group:g,turn,rawQuestion:question,suggestedDomain:domain,contextBefore:g===3?[{role:'本人',text:'同模型的P&E单多Agent消融我没有测过。'}]:[],semanticChecks:['只回应当前问题，延续同话题指代','不同域不混事实','局部实验否认不能泛化到SWE-bench']})));
   }
   const sources=read(path.join(ROOT,'materials/bundle.json')).sources;
@@ -84,7 +86,7 @@ async function evaluate({phase='smoke',provider='all',outputDir,runId,targetRoot
   };
   const summary={schemaVersion:1,kind:mock?'mock':'live',phase,build:buildIdentity(env),judgeOnly:phase==='rejudge',applicationCommit:phase==='rejudge'?null:phase.startsWith('baseline')?'da883000469bfb2cbf16582a3d802a2e65fe2f43':buildIdentity(env).commit,
     codeSha256:sourceIdentity(targetRoot||ROOT),materialSha256:sha(workspace),replaySourceSha256:sha(sourceEvents),caseSha256:sha(phase==='multiturn'?selected:suite),discovery:configured.discovery,results:[],providerErrors:[],startedAt:new Date().toISOString()};
-  const repeats=['full','replay'].includes(phase)?2:1;
+  const repeats=['full','replay','acceptance'].includes(phase)?2:1;
   for(const id of providers) {
     const config=providerConfig(id,configured.env,mock);
     if(config.error){summary.providerErrors.push({provider:id,...config.error});continue;}
