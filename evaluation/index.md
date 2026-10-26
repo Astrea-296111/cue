@@ -16,3 +16,5 @@
 默认公开工作流仅允许可信main手工调度。生成和裁判的调用分别记账。离线Mock只证明链路，不能证明质量；两轮重复不代表置信区间。Windows麦克风、声卡和真实音频延迟未由文本回放验证。旧密文工具仅用于历史兼容，不是本轮公开入口。
 
 - [oct26-smoke-01 / smoke](runs/oct26-smoke-01/smoke/report.md)
+
+- [oct26-smoke-02 / smoke](runs/oct26-smoke-02/smoke/report.md)
