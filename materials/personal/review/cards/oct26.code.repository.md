@@ -1,0 +1,8 @@
+# Arclight怎样定位修改代码，是否有仓库知识图谱？
+
+仓库代码定位主要靠Glob/Grep/ReadFile现场查路径和内容；这不证明已建立知识图谱、向量或预建函数签名索引。EditFile在执行阶段检查路径及old_string匹配，Pydantic参数类型本身不证明目标文件存在。
+
+mewcode/tools/grep.py#class Grep @ 528704eb373f637830640b3fefcc5cbc95f23a78 SHA256 5407a428025edbff6d48ce4dfad82c71787fcf122fb924c21c318a5675fec228
+mewcode/tools/glob.py#class Glob @ 528704eb373f637830640b3fefcc5cbc95f23a78 SHA256 d31b707aa2ab721bb70ce9272737bb31ce64e6eba84f9dab844e6762f777c1ff
+mewcode/tools/read_file.py#class ReadFile @ 528704eb373f637830640b3fefcc5cbc95f23a78 SHA256 3ca1479d4bee63acf4fa18026d2bb9aef242d009f1b8095fc225d9b122b6e12f
+mewcode/tools/edit_file.py#class EditFile @ 528704eb373f637830640b3fefcc5cbc95f23a78 SHA256 4f3dc8a024a7661678eed0e1ff706cbb8c889f8bb75b0196dea49268cf6be1ea

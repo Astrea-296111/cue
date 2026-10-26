@@ -22,6 +22,7 @@ function mechanisms(question,metricIds=[],projectIds=[]) {
   if(projectIds.includes('arclight')&&/校验|错误码|工具.*(?:错误|异常)|下一步/.test(question))ids.push('oct26.code.tool-errors','oct26.code.mcp-wrapper');
   if(projectIds.includes('arclight')&&/长期记忆|更新频率|存储内容|memories/i.test(question))ids.push('oct26.code.memory');
   if(projectIds.includes('arclight')&&/摘要|压缩|长会话/.test(question))ids.push('oct26.code.context','arc-04');
+  if(projectIds.includes('arclight')&&/改代码|改哪|代码仓库|仓库.*(?:建模|图谱|知识)/.test(question))ids.push('oct26.code.repository');
   if(projectIds.includes('arclight')&&/结构化.*消息|Mailbox|多智能体|多.?Agent|子代理/i.test(question))ids.push('oct26.code.mailbox','arc-11');
   return [...new Set(ids)];
 }

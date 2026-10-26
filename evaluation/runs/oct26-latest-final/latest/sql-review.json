@@ -1,0 +1,90 @@
+{
+  "kind": "verification correction only; zero generation calls",
+  "verifierSha256": "73133ea4820fa5ed1969bc4b8d8b0f53dd6e11328829952eb193d277f5f3fa87",
+  "results": [
+    {
+      "provider": "deepseek",
+      "caseId": "latest-sql-01",
+      "originalAutomaticSqlPassed": false,
+      "rechecked": {
+        "passed": true,
+        "kind": "authored SQLite fixture, not original screenshot",
+        "sql": "SELECT\n  SUM(pay_amount) AS gmv,\n  COUNT(DISTINCT buyer_id) AS buyers,\n  SUM(pay_amount) * 1.0 / COUNT(DISTINCT buyer_id) AS avg_order_value\nFROM orders\nWHERE status IN (2, 3, 4);",
+        "columns": [
+          "gmv",
+          "buyers",
+          "avg_order_value"
+        ],
+        "rows": [
+          [
+            100.0,
+            2,
+            50.0
+          ]
+        ],
+        "checkedColumn": 2,
+        "expectedScalar": 50
+      }
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-sql-01",
+      "originalAutomaticSqlPassed": true,
+      "rechecked": {
+        "passed": true,
+        "kind": "authored SQLite fixture, not original screenshot",
+        "sql": "SELECT SUM(pay_amount) / COUNT(DISTINCT buyer_id) AS avg_order_value FROM orders WHERE status IN (2, 3, 4);",
+        "columns": [
+          "avg_order_value"
+        ],
+        "rows": [
+          [
+            50.0
+          ]
+        ],
+        "checkedColumn": 0,
+        "expectedScalar": 50
+      }
+    },
+    {
+      "provider": "deepseek",
+      "caseId": "latest-sql-02",
+      "originalAutomaticSqlPassed": true,
+      "rechecked": {
+        "passed": true,
+        "kind": "authored SQLite fixture, not original screenshot",
+        "sql": "SELECT SUM(o.pay_amount)\nFROM orders o\nJOIN (SELECT DISTINCT item_id FROM signup WHERE activity = '活动A') s\n  ON s.item_id = o.item_id\nWHERE o.status IN (2, 3, 4);",
+        "columns": [
+          "sum(o.pay_amount)"
+        ],
+        "rows": [
+          [
+            20.0
+          ]
+        ],
+        "checkedColumn": 0,
+        "expectedScalar": 20
+      }
+    },
+    {
+      "provider": "qwen",
+      "caseId": "latest-sql-02",
+      "originalAutomaticSqlPassed": false,
+      "rechecked": {
+        "passed": false,
+        "kind": "authored SQLite fixture, not original screenshot",
+        "sql": "SELECT SUM(o.pay_amount) AS gmv\nFROM orders o\nJOIN signup s ON o.item_id = s.item_id\nWHERE s.activity = '活动A'\n  AND o.status IN (2,3,4);",
+        "columns": [
+          "gmv"
+        ],
+        "rows": [
+          [
+            40.0
+          ]
+        ],
+        "checkedColumn": 0,
+        "expectedScalar": 20
+      }
+    }
+  ]
+}
