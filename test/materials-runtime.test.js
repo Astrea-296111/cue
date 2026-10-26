@@ -49,7 +49,8 @@ test('technical recovery answers retain the original state-changing body rather 
     {id:'queue-claim',projectId:'cae-code',path:'src/Queue.java',symbol:'Queue#claim',kind:'method',startLine:4,endLine:9,text:'Claim claim(Row row) { if (row.state.equals("DONE")) return DONE; if (row.leased) return BUSY; return ACQUIRED; }'},
     {id:'foreign-queue',projectId:'arc-code',path:'src/Queue.java',symbol:'Queue#claim',kind:'method',startLine:1,endLine:4,text:'Claim claim() { return FOREIGN_QUEUE_ONLY; }'},
     ...chunkText('pkg/gate.py','from .policy import decide as choose\n\nclass Gate:\n    def check(self, mode):\n        return choose(mode)\n').map(c=>({...c,projectId:'cae-code'})),
-    ...chunkText('pkg/policy.py','from enum import Enum\n\nclass Mode(Enum):\n    BASIC = "basic"\n    TRUSTED = "trusted"\n\n_POLICY = {Mode.BASIC: {"write": "ask"}, Mode.TRUSTED: {"write": "allow"}}\n\ndef decide(mode):\n    return _POLICY[mode]\n').map(c=>({...c,projectId:'cae-code'}))],stats:{fileCount:4,chunkCount:9}};
+    ...chunkText('pkg/policy.py','from enum import Enum\n\nclass Mode(Enum):\n    BASIC = "basic"\n    TRUSTED = "trusted"\n\n_POLICY = {Mode.BASIC: {"write": "ask"}, Mode.TRUSTED: {"write": "allow"}}\n\ndef decide(mode):\n    return _POLICY[mode]\n').map(c=>({...c,projectId:'cae-code'})),
+    ...chunkText('pkg/budget.py','_MANUAL_GAP = 17\n_AUTO_GAP = 41\n\ndef choose_limit(window, manual=False):\n    return window - (_MANUAL_GAP if manual else _AUTO_GAP)\n\ndef prepare_request(window):\n    limit = choose_limit(window)\n    return {"window": window, "limit": limit}\n').map(c=>({...c,projectId:'cae-code'}))],stats:{fileCount:5,chunkCount:9}};
   source.stats.chunkCount=source.chunks.length;
   for(const mode of ['instant','standard']) {
     const app=createInterviewRuntime(t,{indexSnapshot:source,settings:{realtimeAnswerMode:mode,sourceRagPolicies:{instant:'ready-only',standard:'standard'}}});
@@ -71,6 +72,9 @@ test('technical recovery answers retain the original state-changing body rather 
     const policy=JSON.stringify(app.calls.at(-1).messages);
     assert.match(policy,/Mode\.BASIC/);assert.match(policy,/Mode\.TRUSTED/);
     assert.match(policy,/\\"write\\": \\"ask\\"/);assert.match(policy,/\\"write\\": \\"allow\\"/);
+    await app.ask('say','CAE choose_limit 具体怎样计算 window？自动和手动有何区别？');
+    const formula=JSON.stringify(app.calls.at(-1).messages);
+    assert.match(formula,/def choose_limit/);assert.match(formula,/_MANUAL_GAP = 17/);assert.match(formula,/_AUTO_GAP = 41/);
   }
 });
 

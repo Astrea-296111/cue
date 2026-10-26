@@ -34,6 +34,7 @@ test('Python multiline constructors keep their body and declared instance calls 
   assert.ok(functionGraph.edges.get(imported.targetId).some(e=>e.status==='resolved'&&e.toSymbol==='_POLICY'));
   assert.ok(!functionGraph.edges.get(functions.findIndex(c=>c.symbol==='shadow')).some(e=>e.status==='resolved'));
   assert.equal(hasImplementationBody(functions.find(c=>c.kind==='context'&&c.text.includes('_POLICY ='))),true);
+  assert.equal(hasImplementationBody({path:'budget.py',kind:'context',text:'_RESERVE = 20_000\n_MARGIN = 3_000\n'}),true);
 });
 
 test('expanded source selection rechecks truth and changed source text while sharing token features',()=>{

@@ -2,7 +2,7 @@
 
 const { performance } = require('node:perf_hooks');
 const { createHash } = require('node:crypto');
-const { tokenize, querySpec,hasImplementationBody,implementationQuery } = require('./project-search');
+const { tokenize, querySpec,hasImplementationBody,implementationQuery,explicitDefinition } = require('./project-search');
 const { inProjectScope } = require('./project-scope');
 const { RETRIEVAL_CONFIG_VERSION } = require('./project-prefetch-policy');
 const {projectQuestionParts, boundedRankingText}=require('./project-question-parts');
@@ -144,7 +144,8 @@ function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision,
   if(prioritizeBody&&typeof projectIndexSnapshot.lookupRelated==='function'){
     const methods=[...primarySeeds,...candidates].filter((row,i,all)=>all.findIndex(other=>other.id===row.id)===i)
       .filter(row=>['method','function'].includes(row.kind)&&!/^(?:__init__|constructor)$/.test(String(row.symbol||'').split('#').at(-1)));
-    const named=methods.filter(row=>{const terms=new Set(tokenize(row.text));return namedQueryTerms.some(term=>terms.has(term));});
+    const definitions=methods.filter(row=>explicitDefinition(snapshot.text,row));
+    const named=definitions.length?definitions:methods.filter(row=>{const terms=new Set(tokenize(row.text));return namedQueryTerms.some(term=>terms.has(term));});
     for(const row of named)preparedScores.set(row.id,Math.max(preparedScores.get(row.id)||0,1.4));
     const seeds=(named.length?named:methods.sort((a,b)=>(preparedScores.get(b.id)||0)-(preparedScores.get(a.id)||0))).slice(0,1);
     const related=projectIndexSnapshot.lookupRelated(seeds,scopes).filter(row=>row.relation?.status==='resolved');
@@ -166,7 +167,7 @@ function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision,
       preparedScores.set(row.id,.85+Math.min(80,hits)/500);
       return {...projectSource(row,projectRevision,scopes),sourceHint:true};
     });
-    candidates=[...extra,...candidates].filter((row,i,all)=>all.findIndex(other=>other.id===row.id)===i).slice(0,candidateLimit);
+    candidates=[...definitions,...extra,...candidates].filter((row,i,all)=>all.findIndex(other=>other.id===row.id)===i).slice(0,candidateLimit);
   }
   const ranked = [];
   for (const cached of candidates.slice(0, candidateLimit)) {
