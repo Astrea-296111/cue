@@ -222,6 +222,7 @@ test('SQL fixtures reject the old buyer/buyer formula and duplicate-signup join'
   assert.equal(check(cases[0],cases[0].expectedSql).passed,true);
   assert.equal(check(cases[0],'SELECT COUNT(DISTINCT buyer_id)*1.0/COUNT(DISTINCT buyer_id) FROM orders WHERE status IN (2,3,4)').passed,false);
   assert.equal(check(cases[0],'SELECT SUM(pay_amount) AS gmv, COUNT(DISTINCT buyer_id) AS buyers, SUM(pay_amount)*1.0/COUNT(DISTINCT buyer_id) AS avg_order_value FROM orders WHERE status IN (2,3,4)').passed,true);
+  assert.equal(check(cases[0],'SELECT SUM(pay_amount) AS gmv, COUNT(DISTINCT buyer_id) AS buyers, SUM(pay_amount)*1.0/COUNT(DISTINCT buyer_id) AS arpu FROM orders WHERE status IN (2,3,4)').passed,true);
   assert.equal(check(cases[1],cases[1].expectedSql).passed,true);
   assert.equal(check(cases[1],"SELECT SUM(o.pay_amount) FROM orders o JOIN signup s ON s.item_id=o.item_id WHERE s.activity='活动A' AND o.status IN (2,3,4)").passed,false);
 });
@@ -235,4 +236,18 @@ test('a fragment keyword follow-up protects the verified matching algorithm',()=
   const {ProjectFactPacks}=require('../src/project-fact-packs');const packs=new ProjectFactPacks({index:workspace().facts});
   const selected=packs.select('关键词。',{resolution:{canonicalProjectIds:['arclight'],retrieveFacts:true,metricContext:'MCP工具怎么快速查找？只用精准关键词还是模糊关键词？'},maxCards:4});
   const source=selected.evidence.find(c=>c.cardId==='oct26.code.toolsearch');assert.ok(source.protectedMechanism);assert.match(source.text,/空白拆词/);
+});
+test('latest error follow-up keeps every protected mechanism beyond the optional source cap',async t=>{
+  const app=createInterviewRuntime(t,{settings:{...workspace().profile,answerDomain:'arclight',realtimeAnswerMode:'instant',manualProjectKnowledgeEnabled:false,projectKnowledge:''}});await app.ready;
+  await app.importMaterialSnapshot({facts:workspace().facts,sources:sources()});
+  const c=require('../evaluation/cases/latest-interview-2026-10-26.json').cases[4];
+  for(const e of require('../scripts/lib/interview-replay.cjs').adapt(c,require('../evaluation/cases/latest-technical-events.json').events).events){
+    const m={eventId:e.eventId,utteranceKey:e.eventId,revision:e.revision,startMs:e.startMs,endMs:e.endMs,rawText:e.rawText,roleCorrected:e.roleCorrected};
+    if(e.speaker==='unknown')await app.invoke('dialogue:event',{...m,text:e.text,normalizedText:e.text,channel:e.channel,speaker:'unknown',isFinal:true});
+    else if(e.speaker==='candidate')app.candidate(e.text,m);else app.final(e.text,m);app.advance(2500);
+  }
+  await app.ask('say',c.rawQuestion);
+  assert.equal(app.calls.length,1);assert.ok(!app.events.some(e=>e.channel==='llm:error'));
+  const ids=app.commits.at(-1).config.evidence.map(e=>e.cardId);
+  assert.ok(ids.includes('oct26.code.tool-errors'));assert.ok(ids.includes('oct26.code.mcp-wrapper'));
 });

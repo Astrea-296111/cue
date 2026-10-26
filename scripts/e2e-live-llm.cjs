@@ -254,6 +254,7 @@ async function runCase(runtime, item, provider, options, budget, evaluateCase) {
   else if (transportErrors.some(event => event.code === 'total-timeout')) error = safeError('total-timeout', 'The provider stream exceeded the total timeout.');
   else if (transportErrors.some(event => event.code === 'output-token-budget')) error = safeError('output-token-budget', 'The production output token request exceeds the configured hard cap.');
   else if (transportErrors.some(event => event.code === 'request-budget')) error = safeError('request-budget', 'The evaluation request budget was exhausted before the external call.');
+  else if (providerError && actualCalls === 0 && transportErrors.length === 0) error = safeError('application-before-sdk', String(providerError.message || 'Application preparation failed before the SDK request.').slice(0,600));
   else if (providerError) {
     const failure = transportErrors.find(event => event.status);
     error = safeError(failure?.status ? 'provider-http-' + failure.status : 'provider-error',
