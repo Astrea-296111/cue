@@ -14,7 +14,7 @@ const SUBJECTS = [
 function matches(question, projectIds) { return SUBJECTS.filter(([id,re]) => re.test(question) && projectIds.includes(id.includes('.cae.') ? 'cae' : 'arclight')).map(([id])=>id); }
 function build(cards) { return new Map(SUBJECTS.map(([id])=>[id,cards.find(c=>c.cardId===id)]).filter(([,card])=>card)); }
 function mechanisms(question,metricIds=[],projectIds=[]) {
-  const ids=[];if(!/怎么|如何|优化|实现|机制|确保|分类|设计|处理|长什么样|什么样|是什么|哪里|下一步|更新频率/.test(question))return ids;
+  const ids=[];if(!/怎么|如何|优化|实现|机制|确保|分类|设计|处理|长什么样|什么样|是什么|哪里|下一步|更新频率|关键词/.test(question))return ids;
   if(metricIds.includes('metric.arc.mcp'))ids.push('oct26.code.toolsearch','oct26.code.mcp-wrapper');
   if(metricIds.includes('metric.arc.context'))ids.push('oct26.code.context','arc-04');
   if(metricIds.includes('metric.cae.replay'))ids.push('cae-07');

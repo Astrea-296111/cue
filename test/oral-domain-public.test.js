@@ -250,4 +250,8 @@ test('latest error follow-up keeps every protected mechanism beyond the optional
   assert.equal(app.calls.length,1);assert.ok(!app.events.some(e=>e.channel==='llm:error'));
   const ids=app.commits.at(-1).config.evidence.map(e=>e.cardId);
   assert.ok(ids.includes('oct26.code.tool-errors'));assert.ok(ids.includes('oct26.code.mcp-wrapper'));
+  await app.ask('say','MCP工具的检索与错误处理如何结合上下文压缩来实现？');
+  const compound=app.commits.at(-1).config.evidence.map(e=>e.cardId);
+  for(const id of ['oct26.code.toolsearch','oct26.code.mcp-wrapper','oct26.code.tool-errors','oct26.code.context','arc-04'])assert.ok(compound.includes(id),id);
+  assert.equal(app.calls.length,2);
 });
