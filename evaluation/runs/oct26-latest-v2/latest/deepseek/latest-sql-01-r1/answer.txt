@@ -1,0 +1,13 @@
+```sql
+SELECT
+  SUM(CASE WHEN status IN (2,3,4) THEN pay_amount ELSE 0 END) AS gmv,
+  COUNT(DISTINCT CASE WHEN status IN (2,3,4) THEN buyer_id END) AS buyers,
+  CASE WHEN COUNT(DISTINCT CASE WHEN status IN (2,3,4) THEN buyer_id END) = 0
+       THEN 0
+       ELSE SUM(CASE WHEN status IN (2,3,4) THEN pay_amount ELSE 0 END) * 1.0
+            / COUNT(DISTINCT CASE WHEN status IN (2,3,4) THEN buyer_id END)
+  END AS arpu
+FROM orders;
+```
+
+结果：GMV=100，买家数 2，客单价 50。两处都先按 status IN (2,3,4) 过滤，再分别求和、去重计数；分母判零避免除零。

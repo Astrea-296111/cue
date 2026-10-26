@@ -1,0 +1,13 @@
+1. **先定粒度**：先对报名表按 `item_id` 去重，避免重复报名导致订单金额被重复累加。
+2. **再关联汇总**：按订单状态筛选已付订单，汇总 `pay_amount`，无需判断商品当前是否在售。
+
+```sql
+SELECT SUM(o.pay_amount) AS paid_gmv
+FROM orders AS o
+JOIN (
+    SELECT DISTINCT item_id
+    FROM signup
+    WHERE activity = '活动A'
+) AS s ON s.item_id = o.item_id
+WHERE o.status IN (2, 3, 4);
+```
