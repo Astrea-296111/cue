@@ -107,3 +107,12 @@ test('public judge-only continuation preserves archived answers and makes zero g
   assert.equal(summary.generations,0);assert.equal(summary.budget.attemptedCalls,0);assert.equal(summary.applicationCommit,null);
   for(const row of summary.results)assert.equal(fs.readFileSync(path.join(root,'output',row.directory,'answer.txt'),'utf8'),'ARCHIVED_ANSWER');
 });
+
+test('screen code output never enters oral sentence clipping',async t=>{
+  const app=createInterviewRuntime(t);await app.ready;
+  app.answer('```java\n'+('System.out.println(42);\n'.repeat(80))+'```');
+  await app.ask('ask','请修改这段代码，保留接口。');
+  assert.ok(app.captures>0);
+  const presentation=app.events.findLast(e=>e.channel==='llm:presentation');
+  assert.equal(presentation.displayTruncated,false);assert.ok(presentation.text.includes('```java'));
+});

@@ -1301,7 +1301,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       Object.assign(generation.diagnostic,{status:'completed',finishReason:diagnosticText(completion.finishReason,80),truncated:!!completion.truncated,metrics:actualRequestMetrics(timing)});
       request.actualRequest=JSON.parse(JSON.stringify(generation.diagnostic));
       generation.diagnostic.rawAnswer=answer;
-      generation.diagnostic.presentation=require('./src/oral-answer-policy').presentation(answer,answerPlan);
+      generation.diagnostic.presentation=require('./src/oral-answer-policy').presentation(answer,{...answerPlan,code:codeRequest});
       emit('llm:presentation', generation.diagnostic.presentation);
       const committed = conversation.commit(request, answer, { completion, evidence: sentEvidence });
       generation.diagnostic.status=committed?'completed':'uncommitted';
