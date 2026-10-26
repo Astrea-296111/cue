@@ -181,7 +181,7 @@ function getPreparedProjectIndexSnapshot() {
   return { index, chunks: index?.chunks || [], projects: index?.projects || [], revision,
     ready: !!search, byId: chunksById, resolveSource,
     lookupSourceHints:(hints,query,scopes,limits)=>search?.lookupSourceHints(hints,query,scopes,limits)||{rows:[],examined:0},
-    lookupRelated:(seeds,scopes)=>getRelatedProjectEvidence(seeds,{scopes,revision,preparedOnly:true,limit:6,maxDepth:2}),
+    lookupRelated:(seeds,scopes)=>getRelatedProjectEvidence(seeds,{scopes,revision,preparedOnly:true,limit:16,maxDepth:2}),
     lookup: (query,scopes,limits) => search?.lookupPrepared(query,scopes,limits) || {rows:[],postingsVisited:0} };
 }
 
@@ -966,7 +966,7 @@ function getRelatedProjectEvidence(selected, options = {}) {
     return matches.length === 1 ? matches[0] : undefined;
   };
   const seeds = own.map(chunk => { const id = locate(chunk); return { chunk: index.chunks[id], id, score: chunk.score || 1, confidence: chunk.confidence || 1 }; }).filter(row => row.id !== undefined);
-  const maxNeighbors = Math.max(0, Math.min(6, Number(options.limit) || 6));
+  const maxNeighbors = Math.max(0, Math.min(16, Number(options.limit) || 6));
   const related = expandProjectCodeRelations(seeds, preparedRelations, { scopes: options.scopes, maxSeeds: 4, maxNeighbors, maxDepth: 2 });
   const seen = new Set([...own.map(identity), ...seeds.map(row => identity(row.chunk))]);
   const out = [];

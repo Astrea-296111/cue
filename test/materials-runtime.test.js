@@ -43,10 +43,14 @@ test('warm facts request performs no filesystem reads on the answer key path',as
 });
 
 test('technical recovery answers retain the original state-changing body rather than a matching class declaration',async t=>{
+  const {chunkText}=require('../src/project-chunks');
   const source={version:2,projects:[{id:'cae-code',name:'cae-job-platform'},{id:'arc-code',name:'Arclight'}],chunks:[
     {id:'queue-header',projectId:'cae-code',path:'src/Queue.java',symbol:'Queue',kind:'context',startLine:1,endLine:3,text:'public class Queue { private String recoveryStatus; private String retryStatus; }'},
     {id:'queue-claim',projectId:'cae-code',path:'src/Queue.java',symbol:'Queue#claim',kind:'method',startLine:4,endLine:9,text:'Claim claim(Row row) { if (row.state.equals("DONE")) return DONE; if (row.leased) return BUSY; return ACQUIRED; }'},
-    {id:'foreign-queue',projectId:'arc-code',path:'src/Queue.java',symbol:'Queue#claim',kind:'method',startLine:1,endLine:4,text:'Claim claim() { return FOREIGN_QUEUE_ONLY; }'}],stats:{fileCount:2,chunkCount:3}};
+    {id:'foreign-queue',projectId:'arc-code',path:'src/Queue.java',symbol:'Queue#claim',kind:'method',startLine:1,endLine:4,text:'Claim claim() { return FOREIGN_QUEUE_ONLY; }'},
+    ...chunkText('pkg/gate.py','from .policy import decide as choose\n\nclass Gate:\n    def check(self, mode):\n        return choose(mode)\n').map(c=>({...c,projectId:'cae-code'})),
+    ...chunkText('pkg/policy.py','from enum import Enum\n\nclass Mode(Enum):\n    BASIC = "basic"\n    TRUSTED = "trusted"\n\n_POLICY = {Mode.BASIC: {"write": "ask"}, Mode.TRUSTED: {"write": "allow"}}\n\ndef decide(mode):\n    return _POLICY[mode]\n').map(c=>({...c,projectId:'cae-code'}))],stats:{fileCount:4,chunkCount:9}};
+  source.stats.chunkCount=source.chunks.length;
   for(const mode of ['instant','standard']) {
     const app=createInterviewRuntime(t,{indexSnapshot:source,settings:{realtimeAnswerMode:mode,sourceRagPolicies:{instant:'ready-only',standard:'standard'}}});
     const facts=fixture(8),card=facts.cards.find(c=>c.projectId==='cae'&&c.docType==='implementation');
@@ -63,6 +67,10 @@ test('technical recovery answers retain the original state-changing body rather 
     const english=JSON.stringify(app.calls.at(-1).messages);
     assert.match(english,/ACQUIRED/);
     assert.doesNotMatch(english,/FOREIGN_QUEUE_ONLY/);
+    await app.ask('say','CAE Gate 的 BASIC 模式和 TRUSTED 模式分别怎样裁决写操作？');
+    const policy=JSON.stringify(app.calls.at(-1).messages);
+    assert.match(policy,/Mode\.BASIC/);assert.match(policy,/Mode\.TRUSTED/);
+    assert.match(policy,/\\"write\\": \\"ask\\"/);assert.match(policy,/\\"write\\": \\"allow\\"/);
   }
 });
 

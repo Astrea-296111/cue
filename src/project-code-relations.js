@@ -2,6 +2,7 @@
 
 const { inProjectScope } = require('./project-scope');
 const { tokenize } = require('./project-search');
+const { maskCode } = require('./project-chunks');
 
 const SCHEMA_VERSION = 3;
 const GENERIC_ROOT = /^(?:src|source|docs?|backend|frontend|server|client|app|apps|packages|services|test|tests|lib|config|public|resources)$/i;
@@ -105,7 +106,24 @@ function buildProjectCodeRelations(chunks = []) {
         receiver: call.receiver || '', method: call.method, sourcePath: chunk.path, sourceLine: call.line,
         projectId: chunk.projectId || '', reason: localShadow ? 'receiver-shadowed' : type ? 'target-method-unresolved' : 'receiver-type-unresolved' };
       const records = type ? resolveType(chunk, type) : [];
-      if (records.length > 1) {
+      if (call.bare) {
+        const targetPath = call.targetPath || chunk.path, symbol = call.targetSymbol || call.method;
+        const targets = !call.shadowed ? (graph.byFile.get(key(projectKey(chunk), targetPath)) || [])
+          .filter(targetId => {
+            const target = chunks[targetId];
+            return target.language === 'python' && !target.parentClass && target.symbol === symbol &&
+              new RegExp(`^(?:async\\s+)?def\\s+${symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\(`, 'm').test(maskCode(target.text, true));
+          }) : [];
+        const declarations = new Map(targets.map(targetId => [chunks[targetId].declarationLine || chunks[targetId].startLine, targetId]));
+        edge.reason = call.shadowed ? 'function-shadowed' : 'function-not-in-index';
+        if (declarations.size === 1) {
+          const targetId = declarations.values().next().value, target = chunks[targetId];
+          Object.assign(edge, { status: 'resolved', reason: call.targetPath ? 'declared-function-import' : 'same-file-function',
+            toSymbol: target.symbol, targetPath: target.path, targetLine: target.startLine, targetId });
+        } else if (declarations.size > 1) {
+          edge.status = 'ambiguous'; edge.reason = 'ambiguous-function-declaration';
+        }
+      } else if (records.length > 1) {
         edge.status = 'ambiguous'; edge.reason = 'ambiguous-receiver-type';
         edge.candidates = records.map(record => record.path);
       } else if (records.length === 1) {
@@ -139,6 +157,33 @@ function buildProjectCodeRelations(chunks = []) {
       seenCalls.add(identity);
       append(graph.edges, id, edge);
       if (edge.status !== 'resolved') graph.diagnostics.push(edge);
+    }
+  });
+
+  // A Python function may return a module-level table rather than contain the
+  // policy itself. Include only explicitly named, unique same-file definitions;
+  // local bindings and foreign modules never establish this relationship.
+  const declarations = new Map();
+  chunks.forEach((chunk, id) => {
+    if (chunk.language !== 'python' || chunk.parentClass || chunk.kind !== 'context') return;
+    const text = maskCode(chunk.text, true);
+    for (const match of text.matchAll(/^([A-Z_][A-Z0-9_]*)\s*(?::[^=\n]+)?\s*=(?!=)/gm)) {
+      const name = key(projectKey(chunk), chunk.path + '\n' + match[1]);
+      append(declarations, name, id);
+    }
+  });
+  chunks.forEach((chunk, id) => {
+    if (chunk.language !== 'python' || !['function', 'method'].includes(chunk.kind)) return;
+    const text = maskCode(chunk.text, true), names = new Set(text.match(/\b[A-Z_][A-Z0-9_]*\b/g) || []);
+    for (const name of names) {
+      if (Object.hasOwn(chunk.localTypes || {}, name)) continue;
+      const targets = declarations.get(key(projectKey(chunk), chunk.path + '\n' + name)) || [];
+      if (targets.length !== 1) continue;
+      const targetId = targets[0], target = chunks[targetId], offset = text.indexOf(name);
+      append(graph.edges, id, { status: 'resolved', reason: 'same-file-declaration-reference',
+        fromSymbol: chunk.symbol, toSymbol: name, method: name, receiver: '', projectId: chunk.projectId || '',
+        sourcePath: chunk.path, sourceLine: chunk.startLine + (text.slice(0, offset).match(/\n/g) || []).length,
+        targetPath: target.path, targetLine: target.startLine, targetId });
     }
   });
 

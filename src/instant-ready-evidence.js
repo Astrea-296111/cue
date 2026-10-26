@@ -77,7 +77,8 @@ function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision,
   if (!projectRevision || projectIndexSnapshot?.revision !== projectRevision || !projectIndexSnapshot?.ready ||
     typeof projectIndexSnapshot.resolveSource !== 'function') return done('index-not-ready');
   const prioritizeBody=implementationQuery(snapshot.text)!==null||implementationQuery(retrievalInput?.topicContext||'')!==null;
-  const contextAnchor=!!retrievalInput?.topicContext&&!/\b[A-Z][a-z][A-Za-z0-9_]*[A-Z][A-Za-z0-9_]*\b/.test(snapshot.text);
+  const namedQueryTerms=[...querySpec(snapshot.text).weights.keys()].filter(term=>/^[a-z]+_[a-z_]+$/.test(term));
+  const contextAnchor=!!retrievalInput?.topicContext&&!namedQueryTerms.length&&!/\b[A-Z][a-z][A-Za-z0-9_]*[A-Z][A-Za-z0-9_]*\b/.test(snapshot.text);
   const candidateLimit = integerLimit(maxCandidates, 8, 8), sourceLimit = integerLimit(maxSources, 3, 6);
   const charLimit = integerLimit(maxChars, 1800, 6000);
   if (!candidateLimit || !sourceLimit || !charLimit) return done('empty-budget');
@@ -141,12 +142,25 @@ function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision,
     candidates=[...candidates,...extra].filter((row,i,all)=>all.findIndex(other=>other.id===row.id)===i).map(row=>hintedIds.has(row.id)?{...row,sourceHint:true}:row).sort((a,b)=>(preparedScores.get(b.id)||0)-(preparedScores.get(a.id)||0)).slice(0,candidateLimit);
   }
   if(prioritizeBody&&typeof projectIndexSnapshot.lookupRelated==='function'){
-    const methods=(primarySeeds.length?primarySeeds:candidates).filter(row=>['method','function'].includes(row.kind)&&!/^(?:__init__|constructor)$/.test(String(row.symbol||'').split('#').at(-1)));
-    const seeds=methods.slice(0,1);
+    const methods=[...primarySeeds,...candidates].filter((row,i,all)=>all.findIndex(other=>other.id===row.id)===i)
+      .filter(row=>['method','function'].includes(row.kind)&&!/^(?:__init__|constructor)$/.test(String(row.symbol||'').split('#').at(-1)));
+    const named=methods.filter(row=>{const terms=new Set(tokenize(row.text));return namedQueryTerms.some(term=>terms.has(term));});
+    for(const row of named)preparedScores.set(row.id,Math.max(preparedScores.get(row.id)||0,1.4));
+    const seeds=(named.length?named:methods.sort((a,b)=>(preparedScores.get(b.id)||0)-(preparedScores.get(a.id)||0))).slice(0,1);
     const related=projectIndexSnapshot.lookupRelated(seeds,scopes).filter(row=>row.relation?.status==='resolved');
     stats.preparedRelationCandidates=related.length;
-    const terms=boundedTerms(snapshot.text,projectPlan)||[];
-    const ordered=related.map(row=>{const available=new Set(tokenize(`${row.path} ${row.symbol||''} ${row.text}`,true));return {row,hits:terms.filter(term=>available.has(term)).length};})
+    const terms=[...querySpec(snapshot.text).weights];
+    const callers=[...seeds,...related];
+    const weightedHits=available=>terms.reduce((n,[term,weight])=>n+(available.has(term)?weight:0),0);
+    const ordered=related.map(row=>{
+      const available=new Set(tokenize(`${row.path} ${row.symbol||''} ${row.text}`,true));
+      const edge=row.relation,caller=callers.find(source=>source.path===edge.sourcePath&&source.symbol===edge.fromSymbol&&
+        edge.sourceLine>=source.startLine&&edge.sourceLine<=source.endLine);
+      const line=caller?edge.sourceLine-caller.startLine:0;
+      const callsite=caller?caller.text.split('\n').slice(Math.max(0,line-1),line+2).join('\n'):'';
+      return {row,hits:weightedHits(available)+2*weightedHits(new Set(tokenize(callsite,true)))+
+        (['method','function'].includes(row.kind)?1.5:0)};
+    })
       .sort((a,b)=>b.hits-a.hits);
     const extra=ordered.slice(0,6).map(({row,hits})=>{
       preparedScores.set(row.id,.85+Math.min(80,hits)/500);

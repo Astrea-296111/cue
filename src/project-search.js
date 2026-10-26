@@ -19,6 +19,8 @@ const ALIASES = [
   ['排队', 'waiting', 'queued'], ['学科', 'discipline', 'analysis_type'], ['候选', 'candidate'],
   ['批次', 'batch'], ['接入', 'admit', 'admission'], ['保存', 'save'], ['永久', 'permanent'], ['锁', 'lock', 'locked'],
   ['规则', 'rule', 'rules'], ['匹配', 'match', 'matches'], ['优先级', 'priority'],
+  ['永久允许', 'always allow', 'allow_always'],
+  ['用户级', 'user'], ['项目级', 'project'], ['本地级', 'local'],
   ['背压', 'backpressure'], ['积压', 'backlog'], ['暂停', 'pause', 'paused'], ['阈值', 'threshold'],
   ['唯一索引', '唯一约束', 'unique', 'duplicate key'],
   ['崩溃', '崩了', 'crash'], ['确认', 'confirm'], ['持久化', 'persistent', 'persistence', 'durable'],
@@ -62,7 +64,8 @@ function hasImplementationBody(chunk) {
   if(previous?.text===input)return previous.result;
   const text=require('./project-chunks').maskCode(String(chunk.text||''),/\.py$/i.test(chunk.path||''));
   const result=/\b(?:return|throw|if|for|while|try|await|with|yield|update|insert|delete|create\s+table)\b|\b\w+\.\w+\s*\(/i.test(text)||
-    /\binterface\s+\w+(?:<[^>]*>)?\s+extends\s+\w+/.test(text);
+    /\binterface\s+\w+(?:<[^>]*>)?\s+extends\s+\w+/.test(text) ||
+    /\.py$/i.test(chunk.path || '') && /^[A-Z_][A-Z0-9_]*\s*(?::[^=\n]+)?\s*=\s*[\[{]/m.test(text);
   implementationBodyCache.set(chunk,{text:input,result});return result;
 }
 function implementationWeight(identifiers, chunk) {
@@ -166,7 +169,7 @@ function querySpec(query) {
       for (const token of tokenize(alias)) { originalSet.add(token); weights.set(token, 1); }
       remainder = remainder.replace(new RegExp(alias, 'gi'), ' ');
     }
-    for (const token of tokens) if (!weights.has(token)) weights.set(token, 0.5);
+    for (const token of tokens) if (!weights.has(token)) weights.set(token, token.includes('_') ? 2 : 0.5);
   }
   // Separate known concepts before n-grams, avoiding noise such as 缓存一 / 存一致.
   for (const block of remainder.match(/[A-Za-z][A-Za-z0-9_]*|[\u3400-\u9fff]+/g) || []) {
@@ -321,8 +324,11 @@ class ProjectSearch {
         row.navigationMatches=(row.navigationMatches||0)+1;candidates.set(id,row);}
     }
     const ranked=[...candidates.values()].sort((a,b)=>b.score-a.score||a.id-b.id),rows=[],files=new Set();
-    for(const row of ranked){const file=row.chunk.projectId+':'+row.chunk.path;if(files.has(file))continue;files.add(file);rows.push(row);if(rows.length>=limit)break;}
-    if(rows.length<limit)for(const row of ranked){if(!rows.includes(row))rows.push(row);if(rows.length>=limit)break;}
+    const relevant=ranked.filter(row=>!implementationIdentifiers ||
+      !['class','context','interface'].includes(row.chunk.kind) || hasImplementationBody(row.chunk) ||
+      /字段|声明|类型|签名|构造|初始化|枚举|\b(?:fields?|signature|declaration|constructor|schema|enum)\b/i.test(query));
+    for(const row of relevant){const file=row.chunk.projectId+':'+row.chunk.path;if(files.has(file))continue;files.add(file);rows.push(row);if(rows.length>=limit)break;}
+    if(rows.length<limit)for(const row of relevant){if(!rows.includes(row))rows.push(row);if(rows.length>=limit)break;}
     return {rows,
       postingsVisited:Math.min(visits,maxVisits),navigationVisits,budgetExhausted:visits>=maxVisits};
   }
