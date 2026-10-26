@@ -1115,7 +1115,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const narrativeRule='\nUSER/source-claim 是用户指定的口述资料，可按范围直接回答既有职责，不复述资料编辑历史；没有材料才简短说明缺口。';
     const oralRule=require('./src/oral-answer-policy').instruction({...answerPlan,code:answerPlan.code||!!imageDataUrl||mode==='leetcode'});
     const legacyNarrative='不要编造项目结果。';
-    const resolvedSystem = builtSystem + '\n' + oralRule + (instantContext?'':narrativeRule + SPOKEN_CONTEXT_RULES) + (request.plan.kind==='unresolved'?'\n当前未定位到对应项目资料，直接给出可落地的通用方案或小例子，不猜测具体项目身份或职责。':'');
+    const resolvedSystem = builtSystem + (instantContext?'':'\n' + oralRule + narrativeRule + SPOKEN_CONTEXT_RULES) + (request.plan.kind==='unresolved'?'\n当前未定位到对应项目资料，直接给出可落地的通用方案或小例子，不猜测具体项目身份或职责。':'');
     const initialSystem = llm.prepareSystem ? llm.prepareSystem(resolvedSystem) : resolvedSystem;
     const candidateRole=buildCandidateRoleContext(settings,question,{project:request.plan.retrieve});
     const questionReferenceSection={id:'question-reference',text:frozen?.referenceContext ? '最近真人提问实体（仅消解当前指代）：\n'+frozen.referenceContext:'',protected:true};

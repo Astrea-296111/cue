@@ -94,3 +94,16 @@ test('smoke regression: introductory CAE and dual experiment metrics select thei
   const metrics=packs.select('300道修复题和60项长会话分别测什么？',{resolution:{canonicalProjectIds:['arclight'],retrieveFacts:true},maxCards:3});
   assert.deepEqual(metrics.evidence.filter(c=>c.protectedMetric).map(c=>c.cardId).sort(),['metric.arc.context','metric.arc.swe']);
 });
+test('public judge-only continuation preserves archived answers and makes zero generation calls',async t=>{
+  const {evaluate,cases}=require('../scripts/eval-public.cjs'),path=require('node:path'),os=require('node:os');
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'cue-public-resume-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  const suite=cases();
+  for(const c of [suite[0],suite[10],suite[23],suite[33],suite[42],suite[60]]) {
+    const directory=path.join(root,'source','qwen',c.caseId+'-r1');fs.mkdirSync(directory,{recursive:true});
+    fs.writeFileSync(path.join(directory,'trace.json'),JSON.stringify({id:c.caseId,answer:'ARCHIVED_ANSWER',attempted:true,transportStatus:'passed',applicationCommit:'old-generation',automatic:{complete:true,lengthPassed:true,formatPassed:true}}));
+    fs.writeFileSync(path.join(directory,'request.json'),JSON.stringify({messages:['ARCHIVED_REQUEST']}));
+  }
+  const summary=await evaluate({phase:'rejudge',provider:'qwen',mock:true,sourceDir:path.join(root,'source'),outputDir:path.join(root,'output')});
+  assert.equal(summary.generations,0);assert.equal(summary.budget.attemptedCalls,0);assert.equal(summary.applicationCommit,null);
+  for(const row of summary.results)assert.equal(fs.readFileSync(path.join(root,'output',row.directory,'answer.txt'),'utf8'),'ARCHIVED_ANSWER');
+});
