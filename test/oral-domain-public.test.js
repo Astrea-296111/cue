@@ -122,3 +122,9 @@ test('useful-sentence timing ignores isolated numbering, source markers and empt
   for(const text of ['1.\n','[来源 1]\n','做法：\n']){at+=10;tracker.content(text);assert.equal(tracker.metrics().triggerToFirstUsefulSentenceMs,null);}
   at+=10;tracker.content('先校验输入，再执行。');assert.equal(tracker.metrics().triggerToFirstUsefulSentenceMs,40);
 });
+
+test('standalone Agent knowledge does not inherit a future supply-chain role design card',()=>{
+  const {ProjectFactPacks}=require('../src/project-fact-packs');const packs=new ProjectFactPacks({index:workspace().facts});
+  assert.ok(!packs.selectKnowledge('Claude Code这种agent是怎么设计的？').evidence.some(c=>c.cardId==='ai-01'));
+  assert.ok(packs.selectKnowledge('如何把Coding Agent经验迁移到供应链岗位？').evidence.some(c=>c.cardId==='ai-01'));
+});
