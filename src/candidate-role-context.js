@@ -3,7 +3,7 @@
 // This is candidate reference data, independent of project retrieval and of AI
 // suggestions. Select locally; never add a classifier to a foreground answer.
 const {sanitizeResumeForPrompt}=require('./personal-workspace');
-const PERSONAL=/自我介绍|介绍.{0,8}(?:自己|你自己)|学历|毕业|在读|学校|教育背景|到岗|实习.{0,8}(?:多久|时间|几天|几个月)|工作经历|转正|离职|个人优势|\b(?:introduce yourself|tell me about yourself|education|availability)\b/i;
+const PERSONAL=/自我介绍|介绍.{0,8}(?:自己|你自己)|学历|毕业|在读|学校|教育背景|到岗|实习.{0,8}(?:多久|时间|几天|几个月)|工作经历|转正|离职|个人优势|你.{0,14}(?:哪.{0,4}(?:比较强|擅长)|最强|做过.{0,10}(?:最高|最大))|之前.{0,12}(?:复杂度|最高|最大)|\b(?:introduce yourself|tell me about yourself|education|availability)\b/i;
 const ROLE=/岗位|职位|应聘|申请|为什么.{0,12}(?:公司|选择|想来)|供应链|\b(?:job fit|this role|why this company)\b/i;
 const clip=(value,size)=>String(value||'').slice(0,size);
 function buildCandidateRoleContext(settings={},question='',{project=false}={}) {

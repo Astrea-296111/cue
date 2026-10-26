@@ -43,7 +43,7 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
   const parts=projectQuestionParts(question,resolution),multi=parts.length>1;
   const rankedFacts=multi||!personal?[...allowedFacts]:[...allowedFacts].sort((a,b)=>Number(primary(b))-Number(primary(a))||Number(b.provenance==='USER')-Number(a.provenance==='USER'));
   const candidates=[];const queue=c=>{if(c&&!candidates.includes(c))candidates.push(c);};
-  for(const c of rankedFacts.filter(c=>c.protectedMetric))queue(c);
+  for(const c of rankedFacts.filter(c=>(c.protectedMetric||c.protectedMechanism)))queue(c);
   const sourceTerms=new Map(),partTerms=new Map();
   const score=(item,part)=>{
     if(!partTerms.has(part))partTerms.set(part,[...new Set(tokenize(part.text,true))]);
@@ -65,7 +65,7 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
       const references=new Set(maskCode(definition.text||'',true).match(/\b[A-Z_][A-Z0-9_]+\b/g)||[]);
       const values=allowedSources.filter(item=>item.projectId===definition.projectId&&item.path===definition.path&&item.kind==='context'&&
         [...maskCode(item.text||'',true).matchAll(/^([A-Z_][A-Z0-9_]*)\s*(?::[^=\n]+)?\s*=/gm)].some(match=>references.has(match[1])));
-      for(const value of values.slice(0,2))queue(value);
+      for(const value of values.slice(0,2))queue({...value,requiredContext:true});
     }
     const weights=querySpec(question).weights,identity=new Set(projectIds.map(id=>String(id).toLowerCase()));
     const identifiers=[...(question.match(/\b[A-Za-z][A-Za-z0-9_]{2,63}\b/g)||[]),
@@ -111,7 +111,7 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
   for(const c of candidates.slice(0,32)) {
     if(seen.has(c.id))continue;seen.add(c.id);
     const size=estimateTokens(formatEvidenceBlock(c));
-    if(!c.protectedMetric&&(selected.length>=maxSources||tokens+size>evidenceTokens)){dropped.push({id:c.id,reason:'budget-pruned'});continue;}
+    if(!(c.protectedMetric||c.protectedMechanism)&&(selected.length>=maxSources||tokens+size>evidenceTokens)){dropped.push({id:c.id,reason:'budget-pruned'});continue;}
     selected.push(c);tokens+=size;
   }
   return {evidence:selected,dropped,reasons,estimatedTokens:tokens,policyVersion:VERSION,

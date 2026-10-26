@@ -895,10 +895,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
   const voiceAnswer = ['say', 'answerThis', 'ask', 'assist', 'technical'].includes(mode);
   let resolved = explicit ? questionResolver.manualSnapshot(explicit, { epoch: conversation.epoch })
     : retrySnapshot || (voiceAnswer ? questionResolver.resolveForSubmit({ allowPartial: true, epoch: conversation.epoch }) : null);
-  if (resolved && /这些|这个参数|怎么融合|这两路|这些参数/.test(resolved.text)) {
-    const prior=transcript.filter(t=>t.channel==='them'&&t.text!==resolved.text).slice(-2).map(t=>t.text).join('\n');
-    resolved={...resolved,referenceContext:prior||resolved.referenceContext};
-  }
+  if(resolved)resolved={...resolved,referenceContext:require('./src/question-topic-context').reference(resolved.text,transcript)||resolved.referenceContext};
   if (mode === 'assist' && !explicit && !resolved?.text) {
     const requirement = lastScreenSnapshot?.epoch === conversation.epoch && !resolved?.awaitingNewQuestion
       ? lastScreenSnapshot.text : '请解决当前屏幕上的技术题';
@@ -1027,12 +1024,12 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const relatedSpeech=(request.spokenState?.claims||[]).filter(claim=>claim.status!=='uncertain').map(claim=>claim.text).join('\n');
     const priorQuestion=conversation.recent.at(-1);
     const sameTopic=request.plan.canonicalProjectIds?.some(id=>priorQuestion?.plan?.canonicalProjectIds?.includes(id));
-    const topicContext=sameTopic&&/这条|这个|这套|这些|同一个|它|上述|前面|刚才|你刚|你说|你(?:的)?方案|该方案|证伪|怎样验证|如何验证|怎么验证/.test(question)
-      ? String(priorQuestion.question||'').slice(-1600) : '';
+    const topicContext=frozen?.referenceContext || (sameTopic&&/这条|这个|这套|这些|同一个|它|上述|前面|刚才|你刚|你说|你(?:的)?方案|该方案|证伪|怎样验证|如何验证|怎么验证/.test(question)
+      ? String(priorQuestion.question||'').slice(-1600) : '');
     retrieval.topicContext=topicContext;
     const contextualQuestion=topicContext?question+'\n被指代的上一真人问题（仅用于检索，不作为本轮待答）：'+topicContext:question;
     const factQuery=relatedSpeech?contextualQuestion+'\n当前相关真人发言（用于检索，不是事实依据）：'+relatedSpeech:contextualQuestion;
-    const factSelection = policy.factsEnabled ? generation.materials.factPacks.select(factQuery, {resolution:request.plan,primaryQuestion:question,maxCards:12}) : null;
+    const factSelection = policy.factsEnabled ? generation.materials.factPacks.select(factQuery, {resolution:{...request.plan,metricContext:topicContext},primaryQuestion:question,maxCards:12}) : null;
     // Citations guide bounded lookups in the current prepared source index.
     // The returned original source chunks, rather than the card prose, remain
     // the implementation evidence for this request's frozen material version.
@@ -1040,6 +1037,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     retrieval.sourceHints=[...(factSelection?.evidence||[]),...(topicFacts?.evidence||[])].flatMap(card=>(card.sources||[]).slice(0,3)
       .map(ref=>({projectId:card.projectId,path:ref.repositoryPath||ref.path,symbol:ref.symbol})))
       .filter(ref=>ref.path&&!ref.path.startsWith('handoff/')).slice(0,12);
+    if(factSelection?.evidence.some(c=>c.cardId==='metric.cae.replay')) retrieval.sourceHints.unshift({projectId:'cae',path:'worker/agents/execution_manager.py',symbol:'submit'},{projectId:'cae',path:'worker/agents/process_registry.py',symbol:'claim'});
     const evidenceLimits=resolveEvidenceLimits({question,answerPlan,instant:policy.instant});
     const canRetrieveSources = policy.ragPolicy !== 'off' && request.plan.retrieveSources;
     const preparedSources = peekReadyEvidence({ snapshot: frozen,
@@ -1064,7 +1062,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       factsEnabled:policy.factsEnabled,sourcePolicy:policy.ragPolicy,...evidenceLimits});
     // General reference cards use the same finite request budget, but never
     // become another resume project or evidence of personal implementation.
-    const knowledge=policy.factsEnabled&&request.plan.kind!=='unresolved'
+    const knowledge=policy.factsEnabled&&!answerPlan.confirmation&&request.plan.kind!=='unresolved'
       ? generation.materials.factPacks.selectKnowledge(question,{jobProfileId:settings.jobProfileId,maxCards:policy.instant?2:3}):null;
     evidencePlan.contextKnowledgeIds=[];
     for(const item of knowledge?.evidence||[]) {
@@ -1144,8 +1142,8 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const prepared = prepareFinalRequest({ system: initialSystem, history: instantContext ? instantContext.history : history, maxTokens,
       contextWindow: settings.contextWindowTokens || 16384, imageDataUrl, evidence: contextBundle.evidence,
       evidenceGapNote: policy.instant ? '资料仅供参考；未附全时仍按当前条件给可采用方案，不编造实际经历或指标。' : undefined,
-      currentSections: instantContext ? [...instantContext.currentSections,candidateRoleSection,questionReferenceSection,...evidencePlan.evidence.filter(c=>c.protectedMetric).map(c=>({id:'metric:'+c.id,text:require('./src/evidence-selector').formatEvidenceBlock(c),protected:true}))] : [
-        ...evidencePlan.evidence.filter(c=>c.protectedMetric).map(c=>({id:'metric:'+c.id,text:require('./src/evidence-selector').formatEvidenceBlock(c),protected:true})),
+      currentSections: instantContext ? [...instantContext.currentSections,candidateRoleSection,questionReferenceSection,...evidencePlan.evidence.filter(c=>(c.protectedMetric||c.protectedMechanism)).map(c=>({id:'metric:'+c.id,text:require('./src/evidence-selector').formatEvidenceBlock(c),protected:true}))] : [
+        ...evidencePlan.evidence.filter(c=>(c.protectedMetric||c.protectedMechanism)).map(c=>({id:'metric:'+c.id,text:require('./src/evidence-selector').formatEvidenceBlock(c),protected:true})),
         candidateRoleSection,questionReferenceSection,
         { id: 'topic', text: topic, priority: 1 }, { id: 'memory', text: memory, priority: 0 },
         { id: 'spoken-state', text: request.spokenContext ? 'SPOKEN_STATE（真人实际发言，仅用于承接和纠正）\n'+request.spokenContext : '', protected:true },
@@ -1163,7 +1161,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       contextBundle.stats.finalBudgetDroppedSources = prepared.stats.droppedEvidence;
     }
     let sentEvidence = prepared.evidence;
-    if ((evidencePlan.evidence || []).some(item => item.protectedMetric && !sentEvidence.some(e => e.id === item.id))) throw new Error('模型窗口不足以保留完整指标卡，请增加上下文窗口。');
+    if ((evidencePlan.evidence || []).some(item => (item.protectedMetric||item.protectedMechanism) && !sentEvidence.some(e => e.id === item.id))) throw new Error('模型窗口不足以保留完整指标卡，请增加上下文窗口。');
     if (policy.instant) contextBundle.stats.readyEvidenceHit = sentEvidence.length > 0;
     const localFacts = sentEvidence.filter(item=>item.sourceType==='project-pack'&&item.provenance==='CODE'&&item.status==='verified').slice(0,2).map(item=>({cardId:item.cardId,projectName:item.projectName,text:item.text}));
     if (localFacts.length) { timing.configure({ timeToLocalFacts: +(performance.now()-timing.started).toFixed(2) }); emit('llm:local-facts', {facts:localFacts}); }

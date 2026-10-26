@@ -1,0 +1,2 @@
+Prefill 是计算成本，主要处理输入 prompt，复杂度跟序列长度平方成正比；KV Cache 是内存成本，存的是每层每个 token 的 Key 和 Value，大小跟上下文长度线性相关。
+比如 10k 上下文的模型，prefill 阶段 GPU 算力吃紧，但一旦生成开始，瓶颈往往转成 KV Cache 占用的显存，这时候用 PagedAttention 或量化 KV 就能省内存，但不改变 prefill 的计算量级。
