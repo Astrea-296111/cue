@@ -1,0 +1,147 @@
+# 同材料、同题、同模型的代码基线对照
+
+旧代码`da883000469bfb2cbf16582a3d802a2e65fe2f43`，新代码首轮为`4c54204`；材料SHA及题集SHA相同。每模型67题，取新run的repeat 1与旧run的一次生成配对。都使用相同当时回放适配器；该适配器只给最近片段，后来已改成完整规范化真人前缀，不能把这里当成最终前缀验收。
+
+自动通过包含新产品的短答长度/格式要求，旧代码没有这一输出协议；须同时看切题、来源、长度和原文，不能只看总通过数。新旧原始输出及judge均公开。首轮新代码仍有明确错误，152条逐条审阅见[审阅表](runs/oct26-full-final/full/codex-review.md)。
+
+| 模型 | 旧自动通过/67 | 新repeat1自动通过/67 | 旧长度/67 | 新长度/67 | 旧来源失败 | 新来源失败 |
+|---|---|---|---|---|---|---|
+| qwen | 6 | 49 | 60 | 66 | 12 | 5 |
+| deepseek | 5 | 62 | 49 | 67 | 7 | 1 |
+
+| 题/模型 | 旧答案 | 新repeat1 | 原自动判断旧→新 |
+|---|---|---|---|
+| interview-01/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-01-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-01-r1/answer.txt) | False → True |
+| interview-01/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-01-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-01-r1/answer.txt) | False → False |
+| interview-02/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-02-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-02-r1/answer.txt) | False → True |
+| interview-02/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-02-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-02-r1/answer.txt) | False → True |
+| interview-03/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-03-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-03-r1/answer.txt) | False → False |
+| interview-03/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-03-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-03-r1/answer.txt) | False → False |
+| interview-04/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-04-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-04-r1/answer.txt) | True → True |
+| interview-04/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-04-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-04-r1/answer.txt) | False → False |
+| interview-05/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-05-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-05-r1/answer.txt) | False → True |
+| interview-05/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-05-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-05-r1/answer.txt) | False → True |
+| interview-06/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-06-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-06-r1/answer.txt) | False → False |
+| interview-06/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-06-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-06-r1/answer.txt) | False → False |
+| interview-07/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-07-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-07-r1/answer.txt) | False → True |
+| interview-07/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-07-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-07-r1/answer.txt) | False → True |
+| interview-08/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-08-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-08-r1/answer.txt) | False → True |
+| interview-08/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-08-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-08-r1/answer.txt) | False → True |
+| interview-09/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-09-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-09-r1/answer.txt) | False → True |
+| interview-09/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-09-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-09-r1/answer.txt) | False → True |
+| interview-10/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-10-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-10-r1/answer.txt) | True → True |
+| interview-10/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-10-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-10-r1/answer.txt) | False → True |
+| interview-11/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-11-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-11-r1/answer.txt) | False → True |
+| interview-11/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-11-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-11-r1/answer.txt) | False → False |
+| interview-12/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-12-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-12-r1/answer.txt) | False → True |
+| interview-12/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-12-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-12-r1/answer.txt) | False → True |
+| interview-13/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-13-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-13-r1/answer.txt) | False → True |
+| interview-13/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-13-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-13-r1/answer.txt) | False → True |
+| interview-14/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-14-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-14-r1/answer.txt) | False → True |
+| interview-14/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-14-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-14-r1/answer.txt) | False → True |
+| interview-15/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-15-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-15-r1/answer.txt) | False → True |
+| interview-15/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-15-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-15-r1/answer.txt) | False → True |
+| interview-16/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-16-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-16-r1/answer.txt) | False → True |
+| interview-16/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-16-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-16-r1/answer.txt) | False → True |
+| interview-17/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-17-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-17-r1/answer.txt) | False → True |
+| interview-17/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-17-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-17-r1/answer.txt) | False → True |
+| interview-18/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-18-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-18-r1/answer.txt) | False → True |
+| interview-18/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-18-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-18-r1/answer.txt) | False → True |
+| interview-19/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-19-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-19-r1/answer.txt) | False → True |
+| interview-19/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-19-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-19-r1/answer.txt) | False → True |
+| interview-20/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-20-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-20-r1/answer.txt) | False → True |
+| interview-20/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-20-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-20-r1/answer.txt) | False → True |
+| interview-21/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-21-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-21-r1/answer.txt) | False → True |
+| interview-21/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-21-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-21-r1/answer.txt) | False → False |
+| interview-22/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-22-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-22-r1/answer.txt) | False → True |
+| interview-22/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-22-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-22-r1/answer.txt) | False → False |
+| interview-23/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-23-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-23-r1/answer.txt) | False → True |
+| interview-23/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-23-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-23-r1/answer.txt) | False → False |
+| interview-24/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-24-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-24-r1/answer.txt) | False → True |
+| interview-24/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-24-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-24-r1/answer.txt) | False → True |
+| interview-25/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-25-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-25-r1/answer.txt) | False → False |
+| interview-25/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-25-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-25-r1/answer.txt) | False → False |
+| interview-26/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-26-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-26-r1/answer.txt) | False → True |
+| interview-26/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-26-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-26-r1/answer.txt) | False → False |
+| interview-27/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-27-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-27-r1/answer.txt) | False → True |
+| interview-27/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-27-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-27-r1/answer.txt) | False → False |
+| interview-28/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-28-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-28-r1/answer.txt) | False → True |
+| interview-28/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-28-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-28-r1/answer.txt) | False → True |
+| interview-29/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-29-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-29-r1/answer.txt) | False → True |
+| interview-29/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-29-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-29-r1/answer.txt) | False → True |
+| interview-30/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-30-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-30-r1/answer.txt) | False → True |
+| interview-30/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-30-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-30-r1/answer.txt) | False → True |
+| interview-31/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-31-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-31-r1/answer.txt) | True → True |
+| interview-31/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-31-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-31-r1/answer.txt) | False → True |
+| interview-32/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-32-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-32-r1/answer.txt) | False → True |
+| interview-32/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-32-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-32-r1/answer.txt) | False → False |
+| interview-33/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-33-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-33-r1/answer.txt) | False → True |
+| interview-33/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-33-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-33-r1/answer.txt) | False → True |
+| interview-34/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-34-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-34-r1/answer.txt) | False → True |
+| interview-34/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-34-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-34-r1/answer.txt) | False → True |
+| interview-35/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-35-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-35-r1/answer.txt) | False → True |
+| interview-35/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-35-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-35-r1/answer.txt) | False → False |
+| interview-36/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-36-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-36-r1/answer.txt) | False → True |
+| interview-36/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-36-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-36-r1/answer.txt) | False → True |
+| interview-37/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-37-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-37-r1/answer.txt) | False → True |
+| interview-37/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-37-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-37-r1/answer.txt) | False → True |
+| interview-38/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-38-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-38-r1/answer.txt) | False → True |
+| interview-38/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-38-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-38-r1/answer.txt) | True → True |
+| interview-39/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-39-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-39-r1/answer.txt) | True → True |
+| interview-39/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-39-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-39-r1/answer.txt) | True → True |
+| interview-40/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-40-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-40-r1/answer.txt) | False → True |
+| interview-40/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-40-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-40-r1/answer.txt) | False → True |
+| interview-41/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/interview-41-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/interview-41-r1/answer.txt) | False → True |
+| interview-41/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/interview-41-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/interview-41-r1/answer.txt) | True → True |
+| unseen-arclight-01/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-arclight-01-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-arclight-01-r1/answer.txt) | False → True |
+| unseen-arclight-01/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-arclight-01-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-arclight-01-r1/answer.txt) | False → True |
+| unseen-arclight-02/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-arclight-02-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-arclight-02-r1/answer.txt) | False → True |
+| unseen-arclight-02/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-arclight-02-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-arclight-02-r1/answer.txt) | False → True |
+| unseen-arclight-03/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-arclight-03-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-arclight-03-r1/answer.txt) | False → True |
+| unseen-arclight-03/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-arclight-03-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-arclight-03-r1/answer.txt) | False → False |
+| unseen-arclight-04/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-arclight-04-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-arclight-04-r1/answer.txt) | False → False |
+| unseen-arclight-04/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-arclight-04-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-arclight-04-r1/answer.txt) | False → True |
+| unseen-arclight-05/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-arclight-05-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-arclight-05-r1/answer.txt) | False → True |
+| unseen-arclight-05/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-arclight-05-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-arclight-05-r1/answer.txt) | False → True |
+| unseen-arclight-06/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-arclight-06-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-arclight-06-r1/answer.txt) | False → True |
+| unseen-arclight-06/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-arclight-06-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-arclight-06-r1/answer.txt) | False → True |
+| unseen-arclight-07/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-arclight-07-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-arclight-07-r1/answer.txt) | False → True |
+| unseen-arclight-07/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-arclight-07-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-arclight-07-r1/answer.txt) | False → False |
+| unseen-arclight-08/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-arclight-08-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-arclight-08-r1/answer.txt) | False → True |
+| unseen-arclight-08/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-arclight-08-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-arclight-08-r1/answer.txt) | False → True |
+| unseen-arclight-09/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-arclight-09-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-arclight-09-r1/answer.txt) | False → False |
+| unseen-arclight-09/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-arclight-09-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-arclight-09-r1/answer.txt) | False → False |
+| unseen-cae-01/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-cae-01-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-cae-01-r1/answer.txt) | False → True |
+| unseen-cae-01/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-cae-01-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-cae-01-r1/answer.txt) | False → True |
+| unseen-cae-02/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-cae-02-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-cae-02-r1/answer.txt) | False → True |
+| unseen-cae-02/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-cae-02-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-cae-02-r1/answer.txt) | False → False |
+| unseen-cae-03/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-cae-03-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-cae-03-r1/answer.txt) | True → True |
+| unseen-cae-03/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-cae-03-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-cae-03-r1/answer.txt) | True → True |
+| unseen-cae-04/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-cae-04-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-cae-04-r1/answer.txt) | False → True |
+| unseen-cae-04/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-cae-04-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-cae-04-r1/answer.txt) | False → True |
+| unseen-cae-05/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-cae-05-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-cae-05-r1/answer.txt) | False → True |
+| unseen-cae-05/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-cae-05-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-cae-05-r1/answer.txt) | False → True |
+| unseen-cae-06/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-cae-06-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-cae-06-r1/answer.txt) | False → True |
+| unseen-cae-06/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-cae-06-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-cae-06-r1/answer.txt) | False → True |
+| unseen-cae-07/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-cae-07-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-cae-07-r1/answer.txt) | False → True |
+| unseen-cae-07/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-cae-07-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-cae-07-r1/answer.txt) | False → True |
+| unseen-cae-08/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-cae-08-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-cae-08-r1/answer.txt) | False → True |
+| unseen-cae-08/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-cae-08-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-cae-08-r1/answer.txt) | False → False |
+| unseen-cae-09/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-cae-09-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-cae-09-r1/answer.txt) | False → True |
+| unseen-cae-09/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-cae-09-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-cae-09-r1/answer.txt) | False → True |
+| unseen-general-01/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-general-01-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-general-01-r1/answer.txt) | False → True |
+| unseen-general-01/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-general-01-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-general-01-r1/answer.txt) | False → True |
+| unseen-general-02/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-general-02-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-general-02-r1/answer.txt) | False → True |
+| unseen-general-02/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-general-02-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-general-02-r1/answer.txt) | False → True |
+| unseen-general-03/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-general-03-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-general-03-r1/answer.txt) | False → True |
+| unseen-general-03/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-general-03-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-general-03-r1/answer.txt) | False → True |
+| unseen-general-04/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-general-04-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-general-04-r1/answer.txt) | False → True |
+| unseen-general-04/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-general-04-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-general-04-r1/answer.txt) | False → True |
+| unseen-general-05/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-general-05-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-general-05-r1/answer.txt) | False → True |
+| unseen-general-05/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-general-05-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-general-05-r1/answer.txt) | True → True |
+| unseen-general-06/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-general-06-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-general-06-r1/answer.txt) | False → True |
+| unseen-general-06/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-general-06-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-general-06-r1/answer.txt) | True → True |
+| unseen-general-07/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-general-07-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-general-07-r1/answer.txt) | False → True |
+| unseen-general-07/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-general-07-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-general-07-r1/answer.txt) | False → True |
+| unseen-general-08/deepseek | [原文](runs/oct26-baseline-final/baseline/deepseek/unseen-general-08-r1/answer.txt) | [原文](runs/oct26-full-final/full/deepseek/unseen-general-08-r1/answer.txt) | False → True |
+| unseen-general-08/qwen | [原文](runs/oct26-baseline-final/baseline/qwen/unseen-general-08-r1/answer.txt) | [原文](runs/oct26-full-final/full/qwen/unseen-general-08-r1/answer.txt) | False → True |
