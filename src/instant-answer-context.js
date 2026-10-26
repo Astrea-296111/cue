@@ -69,7 +69,7 @@ function buildInstantContext({ settings = {}, question, snapshot, request, ready
   const sources = readyEvidence.evidence || readyEvidence.sources || [];
   const evidence = [], blocks = []; let dataTokens = 0;
   for (const source of sources.slice(0, 32)) {
-    if (evidence.length >= limits.maxSources) break;
+    if (evidence.length >= limits.maxSources && !(source.protectedMetric||source.protectedMechanism)) continue;
     const block = formatEvidenceBlock(source), size = estimateTokens(block);
     if (dataTokens + size > limits.evidenceTokens && !(source.protectedMetric||source.protectedMechanism)) continue;
     evidence.push(source); blocks.push(block); dataTokens += size;

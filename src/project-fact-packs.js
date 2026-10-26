@@ -154,7 +154,8 @@ class ProjectFactPacks {
     const ranked=scoped.map(f=>scoreFor(f,rankText,terms,requested)).sort(order);
     const metricQuestion=q+'\n'+(resolution?.metricContext||'');
     const metricIds=require('./metric-index').matches(metricQuestion,mentioned.map(p=>p.id));
-    const mechanismIds=require('./metric-index').mechanisms(metricQuestion,metricIds,mentioned.map(p=>p.id));
+    const directMechanisms=require('./metric-index').mechanisms(q,metricIds,mentioned.map(p=>p.id));
+    const mechanismIds=directMechanisms.length?directMechanisms:require('./metric-index').mechanisms(metricQuestion,metricIds,mentioned.map(p=>p.id));
     const chosen=[]; const add=c=>{if(c&&!chosen.includes(c)&&chosen.length<Math.min(12,maxCards)) chosen.push(c);};
     for(const id of metricIds) add(this.metricIndex.get(id));
     for(const id of mechanismIds)add(scoped.find(f=>f.card.cardId===id)?.card);

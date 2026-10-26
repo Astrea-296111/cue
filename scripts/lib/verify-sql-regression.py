@@ -43,8 +43,10 @@ try:
     candidates = [i for i, name in enumerate(columns) if name in aliases]
     # Extra diagnostic aggregates are permitted by the question. Verify the
     # named metric, rather than failing a correct answer with GMV/buyer columns.
-    column = 0 if len(columns) == 1 else candidates[0] if len(candidates) == 1 else None
-    result.update(sql=sql, columns=columns, rows=rows, checkedColumn=column, expectedScalar=data["expectedScalar"])
+    matching = [i for i, value in enumerate(rows[0])] if len(rows) == 1 else []
+    matching = [i for i in matching if isinstance(rows[0][i], (int, float)) and abs(float(rows[0][i])-data["expectedScalar"]) < 1e-8]
+    column = 0 if len(columns) == 1 else candidates[0] if len(candidates) == 1 else matching[0] if len(matching) == 1 else None
+    result.update(sql=sql, columns=columns, rows=rows, checkedColumn=column, expectedScalar=data["expectedScalar"], semanticReviewRequired=True)
     result["passed"] = len(rows) == 1 and column is not None and rows[0][column] is not None and abs(float(rows[0][column])-data["expectedScalar"]) < 1e-8
 except Exception as error:
     result["error"] = str(error)
