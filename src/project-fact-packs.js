@@ -166,6 +166,7 @@ class ProjectFactPacks {
     for(const p of mentioned) {
       let best=ranked.find(x=>x.c.projectId===p.id&&x.relevant);
       if(!best)best=ranked.find(x=>x.c.projectId===p.id&&x.c.docType==='overview');
+      if(!best&&requested.includes('overview'))best=ranked.find(x=>x.c.projectId===p.id&&x.c.docType==='ownership'&&/背景|职责|概览/.test(x.c.topic||''));
       add(best?.c);
     }
     for(const x of ranked) if(x.relevant&&x.score>.04) add(x.c);

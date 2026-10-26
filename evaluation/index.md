@@ -4,10 +4,10 @@
 
 - [41个历史回放点](cases/interview-2026-10-26.json)：旧建议只给裁判，禁止给被测模型或读取未来发言。
 - [原始面试TXT](cases/original-interview-2026-10-26.txt)
-- [24个冻结新题](cases/unseen-2026-10-26.json)：首次运行后归入已见回归集。
+- [26个冻结题（其中2题烟测后归开发回归，24题保持未见）](cases/unseen-2026-10-26.json)：首次运行后归入已见回归集。
 - [129卡工作区](../materials/personal/workspace.json)
 
-运行：`node scripts/eval-public.cjs --phase smoke --provider all --run-id <新ID>`；12条烟测通过人工检查后运行`--phase full`生成260条，再用`--phase baseline --target-root <基线源码目录>`在同模型同资料下对比65题。baseline使用原生产链路，没有三域IPC；当前题目的显式项目域会对应旧`currentProjectId`。
+运行：`node scripts/eval-public.cjs --phase smoke --provider all --run-id <新ID>`；12条烟测通过人工检查后运行`--phase full`生成268条（至少260条），再用`--phase baseline --target-root <基线源码目录>`在同模型同资料下对比67题。`--phase material-control`以同新代码、同模型、同问题对比仓库旧公开事实包（并不冒充丢失的194卡）；`--phase multiturn`另外运行六组真正共享会话的跨模式/跨话题测试。冷会话与热会话结果分别记录。baseline使用原生产链路，没有三域IPC；当前题目的显式项目域会对应旧`currentProjectId`。
 
 配置来源：已有`QWEN_API_KEY`/`DEEPSEEK_API_KEY` Secrets以及对应`*_MODEL`/`*_BASE_URL`变量。未配置model时请求官方`/models`并按现有发现策略选择可用快速模型，选中的精确ID写入报告。认证配置缺失会记录失败，不用Mock冒充真实验收。
 
