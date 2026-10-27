@@ -95,7 +95,7 @@ class ProjectFactPacks {
       return {card:c,terms:grams(keywords.join(' ')+c.text),keywords,
         subjects:grams([...keywords,...questions,c.topic||''].join(' ')),questions:questions.map(grams)};
     });
-    this.metricIndex=require('./metric-index').build(next.cards);
+    this.metricIndex=require('./metric-index').build(next.cards.filter(c=>c.qa?.enabled!==false));
     this.featuresByProject=new Map(next.projects.map(p=>[p.id,this.features.filter(f=>f.card.projectId===p.id)]));
     this.evidenceById=new Map(next.cards.map(c=>[c.cardId,{...c,id:c.cardId,projectName:next.projects.find(p=>p.id===c.projectId).name,sourceType:'project-pack',revision:next.revision,startLine:1,endLine:c.text.split('\n').length,text:`${c.implementation==='proposed_design'?'【新增方案，非历史结果；只能用我会/建议描述组别，不得说已经跑过】\n':''}[${c.provenance} / ${c.status}${c.implementation?' / '+c.implementation:''}] ${c.text}${c.qa&&c.boundaries.length?'\n适用边界：'+c.boundaries.join('；'):''}\n来源：${c.sources.map(s=>`${s.path}#${s.symbol}@${s.commit||s.contentSha256}`).join('; ')}`} ]));
     return this.getIndex(); }

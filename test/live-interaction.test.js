@@ -143,6 +143,15 @@ test('Q05/Q06: strict Markdown retains paragraphs and genuine source hashes; v2 
   }
 });
 
+test('Q04: disabled v2 metric cards cannot return through the protected metric selector',()=>{
+  const {ProjectFactPacks}=require('../src/project-fact-packs');
+  const facts=plain(require('../materials/personal/workspace.json').facts),id='metric.cae.batch.accept.p95';
+  const query='CAE 281ms 的批次受理P95怎么测？',options={resolution:{canonicalProjectIds:['cae'],retrieveFacts:true},maxCards:12};
+  assert.ok(new ProjectFactPacks({index:facts}).select(query,options).evidence.some(c=>c.cardId===id));
+  facts.cards.find(c=>c.cardId===id).qa={enabled:false,delivery:'prefer_verbatim',answerDetailed:'',mustCover:[],excludeIntents:[]};
+  assert.ok(!new ProjectFactPacks({index:facts}).select(query,options).evidence.some(c=>c.cardId===id));
+});
+
 test('V01/V02/V03/V05/V06: both screenshot actions route once, preserve task only on explicit continuation and separate output budgets',async t=>{
   const app=createInterviewRuntime(t,{settings:{providerOptions:{custom:{vision:true}}}});await app.ready;
   for(const mode of ['assist','leetcode']){
