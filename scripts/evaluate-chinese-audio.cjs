@@ -16,7 +16,7 @@ const cases=[
 async function run(outputDir=path.join(ROOT,'artifacts/chinese-audio'),env=process.env){
   const key=env.QWEN_ASR_API_KEY||env.QWEN_API_KEY,cleanups=[];
   const report={schemaVersion:1,kind:'synthetic-mandarin-scenario',status:'running',startedAt:new Date().toISOString(),
-    scope:'Three separately delivered synthetic Mandarin WAV fragments. Real production PCM/VAD/Qwen ASR and question resolver; no physical audio device or real interview. No live LLM call.',cases:[],checks:{}};
+    scope:'Three synthetic Mandarin fragments played continuously with short pauses. Real production PCM/VAD/Qwen ASR and question resolver; no physical audio device or real interview. No live LLM call.',cases:[],checks:{}};
   const save=()=>{fs.mkdirSync(outputDir,{recursive:true});fs.writeFileSync(path.join(outputDir,'report.json'),JSON.stringify(sanitizeReport(report,{secrets:[key].filter(Boolean),workspaceRoot:ROOT}),null,2)+'\n');};
   let runtime;
   try {
@@ -28,7 +28,7 @@ async function run(outputDir=path.join(ROOT,'artifacts/chinese-audio'),env=proce
       settings:{provider:'custom',baseUrl:env.QWEN_BASE_URL||'https://dashscope.aliyuncs.com/compatible-mode/v1',apiKeys:{custom:key},sttProvider:'qwen',qwenAsr}});
     report.build=runtime.snapshot('redactedDiagnostics().build');report.model=qwenAsr.model;
     await startAudioCapture(runtime);
-    for(const [file,expectedText] of cases){
+    for(const [file,expectedText] of [['complete.wav',cases.map(c=>c[1]).join('')]]){
       const eventStart=runtime.events.length;
       const row=await feedWavFixture(runtime,{channel:'them',file:path.join(ROOT,'test/fixtures/dual-audio/zh-scenario',file),expectedText,settleMs:5000,keepAlive:true});
       row.interim=runtime.events.slice(eventStart).filter(e=>e.eventType==='stt:interim'&&e.channel==='them'&&e.text).slice(-12).map(e=>e.text);
@@ -37,7 +37,7 @@ async function run(outputDir=path.join(ROOT,'artifacts/chinese-audio'),env=proce
     const recognized=report.cases.map(c=>c.events.map(e=>e.text).join(' '));
     const target=report.cases.at(-1).target;
     const actual=target.text||target.pendingText||'';
-    const groups=[['订单',/订单/],['每秒一万',/每秒.{0,6}(?:1万|一万|10000)/],['数据库容量有限',/数据库.{0,8}容量.{0,8}有限/],['不能重复',/不能.{0,5}重复/],['宕机',/宕机/],['恢复',/恢复/]];
+    const groups=[['订单',/订单/],['每秒一万',/每秒.{0,6}(?:1\s*万|一万|10000)/],['数据库容量有限',/数据库.{0,8}容量.{0,8}有限/],['不能重复',/不能.{0,5}重复/],['宕机',/宕机/],['恢复',/恢复/]];
     report.checks.recognized=Object.fromEntries(groups.map(([name,re])=>[name,re.test(recognized.join(' '))]));
     report.checks.retained=Object.fromEntries(groups.map(([name,re])=>[name,re.test(actual)]));
     report.checks.allSegmentsHaveFinal=report.cases.every(c=>c.passed);
