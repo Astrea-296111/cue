@@ -24,8 +24,8 @@ class QAIndex {
     if (!scope.length && projectId) scope = [projectId];
     if (!scope.length && referenceContext) scope = this.projects.filter(p => [p.name, ...p.aliases].some(n => referenceContext.includes(n))).map(p => p.id);
     const pool = this.rows.filter(r => scope.length ? scope.includes(r.card.projectId) : this.projects.find(p => p.id === r.card.projectId)?.kind === 'knowledge');
-    const scopedQuestion = mentions.reduce((q, p) => [p.name, ...p.aliases, p.id].reduce((s, n) => s.replaceAll(n, ''), q), question);
-    const key = normalize(scopedQuestion), queryGrams = grams(key);
+    const key = mentions.reduce((q, p) => [p.name, ...p.aliases, p.id].reduce((s, n) => s.replaceAll(normalize(n), ''), q), normalize(question));
+    const queryGrams = grams(key);
     const ranked = pool.map(row => {
       const best = row.questions.filter(q=>q.constraints===constraints(key)).map(q => ({ q, score: q.key === key ? 1 : [...queryGrams].filter(g => q.grams.has(g)).length / Math.max(queryGrams.size, q.grams.size, 1) }))
         .sort((a, b) => b.score - a.score)[0];
