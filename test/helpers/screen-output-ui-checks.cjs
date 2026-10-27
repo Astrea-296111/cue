@@ -6,8 +6,8 @@ module.exports=async({js,until,clipboard,win,screenshot})=>{
   await until(()=>js("!document.getElementById('screen-copy-prompt').hidden"),'copyable Vibe prompt visible');
   assert.equal(await js("document.getElementById('screen-copy-prompt').closest('details')===null"),true,'copy is available without opening mode settings');
   await js("document.getElementById('screen-copy-prompt').click()");
-  await until(()=>clipboard.readText().includes('UI_COPY_PROMPT'),'actual clipboard receives the prompt');
-  assert.equal(clipboard.readText().replace(/\r\n/g,'\n'),'UI_COPY_PROMPT 先读取题面与工程，列出契约和未知项，本步不改代码。\n');
+  await until(()=>clipboard.readText().includes('先读取当前题面'),'actual clipboard receives the prompt');
+  assert.equal(clipboard.readText().replace(/\r\n/g,'\n'),await js("document.querySelector('.response-group:first-child .ai-text pre code').textContent"));
   await until(()=>js("!document.getElementById('send-btn').classList.contains('busy')"),'screen output complete');
   assert.equal(await js("document.querySelector('.response-group:first-child .ai-text').textContent.length>260"),true);
   assert.ok((await js("document.querySelector('.response-group:first-child .answer-bound-question').textContent")).includes('合成应用任务'));

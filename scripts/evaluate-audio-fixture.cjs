@@ -87,6 +87,8 @@ async function evaluateAudio({outputDir=path.join(ROOT,'artifacts/audio-fixture'
     report.endpoint={host:new URL(resolved.websocketUrl).host,protocol:new URL(resolved.websocketUrl).protocol};
     runtime=createInterviewRuntime({after:f=>cleanups.push(f)},{liveSpeech:true,inMemorySettings:true,realTime:true,
       settings:{provider:'custom',baseUrl,apiKeys:{custom:key},sttProvider:'qwen',qwenAsr}});
+    report.build=runtime.snapshot('redactedDiagnostics().build');
+    report.appCodeSha256=require('./eval-public.cjs').sourceIdentity(ROOT);
     await startAudioCapture(runtime);
     // Remember an actual early submit before any ASR text exists. The LLM
     // transport in this ASR-only runner remains the explicit test transport.

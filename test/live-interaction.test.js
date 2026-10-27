@@ -182,7 +182,8 @@ test('V04/V07: nonvisual refuses before capture/network; malformed route never s
   await app.invoke('settings:set',{providerOptions:{custom:{vision:true}}});app.answer('print("unconfirmed code")');await app.ask('leetcode');assert.ok(!app.events.some(e=>e.channel==='llm:token'&&e.text.includes('unconfirmed code')));
   app.answer(header()+'```python\nfrom fastapi import FastAPI\napp = FastAPI()\n```\n');await app.ask('assist','与 AI 协作实现应用');
   assert.ok(!app.events.some(e=>e.channel==='llm:token'&&e.text.includes('from fastapi')));
-  assert.match(app.events.findLast(e=>e.channel==='llm:error').message,/应用实现代码/);
+  assert.equal(app.value('lastActualRequest.screen.guidanceSource'),'compiled-current-task-v1');
+  const guidance=app.events.filter(e=>e.channel==='llm:token').at(-1).text;assert.equal((guidance.match(/通过后下一步：/g)||[]).length,5);assert.match(guidance,/只读|权限/);
   const keys=require('../src/shortcuts');assert.equal(keys.actionForKey({ctrlKey:true,key:'?',shiftKey:true}),'assist');assert.equal(keys.actionForKey({ctrlKey:true,key:'h'}),'leetcode');
 });
 

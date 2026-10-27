@@ -6,7 +6,7 @@ async function runScreenTask({ llm, settings, requirement, taskState, questionId
   const task = taskState.begin(questionId);
   const override=taskState.override==='auto'&&task.type==='vibe-coding'&&router.classify(requirement)==='debug'?'vibe-coding':taskState.override;
   const local = new AbortController(), combined = AbortSignal.any([signal, local.signal]);
-  let inactivity, total, completion = {}, answer = '', routeAt = null, copyAt = null, outputGate = null;
+  let inactivity, total, completion = {}, answer = '', routeAt = null, copyAt = null, compiledGuidance = false, rawModelBody = '';
   const started = performance.now();
   const arm = () => { clearTimeout(inactivity); inactivity = setTimeout(() => local.abort(), 25000); };
   try {
@@ -24,12 +24,12 @@ async function runScreenTask({ llm, settings, requirement, taskState, questionId
       onRoute: route => {
         if (combined.aborted) return;
         routeAt = performance.now(); taskState.observe(route);
-        if(route.type==='vibe-coding')outputGate=new (require('./vibe-coding-policy').OutputGate)(display);
         diagnostic.screen = { ...diagnostic.screen, ...route, routeMs: routeAt - started };
         emit('screen:task', { ...task, override });
+        if(route.type==='vibe-coding'){const localAt=performance.now();compiledGuidance=true;diagnostic.screen.guidanceInput=JSON.parse(JSON.stringify(task));display(require('./vibe-coding-policy').compile(task));diagnostic.screen.localGuidanceMs=performance.now()-localAt;diagnostic.screen.guidanceSource='compiled-current-task-v1';}
       }, onText: text => {
         if (combined.aborted || !text) return;
-        if(outputGate)outputGate.push(text);else display(text);
+        rawModelBody+=text;if(!compiledGuidance)display(text);
       } });
     const maxTokens=router.classify(requirement,override)==='vibe-coding'?require('./vibe-coding-policy').maxTokens(settings):Math.max(require('./vibe-coding-policy').maxTokens(settings),Math.min(16384,Number(settings.responseBudgets?.code)||6000));
     const {attachments,...boundedState}=task;
@@ -46,7 +46,7 @@ async function runScreenTask({ llm, settings, requirement, taskState, questionId
       onUsage: usage => timing.usage(usage), onCompletion: value => { completion = value; } });
     if (combined.aborted) throw new Error('屏幕任务已取消或超时。');
     stream.finish();
-    outputGate?.finish();
+    diagnostic.screen.modelBodySuppressed=compiledGuidance;diagnostic.rawModelBody=rawModelBody;
     if (!answer.trim()) throw new Error('模型未返回屏幕任务正文。');
     diagnostic.screen.firstCopyPromptMs = copyAt === null ? null : copyAt - started;
     diagnostic.screen.generationAfterRouteMs = performance.now() - routeAt;
