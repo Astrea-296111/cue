@@ -29,13 +29,15 @@ async function run(outputDir=path.join(ROOT,'artifacts/chinese-audio'),env=proce
     report.build=runtime.snapshot('redactedDiagnostics().build');report.model=qwenAsr.model;
     await startAudioCapture(runtime);
     for(const [file,expectedText] of cases){
-      const row=await feedWavFixture(runtime,{channel:'them',file:path.join(ROOT,'test/fixtures/dual-audio/zh-scenario',file),expectedText,settleMs:5000});
+      const eventStart=runtime.events.length;
+      const row=await feedWavFixture(runtime,{channel:'them',file:path.join(ROOT,'test/fixtures/dual-audio/zh-scenario',file),expectedText,settleMs:5000,keepAlive:true});
+      row.interim=runtime.events.slice(eventStart).filter(e=>e.eventType==='stt:interim'&&e.channel==='them'&&e.text).slice(-12).map(e=>e.text);
       row.target=runtime.snapshot('questionResolver.resolveForSubmit()');report.cases.push(row);save();
     }
     const recognized=report.cases.map(c=>c.events.map(e=>e.text).join(' '));
     const target=report.cases.at(-1).target;
     const actual=target.text||target.pendingText||'';
-    const groups=[['订单',/订单/],['数据库',/数据库/],['重复',/重复/],['宕机',/宕机/],['恢复',/恢复/]];
+    const groups=[['订单',/订单/],['每秒一万',/每秒.{0,6}(?:1万|一万|10000)/],['数据库容量有限',/数据库.{0,8}容量.{0,8}有限/],['不能重复',/不能.{0,5}重复/],['宕机',/宕机/],['恢复',/恢复/]];
     report.checks.recognized=Object.fromEntries(groups.map(([name,re])=>[name,re.test(recognized.join(' '))]));
     report.checks.retained=Object.fromEntries(groups.map(([name,re])=>[name,re.test(actual)]));
     report.checks.allSegmentsHaveFinal=report.cases.every(c=>c.passed);
@@ -43,6 +45,7 @@ async function run(outputDir=path.join(ROOT,'artifacts/chinese-audio'),env=proce
     report.status=report.checks.allSegmentsHaveFinal&&report.checks.answerable&&Object.values(report.checks.recognized).every(Boolean)&&Object.values(report.checks.retained).every(Boolean)?'passed':'failed';
   }catch(error){report.status='failed';report.error=String(error.message);}
   finally {
+    if(runtime)report.providerStatuses=runtime.events.filter(e=>['you','them'].includes(e.channel)&&typeof e.status==='string').map(({channel,status})=>({channel,status}));
     if(runtime&&runtime.snapshot('state.capturing')){await runtime.invoke('capture:toggle').catch(()=>{});await pause(900);}
     for(const cleanup of cleanups.reverse())try{await cleanup();}catch(error){report.status='failed';report.cleanupError=String(error.message);}
     report.finishedAt=new Date().toISOString();save();

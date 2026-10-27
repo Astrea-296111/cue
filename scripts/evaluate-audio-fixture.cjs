@@ -36,7 +36,7 @@ async function startAudioCapture(runtime) {
     await pause(100);
   }
 }
-async function feedWavFixture(runtime,{channel,file,expectedText,settleMs=800}) {
+async function feedWavFixture(runtime,{channel,file,expectedText,settleMs=800,keepAlive=false}) {
   if(!['you','them'].includes(channel))throw new Error('Invalid fixture channel');
       const fixture=wavPCM(file);
       const eventStart=runtime.events.length;
@@ -54,13 +54,14 @@ async function feedWavFixture(runtime,{channel,file,expectedText,settleMs=800}) 
         // contains a correction). Retain the stable final set, not just its
         // first sentence, without claiming exact-word accuracy.
         if(events.length&&Date.now()-lastChange>=settleMs)break;
+        if(keepAlive)runtime.audio(channel,Buffer.alloc(3200));
         await pause(100);
       }
       const vadEvents=runtime.events.slice(eventStart).filter(e=>e.channel===channel&&typeof e.speaking==='boolean');
       const receivedTimes=events.map(e=>e.receivedAt).filter(Number.isFinite);
       const lastFinalReceivedAt=receivedTimes.length?Math.max(...receivedTimes):null;
       const speechEndedAt=vadEvents.findLast(e=>!e.speaking)?.speechEndedAt??null;
-      return {channel,fixture:path.basename(file),fixtureSha256:fixture.sha256,fixtureDurationMs:fixture.durationMs,expectedText,settleMs,events,
+      return {channel,fixture:path.basename(file),fixtureSha256:fixture.sha256,fixtureDurationMs:fixture.durationMs,expectedText,settleMs,keepAlive,events,
         vadEvents,
         finishedObservationMs:Math.round(performance.now()-started),audioEndToObservationMs:events.length?Math.round(performance.now()-audioEnd):null,
         pcmFeedEndEpochMs:audioEndEpochMs,lastFinalReceivedAt,
