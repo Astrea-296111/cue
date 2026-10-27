@@ -48,6 +48,7 @@ function buildSystem(base, contextBlock, contextLimit = 3600) {
 
 function applyRules(prompt, aiRules, mode) {
   if (mode === 'leetcode') return prompt;
+  if (typeof aiRules === 'string' && aiRules.trim()) prompt = prompt.replace(oralPolicy.RULES, oralPolicy.FACT_RULES);
   const boundary = prompt.indexOf('\n\n' + DATA_START);
   // The stable rules and user style precede the changing source data, so a
   // compatible provider can reuse its prefix without treating sources as rules.

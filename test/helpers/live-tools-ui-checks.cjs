@@ -23,5 +23,14 @@ module.exports=async({js,until,requests})=>{
   await until(()=>js("document.getElementById('screen-mode-label').textContent==='Vibe Coding'"),'screen mode override');
   await js("document.getElementById('screen-end').click()");
   await until(()=>js("document.getElementById('screen-mode-label').textContent==='自动识别'"),'screen mode reset');
-  return {qaPreview:true,qaTry:true,qaDirectUI:true,modelCallsForDirect:0,shortContext:true,screenModeControls:true};
+  await js("cue.dialogueEvent({eventId:'ui-buffer-1',utteranceKey:'ui-buffer-1',utteranceOrder:1,sourceId:'ui-buffer',channel:'them',speaker:'interviewer',text:'如何处理重复提交？',isFinal:true})");
+  await js("cue.dialogueEvent({eventId:'ui-buffer-2',utteranceKey:'ui-buffer-2',utteranceOrder:2,sourceId:'ui-buffer',channel:'them',speaker:'interviewer',text:'另外如何处理失败重试？',isFinal:true})");
+  await until(()=>js("document.querySelectorAll('#answer-coverage-list button').length===2"),'question coverage controls');
+  await js("document.getElementById('answer-coverage').open=true;document.querySelector('#answer-coverage-list button').click()");
+  await until(()=>js("document.querySelector('#answer-coverage-list button').textContent==='恢复待答'"),'answered fragment marked');
+  assert.doesNotMatch((await js('cue.questionTarget()')).snapshot.text,/重复提交/);
+  await js("document.querySelector('#answer-coverage-list button').click()");
+  await until(async()=>/重复提交/.test((await js('cue.questionTarget()')).snapshot.text),'answered fragment restored');
+  await js('cue.clearTranscript()');
+  return {qaPreview:true,qaTry:true,qaDirectUI:true,modelCallsForDirect:0,shortContext:true,screenModeControls:true,answeredFragment:true};
 };

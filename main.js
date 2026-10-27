@@ -1074,6 +1074,10 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
       scenario: interviewPlan.scenario || (!policy.instant && request.checklist?.scenario) || '',
       subQuestions: [...interviewPlan.subQuestions, ...(!policy.instant ? request.checklist?.pending || [] : [])] } : null;
     const answerPlan = getAnswerPlan(question, effectiveInterviewPlan);
+    if (typeof settings.aiRules === 'string' && settings.aiRules.trim()) {
+      answerPlan.customStyle = true;
+      answerPlan.maxTokens = Math.max(answerPlan.maxTokens, 1000);
+    }
 
     let imageDataUrl = null;
     const screenStarted = performance.now();
@@ -1528,6 +1532,11 @@ ipcMain.handle('diagnostics:export',async()=>{
   return {canceled:false,fileName:path.basename(selected.filePath),sessionId:dialogue.sessionId};
 });
 ipcMain.handle('question:get-target', () => currentTargetEnvelope());
+ipcMain.handle('question:mark-answered', (_event, input = {}) => {
+  questionResolver.markAnswered(input);
+  publishQuestionTarget();
+  return currentTargetEnvelope();
+});
 ipcMain.handle('question:retry', (_event, questionId) => {
   const snapshot = questionResolver.retrySnapshot(typeof questionId === 'string' ? questionId : lastFrozenSnapshot?.questionId);
   if (!snapshot?.text || snapshot.epoch !== conversation.epoch) return { ok: false, reason: 'no-retry-target' };

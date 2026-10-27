@@ -4,6 +4,8 @@
 
 文件为 UTF-8，最大 16MiB、16 个项目、4096 条卡片。`projects` 定义项目 ID、名称、别名；通用知识可以标记 `kind: "knowledge"`。`items` 必填 `id/projectId/question/answerShort`，完整示例见 [模板](examples/cue-qa.template.json)。ID 稳定，重复导入按 ID 更新，不能用相同 ID 改换项目归属。单个文件重复 ID 会报带位置的错误，不发布部分内容。
 
+第一次制作可复制 [简易 JSON 示例](examples/cue-qa-quickstart.json)，填写自己的问题、等价问法和答案，另存为 UTF-8 的 `.json` 文件。在设置的“项目问答库”点击“导入 JSON…”，预览后确认，再用“试问”检查是否原文命中。`aliases` 应添加意思和条件相同的问法；系统会保守处理不完整的多问、相反条件和不同数字，不能保证所有相似句子都直达。涉及个人项目时使用项目 ID 并填写对应项目资料，不要把示例的通用知识当作本人经历。
+
 | 字段 | 作用 |
 | --- | --- |
 | `question`、`aliases` | 标准问法及等价问法，保持否定、数值与条件 |

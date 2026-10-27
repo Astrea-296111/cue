@@ -14,6 +14,42 @@ const sample = (items = []) => ({format:'cue-qa/v1',projects:[{id:'maple',name:'
 async function install(app, value = sample()) { const p=await app.invoke('qa:prepare',{text:JSON.stringify(value)});await app.invoke('qa:commit',p); }
 const header = (type='vibe-coding',title='Build a read-only query helper',stage='plan') => `CUE_SCREEN ${JSON.stringify({type,title,observed:['Visible synthetic task'],inferred:[],missing:['No hidden schema assumed'],stage})}\n`;
 
+test('long spoken scenario retains consecutive ASR fragments and incomplete leading context',()=>{
+  const r=new QuestionResolver();let order=0;
+  for(const text of ['请考虑一个批处理服务。','高峰时队列拥堵，结果不能重复。','请说明遇到的难点，以及自己是怎么。','怎么解决这个问题？']){
+    const event={channel:'them',text,utteranceKey:'unit'+(++order),utteranceOrder:order,revision:1};
+    r.observe(event,false);r.observe({...event,revision:2},true);
+  }
+  const text=r.resolveForSubmit().text;
+  assert.match(text,/批处理服务/);assert.match(text,/结果不能重复/);assert.match(text,/难点/);assert.match(text,/怎么解决/);
+});
+
+test('locally confirmed answered fragments are excluded from the actual request and can be restored',async t=>{
+  const app=createInterviewRuntime(t);await app.ready;
+  app.final('如何避免重复提交？',{utteranceKey:'a',utteranceOrder:1});
+  app.final('另外怎么处理失败重试？',{utteranceKey:'b',utteranceOrder:2});
+  let snapshot=(await app.invoke('question:get-target')).snapshot;
+  assert.equal(snapshot.segments.length,2);
+  const first=snapshot.segments[0];
+  snapshot=(await app.invoke('question:mark-answered',{questionId:snapshot.questionId,partId:first.id,text:first.text,answered:true})).snapshot;
+  assert.doesNotMatch(snapshot.text,/避免重复提交/);assert.match(snapshot.text,/失败重试/);
+  app.candidate('PRIVATE_CANDIDATE_RESPONSE 我已经解释了幂等处理。');
+  app.answer('合成答案');await app.ask('say');
+  assert.doesNotMatch(JSON.stringify(app.calls.at(-1)),/PRIVATE_CANDIDATE_RESPONSE|避免重复提交/);
+  snapshot=(await app.invoke('question:mark-answered',{questionId:snapshot.questionId,partId:first.id,text:first.text,answered:false})).snapshot;
+  assert.match(snapshot.text,/避免重复提交/);
+  await assert.rejects(app.invoke('question:mark-answered',{questionId:'old',partId:first.id,text:first.text,answered:true}));
+});
+
+for(const profile of ['instant','standard'])test(`configured style overrides default oral format in ${profile} requests`,async t=>{
+  const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:profile,aiRules:'用自然段详细回答，不要编号。'}});await app.ready;
+  app.answer('一段自然的合成回答。');await app.ask('say','解释数据库事务的隔离级别。');
+  const system=app.calls.at(-1).messages.find(m=>m.role==='system').content;
+  assert.match(system,/用自然段详细回答，不要编号/);assert.match(system,/优先于默认语气/);
+  assert.doesNotMatch(system,/格式为“1\. 提示词：正文”|总长不超过260字符/);
+  const oral=require('../src/oral-answer-policy');assert.equal(oral.presentation('完整内容。'.repeat(100),{customStyle:true}).displayTruncated,false);
+});
+
 test('A01/A02: actual main dispatches answerable interim before final and remembers an early key once',async t=>{
   const app=createInterviewRuntime(t);await app.ready;
   app.interim('如果',{utteranceKey:'draft',utteranceOrder:1,revision:1});await app.ask('say');

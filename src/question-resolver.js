@@ -14,7 +14,7 @@ const CONTINUATION_QUESTION_RE = /^(?:嗯|呃|那)?[\s，,。.!！?？]*(?:还�
 const QUESTION_SIGNAL_RE = /(?:为什么|为何|怎么|如何|怎样|是不是|是否|能不能|可不可以|有没有|会不会|要不要|需不需要|还需要|应该|什么|哪些|哪种|哪个|多少|哪里|哪儿|区别|原理|作用|优缺点|代价|取舍|原因|流程|怎么做|怎么实现|如何实现|介绍(?:一下)?|讲讲|说说|解释(?:一下)?|谈谈|你做了什么|负责什么|遇到什么|怎么解决|what\b|why\b|how\b|which\b|where\b|when\b|who\b|can you\b|could you\b|would you\b|tell me\b|describe\b|explain\b)/i;
 const CONDITION_START_RE = /^(?:那)?(?:如果|假如|要是|当|假设|比如|例如)/;
 const CONDITION_COMPLETION_RE = /(?:那么|那(?:么)?|就|则|会不会|是不是|是否|怎么|如何|为什么|能不能|可不可以|有没有|要不要|需不需要|还需要|应该|会|能|可以|吗|呢|[?？])/;
-const OPEN_END_RE = /(?:如果|假如|要是|当|假设|比如|例如|但是|不过|然后|因为|所以|或者|以及|关于|对于|通过|基于|至于|还有一个问题|我再问一个|我想问一下|为什么用|怎么用|如何用|怎么做|如何做|怎么实现|如何实现|用|对|在|从|把|让|给|和|与|或)[\s，,。.!！:：-]*$/i;
+const OPEN_END_RE = /(?:如果|假如|要是|当|假设|比如|例如|但是|不过|然后|因为|所以|或者|以及|关于|对于|通过|基于|至于|还有一个问题|我再问一个|我想问一下|为什么用|怎么用|如何用|怎么做|如何做|怎么实现|如何实现|怎么|如何|为什么|用|对|在|从|把|让|给|和|与|或)[\s，,。.!！:：-]*$/i;
 const DANGLING_TAIL_RE = /^(?:在|从|对|对于|关于|通过|基于|结合|当|如果|假如|要是|因为|所以|然后|但是|不过|以及|或者|还有|接下来|这个|这次|整个|其中|你在|我们在)(?:[\s\S]{0,12})$/i;
 const IMPERATIVE_QUESTION_RE = /^(?:请)?(?:介绍|讲讲|说说|说一下|解释|解释一下|谈谈|分析|比较|描述|展开|复盘|聊聊|概括|总结一下|walk me through|tell me about|describe|explain)(?:\b|(?=[\u3400-\u9fff]))/i;
 // Code edits are complete interviewer requirements even without a question mark.
@@ -43,7 +43,7 @@ function changesTechnicalSubject(previous, next) {
 function continuesQuestion(previous, next) {
   if (NEW_TOPIC_RE.test(next) || isCorrection(next)) return false;
   if (changesTechnicalSubject(previous, next)) return false;
-  return /^(?:它们|他们|这两种|这些)/.test(next) || SEMANTIC_CONTINUATION_RE.test(next) || ELLIPTIC_QUESTION_RE.test(next) || CONTINUATION_QUESTION_RE.test(next) ||
+  return OPEN_END_RE.test(previous) || /(?:怎么|如何|为什么)[\s，,。.!！]*$/.test(previous) || /^(?:它们|他们|这两种|这些)/.test(next) || SEMANTIC_CONTINUATION_RE.test(next) || ELLIPTIC_QUESTION_RE.test(next) || CONTINUATION_QUESTION_RE.test(next) ||
     isLikelySupplement(next) || isCodeChangeRequest(next);
 }
 
@@ -188,7 +188,7 @@ function mergeFragment(pending, next) {
   if (isLikelyCompleteQuestion(b) &&
       (changesTechnicalSubject(a, b) ||
        (/^(?:为什么|怎么|如何|什么|哪些|是否|是不是|能不能|有没有|会不会|要不要|请|介绍|讲讲|解释|what\b|why\b|how\b|can\b|could\b|would\b)/i.test(b) &&
-        !continuesQuestion(a, b) && !(compact(a).length >= 8 && (CONTEXT_PREAMBLE_RE.test(a) || PREMISE_RE.test(a)))))) {
+        !continuesQuestion(a, b) && !(compact(a).length >= 12 && !isLikelyCompleteQuestion(a)) && !(compact(a).length >= 8 && (CONTEXT_PREAMBLE_RE.test(a) || PREMISE_RE.test(a)))))) {
     return null;
   }
 
@@ -218,12 +218,14 @@ class QuestionResolver {
     this.revision = 0; this.lastSubmitted = null; this.currentQuestionId = ''; this.referenceContext = '';
     this.eventSequence = 0; this.events = new Map(); this.sourceSessions = new Map(); this.retiredSessions = new Set();
     this.highWater = new Map(); this.claims = new Map(); this.lastRetryable = null; this.reason = 'no-current-question';
+    this.answeredParts = new Map();
   }
 
   _clearActive(reason = 'no-current-question') {
     this.stableParts = []; this.pendingText = ''; this.pendingAt = 0; this.pendingRelated = false;
     this.interim = null; this.awaitingText = false; this.awaitingNewQuestion = false;
     this.boundary = null; this.currentQuestionId = ''; this.referenceContext = ''; this.reason = reason; this.revision++;
+    this.answeredParts.clear();
   }
   _identity() { return this.currentQuestionId || (this.currentQuestionId = `q${this.epoch}-${++this._id}`); }
   _touch(reason) { this._identity(); this.revision++; this.reason = reason; }
@@ -418,6 +420,13 @@ class QuestionResolver {
     Object.defineProperty(snapshot, 'keys', { enumerable: true, get: () => new Set(sourceKeys) });
     return Object.freeze(snapshot);
   }
+  markAnswered({ questionId, partId, text, answered }) {
+    if (questionId !== this.currentQuestionId || typeof answered !== 'boolean') throw new Error('问题已更新，请重新确认');
+    const part = this.stableParts.find(p => (p.key || `sequence:${p.sequence}`) === partId && p.text === text);
+    if (!part) throw new Error('该发言已更新，请重新确认');
+    if (answered) this.answeredParts.set(partId, text); else this.answeredParts.delete(partId);
+    this._touch('answer-coverage-changed');
+  }
   previewForPrefetch(options = {}) { return this.resolveForSubmit({ ...options, allowPartial: true }); }
   resolveForSubmit({ allowPartial = false, epoch = this.epoch } = {}) {
     let selected = [...this.stableParts];
@@ -445,6 +454,11 @@ class QuestionResolver {
     // allowPartial permits a meaningful latest interim, never a bare “如果” or
     // “另外一个问题”. No model request is a better result than reviving old text.
     const partial = provisional;
+    const segments = selected.map(part => {
+      const id = part.key || `sequence:${part.sequence}`;
+      return { id, text: part.text, answered: !!part.final && this.answeredParts.get(id) === part.text, canMark: !!part.final };
+    });
+    if (segments.some(part => part.answered)) text = segments.filter(part => !part.answered).map(part => part.text).join('\n');
     const at = selected.reduce((latest, part) => Math.max(latest, part.at || 0), 0) || this.pendingAt || 0;
     const sourceKeys = selected.flatMap(part => part.keys || [part.key]).filter(Boolean);
     return this._snapshot({ epoch, questionId: this.currentQuestionId || '', revision: this.revision,
@@ -454,7 +468,7 @@ class QuestionResolver {
       referenceContext: undefined, pendingText, partial, provisional, asrFinal: text ? !provisional : !this.interim&&!!pendingText,
       semanticStatus: text ? 'answerable' : 'incomplete', completePrefix: text, pendingTail: pendingText,
       awaitingText: this.awaitingText, awaitingNewQuestion: this.awaitingNewQuestion,
-      parts: selected.map(part => part.text), interimText,
+      parts: segments.filter(part => !part.answered).map(part => part.text), segments, interimText,
       utterances:selected.map(part=>Object.freeze({key:part.key,sourceId:part.source,sourceSessionId:part.session,utteranceOrder:part.order,revision:part.version,isFinal:part.final})) });
   }
 

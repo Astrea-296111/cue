@@ -204,7 +204,8 @@
     const frozen = busy ? (submittedSnapshot || targetState.frozenSnapshot) : null;
     const display = frozen || latest;
     const unavailable = !display?.text || ['empty', 'incomplete', 'consumed'].includes(targetState.state) && !frozen;
-    const value = unavailable ? (targetState.state === 'incomplete' || latest?.awaitingNewQuestion ? '新问题尚未识别完整' : '等待新问题') : display.text;
+    const pending = latest?.pendingText || latest?.interimText || '';
+    const value = unavailable ? (pending ? '正在识别：' + pending : targetState.state === 'incomplete' || latest?.awaitingNewQuestion ? '新问题尚未识别完整' : '等待新问题') : display.text;
     $('#answer-target-label').textContent = frozen ? '正在回答：' : '本次回答：';
     $('#answer-target-text').textContent = value;
     $('#answer-target-text').title = value;
@@ -214,6 +215,14 @@
     $('#answer-next-target').textContent = targetState.pendingSubmit ? '已记住按键，正在补全当前问题' : different ? '题目有补充，按 Ctrl+Enter 更新：' + latest.text : latest?.status === 'partial' && !frozen ? '识别中，可立即回答当前目标' : '';
     $('#answer-next-target').title = $('#answer-next-target').textContent;
     if(latest?.pendingTail)$('#answer-next-target').textContent += ' 正在补充：'+latest.pendingTail;
+    const coverage = $('#answer-coverage-list');
+    coverage.replaceChildren();
+    for (const part of latest?.segments || []) {
+      const row=document.createElement('div'), label=document.createElement('span'), button=document.createElement('button');
+      label.textContent=part.text; button.type='button'; button.textContent=part.answered?'恢复待答':'标为已回答'; button.disabled=!part.canMark;
+      button.onclick=async()=>{ try { applyQuestionTarget(await cue.questionMarkAnswered({questionId:latest.questionId,partId:part.id,text:part.text,answered:!part.answered})); } catch(e) { showToast(e.message); } };
+      row.append(label,button);coverage.append(row);
+    }
   }
   function applyQuestionTarget(value = {}) {
     const incomingEpoch = value.epoch ?? value.snapshot?.epoch ?? value.frozenSnapshot?.epoch;
