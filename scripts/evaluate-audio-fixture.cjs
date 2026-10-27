@@ -70,13 +70,15 @@ async function feedWavFixture(runtime,{channel,file,expectedText}) {
         passed:events.length>0&&events.every(e=>e.speaker===(channel==='you'?'candidate':'interviewer'))&&vadEvents.some(e=>e.speaking)&&vadEvents.some(e=>!e.speaking)};
 }
 async function evaluateAudio({outputDir=path.join(ROOT,'artifacts/audio-fixture'),env=process.env}={}) {
-  const cleanups=[],key=env.QWEN_ASR_API_KEY||env.QWEN_API_KEY;
+  const cleanups=[],key=env.QWEN_ASR_API_KEY||env.QWEN_API_KEY,realAnswer=env.CUE_AUDIO_REAL_LLM==='true',answerKey=env.QWEN_LLM_API_KEY||env.QWEN_API_KEY;
   const report={schemaVersion:1,kind:'live-asr',startedAt:new Date().toISOString(),status:'running',channels:[],usage:null,
     boundaries:{physicalMicrophone:false,physicalLoopback:false,realASR:true,realProductionPCMIPC:true,realProductionDialogueLedger:true,wordAccuracy:'Full synthetic text and recognized text retained for review; role/event assertions do not prove all word accuracy.'}};
-  const save=()=>{fs.mkdirSync(outputDir,{recursive:true});fs.writeFileSync(path.join(outputDir,'report.json'),JSON.stringify(sanitizeReport(report,{secrets:[key].filter(Boolean),workspaceRoot:ROOT}),null,2)+'\n');};
+  const save=()=>{fs.mkdirSync(outputDir,{recursive:true});fs.writeFileSync(path.join(outputDir,'report.json'),JSON.stringify(sanitizeReport(report,{secrets:[key,answerKey].filter(Boolean),workspaceRoot:ROOT}),null,2)+'\n');};
   let runtime;
   try {
     if(!key)throw new Error('QWEN_API_KEY is not configured for real ASR');
+    if(realAnswer&&(!env.QWEN_MODEL||!answerKey))throw new Error('QWEN_MODEL and a real answer key are required');
+    report.boundaries.realLLM=realAnswer;
     const {DEFAULT_QWEN_ASR_MODEL,resolveQwenAsrConfig}=require('../src/stt-providers/qwen');
     const model=env.QWEN_ASR_MODEL||DEFAULT_QWEN_ASR_MODEL;
     const qwenAsr={apiKey:key,model,language:'en',useResume:false,useProjectKnowledge:false,useJobDescription:false,
@@ -86,25 +88,29 @@ async function evaluateAudio({outputDir=path.join(ROOT,'artifacts/audio-fixture'
     report.model=model;report.servedModel=null;report.configuredChannels=2;
     report.endpoint={host:new URL(resolved.websocketUrl).host,protocol:new URL(resolved.websocketUrl).protocol};
     runtime=createInterviewRuntime({after:f=>cleanups.push(f)},{liveSpeech:true,inMemorySettings:true,realTime:true,
-      settings:{provider:'custom',baseUrl,apiKeys:{custom:key},sttProvider:'qwen',qwenAsr}});
+      settings:{provider:'custom',baseUrl,apiKeys:{custom:answerKey||key},sttProvider:'qwen',qwenAsr,...(realAnswer?{models:{custom:{fast:env.QWEN_MODEL,smart:env.QWEN_MODEL}},realtimeAnswerMode:'instant',providerProtocolPresets:{custom:'dashscope'},instantProviderOptions:{custom:{enable_thinking:false}}}:{})},
+      ...(realAnswer?{liveTransport:{maxOutputTokens:1000,totalTimeoutMs:45000,firstContentTimeoutMs:6000,onAttempt:()=>{report.modelAttempts=(report.modelAttempts||0)+1;if(report.modelAttempts>1)throw new Error('Real ASR answer call cap exceeded');}}}:{})});
     report.build=runtime.snapshot('redactedDiagnostics().build');
     report.appCodeSha256=require('./eval-public.cjs').sourceIdentity(ROOT);
     await startAudioCapture(runtime);
-    // Remember an actual early submit before any ASR text exists. The LLM
-    // transport in this ASR-only runner remains the explicit test transport.
+    // Remember the key before any text; final CI enables real LLM transport.
     await runtime.ask('say');
     for(const [channel,file,expectedText] of [['them','interviewer.wav','How do you prevent duplicate task execution?'],['you','candidate.wav','I said Kafka. I meant Rabbit M Q.']]) {
       report.channels.push(await feedWavFixture(runtime,{channel,file:path.join(ROOT,'test/fixtures/dual-audio',file),expectedText}));save();
     }
+    if(realAnswer){const deadline=Date.now()+45000;while(runtime.snapshot('state.busy')&&Date.now()<deadline)await pause(100);}
+    report.answer=runtime.events.filter(e=>e.channel==='llm:token').map(e=>e.text).join('');
+    report.answerRequest=runtime.calls[0]||null;report.actualAnswer=runtime.snapshot('redactedDiagnostics().lastActualRequest');
+    report.servedAnswerModels=[...new Set(runtime.providerChunks.map(p=>p.model).filter(Boolean))];
     const answerAt=runtime.events.findIndex(e=>e.channel==='llm:start');
     const speechFinal=runtime.events.findIndex(e=>e.eventType==='transcript'&&e.channel==='them');
     const target=runtime.snapshot('lastFrozenSnapshot');
-    report.earlySubmit={realASR:true,modelTransport:'mock',rememberedBeforeText:true,modelCalls:runtime.calls.length,
+    report.earlySubmit={realASR:true,modelTransport:realAnswer?'real':'mock',rememberedBeforeText:true,modelCalls:runtime.calls.length,
       beforeInterviewerFinal:answerAt>=0&&speechFinal>=0&&answerAt<speechFinal,asrFinalAtDispatch:target?.asrFinal??null,
       question:target?.text||null,questionId:target?.questionId||null,questionRevision:target?.revision??null,
       semanticStatus:target?.semanticStatus||null,observedAt:target?.observedAt||null,
       note:'Ordering is production provider callback / IPC delivery, not microphone acoustic timing. Synthetic WAV is fed in real time.'};
-    report.earlySubmit.passed=report.earlySubmit.beforeInterviewerFinal&&report.earlySubmit.asrFinalAtDispatch===false&&runtime.calls.length===1;
+    report.earlySubmit.passed=report.earlySubmit.beforeInterviewerFinal&&report.earlySubmit.asrFinalAtDispatch===false&&runtime.calls.length===1&&(!realAnswer||report.actualAnswer?.status==='completed');
     report.status=report.channels.length===2&&report.channels.every(c=>c.passed)&&report.earlySubmit.passed?'passed':'failed';
   }catch(error){report.status='failed';report.error=String(error.message);}
   finally {

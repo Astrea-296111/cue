@@ -26,6 +26,9 @@ jobs:
         timeout-minutes: 3
         env:
           QWEN_API_KEY: ${{ secrets.QWEN_ASR_API_KEY || secrets.QWEN_API_KEY }}
+          QWEN_LLM_API_KEY: ${{ secrets.QWEN_API_KEY }}
+          QWEN_MODEL: ${{ vars.QWEN_MODEL || vars.QWEN_MODEL_ID }}
+          CUE_AUDIO_REAL_LLM: "true"
           QWEN_BASE_URL: ${{ vars.QWEN_BASE_URL }}
           QWEN_ASR_MODEL: ${{ vars.QWEN_ASR_MODEL }}
           QWEN_ASR_WEBSOCKET_URL: ${{ vars.QWEN_ASR_WEBSOCKET_URL }}
