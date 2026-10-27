@@ -12,6 +12,8 @@
         if(code){html+='</code></pre>';code=false;} else {flush();closeList();html+='<pre><code>';code=true;fence=mark[1];} continue;
       }
       if(code){html+=esc(line)+'\n';continue;}
+      const heading=/^\s{0,3}(#{1,6})\s+(.+)$/.exec(line);
+      if(heading){flush();closeList();const level=heading[1].length;html+=`<h${level}>${inline(heading[2])}</h${level}>`;continue;}
       const ordered=/^\s{0,3}(\d{1,9})[.)]\s+(.+)$/.exec(line);
       const bullet=/^\s{0,3}[-*+]\s+(.+)$/.exec(line);
       if(ordered||bullet) {

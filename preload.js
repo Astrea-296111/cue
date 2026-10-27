@@ -3,6 +3,7 @@ const platform = process.platform;
 
 contextBridge.exposeInMainWorld('cue', {
   platform,
+  copyText:text=>ipcRenderer.invoke('clipboard:write',text),
   shortcutAction: mode => ipcRenderer.send('shortcut:action',mode),
   qaState:()=>ipcRenderer.invoke('qa:state'),
   qaPrepare:input=>ipcRenderer.invoke('qa:prepare',input||{}),

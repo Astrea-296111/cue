@@ -2,6 +2,7 @@
 (() => {
   const $ = id => document.getElementById(id), cue = window.cue;
   let state, preview, editingId, prompt = '', settings, returning, screenType = null;
+  const reasons={'no-match':'没有找到对应问法或条件不同','disabled-or-evidence-only':'条目已停用或仅作为生成资料','ambiguous-project':'请先明确本题所属项目','excluded-intent':'当前问法属于排除范围','incomplete-coverage':'当前条件未完整匹配','insufficient-coverage-or-margin':'匹配不够明确，可补充等价问法','conflicting-answers':'相同问题存在不同答案或版本'};
   const status = text => { $('qa-status').textContent = text; };
   const safe = fn => async () => { try { await fn(); } catch(e) { status(e.message); } };
   async function refresh() {
@@ -38,7 +39,7 @@
   $('qa-preview').onkeydown=e=>{if(e.key==='Escape')close();if(e.key==='Tab'){const focusable=[...$('qa-preview').querySelectorAll('button:not(:disabled)')];if(e.shiftKey&&document.activeElement===focusable[0]){e.preventDefault();focusable.at(-1).focus();}else if(!e.shiftKey&&document.activeElement===focusable.at(-1)){e.preventDefault();focusable[0].focus();}}};
   $('qa-export').onclick=safe(async()=>{await cue.qaExport();status('导出操作已完成。');});
   $('qa-refresh').onclick=safe(refresh); $('qa-search').oninput=render;
-  $('qa-try').onclick=safe(async()=>{const r=await cue.qaTry({question:$('qa-search').value,projectId:$('qa-project').value,detailed:$('qa-detailed').checked});status((r.direct?'问答库命中':'将回退模型：'+r.reason)+'\n'+(r.answer||'')+'\n匹配分值（非概率）：'+r.score);});
+  $('qa-try').onclick=safe(async()=>{const r=await cue.qaTry({question:$('qa-search').value,projectId:$('qa-project').value,detailed:$('qa-detailed').checked});status((r.direct?'问答库命中':'将回退模型：'+(reasons[r.reason]||'需要结合完整问题生成'))+'\n'+(r.answer||'')+'\n匹配分值（非概率）：'+r.score);});
   $('qa-save-item').onclick=safe(async()=>{if(!editingId)throw new Error('先选择条目编辑');await cue.qaEdit({cardId:editingId,item:JSON.parse($('qa-editor').value),baseGeneration:state.generation});await refresh();status('条目已保存。');});
   $('live-candidate-speech').onchange=safe(async()=>{await cue.settingsSet({liveContextPolicy:{includeCandidateSpeech:$('live-candidate-speech').checked}});await refresh();});
   $('qa-detailed').onchange=safe(async()=>{await cue.settingsSet({qaAnswerDetailed:$('qa-detailed').checked});});
@@ -65,7 +66,7 @@
       while(details.nextSibling&&!/H[23]/.test(details.nextSibling.nodeName))details.append(details.nextSibling);
     }
   });
-  $('screen-copy-prompt').onclick=safe(async()=>{await navigator.clipboard.writeText(prompt);$('screen-task-summary').textContent='当前提示词已复制';});
+  $('screen-copy-prompt').onclick=safe(async()=>{await cue.copyText(prompt);$('screen-task-summary').textContent='当前提示词已复制';});
   cue.on('materials:changed',()=>refresh().catch(e=>status(e.message)));
   refresh().catch(e=>status(e.message));
 })();

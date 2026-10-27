@@ -185,3 +185,22 @@ test('V04/V07: nonvisual refuses before capture/network; malformed route never s
   assert.match(app.events.findLast(e=>e.channel==='llm:error').message,/应用实现代码/);
   const keys=require('../src/shortcuts');assert.equal(keys.actionForKey({ctrlKey:true,key:'?',shiftKey:true}),'assist');assert.equal(keys.actionForKey({ctrlKey:true,key:'h'}),'leetcode');
 });
+
+test('V04: bounded route decoder accepts observed JSON transports before releasing any body',()=>{
+  const {RouteStream}=require('../src/screen-task-router');
+  for(const wrapper of ['prefix','bare','fenced']){
+    const metadata={type:'sql',title:'Sum {amount}',observed:['orders(id,amount)'],inferred:[],missing:[],calls:999};
+    const json=JSON.stringify(metadata,null,wrapper==='fenced'?2:0),body='\nSELECT SUM(amount) FROM orders;';
+    const source=(wrapper==='prefix'?'CUE_SCREEN ':wrapper==='fenced'?'```json\n':'')+json+(wrapper==='fenced'?'\n```\n':'\n')+body;
+    const routes=[],tokens=[],stream=new RouteStream({onRoute:r=>routes.push(r),onText:t=>tokens.push(t)});
+    for(const c of source)stream.push(c);stream.finish();assert.equal(routes.length,1);assert.equal(routes[0].type,'sql');assert.equal(routes[0].calls,undefined);
+    assert.ok(tokens.join('').includes('SELECT SUM'));assert.ok(!tokens.join('').includes('"type"'));
+  }
+});
+
+test('V02: screen section headings remain escaped and code blocks remain literal',()=>{
+  const {renderMarkdown}=require('../renderer/safe-markdown');
+  assert.equal(renderMarkdown('### 当前步骤'),'\u003ch3>当前步骤</h3>');
+  assert.ok(!renderMarkdown('### <img src=x onerror=alert(1)>').includes('<img'));
+  assert.match(renderMarkdown('```text\n### literal\n```'),/### literal/);
+});

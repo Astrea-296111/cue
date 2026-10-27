@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, globalShortcut, screen, session, desktopCapturer, shell, dialog, systemPreferences,net } = require('electron');
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, session, desktopCapturer, shell, dialog, systemPreferences,net,clipboard } = require('electron');
 const path = require('path');
 const { requestWindowProtection, showWindowWithProtection, attachWindowProtection, setProtectedMouseEvents } = require('./src/window-protection');
 const { performance } = require('perf_hooks');
@@ -1420,6 +1420,10 @@ function cancelCurrentGeneration(reason='user') {
 }
 ipcMain.on('shortcut:action', (_event, mode) => require('./src/application-integration').dispatchFeature(mode,'renderer'));
 ipcMain.handle('llm:cancel',()=>cancelCurrentGeneration());
+ipcMain.handle('clipboard:write',(_event,value)=>{
+  if(typeof value!=='string'||value.length>128*1024)throw new Error('待复制内容无效或过长，请分段复制。');
+  clipboard.writeText(value);return {ok:true};
+});
 ipcMain.on('llm:cancel',()=>cancelCurrentGeneration());
 ipcMain.handle('dialogue:event',(_event,input)=>ingestSpeechEvent(input));
 ipcMain.handle('dialogue:snapshot',(_event,options={})=>dialogue.snapshot(options));
