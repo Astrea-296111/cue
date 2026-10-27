@@ -88,10 +88,22 @@ async function evaluateAudio({outputDir=path.join(ROOT,'artifacts/audio-fixture'
     runtime=createInterviewRuntime({after:f=>cleanups.push(f)},{liveSpeech:true,inMemorySettings:true,realTime:true,
       settings:{provider:'custom',baseUrl,apiKeys:{custom:key},sttProvider:'qwen',qwenAsr}});
     await startAudioCapture(runtime);
+    // Remember an actual early submit before any ASR text exists. The LLM
+    // transport in this ASR-only runner remains the explicit test transport.
+    await runtime.ask('say');
     for(const [channel,file,expectedText] of [['them','interviewer.wav','How do you prevent duplicate task execution?'],['you','candidate.wav','I said Kafka. I meant Rabbit M Q.']]) {
       report.channels.push(await feedWavFixture(runtime,{channel,file:path.join(ROOT,'test/fixtures/dual-audio',file),expectedText}));save();
     }
-    report.status=report.channels.length===2&&report.channels.every(c=>c.passed)?'passed':'failed';
+    const answerAt=runtime.events.findIndex(e=>e.channel==='llm:start');
+    const speechFinal=runtime.events.findIndex(e=>e.eventType==='transcript'&&e.channel==='them');
+    const target=runtime.snapshot('lastFrozenSnapshot');
+    report.earlySubmit={realASR:true,modelTransport:'mock',rememberedBeforeText:true,modelCalls:runtime.calls.length,
+      beforeInterviewerFinal:answerAt>=0&&speechFinal>=0&&answerAt<speechFinal,asrFinalAtDispatch:target?.asrFinal??null,
+      question:target?.text||null,questionId:target?.questionId||null,questionRevision:target?.revision??null,
+      semanticStatus:target?.semanticStatus||null,observedAt:target?.observedAt||null,
+      note:'Ordering is production provider callback / IPC delivery, not microphone acoustic timing. Synthetic WAV is fed in real time.'};
+    report.earlySubmit.passed=report.earlySubmit.beforeInterviewerFinal&&report.earlySubmit.asrFinalAtDispatch===false&&runtime.calls.length===1;
+    report.status=report.channels.length===2&&report.channels.every(c=>c.passed)&&report.earlySubmit.passed?'passed':'failed';
   }catch(error){report.status='failed';report.error=String(error.message);}
   finally {
     if(runtime) {

@@ -11,7 +11,10 @@ function constrain(plan, domain, question, catalog = []) {
   const names = catalog.filter(p => p.kind !== 'knowledge' && [p.name, ...(p.aliases || [])]
     .some(n => n && String(question).toLowerCase().includes(n.toLowerCase())));
   const other = names.find(p => (p.id || p.projectId) !== domain);
-  const switchHint = other ? `当前范围为${domain === 'general' ? '八股' : domain}；问题点名${other.name}，可点击对应范围切换。` : '';
+  const explicitIds=(plan.canonicalProjectIds||plan.projectIds||[]).filter(id=>names.some(p=>(p.id||p.projectId)===id));
+  if(explicitIds.length&&!require('./project-query').isClearProjectExit(question))return {...plan,answerDomain:domain,
+    switchHint:other?`本题按明确点名的${names.filter(p=>explicitIds.includes(p.id||p.projectId)).map(p=>p.name).join('、')}资料回答；范围按钮仍保留默认选择。`:''};
+  const switchHint = '';
   if (domain === 'general' || other) return { ...plan, answerDomain: domain, switchHint, kind: 'general', retrieve: false,
     retrieveFacts: false, retrieveSources: false, scopes: [], sourceScopes: [], canonicalProjectIds: [], projectIds: [],
     activeProject: null, projectActive: false, projectLabel: '', anchor: '', reason: 'explicit-domain-general', subQuestionScopes: [] };

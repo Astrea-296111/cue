@@ -89,27 +89,31 @@ class ConversationMemory {
   }
 
   begin({ mode, question, transcript = [], settings = {}, catalog = [], interviewPlan = null, evidenceRevision = null,
-    executionProfile = 'standard', questionSnapshot = null, manualFingerprint = '', spokenState = null, projectEntityHint = null }) {
+    executionProfile = 'standard', questionSnapshot = null, manualFingerprint = '', spokenState = null, projectEntityHint = null, liveContext = null }) {
     const instant = executionProfile === 'instant';
     const startedAt = Date.now();
     const current = clean(question);
-    const newerSpeech = transcript.filter(t => t.channel === 'them' && t.ts > this.lastStartedAt);
-    const routeTurns = newerSpeech.slice();
-    if (current && clean(routeTurns.at(-1)?.text) !== current) routeTurns.push({ channel: 'them', text: current });
+    const livePolicy = require('./live-context-policy').normalize(settings.liveContextPolicy);
+    const liveAnswer = ANSWER_MODES.has(mode);
+    if (liveAnswer && !livePolicy.includeCandidateSpeech) spokenState = null;
+    const boundedTurns = liveContext?.turns || [];
+    const routeTurns = liveAnswer ? [...boundedTurns.map(t => ({channel:'them',text:t.text})), {channel:'them',text:current}] : transcript;
+    const previousPlan = liveAnswer ? (boundedTurns.length ? planProjectRetrieval(routeTurns.slice(0,-1), mode, {catalog}) : null) : this.lastPlan;
+    const previousActive = liveAnswer ? previousPlan?.activeProject : this.activeProjectPlan;
     let plan = planProjectRetrieval(routeTurns, mode, {
-      previousPlan: this.lastPlan,
-      activeProjectPlan: this.activeProjectPlan,
+      previousPlan: previousPlan,
+      activeProjectPlan: previousActive,
       catalog,
       manualProjectId: settings.currentProjectId || '',
       interviewPlan,
-      answerHint: instant ? '' : this.recent.at(-1)?.answer || ''
+      answerHint: ''
     });
     if(projectEntityHint?.projectId&&!isClearProjectExit(current)&&!plan.projectMentions?.some(mention=>!mention.excluded)) {
       const project=catalog.find(item=>[item.id,item.projectId].includes(projectEntityHint.projectId));
       if(project&&(!plan.retrieve||!plan.canonicalProjectIds?.includes(projectEntityHint.projectId))) {
         const mentions=plan.projectMentions;
         plan=planProjectRetrieval([{channel:'them',text:`关于 ${project.name} 项目：${current}`}],mode,
-          {previousPlan:this.lastPlan,activeProjectPlan:this.activeProjectPlan,catalog,interviewPlan});
+          {previousPlan:previousPlan,activeProjectPlan:previousActive,catalog,interviewPlan});
         plan.question=current;plan.query=current;plan.anchor=current;plan.projectMentions=mentions;
         if(plan.activeProject)plan.activeProject={...plan.activeProject,anchor:current,question:current};
         plan.reason='indexed-project-entity';plan.entityMatches=projectEntityHint.entities;
@@ -124,20 +128,20 @@ class ConversationMemory {
       const project = catalog.find(item => [item.id, item.projectId].includes(id));
       if (project) {
         plan = planProjectRetrieval([{channel:'them',text:`关于 ${project.name || id} 项目：${current}`}], mode,
-          {previousPlan:this.lastPlan,activeProjectPlan:this.activeProjectPlan,catalog,interviewPlan});
+          {previousPlan:previousPlan,activeProjectPlan:previousActive,catalog,interviewPlan});
         plan.question = current;
         plan.query = current + '\n' + spokenState.text.slice(-1600);
         plan.reason = 'candidate-spoken-context';
       }
     }
     const currentIds=plan.canonicalProjectIds||[];
-    const priorIds=this.activeProjectPlan?.canonicalProjectIds||this.activeProjectPlan?.projectIds||[];
+    const priorIds=previousActive?.canonicalProjectIds||previousActive?.projectIds||[];
     if(plan.retrieve&&currentIds.length===1&&priorIds.length===1&&currentIds[0]!==priorIds[0]&&
         /比较|区别|不同|相比|\b(?:compare|difference)\b/i.test(current)&&/前面|刚才|之前|上一个|先前|\bprevious\b/i.test(current)) {
       const compared=catalog.filter(project=>[...currentIds,...priorIds].includes(project.id||project.projectId));
       if(compared.length===2) {
         plan=planProjectRetrieval([{channel:'them',text:`比较 ${compared.map(project=>project.name).join(' 与 ')} 项目：${current}`}],mode,
-          {previousPlan:this.lastPlan,activeProjectPlan:this.activeProjectPlan,catalog,interviewPlan});
+          {previousPlan:previousPlan,activeProjectPlan:previousActive,catalog,interviewPlan});
         plan.question=current;plan.query=current;plan.reason='project-comparison-reference';
       }
     }
@@ -157,10 +161,10 @@ class ConversationMemory {
       : Number.isFinite(configured) && configured >= 4000
         ? Math.min(48000, Math.floor(configured), Math.max(legacyBudget, 4000))
         : defaultBudget;
-    const snapshot = instant ? this.buildInstantHistory(current, plan) : this.buildHistory(current, plan, budget, policy);
+    const snapshot = liveAnswer ? {turns:boundedTurns.map(t=>({role:'user',text:t.text})),memory:'',stats:{policy:boundedTurns.length?'bounded-reference':'independent',recentPairs:0,recalledPairs:0,historyChars:boundedTurns.reduce((n,t)=>n+t.text.length,0),budget:0}} : this.buildHistory(current, plan, budget, policy);
     const scopedClaims = spokenState?.claims?.filter(claim => !plan.canonicalProjectIds?.length ||
       !claim.projectIds.length || claim.projectIds.some(id => plan.canonicalProjectIds.includes(id)));
-    const spokenContext = spokenState ? scopedClaims?.map(claim =>
+    const spokenContext = liveAnswer && !livePolicy.includeCandidateSpeech ? '' : spokenState ? scopedClaims?.map(claim =>
       `[${claim.status === 'uncertain' ? '说话人待确认，不视作候选人已说' : claim.status==='hypothetical'?'候选人提出的假设或后续设计，不是项目已实现事实':claim.status==='question'?'候选人提出的问题，不当成实现断言':claim.status==='contradicted'?'候选人前后说法冲突，按证据澄清':claim.correction||claim.replaces.length||claim.manuallyCorrected ? '候选人已主动纠正，沿用新版本，不重复提醒旧口误' : '候选人实际发言，可能有口误'}；event=${claim.eventIds.join(',')}]\n${claim.text}`).join('\n\n') || ''
       : excerpt(transcript.filter(t => t.channel === 'you').slice(-8).map(t => clean(t.text)).filter(Boolean).join('\n'), 3600);
     const request = { epoch: this.epoch, id: ++this.sequence, startedAt, mode, question: current,
@@ -170,9 +174,9 @@ class ConversationMemory {
       evidenceRevision, manualFingerprint: instant ? manualFingerprint : stableId(settings.projectKnowledge || '') };
     if (INTERVIEW_MODES.has(mode) && current) {
       request.checklist = this.checklist.begin(request);
-      if (instant) request.checklist = { ...request.checklist, pending: [],
+      if (instant || liveAnswer) request.checklist = { ...request.checklist, pending: [],
         scenario: interviewPlan?.scenario || '', questions: request.checklist.questions.filter(item => item.current) };
-      const projectState = this._projectState(plan);
+      const projectState = liveAnswer ? null : this._projectState(plan);
       if (projectState) {
         projectState.setSourceRevision(evidenceRevision, request.manualFingerprint);
         request.projectInterviewState = projectState.snapshot(request.checklist);

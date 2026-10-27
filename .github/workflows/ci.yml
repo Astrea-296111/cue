@@ -65,6 +65,22 @@ jobs:
       - name: Verify native Windows capture exclusion
         run: npm run test:protection -- --native-only
 
+      - name: Verify actual Windows UI and native synthetic hotkeys
+        env:
+          CUE_UI_SETTINGS_SCREENSHOT: artifacts/windows-ui/settings.png
+          CUE_UI_DIAGNOSTIC_FILE: artifacts/windows-ui/diagnostic.json
+          CUE_UI_QA_BENCHMARK_FILE: artifacts/windows-ui/qa-ui-performance.json
+          CUE_UI_WINDOWS_SHORTCUT_FILE: artifacts/windows-ui/shortcuts.json
+        run: npm run test:ui
+
+      - name: Retain Windows UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-ui-${{ github.run_id }}
+          path: artifacts/windows-ui/
+          if-no-files-found: warn
+
       - name: Package Windows app
         run: npm run pack:win
 

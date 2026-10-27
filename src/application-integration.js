@@ -16,6 +16,22 @@ const VISIBILITY_ACCELERATOR = 'CommandOrControl+P';
 const RECORD_ACCELERATOR = 'CommandOrControl+R';
 const MOVE_STEP = 25;
 const MOVE_DIRECTIONS = { Up: [0, -1], Down: [0, 1], Left: [-1, 0], Right: [1, 0] };
+let featureDispatcher = sendMode, featureState = {}, featureInstalled = false, lastFeature = null;
+function dispatchFeature(mode, origin='global') {
+  if (!['say','assist','technical','leetcode'].includes(mode)) return;
+  const now = Date.now();
+  if (lastFeature?.mode === mode && lastFeature.origin!==origin && now - lastFeature.at < 120) return;
+  if (['assist','leetcode'].includes(mode) && lastFeature?.mode===mode && now-lastFeature.at<120) return;
+  lastFeature = {mode,at:now,origin}; return featureDispatcher(mode);
+}
+function setFeatureDispatcher(dispatcher, state) { featureDispatcher = dispatcher; featureState = state; }
+function installFeatureShortcuts() {
+  if (featureInstalled) return featureState;
+  featureInstalled = true;
+  const {DEFAULTS} = require('./shortcuts');
+  for (const name of ['say','assist','assistAlias','technical','leetcode']) featureState[name] = registerShortcut(name, DEFAULTS[name], () => dispatchFeature(name === 'assistAlias' ? 'assist' : name));
+  return featureState;
+}
 
 function isCueOverlayWindow(win) {
   if (!win || win.isDestroyed()) return false;
@@ -62,18 +78,11 @@ function registerShortcut(name, accelerator, handler) {
 }
 
 function installShortcutOverrides() {
-  globalShortcut.unregister(SAY_ACCELERATOR);
-  globalShortcut.unregister(ASSIST_ACCELERATOR);
-  globalShortcut.unregister(TECHNICAL_ACCELERATOR);
-  globalShortcut.unregister(LEGACY_ASSIST_ACCELERATOR);
+  installFeatureShortcuts();
   globalShortcut.unregister(HIDE_ACCELERATOR);
   globalShortcut.unregister(VISIBILITY_ACCELERATOR);
   globalShortcut.unregister(RECORD_ACCELERATOR);
 
-  registerShortcut('如何回答', SAY_ACCELERATOR, () => sendMode('say'));
-  registerShortcut('屏幕与问题', ASSIST_ACCELERATOR, () => sendMode('assist'));
-  registerShortcut('上下文解题', TECHNICAL_ACCELERATOR, () => sendMode('technical'));
-  registerShortcut('屏幕与问题（Ctrl+?）', LEGACY_ASSIST_ACCELERATOR, () => sendMode('assist'));
   registerShortcut('Hide', HIDE_ACCELERATOR, toggleHide);
   registerShortcut('隐藏/恢复整个窗口', VISIBILITY_ACCELERATOR, toggleWindowVisibility);
   registerShortcut('开始/停止录音', RECORD_ACCELERATOR, () => {
@@ -130,4 +139,4 @@ app.on('browser-window-created', (_event, win) => {
 
 }
 
-module.exports = { installApplicationIntegration, SAY_ACCELERATOR, ASSIST_ACCELERATOR, HIDE_ACCELERATOR, installShortcutOverrides };
+module.exports = { installApplicationIntegration, SAY_ACCELERATOR, ASSIST_ACCELERATOR, HIDE_ACCELERATOR, installShortcutOverrides, setFeatureDispatcher, installFeatureShortcuts, dispatchFeature };

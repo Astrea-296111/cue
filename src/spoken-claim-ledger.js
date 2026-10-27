@@ -6,6 +6,10 @@ const { tokenize } = require('./project-search');
 
 const clean = value => String(value == null ? '' : value).trim();
 const copy = value => JSON.parse(JSON.stringify(value));
+function audioOverlap(a,b,slack=1800) {
+  if(a.clockDomain!==b.clockDomain)return false;
+  return a.startMs<=Math.max(b.startMs,b.endMs)+slack&&b.startMs<=Math.max(a.startMs,a.endMs)+slack;
+}
 const normalizeTerms = value => clean(value).replace(/卡夫卡/g, 'Kafka').replace(/\bout\s+box\b/gi, 'Outbox').replace(/\brabbit\s*mq\b/gi, 'RabbitMQ');
 const PROJECTS = [['cae', /\bcae(?:-job-platform)?\b|CAE仿真平台/i], ['arclight', /\barclight\b|\bmewcode\b/i]];
 const NEW_TOPIC = /换个(?:问题|话题)|换一(?:个|道)问题|新话题|先不聊|不(?:结合|涉及|针对).{0,12}项目|(?:单独|只|一般)(?:问|聊|讲|讨论).{0,14}(?:原理|概念|知识)|\b(?:new topic|in general|without (?:the |your )?project)\b/i;
@@ -146,7 +150,7 @@ class DialogueStore {
     if (previous && revision < previous.revision) return { accepted: false, reason: 'stale-revision', event: copy(previous) };
     if (previous?.isFinal && !isFinal) return { accepted: false, reason: 'final-already-committed', event: copy(previous) };
     const requestedSpeaker = input.speaker;
-    const speaker = input.roleUncertain || Number.isFinite(input.roleConfidence) && input.roleConfidence < 0.6 ? 'unknown'
+    const speaker = input.speechInputMode==='single-microphone' && !input.speaker ? 'unknown' : input.roleUncertain || Number.isFinite(input.roleConfidence) && input.roleConfidence < 0.6 ? 'unknown'
       : ['candidate', 'interviewer', 'unknown'].includes(requestedSpeaker) ? requestedSpeaker
       : channel === 'you' ? 'candidate' : channel === 'them' ? 'interviewer' : 'unknown';
     if (previous && revision === previous.revision && previous.isFinal === isFinal) {
@@ -159,26 +163,32 @@ class DialogueStore {
     const endMs = numberOrNull(input.endMs) ?? numberOrNull(input.end_ms) ?? previous?.endMs ?? startMs;
     if(Number.isFinite(input.at_ms)&&this.relativeOrigin===null) this.relativeOrigin=this.events.size?Math.max(...[...this.events.values()].map(event=>event.orderMs??event.startMs))+1-input.at_ms:0;
     const orderMs=previous?.orderMs ?? (Number.isFinite(input.at_ms)?this.relativeOrigin+input.at_ms:startMs);
+    const changedEchoIds=new Set();
     const event = { sessionId, eventId, speaker, channel: channel || (speaker === 'candidate' ? 'you' : speaker === 'interviewer' ? 'them' : null),
       text, rawText, normalizedText: text, normalization:require('./contextual-asr').normalize(rawText,input.contextText||this.ordered().slice(-4).map(e=>e.text).join('\n')), revision, isFinal, startMs, endMs, receivedAt,
       ingestOrder: previous?.ingestOrder ?? ++this.ingestOrder, orderMs,
       confidence: Number.isFinite(input.confidence) ? Math.max(0, Math.min(1, input.confidence)) : null,
       source: clean(input.source || input.sourceId) || 'manual',
-      sourceId: clean(input.sourceId), sourceSessionId: clean(input.sourceSessionId), utteranceKey: clean(input.utteranceKey),
+      providerBeginTimeMs:numberOrNull(input.providerBeginTimeMs),providerEndTimeMs:numberOrNull(input.providerEndTimeMs),audioClockAccuracy:input.audioClockAccuracy||null,
+      clockDomain: input.clockDomain || input.timeBase || (Number.isFinite(input.at_ms)?'relative':'wall'), sourceId: clean(input.sourceId), sourceSessionId: clean(input.sourceSessionId), utteranceKey: clean(input.utteranceKey),
       utteranceOrder:numberOrNull(input.utteranceOrder) ?? numberOrNull(input.at_ms) ?? previous?.utteranceOrder ?? null,
       projectIds: Array.isArray(input.projectIds) ? input.projectIds.filter(id => typeof id === 'string').slice(0, 4) : projectIds(text, this.activeProjectIds),
       evidenceRevision: Object.hasOwn(input,'evidenceRevision') ? input.evidenceRevision : previous?.evidenceRevision ?? this.evidenceRevision,
       ...(input.roleCorrected ? { roleCorrected: true,correctionHistory:copy((input.correctionHistory||[]).slice(-16)) } : {}) };
     // A simultaneous exact copy on both channels is an echo candidate. Keep it
     // for inspection, but never invent a second affirmed human claim from it.
-    if (!input.roleCorrected && isFinal) {
+    if (!input.roleCorrected && isFinal && input.speechInputMode !== 'single-microphone') {
       const fingerprint = value => value.replace(/[\s，,。.!！?？:：;；]/g, '').toLowerCase();
       const echo = text.length >= 6 && this.ordered().find(other => other.eventId !== eventId && other.isFinal && !other.roleCorrected && other.channel && event.channel && other.channel !== event.channel &&
-        fingerprint(other.text) === fingerprint(text) && Math.abs(other.startMs - startMs) <= 1800);
+        fingerprint(other.text) === fingerprint(text) && audioOverlap(other,event));
       if (echo) {
-        event.echoOf = echo.eventId; event.speaker = 'unknown';
-        // Arrival order cannot decide which channel was the real speaker.
-        this.events.set(echo.eventId, { ...echo, speaker:'unknown', echoOf:eventId });
+        // The explicitly selected system channel remains the target source;
+        // ambiguity belongs to the microphone copy, regardless of arrival order.
+        const mic = event.channel === 'you' ? event : echo;
+        mic.echoOf = event.channel === 'you' ? echo.eventId : eventId;
+        mic.speaker = 'unknown';
+        this.events.set(mic.eventId, mic);
+        changedEchoIds.add(mic.eventId);
       }
     }
     this.events.set(eventId, event); this.revision++;
@@ -187,19 +197,19 @@ class DialogueStore {
     // affirmed candidate claim. A manual role correction overrides this guard.
     for(const [id,old] of this.events)if(old.possibleEchoOf===eventId)this.events.set(id,{...old,possibleEchoOf:undefined});
     const fingerprint=value=>value.replace(/[\p{P}\p{Z}\s]/gu,'').toLowerCase();
-    if(isFinal&&!event.roleCorrected)for(const other of this.events.values()) {
-      if(other.eventId===eventId||!other.isFinal||other.roleCorrected||!other.channel||other.channel===event.channel||Math.abs(other.startMs-startMs)>2000)continue;
+    if(isFinal&&!event.roleCorrected&&input.speechInputMode!=='single-microphone')for(const other of this.events.values()) {
+      if(other.eventId===eventId||!other.isFinal||other.roleCorrected||!other.channel||other.channel===event.channel||!audioOverlap(other,event,2000))continue;
       const a=fingerprint(event.text),b=fingerprint(other.text),short=a.length<b.length?a:b,long=a.length<b.length?b:a;
-      if(short.length<12||short===long||!long.includes(short))continue;
+      if(short.length<6||short===long||!(long.includes(short)||require('./transcript-normalizer').transcriptSimilarity(a,b)>=0.86))continue;
       const mic=event.channel==='you'?event:other.channel==='you'?other:null;
-      if(mic&&mic.speaker==='candidate') {mic.possibleEchoOf=mic.eventId===eventId?other.eventId:eventId;this.events.set(mic.eventId,mic);}
+      if(mic&&mic.speaker==='candidate') {mic.possibleEchoOf=mic.eventId===eventId?other.eventId:eventId;this.events.set(mic.eventId,mic);changedEchoIds.add(mic.eventId);}
     }
     if (this.events.size > this.maxEvents) {
       const oldest = this.ordered().find(item => !item.isFinal) || this.ordered()[0];
       this.events.delete(oldest.eventId);
     }
     this.ledger.rebuild(this.ordered(), this.evidenceRevision);
-    return { accepted: true, event: copy(event), sessionId: this.sessionId, revision: this.revision };
+    return { accepted: true, event: copy(event), changedEchoEvents:[...changedEchoIds].map(id=>this.events.get(id)).filter(Boolean).map(copy), sessionId: this.sessionId, revision: this.revision };
   }
   correct({ sessionId, eventId, text, speaker, revision } = {}) {
     if (sessionId && sessionId !== this.sessionId) return {accepted:false,reason:'stale-session'};
@@ -220,12 +230,12 @@ class DialogueStore {
     while (this.suggestions.size > 80) this.suggestions.delete(this.suggestions.keys().next().value);
     return true;
   }
-  selectContext({ question = '', projectIds: ids = [], maxChars = 3600, maxEvents = 10 } = {}) {
+  selectContext({ question = '', projectIds: ids = [], maxChars = 3600, maxEvents = 10, since = -Infinity } = {}) {
     if (NEW_TOPIC.test(question)) return { text: '', eventIds: [], claims: [], projectIds: [], revision: this.revision, sessionId: this.sessionId };
     const qTerms = terms(question), qFamilies = family(question);
     const metaConversation=/(?:发言|改口|口误|对话|说过).{0,16}(?:保留|记住|保存|承接)|最近.{0,8}(?:句话|发言|对话)/.test(question);
     ids=ids.length?ids:metaConversation?[]:this.activeProjectIds;
-    const ranked = this.ledger.claims.filter(claim => claim.status !== 'corrected' && overlaps(ids, claim.projectIds)).map((claim, index, all) => {
+    const ranked = this.ledger.claims.filter(claim => claim.status !== 'corrected' && claim.eventIds.some(id=>(this.events.get(id)?.receivedAt||0)>=since) && overlaps(ids, claim.projectIds)).map((claim, index, all) => {
       const shared = intersection(qTerms, terms(claim.text));
       const sharedFamily = claim.concepts.filter(group => qFamilies.includes(group)).length;
       const recency = index >= all.length - 3;

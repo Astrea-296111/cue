@@ -65,14 +65,15 @@ test('diagnostics preserve the actual deep request identity after configuration 
 });
 
 for(const executionProfile of ['instant','standard'])test(`${executionProfile}: production request preserves hypothetical and question speech labels`,async t=>{
-  const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:executionProfile}});await app.importMaterialSnapshot({facts:fixture(2),sources:sourceFixture()});
+  const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:executionProfile,liveContextPolicy:{includeCandidateSpeech:true}}});await app.importMaterialSnapshot({facts:fixture(2),sources:sourceFixture()});
+  app.final('CAE 消息队列在此场景怎样派发？');
   for(const [eventId,text] of [['actual','CAE 当前用 RabbitMQ 派发任务。'],['hypothesis','如果换成Kafka，我会评估分区键。'],['candidate-question','为什么不用Kafka？']])await app.invoke('dialogue:event',{eventId,channel:'you',speaker:'candidate',text,isFinal:true,revision:1});
   await app.ask('say','CAE 消息队列的分区键怎么选？');const context=app.requests.at(-1).spokenContext,serialized=JSON.stringify(app.calls.at(-1).messages);
   for(const label of ['候选人提出的假设或后续设计，不是项目已实现事实','候选人提出的问题，不当成实现断言']){assert.ok(context.includes(label),label);assert.ok(serialized.includes(label),label);}
 });
 
 for(const executionProfile of ['instant','standard']) test(`${executionProfile}: an indexed unique mechanism starts the right project thread without hijacking explicit general questions`,async t=>{
-  const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:executionProfile}});
+  const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:executionProfile,liveContextPolicy:{includeCandidateSpeech:true}}});
   const facts=fixture(2);
   facts.cards[0].keywords.push('Outbox');facts.cards[0].text='合成 CAE 项目用 Outbox 保存持久待发意图，不代表全部外部动作恰好一次。';
   await app.importMaterialSnapshot({facts,sources:sourceFixture()});
@@ -105,7 +106,8 @@ test('speech revisions, final replay, aliases and unknown roles retain the origi
 for(const channels of [['you','them'],['them','you']]) test(`cross-channel echo is uncertain in ${channels.join(' then ')} arrival order and can be corrected`,()=>{
   const store=new DialogueStore();
   channels.forEach((channel,index)=>store.ingest({eventId:'e'+index,channel,text:'我使用 Kafka 派发任务',startMs:1000+index*10}));
-  assert.ok(store.snapshot().events.every(event=>event.speaker==='unknown'));
+  assert.ok(store.snapshot().events.filter(event=>event.channel==='you').every(event=>event.speaker==='unknown'));
+  assert.equal(store.snapshot().events.find(event=>event.channel==='them').speaker,'interviewer');
   assert.ok(store.ledger.claims.every(claim=>claim.status==='uncertain'));
   const fixed=store.correct({sessionId:store.sessionId,eventId:'e0',speaker:'candidate'});
   assert.equal(fixed.event.echoOf,undefined);
@@ -162,7 +164,7 @@ test('hypothetical broker design and candidate questions do not contradict an ac
 });
 
 test('an English self-correction observed by live ASR reaches production SDK speech context without repeated correction or unrelated claim retirement',async t=>{
-  const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:'instant'}});await app.ready;
+  const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:'instant',liveContextPolicy:{includeCandidateSpeech:true}}});await app.ready;app.final('消息队列在这个案例中怎样派发任务？');
   app.candidate('I said CI has 17 tests in this synthetic example.');
   app.candidate('Earlier I said Kafka dispatched the jobs.');
   // This is the recognized candidate sentence from real ASR run 40164527719.
@@ -185,7 +187,7 @@ test('an English self-correction observed by live ASR reaches production SDK spe
   // The same recognized correction must survive an immediate follow-up that
   // has no shared broker word, as observed in the real PCM-to-answer run.
   await app.ask('say','How do you handle retries after a timeout?');
-  assert.match(currentText(app.calls.at(-1)),/I said Kafka, I meant RabbitMQ\./);
+  assert.doesNotMatch(currentText(app.calls.at(-1)),/I said Kafka, I meant RabbitMQ\./,'out-of-window candidate speech is excluded even when enabled');
   // "Actually" can introduce an ordinary assertion; it is not a sufficient
   // signal to silently retire an earlier human claim.
   const store=new DialogueStore();
@@ -215,9 +217,10 @@ test('production speech keeps an early corrected subject after thirty rounds and
   assert.equal(silence.accepted,false);assert.equal(silence.reason,'empty');
   assert.equal((await app.invoke('dialogue:snapshot')).revision,revision);
   await app.ask('say','回到刚才 SWE-bench 的成功率，补充正确口径。');
-  assert.match(currentText(app.calls.at(-1)),/54\.2%/);
+  assert.doesNotMatch(currentText(app.calls.at(-1)),/54\.2%/);
+  assert.ok((await app.invoke('dialogue:snapshot')).claims.some(c=>c.text.includes('54.2%')));
   assert.doesNotMatch(currentText(app.calls.at(-1)),/62\.5%/);
-  assert.match(currentText(app.calls.at(-1)),/不重复提醒旧口误/);
+  assert.equal(app.requests.at(-1).spokenContext,'');
   const snapshot=await app.invoke('dialogue:snapshot');
   assert.equal(snapshot.events.find(event=>event.eventId==='partial').text,'我先听完问题。');
   assert.equal(snapshot.events.find(event=>event.eventId==='overlap').speaker,'interviewer');
@@ -226,7 +229,7 @@ test('production speech keeps an early corrected subject after thirty rounds and
 
 test('protected speech and numeric qualifications survive instant soft target and final request pressure',()=>{
   const spoken='我刚才把完成说错了，281 ms 是300批次、5并发、每批50 Case的持久受理P95，求解另行计时。';
-  const instant=buildInstantContext({question:'仿真为何这么快？',request:{plan:{},spokenContext:spoken,turns:[{role:'assistant',text:'OLD_AI '.repeat(4000)}]},
+  const instant=buildInstantContext({settings:{liveContextPolicy:{includeCandidateSpeech:true}},question:'仿真为何这么快？',request:{plan:{},spokenContext:spoken,turns:[{role:'assistant',text:'OLD_AI '.repeat(4000)}]},
     evidenceLimits:{softInputTokens:400},readyEvidence:{evidence:[]}});
   const speech=instant.currentSections.find(section=>section.id==='spoken-state');
   assert.equal(speech.protected,true);
@@ -238,9 +241,10 @@ test('protected speech and numeric qualifications survive instant soft target an
 });
 
 for(const profile of ['instant','standard']) test(`production ${profile} IPC uses real speech across request boundaries and continues a human correction`,async t=>{
-  const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:profile}});
+  const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:profile,liveContextPolicy:{includeCandidateSpeech:true}}});
   await app.ready;
   assert.ok(app.hasHandler('dialogue:event')&&app.hasHandler('dialogue:snapshot')&&app.hasHandler('dialogue:correct'));
+  app.final('本题讨论消息队列及职责。');
   const session=(await app.invoke('dialogue:snapshot')).sessionId;
   const event={sessionId:session,eventId:'candidate-1',speaker:'candidate',channel:'you',text:'SPOKEN_ONLY 我用了 Kafka 派发任务。',revision:1,isFinal:true};
   await app.invoke('dialogue:event',event);

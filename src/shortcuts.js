@@ -6,6 +6,7 @@ const DEFAULTS = {
   say: 'CommandOrControl+Return',
   // Assist — current screen + interviewer requirements (Ctrl+? remains an alias).
   assist: 'CommandOrControl+Shift+Return',
+  assistAlias: 'CommandOrControl+Shift+/',
   technical: 'CommandOrControl+L',
   leetcode: 'CommandOrControl+H',
   quit: 'CommandOrControl+Shift+X',
@@ -45,4 +46,14 @@ function isValid(accel) {
   return keys.length >= 1;
 }
 
-module.exports = { DEFAULTS, resolveShortcuts, findConflicts, isValid };
+function actionForKey(e) {
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return null;
+  if (e.key === 'Enter') return e.shiftKey ? 'assist' : 'say';
+  if (e.shiftKey && ['?', '/'].includes(e.key)) return 'assist';
+  if (!e.shiftKey && e.key.toLowerCase() === 'h') return 'leetcode';
+  if (!e.shiftKey && e.key.toLowerCase() === 'l') return 'technical';
+  return null;
+}
+const api = { DEFAULTS, resolveShortcuts, findConflicts, isValid, actionForKey };
+if (typeof module !== 'undefined') module.exports = api;
+else window.CueShortcuts = api;

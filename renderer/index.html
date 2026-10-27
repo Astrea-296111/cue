@@ -47,7 +47,10 @@
       <div id="panel" class="glass no-drag">
         <div id="panel-columns">
           <div id="panel-main">
-            <div id="answer-target-panel" aria-label="当前回答目标">
+            <details id="screen-controls"><summary>屏幕模式：<span id="screen-mode-label">自动识别</span></summary>
+<button type="button" data-screen-mode="auto">自动</button><button type="button" data-screen-mode="solve">普通解题</button><button type="button" data-screen-mode="vibe-coding">Vibe Coding</button><button type="button" id="screen-continue">下次截图继续本题</button><button type="button" id="screen-end">结束本题</button><textarea id="screen-task-attachment" rows="3" aria-label="当前题面或 DDL 附件" placeholder="可粘贴本题完整题面或 DDL；结束本题即清空"></textarea><button type="button" id="screen-attach">保存为当前题附件</button><input id="screen-accepted-label" aria-label="我已运行并确认的验收项" placeholder="填写我已运行并确认的验收项"><button type="button" id="screen-accept">记录我的验收确认</button><div id="screen-task-summary" role="status"></div><button type="button" id="screen-copy-prompt" hidden>复制当前提示词</button></details>
+<div id="qa-hit-summary" role="status" hidden></div>
+<div id="answer-target-panel" aria-label="当前回答目标">
               <div class="answer-target-line">
                 <span id="answer-target-label">本次回答：</span>
                 <span id="answer-target-text">等待新问题</span>
@@ -313,6 +316,19 @@
 <label class="s-label"><input id="manual-project-enabled" type="checkbox" /> 启用旧手动项目资料</label>
 <div class="s-note">事实卡与源码开关独立。旧手动长文本可能与新事实冲突，可在此停用；不会自动删除原文。</div>
 <div id="materials-migration-note" class="s-note" hidden>源码检索与项目事实已拆分。<button id="materials-dismiss" type="button">知道了</button></div>
+<section class="whisper-card" aria-label="实时上下文设置"><h3>实时上下文</h3>
+<div>最多保留当前题加近邻题：<button type="button" data-history-window="0">最近 1 轮</button><button type="button" data-history-window="1">最近 2 轮</button><button type="button" data-history-window="2">最近 3 轮</button></div>
+<label><input type="checkbox" id="live-candidate-speech">参考我实际回答（默认关闭，仅近邻范围）</label><div class="s-note">独立问题不带历史；旧 AI 建议和归档不会进入实时答题。</div>
+<label><input type="checkbox" id="screen-vision">确认当前服务与模型支持视觉</label>
+<div>音频角色：<button type="button" data-speech-mode="dual-channel">双声道：系统音频为面试官</button><button type="button" data-speech-mode="single-microphone">单麦克风：手动选择说话人</button></div>
+</section>
+<section class="whisper-card" aria-label="项目问答库"><h3>项目问答库</h3>
+<button type="button" id="qa-import">导入 JSON…</button><button type="button" id="qa-export">导出</button><button type="button" id="qa-refresh">刷新</button>
+<label><input type="checkbox" id="qa-detailed">直达显示详答</label>
+<input id="qa-search" placeholder="搜索条目或输入问题试问" aria-label="问答搜索与试问"><input id="qa-project" placeholder="项目 ID（同题跨项目时填写）" aria-label="试问项目"><button id="qa-try" type="button">试问（不调用模型）</button>
+<pre id="qa-status" role="status"></pre><div id="qa-items"></div>
+<details><summary>编辑问答 JSON（整条，保留换行）</summary><textarea id="qa-editor" rows="8" aria-label="问答条目 JSON"></textarea><button id="qa-save-item" type="button">保存当前条目</button><button id="qa-preview-text" type="button">按问答库文件预览</button></details>
+</section>
 <label class="s-label">事实卡与版本（仅本机保存）</label><div id="fact-pack-status" role="status"></div>
 <label class="s-label" for="material-mode">事实导入方式</label><select id="material-mode" class="s-select"><option value="merge">合并更新</option><option value="replace-projects">替换本次项目</option><option value="replace-all">替换全部事实</option></select>
 <label class="s-label" for="material-fact-paths">额外事实文件相对路径（文件夹 / ZIP，每行一项）</label><textarea id="material-fact-paths" rows="2" placeholder="interview/custom-facts.json"></textarea>
@@ -385,6 +401,7 @@
     </div>
   </div>
 
+  <div id="qa-preview" hidden><section class="glass qa-dialog" role="dialog" aria-modal="true" aria-labelledby="qa-preview-title" tabindex="-1"><h2 id="qa-preview-title">问答导入预览</h2><pre id="qa-preview-details"></pre><button type="button" id="qa-confirm">应用预览中的更新</button><button type="button" id="qa-cancel">取消</button></section></div>
   <!-- Global preview remains visible from every settings page. -->
   <div id="materials-preview" hidden>
     <section id="materials-dialog" class="glass" role="dialog" aria-modal="true" aria-labelledby="materials-preview-title" aria-describedby="materials-preview-summary" tabindex="-1">
@@ -439,7 +456,9 @@
   <script src="icons.js"></script>
   <script src="capture-safe-select.js"></script>
   <script src="safe-markdown.js"></script>
+  <script src="../src/shortcuts.js"></script>
   <script src="renderer.js"></script>
+  <script src="live-tools.js"></script>
   <script src="personal-workspace.js"></script>
   <script src="interview-recording.js"></script>
 </body>
