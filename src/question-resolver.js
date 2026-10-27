@@ -336,7 +336,8 @@ class QuestionResolver {
     const pendingContext = this.pendingText && !this.awaitingNewQuestion && !correction && !announced &&
       mergeFragment(this.pendingText, text) ? { text: this.pendingText, related: this.pendingRelated, at: this.pendingAt } : null;
     if (pendingContext?.related) related = true;
-    const newTarget = !samePart && !sameInterim && (correction || announced) || complete && (previousText || this.interim?.text) && !related && !sameInterim;
+    const newPendingTarget=complete&&this.pendingText&&!this.pendingRelated&&!sameInterim&&mergeFragment(this.pendingText,text)===null;
+    const newTarget = newPendingTarget || !samePart && !sameInterim && (correction || announced) || complete && (previousText || this.interim?.text) && !related && !sameInterim;
     const newInterimTarget = !final && complete && this.interim && !sameInterim && !related;
     if (newTarget || newInterimTarget) {
       const reference = REFERENTIAL_RE.test(text) ? previousText || this.interim?.text || '' : '';
@@ -448,10 +449,11 @@ class QuestionResolver {
       text, sourceKeys, sourceOrder: selected.at(-1)?.sourceOrder ?? selected.at(-1)?.order,
       observedAt: at, timeBase: 'wall', source: provisional ? 'interim' : 'final', status: text ? provisional ? 'partial' : 'ready' : 'partial',
       reason: this.awaitingNewQuestion ? 'awaiting-new-question' : text ? this.reason : pendingText ? 'incomplete-fragment' : 'no-current-question',
-      referenceContext: undefined, pendingText, partial, provisional, asrFinal: !!text && !provisional,
+      referenceContext: undefined, pendingText, partial, provisional, asrFinal: text ? !provisional : !this.interim&&!!pendingText,
       semanticStatus: text ? 'answerable' : 'incomplete', completePrefix: text, pendingTail: pendingText,
       awaitingText: this.awaitingText, awaitingNewQuestion: this.awaitingNewQuestion,
-      parts: selected.map(part => part.text), interimText });
+      parts: selected.map(part => part.text), interimText,
+      utterances:selected.map(part=>Object.freeze({key:part.key,sourceId:part.source,sourceSessionId:part.session,utteranceOrder:part.order,revision:part.version,isFinal:part.final})) });
   }
 
   manualSnapshot(value, { epoch = this.epoch } = {}) {

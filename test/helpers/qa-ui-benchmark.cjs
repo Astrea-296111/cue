@@ -22,7 +22,7 @@ module.exports=async({js,requests,output})=>{
     times.push(duration);
   }
   assert.equal(requests.length,calls);
-  const sorted=[...times].sort((a,b)=>a-b),result={samples:times.length,cards:1000,modelCalls:0,p50:sorted[49],p95:sorted[94],max:sorted.at(-1),
+  const sorted=[...times].sort((a,b)=>a-b),result={build:require('../../src/build-info').getBuildIdentity(),measuredAt:new Date().toISOString(),environment:{electron:process.versions.electron,node:process.version,platform:process.platform,cpu:require('os').cpus()[0].model},samples:times.length,cards:1000,modelCalls:0,p50:sorted[49],p95:sorted[94],max:sorted.at(-1),
     boundary:'Synthetic foreground DOM Ctrl+Enter to answer text inserted in actual Electron DOM. Hot material/OS caches. No physical keypress or pixel-paint timing.',times};
   if(output){fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(output,JSON.stringify(result,null,2));}
   return result;

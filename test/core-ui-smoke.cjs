@@ -63,6 +63,13 @@ require('../src/store').setSettings({ onboarded: true, provider: 'custom',
   models: { custom: { fast: 'test-model' } }, resumeText: 'PROFILE_RETAINED', jobDescription: 'JD_RETAINED' });
 dialog.showErrorBox = (title, message) => { console.error('UI_ERROR_DIALOG', title, message); finish(1); };
 const nativeDialog = dialog.showOpenDialog;
+const nativeSaveDialog=dialog.showSaveDialog;
+dialog.showSaveDialog=async(...args)=>{
+  if(args.at(-1)?.title==='导出本地脱敏会话诊断'&&process.env.CUE_UI_DIAGNOSTIC_FILE){
+    const target=path.resolve(process.env.CUE_UI_DIAGNOSTIC_FILE);fs.mkdirSync(path.dirname(target),{recursive:true});return {canceled:false,filePath:target};
+  }
+  return nativeSaveDialog.apply(dialog,args);
+};
 dialog.showOpenDialog = async (...args) => {
   if (!['选择项目材料','导入个人资料工作区'].includes(args.at(-1)?.title)) return nativeDialog.apply(dialog, args);
   const selection = selections.shift();
@@ -126,6 +133,11 @@ app.on('browser-window-created', (_event, win) => {
       await until(() => requests.length === 1 && js("!document.getElementById('send-btn').classList.contains('busy')"), 'streamed reply');
       await until(() => js("document.querySelectorAll('.response-group:first-child .ai-text ol li').length===3"), 'answer rendered');
       const qaPerformance=await require('./helpers/qa-ui-benchmark.cjs')({js,requests,output:process.env.CUE_UI_QA_BENCHMARK_FILE});
+      if(process.env.CUE_UI_DIAGNOSTIC_FILE){
+        await js('cue.exportDiagnostics()');
+        const diagnostic=JSON.parse(fs.readFileSync(process.env.CUE_UI_DIAGNOSTIC_FILE,'utf8'));
+        assert.equal(diagnostic.lastActualRequest.delivery,'qa-verbatim');assert.equal(diagnostic.lastActualRequest.modelCalls,0);
+      }
       const windowsShortcuts=await require('./helpers/windows-live-shortcuts.cjs')({win,js,events:uiEvents,output:process.env.CUE_UI_WINDOWS_SHORTCUT_FILE});
       failProvider = true;
       await submit('解释另一个事务隔离问题。');

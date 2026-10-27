@@ -37,6 +37,9 @@ test('A03: pending keys expire on new draft, reset and provider source generatio
     if(change==='source')app.final('Redis 为什么快？',{utteranceKey:'a',sourceSessionId:'s2',revision:2});
     await tick();assert.equal(app.calls.length,0);assert.equal(app.value('!!pendingSubmit.pending'),false);
   }
+  const implicit=createInterviewRuntime(t);await implicit.ready;implicit.final('Arclight 的权限',{utteranceKey:'old'});await implicit.ask('say');
+  assert.equal(implicit.value('questionResolver.resolveForSubmit().asrFinal'),true);
+  implicit.final('Redis 如何持久化？',{utteranceKey:'new'});await tick();assert.equal(implicit.calls.length,0);
   let callback,reason;const pending=new PendingSubmit({setTimer:fn=>{callback=fn;return 1;},clearTimer:()=>{},onChange:r=>{reason=r;}});
   pending.arm({questionId:'q1'},'s1','say');callback();assert.equal(reason,'timeout');assert.equal(pending.pending,null);
   const race=createInterviewRuntime(t);await race.ready;race.interim('如果',{utteranceKey:'race',revision:1});await race.ask('say');
