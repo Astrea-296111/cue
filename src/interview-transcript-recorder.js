@@ -57,11 +57,11 @@ class InterviewTranscriptRecorder {
   recordEvent(event){
     if(!event?.isFinal||!text(event.text).trim())return;
     const file=this.ensureFile(event.sessionId);if(!file)return;
-    const signature=createHash('sha256').update(JSON.stringify([event.revision,event.speaker,event.text])).digest('hex');
+    const signature=createHash('sha256').update(JSON.stringify([event.revision,event.speaker,event.text,event.echoOf,event.possibleEchoOf])).digest('hex');
     if(file.seen.get(event.eventId)===signature)return;
     const revision=file.seen.has(event.eventId);file.seen.set(event.eventId,signature);
     const label=`${revision?'修订 · ':''}${role(event.speaker)}`;
-    this.append(file,`\n[${time(event.receivedAt)}] ${label}\n${text(event.text)}\n（发言 ${text(event.eventId)} · 版本 ${event.revision}）\n`,{entry:true});
+    this.append(file,`\n[${time(event.receivedAt)}] ${label}${event.echoOf||event.possibleEchoOf?'（疑似串音，来源待确认）':''}\n${text(event.text)}\n（发言 ${text(event.eventId)} · 版本 ${event.revision}）\n`,{entry:true});
   }
   recordManualQuestion({sessionId,requestId,question}){
     const file=this.ensureFile(sessionId);if(!file||!text(question).trim()||file.answers.has('question:'+requestId))return;

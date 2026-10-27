@@ -431,6 +431,7 @@ function ingestSpeechEvent(input={}) {
   if(!result.accepted) return result;
   transcriptRecorder.recordEvent(result.event);
   if(result.event.echoOf)transcriptRecorder.recordEvent(dialogue.events.get(result.event.echoOf));
+  for(const event of result.changedEchoEvents||[])transcriptRecorder.recordEvent(event);
   if(isFinal) speechDraftIds.delete(draftKey);
   const turn=updateSpeechTranscript(result.event);
   if(isFinal) {send('transcript',turn);send('stt:final',turn);}

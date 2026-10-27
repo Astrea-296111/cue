@@ -68,8 +68,8 @@ for(const final of [false,true])test(`A05/A06: every acknowledgement and substan
 test('A08: system question survives exact/fragmented microphone echo in either arrival order and correction rebuilds all parts',async t=>{
   for(const micFirst of [false,true]) {
     const app=createInterviewRuntime(t);await app.ready;
-    const system={eventId:'system',channel:'them',text:'请解释 temperature 和 Top-p 的含义以及它们如何影响采样？',isFinal:true,startMs:1000,clockDomain:'audio'};
-    const mic={eventId:'mic',channel:'you',text:'temperature 和 Top-p 的含义',isFinal:true,startMs:1010,clockDomain:'audio'};
+    const system={eventId:'system',channel:'them',text:'请解释 temperature 和 Top-p 的含义以及它们如何影响采样？',isFinal:true,startMs:1000,endMs:10000,clockDomain:'audio'};
+    const mic={eventId:'mic',channel:'you',text:'temperature 和 Top-p 的含义',isFinal:true,startMs:6000,endMs:7000,clockDomain:'audio'};
     for(const e of micFirst?[mic,system]:[system,mic])await app.invoke('dialogue:event',e);
     const q=await app.invoke('question:get-target');assert.match(q.snapshot.text,/temperature.*Top-p/);
     const d=await app.invoke('dialogue:snapshot');assert.equal(d.events.find(e=>e.eventId==='system').speaker,'interviewer');
