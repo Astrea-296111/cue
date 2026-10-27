@@ -29,7 +29,7 @@ async function run(outputDir=path.join(ROOT,'artifacts/chinese-audio'),env=proce
     report.build=runtime.snapshot('redactedDiagnostics().build');report.model=qwenAsr.model;
     await startAudioCapture(runtime);
     for(const [file,expectedText] of cases){
-      const row=await feedWavFixture(runtime,{channel:'them',file:path.join(ROOT,'test/fixtures/dual-audio/zh-scenario',file),expectedText});
+      const row=await feedWavFixture(runtime,{channel:'them',file:path.join(ROOT,'test/fixtures/dual-audio/zh-scenario',file),expectedText,settleMs:5000});
       row.target=runtime.snapshot('questionResolver.resolveForSubmit()');report.cases.push(row);save();
     }
     const recognized=report.cases.map(c=>c.events.map(e=>e.text).join(' '));

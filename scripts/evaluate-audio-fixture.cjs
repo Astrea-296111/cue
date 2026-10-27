@@ -36,7 +36,7 @@ async function startAudioCapture(runtime) {
     await pause(100);
   }
 }
-async function feedWavFixture(runtime,{channel,file,expectedText}) {
+async function feedWavFixture(runtime,{channel,file,expectedText,settleMs=800}) {
   if(!['you','them'].includes(channel))throw new Error('Invalid fixture channel');
       const fixture=wavPCM(file);
       const eventStart=runtime.events.length;
@@ -53,20 +53,20 @@ async function feedWavFixture(runtime,{channel,file,expectedText}) {
         // One WAV can produce multiple final utterances (the candidate fixture
         // contains a correction). Retain the stable final set, not just its
         // first sentence, without claiming exact-word accuracy.
-        if(events.length&&Date.now()-lastChange>=800)break;
+        if(events.length&&Date.now()-lastChange>=settleMs)break;
         await pause(100);
       }
       const vadEvents=runtime.events.slice(eventStart).filter(e=>e.channel===channel&&typeof e.speaking==='boolean');
       const receivedTimes=events.map(e=>e.receivedAt).filter(Number.isFinite);
       const lastFinalReceivedAt=receivedTimes.length?Math.max(...receivedTimes):null;
       const speechEndedAt=vadEvents.findLast(e=>!e.speaking)?.speechEndedAt??null;
-      return {channel,fixture:path.basename(file),fixtureSha256:fixture.sha256,fixtureDurationMs:fixture.durationMs,expectedText,events,
+      return {channel,fixture:path.basename(file),fixtureSha256:fixture.sha256,fixtureDurationMs:fixture.durationMs,expectedText,settleMs,events,
         vadEvents,
         finishedObservationMs:Math.round(performance.now()-started),audioEndToObservationMs:events.length?Math.round(performance.now()-audioEnd):null,
         pcmFeedEndEpochMs:audioEndEpochMs,lastFinalReceivedAt,
         pcmFeedEndToLastFinalMs:lastFinalReceivedAt==null?null:lastFinalReceivedAt-audioEndEpochMs,
         vadSpeechEndToLastFinalMs:lastFinalReceivedAt==null||speechEndedAt==null?null:lastFinalReceivedAt-speechEndedAt,
-        timingBoundary:'Final latency uses the production ledger callback receivedAt, independently of polling. Observation latency includes 1500ms injected trailing silence, at least 800ms final-set stability and up to 100ms polling. PCM feed end and the production VAD offset are software timestamps, not a physical acoustic endpoint; negative final deltas are retained.',
+        timingBoundary:`Final latency uses the production ledger callback receivedAt, independently of polling. Observation latency includes 1500ms injected trailing silence, at least ${settleMs}ms final-set stability and up to 100ms polling. PCM feed end and the production VAD offset are software timestamps, not a physical acoustic endpoint; negative final deltas are retained.`,
         passed:events.length>0&&events.every(e=>e.speaker===(channel==='you'?'candidate':'interviewer'))&&vadEvents.some(e=>e.speaking)&&vadEvents.some(e=>!e.speaking)};
 }
 async function evaluateAudio({outputDir=path.join(ROOT,'artifacts/audio-fixture'),env=process.env}={}) {
