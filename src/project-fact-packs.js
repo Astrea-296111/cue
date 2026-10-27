@@ -29,6 +29,7 @@ function validateIndex(index) {
     if (!['PROJECT','CODE','REFERENCE','REFERENCE-STORY','LOCAL-BENCH','FUTURE','GAP','USER'].includes(c.provenance)) throw new Error('来源范围无效');
     if (['REFERENCE','REFERENCE-STORY','LOCAL-BENCH','FUTURE'].includes(c.provenance) && ['ownership','collaboration'].includes(c.docType) && c.status==='verified') throw new Error('参考材料不能升级为本人经历');
     if (v2) {
+      if (c.qa != null && (!c.qa || typeof c.qa !== 'object' || typeof c.qa.enabled !== 'boolean' || !['prefer_verbatim','evidence_only'].includes(c.qa.delivery) || typeof c.qa.answerDetailed !== 'string' || c.qa.answerDetailed.length > 40000 || !Array.isArray(c.qa.mustCover) || !Array.isArray(c.qa.excludeIntents) || [...c.qa.mustCover,...c.qa.excludeIntents].some(t => typeof t !== 'string'))) throw new Error('v2 问答策略字段无效：'+c.cardId);
       if (!implementations.has(c.implementation) || typeof c.topic !== 'string' || !c.topic.trim() || !Array.isArray(c.questions) || !c.questions.length || c.questions.some(q=>typeof q!=='string') || typeof c.answerShort !== 'string' || !Array.isArray(c.deepPoints) || !Array.isArray(c.boundaries) || !Array.isArray(c.cannotSay) || !Array.isArray(c.followups) || !Array.isArray(c.facts) || typeof c.applicableVersion !== 'string') throw new Error('v2 卡片范围或问答元数据无效');
       for (const key of ['deepPoints','boundaries','cannotSay','followups']) if (c[key].some(value=>typeof value!=='string')) throw new Error('v2 卡片文本元数据无效');
       if (c.provenance === 'USER' && (c.status === 'verified' || c.implementation !== 'resume_claim')) throw new Error('用户声明不能升级为独立实证');
@@ -85,7 +86,7 @@ const grams = text => {
 class ProjectFactPacks {
   constructor({index}={}) {this.replace(index||JSON.parse(fs.readFileSync(path.join(__dirname,'../project-packs/index.json'),'utf8')));}
   replace(index) { const next=validateIndex(index);next.revision=hash({schemaVersion:next.schemaVersion,projects:next.projects,cards:next.cards,sourceDocuments:next.sourceDocuments,provenanceNotes:next.provenanceNotes});next.coverage=coverage(next);this.index=next;
-    this.features=next.cards.map(c=>{
+    this.features=next.cards.filter(c=>c.qa?.enabled!==false).map(c=>{
       // Question/keyword features describe the card's subject more precisely
       // than incidental mentions in its answer. Prepare them on publication;
       // foreground requests only compare bounded, project-scoped features.
@@ -96,7 +97,7 @@ class ProjectFactPacks {
     });
     this.metricIndex=require('./metric-index').build(next.cards);
     this.featuresByProject=new Map(next.projects.map(p=>[p.id,this.features.filter(f=>f.card.projectId===p.id)]));
-    this.evidenceById=new Map(next.cards.map(c=>[c.cardId,{...c,id:c.cardId,projectName:next.projects.find(p=>p.id===c.projectId).name,sourceType:'project-pack',revision:next.revision,startLine:1,endLine:c.text.split('\n').length,text:`${c.implementation==='proposed_design'?'【新增方案，非历史结果；只能用我会/建议描述组别，不得说已经跑过】\n':''}[${c.provenance} / ${c.status}${c.implementation?' / '+c.implementation:''}] ${c.text}\n来源：${c.sources.map(s=>`${s.path}#${s.symbol}@${s.commit||s.contentSha256}`).join('; ')}`} ]));
+    this.evidenceById=new Map(next.cards.map(c=>[c.cardId,{...c,id:c.cardId,projectName:next.projects.find(p=>p.id===c.projectId).name,sourceType:'project-pack',revision:next.revision,startLine:1,endLine:c.text.split('\n').length,text:`${c.implementation==='proposed_design'?'【新增方案，非历史结果；只能用我会/建议描述组别，不得说已经跑过】\n':''}[${c.provenance} / ${c.status}${c.implementation?' / '+c.implementation:''}] ${c.text}${c.qa&&c.boundaries.length?'\n适用边界：'+c.boundaries.join('；'):''}\n来源：${c.sources.map(s=>`${s.path}#${s.symbol}@${s.commit||s.contentSha256}`).join('; ')}`} ]));
     return this.getIndex(); }
   getIndex(){return JSON.parse(JSON.stringify(this.index));}
   listProjects(){return JSON.parse(JSON.stringify(this.index.projects.filter(p=>p.kind!=='knowledge')));}

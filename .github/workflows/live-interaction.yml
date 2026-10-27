@@ -1,0 +1,43 @@
+name: Live interaction synthetic acceptance
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: cue-live-interaction
+  cancel-in-progress: false
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Require trusted main
+        env:
+          TRUSTED_REF: ${{ github.ref }}
+        run: test "$TRUSTED_REF" = refs/heads/main
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Real Qwen and DeepSeek, synthetic-only
+        timeout-minutes: 16
+        env:
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          QWEN_MODEL: ${{ vars.QWEN_MODEL || vars.QWEN_MODEL_ID }}
+          DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL || vars.DEEPSEEK_MODEL_ID }}
+          QWEN_BASE_URL: ${{ vars.QWEN_BASE_URL }}
+          DEEPSEEK_BASE_URL: ${{ vars.DEEPSEEK_BASE_URL }}
+        run: node scripts/evaluate-live-interaction.cjs artifacts/oct27-live
+      - name: Retain full synthetic requests, answers and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oct27-live-${{ github.run_id }}
+          path: artifacts/oct27-live/
+          if-no-files-found: warn
+          retention-days: 14

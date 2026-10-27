@@ -186,7 +186,7 @@ function createInterviewRuntime(t, options = {}) {
     'src/screen.js': { captureScreenshot: async () => {
       captures++;
       if (captureError) throw new Error('capture failed');
-      return 'data:image/png;base64,' + Buffer.from('screen-' + captures).toString('base64');
+      return options.screenImagePath ? 'data:image/png;base64,'+fs.readFileSync(options.screenImagePath).toString('base64') : 'data:image/png;base64,' + Buffer.from('screen-' + captures).toString('base64');
     } },
     'src/stt.js': {}, 'src/stt-streaming.js': {}, 'src/resume.js': {}, 'src/applink.js': { recordEvent() {} },
     'src/whisper-model-manager.js': {}, 'src/whisper-model-catalog.js': {},
@@ -303,7 +303,7 @@ function createInterviewRuntime(t, options = {}) {
         if (!options.liveTransport) observeBody(text);
         if (text.trim() && !observedTimes.some(item=>item.type==='renderer-delivery')) observedTimes.push({type:'renderer-delivery',at:performance.now()});
       }
-      events.push(copy({ channel, ...data }));
+      events.push(copy({ eventType:channel, channel, ...data }));
       if (channel === 'shortcut:mode') pendingShortcuts.push(submit(data.mode));
     }
   } };
@@ -341,7 +341,8 @@ function createInterviewRuntime(t, options = {}) {
     ask: (mode = 'say', text = '') => submit(mode, text),
     async shortcut(key) {
       if (!shortcuts.has(key)) throw new Error('Shortcut was not registered: ' + key);
-      shortcuts.get(key)();
+      time += 200;
+      await shortcuts.get(key)();
       await Promise.all(pendingShortcuts.splice(0));
     },
     clear,

@@ -281,6 +281,7 @@ class QwenStreamingSTT {
     this._closingTimer = null;
     this._lastFinalKey = '';
     this._lastInterimAt = 0;
+    this._audioBaseAt = null; this._pendingStartAt = null;
     this.sourceSessionId = null;
     this._reconnectTimer = null;
   }
@@ -310,6 +311,7 @@ class QwenStreamingSTT {
       this.taskId = crypto.randomUUID();
       const sourceSessionId = this.sourceSessionId = `qwen:${this.taskId}`;
       this.taskStarted = false;
+      this._audioBaseAt = null;
       this._lastFinalKey = ''; this._lastInterimAt = 0;
 
       const ws = this.ws = new WebSocket(this.websocketUrl, {
@@ -412,6 +414,7 @@ class QwenStreamingSTT {
       if (event.text) {
         this._lastInterimAt = Date.now();
         this.onInterim(event.text, {
+          ...this._audioTime(event),
           sourceSessionId: this.sourceSessionId,
           utteranceKey: event.sentenceId == null ? undefined : `${this.taskId}:${event.sentenceId}`,
           utteranceOrder: event.sentenceId == null ? undefined : Number(event.sentenceId)
@@ -437,6 +440,7 @@ class QwenStreamingSTT {
       }
       this._lastInterimAt = 0;
       const meta = {
+        ...this._audioTime(event),
         sourceSessionId: this.sourceSessionId,
         utteranceKey: event.sentenceId == null ? undefined : `${this.taskId}:${event.sentenceId}`,
         utteranceOrder: event.sentenceId == null ? undefined : Number(event.sentenceId)
@@ -474,6 +478,7 @@ class QwenStreamingSTT {
     const incoming = Buffer.from(pcmBuffer);
 
     if (!incoming.length) return;
+    if(!this._pendingAudio.length)this._pendingStartAt=Date.now()-incoming.length/32;
 
     this._pendingAudio = Buffer.concat([
       this._pendingAudio,
@@ -481,6 +486,7 @@ class QwenStreamingSTT {
     ]);
 
     if (this._pendingAudio.length > MAX_PENDING_BYTES) {
+      this._pendingStartAt+=(this._pendingAudio.length-MAX_PENDING_BYTES)/32;
       this._pendingAudio =
         this._pendingAudio.subarray(
           this._pendingAudio.length - MAX_PENDING_BYTES
@@ -500,6 +506,7 @@ class QwenStreamingSTT {
     ) {
       return;
     }
+    if(this._audioBaseAt===null&&this._pendingAudio.length)this._audioBaseAt=this._pendingStartAt;
 
     while (this._pendingAudio.length >= AUDIO_FRAME_BYTES) {
       const frame =
@@ -507,6 +514,7 @@ class QwenStreamingSTT {
 
       this._pendingAudio =
         this._pendingAudio.subarray(AUDIO_FRAME_BYTES);
+      this._pendingStartAt+=AUDIO_FRAME_BYTES/32;
 
       this.ws.send(frame, { binary: true });
     }
@@ -514,7 +522,17 @@ class QwenStreamingSTT {
     if (force && this._pendingAudio.length) {
       this.ws.send(this._pendingAudio, { binary: true });
       this._pendingAudio = Buffer.alloc(0);
+      this._pendingStartAt=null;
     }
+  }
+
+  _audioTime(event) {
+    const begin=Number.isFinite(event.beginTime)?event.beginTime:null,end=Number.isFinite(event.endTime)?event.endTime:begin;
+    if(begin===null)return {clockDomain:`qwen-unknown:${this.taskId}`};
+    const anchored=Number.isFinite(this._audioBaseAt);
+    return {providerBeginTimeMs:begin,providerEndTimeMs:end,startMs:(anchored?this._audioBaseAt:0)+begin,
+      endMs:(anchored?this._audioBaseAt:0)+end,clockDomain:anchored?'pcm-wall-estimate':`qwen-relative:${this.taskId}`,
+      audioClockAccuracy:anchored?'first-PCM-software-anchor':'provider-relative-only'};
   }
 
   _sendJson(payload) {

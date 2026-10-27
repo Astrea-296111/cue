@@ -43,7 +43,7 @@ function changesTechnicalSubject(previous, next) {
 function continuesQuestion(previous, next) {
   if (NEW_TOPIC_RE.test(next) || isCorrection(next)) return false;
   if (changesTechnicalSubject(previous, next)) return false;
-  return SEMANTIC_CONTINUATION_RE.test(next) || ELLIPTIC_QUESTION_RE.test(next) || CONTINUATION_QUESTION_RE.test(next) ||
+  return /^(?:它们|他们|这两种|这些)/.test(next) || SEMANTIC_CONTINUATION_RE.test(next) || ELLIPTIC_QUESTION_RE.test(next) || CONTINUATION_QUESTION_RE.test(next) ||
     isLikelySupplement(next) || isCodeChangeRequest(next);
 }
 
@@ -143,9 +143,16 @@ function splitTrailingIncompleteClause(value) {
 }
 
 function isSubstantiveCandidateSpeech(value) {
-  const spoken = compact(value);
-  if (spoken.length < 4) return false;
-  return !/^(?:嗯|嗯嗯|啊|哦|噢|好的|好|明白|对|对的|是的|了解|可以|没问题|行|收到|知道了|懂了)+$/.test(spoken);
+  return classifyCandidateUtterance(value) === 'substantive';
+}
+
+function classifyCandidateUtterance(value, { uncertain = false } = {}) {
+  if (uncertain) return 'uncertain';
+  const spoken = compact(value).toLowerCase();
+  if (!spoken) return 'empty';
+  const rest = spoken.replace(/(?:这个我了解了?|我想一下|让我想想|稍等|那我先说一下|嗯|啊|哦|噢|好的|好|明白|对的|对|是的|了解|可以|没问题|行|收到|知道了|懂了|okay|ok|right|yes|uh|hmm)/g, '');
+  if (!rest) return /我想|想想|稍等|我了解|先说/.test(spoken) ? 'thinking' : 'acknowledgement';
+  return 'substantive';
 }
 
 function stripSwitchPrefix(value) {
@@ -274,7 +281,7 @@ class QuestionResolver {
       record.sourceKey === sourceKey && record.firstSequence > previous.firstSequence)) return null;
     if (order !== undefined) this.highWater.set(sourceKey, Math.max(high ?? order, order));
     const sequence = ++this.eventSequence;
-    const meta = { key, at: now, source, sourceKey, order, version, final, text: raw, sequence,
+    const meta = { key, at: now, source, sourceKey, session, order, version, final, text: raw, sequence,
       firstSequence: previous?.firstSequence ?? sequence };
     if (key) this.events.set(key, meta);
     return meta;
@@ -288,7 +295,7 @@ class QuestionResolver {
   }
 
   _appendStable(text, meta) {
-    const part = { text: clean(text), at: meta.at, key: meta.key || '', source: meta.source,
+    const part = { ...meta, text: clean(text), at: meta.at, key: meta.key || '', source: meta.source,
       sourceOrder: meta.order, sequence: meta.sequence };
     const same = part.key ? this.stableParts.findIndex(item => item.key === part.key) : -1;
     if (same >= 0) this.stableParts[same] = part;
@@ -309,12 +316,12 @@ class QuestionResolver {
   observe(data = {}, final = false) {
     const raw = clean(data.text);
     if (data.channel === 'you') {
-      if (!this.speaking && isSubstantiveCandidateSpeech(raw)) this._clearActive('candidate-started-answering');
+      this.candidateActivity = classifyCandidateUtterance(raw, { uncertain: !!data.possibleEchoOf || data.speaker === 'unknown' });
       return;
     }
     if (data.channel !== 'them' || !raw || isSpeechNoise(raw)) return;
     const meta = this._eventMeta(data, final, raw);
-    if (!meta || this._isLateSubmittedDuplicate(raw, meta)) return;
+    if (!meta) return;
     const samePart = meta.key && this.stableParts.find(part => part.key === meta.key);
     const sameInterim = meta.key && this.interim?.key === meta.key;
     const correction = isCorrection(raw), announced = NEW_TOPIC_RE.test(raw) || SWITCH_RE.test(raw);
@@ -325,11 +332,11 @@ class QuestionResolver {
     const previousText = this.stableParts.map(part => part.text).join('\n');
     if (!previousText && REFERENTIAL_RE.test(text) && this.lastSubmitted?.text) this.referenceContext = this.lastSubmitted.text.slice(0, 1000);
     let related = !!samePart || !!sameInterim || !!previousText && continuesQuestion(previousText, text);
-    const complete = isLikelyCompleteQuestion(text);
+    let complete = isLikelyCompleteQuestion(text);
     const pendingContext = this.pendingText && !this.awaitingNewQuestion && !correction && !announced &&
       mergeFragment(this.pendingText, text) ? { text: this.pendingText, related: this.pendingRelated, at: this.pendingAt } : null;
     if (pendingContext?.related) related = true;
-    const newTarget = !samePart && !sameInterim && (correction || announced) || complete && previousText && !related;
+    const newTarget = !samePart && !sameInterim && (correction || announced) || complete && (previousText || this.interim?.text) && !related && !sameInterim;
     const newInterimTarget = !final && complete && this.interim && !sameInterim && !related;
     if (newTarget || newInterimTarget) {
       const reference = REFERENTIAL_RE.test(text) ? previousText || this.interim?.text || '' : '';
@@ -346,9 +353,16 @@ class QuestionResolver {
       return;
     }
     if (!final) {
+      // A draft has an identity before it becomes answerable. An unrelated new
+      // incomplete draft blocks submission of the previous question.
+      if (!complete && previousText && !related && !samePart && !sameInterim) {
+        this._clearActive('new-incomplete-question');
+        this.awaitingNewQuestion = true;
+      }
       this.interim = { ...meta, text, pendingText: trailingPending, related, correction };
       this.awaitingText = false;
-      if (complete) { this.awaitingNewQuestion = false; this._touch(correction ? 'interim-correction' : 'meaningful-interim'); }
+      this._touch(complete ? correction ? 'interim-correction' : 'meaningful-interim' : 'incomplete-fragment');
+      if (complete) this.awaitingNewQuestion = false;
       return;
     }
     // A confirmed revision replaces the original unit, even when shorter. It
@@ -395,7 +409,9 @@ class QuestionResolver {
 
   _snapshot(values) {
     const sourceKeys = Object.freeze([...new Set(values.sourceKeys || [])]);
-    const snapshot = { ...values, sourceKeys, parts: Object.freeze([...(values.parts || [])]) };
+    const snapshot = { asrFinal:values.source==='manual'?null:values.source==='final'&&!!values.text,
+      semanticStatus:values.text?'answerable':'incomplete',completePrefix:values.text||'',pendingTail:values.pendingText||'',
+      ...values, sourceKeys, parts: Object.freeze([...(values.parts || [])]) };
     Object.defineProperty(snapshot, 'keys', { enumerable: true, get: () => new Set(sourceKeys) });
     return Object.freeze(snapshot);
   }
@@ -425,14 +441,15 @@ class QuestionResolver {
     if (this.awaitingNewQuestion) text = '';
     // allowPartial permits a meaningful latest interim, never a bare “如果” or
     // “另外一个问题”. No model request is a better result than reviving old text.
-    const partial = false;
+    const partial = provisional;
     const at = selected.reduce((latest, part) => Math.max(latest, part.at || 0), 0) || this.pendingAt || 0;
     const sourceKeys = selected.flatMap(part => part.keys || [part.key]).filter(Boolean);
     return this._snapshot({ epoch, questionId: this.currentQuestionId || '', revision: this.revision,
       text, sourceKeys, sourceOrder: selected.at(-1)?.sourceOrder ?? selected.at(-1)?.order,
       observedAt: at, timeBase: 'wall', source: provisional ? 'interim' : 'final', status: text ? provisional ? 'partial' : 'ready' : 'partial',
       reason: this.awaitingNewQuestion ? 'awaiting-new-question' : text ? this.reason : pendingText ? 'incomplete-fragment' : 'no-current-question',
-      referenceContext: this.referenceContext || undefined, pendingText, partial, provisional,
+      referenceContext: undefined, pendingText, partial, provisional, asrFinal: !!text && !provisional,
+      semanticStatus: text ? 'answerable' : 'incomplete', completePrefix: text, pendingTail: pendingText,
       awaitingText: this.awaitingText, awaitingNewQuestion: this.awaitingNewQuestion,
       parts: selected.map(part => part.text), interimText });
   }
@@ -444,19 +461,10 @@ class QuestionResolver {
       provisional: false, pendingText: '', parts: [text], interimText: '' });
   }
   _consume(snapshot) {
-    if (this.currentQuestionId !== snapshot.questionId) {
-      this.lastSubmitted = { text: snapshot.text, at: this.now(), sourceKeys: [...(snapshot.sourceKeys || snapshot.keys || [])], partial: !!snapshot.partial };
-      return;
-    }
-    const frozen = new Set(snapshot.parts || [snapshot.text]);
-    this.stableParts = this.stableParts.filter(part => !frozen.has(part.text));
-    if (this.interim?.text === snapshot.interimText) this.interim = null;
-    if (snapshot.partial && this.pendingText === snapshot.pendingText) this.pendingText = '';
-    if (!this.stableParts.length && !this.interim) {
-      this.currentQuestionId = ''; this.referenceContext = ''; this.reason = this.pendingText ? 'incomplete-fragment' : 'no-current-question';
-    }
-    this.revision++;
-    this.lastSubmitted = { text: snapshot.text, at: this.now(), sourceKeys: [...(snapshot.sourceKeys || snapshot.keys || [])], partial: !!snapshot.partial };
+    // Submission is a request state transition, never deletion of the manual
+    // target. Same-utterance final/revisions still replace the retained parts.
+    this.lastSubmitted = { text: snapshot.text, at: this.now(), sourceKeys: [...(snapshot.sourceKeys || [])], questionId: snapshot.questionId, revision: snapshot.revision };
+    return;
   }
   claim(snapshot, generationId) {
     if (!snapshot?.text || snapshot.epoch !== this.epoch) return null;
@@ -503,5 +511,5 @@ class QuestionResolver {
 module.exports = {
   QuestionResolver, DEFAULT_NEW_QUESTION_GAP_MS, DEFAULT_LATE_FINAL_GRACE_MS,
   isLikelyIncompleteFragment, isLikelyCompleteQuestion, isCodeChangeRequest,
-  isLikelySupplement, splitTrailingIncompleteClause, isSubstantiveCandidateSpeech
+  isLikelySupplement, splitTrailingIncompleteClause, isSubstantiveCandidateSpeech, classifyCandidateUtterance
 };

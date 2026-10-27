@@ -1,0 +1,27 @@
+'use strict';
+const assert=require('node:assert/strict');
+module.exports=async({js,until,requests})=>{
+  await js("document.querySelector('[data-tab=profile]').click()");
+  await js("document.querySelector('[data-history-window=\"0\"]').click()");
+  await until(()=>js("document.querySelector('[data-history-window=\"0\"]').getAttribute('aria-pressed')==='true'"),'short context selection');
+  assert.equal((await js('cue.settingsGet()')).liveContextPolicy.includeCandidateSpeech,false);
+  await js("document.querySelector('[data-history-window=\"2\"]').click()");
+  const library={format:'cue-qa/v1',projects:[{id:'ui-maple',name:'UI 枫叶平台',aliases:[]}],items:[{id:'qa.ui.example',projectId:'ui-maple',question:'如何验证重复提交？',aliases:['重复提交如何验证？'],answerShort:'QA_UI_VERBATIM\n保留第二行。',answerDetailed:'详答第一段。\n\n第二段。',sourceType:'proposed_design',enabled:true}]};
+  await js(`document.getElementById('qa-editor').value=${JSON.stringify(JSON.stringify(library))};document.getElementById('qa-preview-text').click()`);
+  await until(()=>js("!document.getElementById('qa-preview').hidden"),'QA preview visible');
+  assert.ok((await js("document.getElementById('qa-preview-details').textContent")).includes('qa.ui.example'));
+  await js("document.getElementById('qa-confirm').click()");
+  await until(()=>js("document.getElementById('qa-status').textContent.includes('新版本已生效')"),'QA import publication');
+  await js("document.getElementById('qa-search').value='重复提交如何验证？';document.getElementById('qa-project').value='ui-maple';document.getElementById('qa-try').click()");
+  await until(()=>js("document.getElementById('qa-status').textContent.includes('QA_UI_VERBATIM')"),'QA try verbatim');
+  const before=requests.length;
+  await js("cue.ask({mode:'say',text:'UI 枫叶平台如何验证重复提交？'})");
+  await until(()=>js("document.querySelector('.response-group:first-child .ai-text')?.textContent.includes('QA_UI_VERBATIM')"),'direct answer visible');
+  assert.equal(requests.length,before);
+  assert.ok((await js("document.getElementById('qa-hit-summary').textContent")).includes('问答库命中'));
+  await js("document.querySelector('[data-screen-mode=vibe-coding]').click()");
+  await until(()=>js("document.getElementById('screen-mode-label').textContent==='Vibe Coding'"),'screen mode override');
+  await js("document.getElementById('screen-end').click()");
+  await until(()=>js("document.getElementById('screen-mode-label').textContent==='自动识别'"),'screen mode reset');
+  return {qaPreview:true,qaTry:true,qaDirectUI:true,modelCallsForDirect:0,shortContext:true,screenModeControls:true};
+};

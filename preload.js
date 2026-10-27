@@ -3,6 +3,16 @@ const platform = process.platform;
 
 contextBridge.exposeInMainWorld('cue', {
   platform,
+  shortcutAction: mode => ipcRenderer.send('shortcut:action',mode),
+  qaState:()=>ipcRenderer.invoke('qa:state'),
+  qaPrepare:input=>ipcRenderer.invoke('qa:prepare',input||{}),
+  qaCommit:input=>ipcRenderer.invoke('qa:commit',input),
+  qaTry:input=>ipcRenderer.invoke('qa:try',input),
+  qaEdit:input=>ipcRenderer.invoke('qa:edit',input),
+  qaExport:()=>ipcRenderer.invoke('qa:export'),
+  screenAttachment:input=>ipcRenderer.invoke('screen:attachment',input),
+  screenAccept:input=>ipcRenderer.invoke('screen:accept',input),
+  screenMode:input=>ipcRenderer.invoke('screen:mode',input),
   materialState:()=>ipcRenderer.invoke('materials:state'),
   materialPrepare:input=>ipcRenderer.invoke('materials:prepare',input),
   materialCommit:input=>ipcRenderer.invoke('materials:commit',input),
@@ -66,7 +76,7 @@ contextBridge.exposeInMainWorld('cue', {
   log: (msg) => ipcRenderer.send('log', msg),
   on: (channel, cb) => {
     const allowed = ['capture:state', 'llm:start', 'llm:token', 'llm:done', 'llm:error', 'llm:evidence', 'llm:materials', 'materials:changed', 'materials:progress', 'llm:local-facts', 'llm:profile', 'llm:metrics', 'question:target', 'project:active', 'project:catalog', 'project:semantic-progress', 'project:semantic-state', 'status', 'transcript', 'stt:interim', 'stt:final', 'stt:status', 'vad:state', 'applink:consent-request', 'hide:toggle', 'shortcut:mode', 'whisper:download-progress', 'whisper:models-changed'];
-    allowed.push('dialogue:changed', 'materials:personal:changed', 'dialogue:recording');
+    allowed.push('qa:generated','qa:hit','screen:task','llm:presentation','dialogue:changed', 'materials:personal:changed', 'dialogue:recording');
     if (!allowed.includes(channel)) return;
     ipcRenderer.on(channel, (_e, data) => cb(data));
   }

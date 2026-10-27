@@ -1,0 +1,39 @@
+{
+  "format": "cue-qa/v1",
+  "title": "问答库示例（请编辑并启用）",
+  "projects": [
+    {
+      "id": "example-platform",
+      "name": "示例任务平台",
+      "aliases": [
+        "示例平台"
+      ]
+    }
+  ],
+  "items": [
+    {
+      "id": "qa.example.idempotency",
+      "projectId": "example-platform",
+      "topic": "任务幂等",
+      "question": "如何避免重复请求创建两条任务？",
+      "aliases": [
+        "同一个任务重复提交怎么办？"
+      ],
+      "answerShort": "如果设计这类平台，我会为一次提交分配幂等键，并用数据库唯一约束兜底。同键同参数返回已有任务；不同参数报冲突。失败重试另建执行记录。",
+      "answerDetailed": "这是设计建议。\n\n幂等键限定用户与业务范围。数据库约束处理并发重复，不能只依赖前端禁用按钮。执行失败重试使用独立执行标识，并回查原任务状态。",
+      "keywords": [
+        "幂等键",
+        "重复请求"
+      ],
+      "boundaries": [
+        "这是设计建议，不代表本人项目已实现。"
+      ],
+      "mustCover": [],
+      "excludeIntents": [],
+      "sourceType": "proposed_design",
+      "applicableVersion": "design-v1",
+      "delivery": "prefer_verbatim",
+      "enabled": false
+    }
+  ]
+}

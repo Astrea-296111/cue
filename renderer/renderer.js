@@ -189,7 +189,7 @@
   function runMode(mode, text) {
     // Manual answer shortcuts request a fresh reply, including during generation.
     // The main process aborts the previous request; other modes retain the guard.
-    if (busy && !['say', 'answerThis', 'ask', 'assist', 'technical'].includes(mode)) return;
+    if (busy && !['say', 'answerThis', 'ask', 'assist', 'technical','leetcode'].includes(mode)) return;
 
     // Never promote renderer-side interim ASR text into an explicit question.
     // The main process owns the QuestionResolver and decides whether the newest
@@ -211,8 +211,9 @@
     $('#answer-target-edit').disabled = unavailable;
     $('#answer-target-retry').disabled = !submittedSnapshot && !targetState.frozenSnapshot;
     const different = frozen && latest?.text && (latest.questionId !== frozen.questionId || latest.revision !== frozen.revision);
-    $('#answer-next-target').textContent = different ? '下次：' + latest.text : latest?.status === 'partial' && !frozen ? '识别中，可立即回答当前目标' : '';
+    $('#answer-next-target').textContent = targetState.pendingSubmit ? '已记住按键，正在补全当前问题' : different ? '题目有补充，按 Ctrl+Enter 更新：' + latest.text : latest?.status === 'partial' && !frozen ? '识别中，可立即回答当前目标' : '';
     $('#answer-next-target').title = $('#answer-next-target').textContent;
+    if(latest?.pendingTail)$('#answer-next-target').textContent += ' 正在补充：'+latest.pendingTail;
   }
   function applyQuestionTarget(value = {}) {
     const incomingEpoch = value.epoch ?? value.snapshot?.epoch ?? value.frozenSnapshot?.epoch;
@@ -265,7 +266,7 @@
 
   // Global shortcut bridge from src/custom-main.js.
   cue.on('shortcut:mode', ({ mode } = {}) => {
-    if (mode === 'say' || mode === 'assist' || mode === 'technical') runMode(mode, '');
+    if (mode === 'say' || mode === 'assist' || mode === 'technical' || mode === 'leetcode') runMode(mode, '');
   });
 
   const input = $('#input');
@@ -632,23 +633,8 @@
   
   // FIX #13: Global keyboard shortcut for force-answer (Ctrl+Shift+A / Cmd+Shift+A)
   document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'l') {
-      e.preventDefault();
-      if (!e.repeat) runMode('technical', '');
-      return;
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault();
-      if (!e.repeat) runMode(e.shiftKey ? 'assist' : 'say', '');
-      return;
-    }
-    // Ctrl+? / Cmd+?: Assist with recent conversation + current screen.
-    // Accept both '?' and '/' because keyboard layouts report this chord differently.
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === '?' || e.key === '/')) {
-      e.preventDefault();
-      runMode('assist', '');
-      return;
-    }
+    const action = window.CueShortcuts.actionForKey(e);
+    if (action) { e.preventDefault(); if (!e.repeat) cue.shortcutAction(action); return; }
 
     // Ctrl+Shift+A / Cmd+Shift+A: Force answer current question immediately
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
@@ -1283,6 +1269,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
   const group = document.createElement('div');
   group.className = 'response-group';
   group.dataset.mode = mode || '';
+  group.dataset.requestId=requestId||'';
 
   const sep = document.createElement('div');
   sep.className = 'response-sep';
@@ -1292,6 +1279,10 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
   });
 
   group.appendChild(sep);
+  if(snapshot?.text){
+    const bound=document.createElement('div');bound.className='answer-bound-question';
+    bound.textContent='本次回答的问题：'+snapshot.text+(snapshot.provisional?'（临时转写）':'');group.appendChild(bound);
+  }
 
   if (userBubble) {
     const b = document.createElement('div');
@@ -1432,18 +1423,24 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
     }
     setBusy(true);
   });
+  cue.on('screen:task', ({title,requestId,epoch})=>{
+    if(!acceptsReply(requestId,epoch))return;
+    const bound=document.querySelector('.response-group:first-child .answer-bound-question');
+    if(bound)bound.textContent='本次屏幕任务：'+title;
+    if(submittedSnapshot)submittedSnapshot={...submittedSnapshot,text:title};
+  });
   cue.on('llm:presentation', ({text, displayTruncated, requestId, epoch}) => {
     if (!acceptsReply(requestId,epoch) || !displayTruncated || !aiEl) return;
     aiEl.dataset.presentation = text + '\n[口述卡已截句；完整原文保留在记录中]';
     aiEl.innerHTML = renderMarkdown(aiEl.dataset.presentation);
   });
-  cue.on('llm:done', ({ requestId, epoch } = {}) => {
+  cue.on('llm:done', ({ requestId, epoch, delivery } = {}) => {
     if (!acceptsReply(requestId, epoch)) return;
     clearTimeout(answerWaitTimer);
     const completed = aiEl;
     finalizeAi(); setBusy(false); activeRequestId = null; activeRequestEpoch = null;
     const question=submittedSnapshot?.text;
-    if (completed && question && !['technical','leetcode','assist'].includes(completed.parentElement?.dataset.mode)) {
+    if (completed && question && delivery!=='qa-verbatim' && !['technical','leetcode','assist'].includes(completed.parentElement?.dataset.mode)) {
       const expand=document.createElement('button');expand.type='button';expand.className='answer-expand';expand.textContent='展开细节';
       expand.addEventListener('click',()=>runMode('ask','请详细展开这个问题，补充关键细节：'+question));
       completed.after(expand);

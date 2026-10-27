@@ -29,7 +29,9 @@ for(const mode of ['instant','standard'])test(`${mode}: selected domain and comp
   assert.deepEqual(JSON.parse(JSON.stringify(app.requests.at(-1).plan.canonicalProjectIds)),[]);
   assert.ok(!app.commits.at(-1).config.evidence.some(e=>e.sourceType==='project-pack'));
   await app.invoke('answer:domain','cae');await app.ask('say','Arclight的Mailbox怎么传递？');
-  assert.ok(app.requests.at(-1).plan.switchHint);assert.equal(app.requests.at(-1).plan.retrieveFacts,false);
+  assert.ok(app.requests.at(-1).plan.switchHint);assert.equal(app.requests.at(-1).plan.retrieveFacts,true);
+  assert.deepEqual(JSON.parse(JSON.stringify(app.requests.at(-1).plan.canonicalProjectIds)),['arclight']);
+  assert.equal(app.exports('src/store.js').getSettings().answerDomain,'cae');
 });
 test('domain change rejects a late stream and persists the selected scope',async t=>{
   const app=createInterviewRuntime(t,{settings:{answerDomain:'cae'}}),gate=deferred();
@@ -79,7 +81,7 @@ for(let variant=0;variant<12;variant++)test(`speech boundary ${variant+1}: revis
   const benchmark=claims.find(c=>c.eventIds.includes('benchmark'));
   if(variant!==3) {
     assert.equal(benchmark.experimentId,'metric.arc.swe');
-    assert.equal(benchmark.status,variant===0?'uncertain':'affirmed');
+    assert.equal(benchmark.status,[0,5].includes(variant)?'uncertain':'affirmed');
   } else assert.ok(!claims.some(c=>c.eventIds.includes('benchmark')&&c.status==='affirmed'));
   assert.ok(!claims.some(c=>c.text==='我做过所有实验。'));
 });
@@ -154,9 +156,10 @@ test('historical replay uses only canonical human events before each original ou
 test('referential question freezes complete parameter and sparse/dense entities, not trailing fragments',()=>{
   const {reference}=require('../src/question-topic-context');
   const transcript=[{channel:'them',text:'Transformer为什么需要上下文窗口？'},{channel:'them',text:'temperature和top-p分别是采样时的参数，有了解过吗？'},{channel:'them',text:'你这些有了解过吗？'},{channel:'them',text:'他们是什么东西？'}];
-  const text=reference('你这些有了解过吗？他们是什么东西？',transcript);
+  const grouped=[{questionId:'q1',channel:'them',text:transcript[0].text},{questionId:'q2',channel:'them',text:transcript.slice(1).map(t=>t.text).join('\n')}];
+  const text=reference('你这些有了解过吗？他们是什么东西？',grouped);
   assert.match(text,/temperature和top-p/);assert.doesNotMatch(text,/Transformer/);
-  const fusion=reference('怎么融合这些？',[{channel:'them',text:'Agentic RAG是否需要路由？'},{channel:'them',text:'稀疏召回和稠密召回分别怎么做？'},{channel:'them',text:'你有了解过吗？'}]);
+  const fusion=reference('怎么融合这些？',[{questionId:'q1',channel:'them',text:'Agentic RAG是否需要路由？'},{questionId:'q2',channel:'them',text:'稀疏召回和稠密召回分别怎么做？你有了解过吗？'}]);
   assert.match(fusion,/稀疏召回和稠密召回/);assert.doesNotMatch(fusion,/Agentic/);
   const comparison=reference('你跟其他Agent对比过吗？',[{channel:'them',text:'50个MCP工具为什么按需加载？'},{channel:'them',text:'你的Coding Agent有没有跑过benchmark，大概成绩怎么样？'}]);
   assert.match(comparison,/benchmark/);assert.doesNotMatch(comparison,/MCP/);

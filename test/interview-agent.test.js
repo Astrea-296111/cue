@@ -102,16 +102,16 @@ test('clear during real SDK generation isolates late tokens and the new conversa
 });
 
 test('real Assist shortcut uses the new screenshot and the current interviewer code modification', async t => {
-  const app = createInterviewRuntime(t);
-  app.answer('递归中序遍历：先 left，再访问当前节点，再 right。');
+  const app = createInterviewRuntime(t,{settings:{providerOptions:{custom:{vision:true}}}});
+  app.answer('CUE_SCREEN {"type":"algorithm","title":"递归中序遍历","observed":[],"inferred":[],"missing":[],"stage":"plan"}\n递归中序遍历：先 left，再访问当前节点，再 right。');
   await app.ask('assist', '写二叉树的递归中序遍历。');
   app.final('改成迭代法实现，不要用递归，使用显式栈。');
-  app.answer('用显式 stack 循环处理 left、当前节点和 right。');
+  app.answer('CUE_SCREEN {"type":"algorithm","title":"显式栈中序遍历","observed":[],"inferred":[],"missing":[],"stage":"plan"}\n用显式 stack 循环处理 left、当前节点和 right。');
   await app.shortcut(assist);
   assert.equal(app.captures, 2);
   assert.notEqual(imageUrl(app.calls[0]), imageUrl(app.calls[1]));
   assert.match(currentText(app.calls[1]), /迭代[\s\S]*显式栈/);
-  assert.match(JSON.stringify(app.calls[1].messages), /递归中序遍历/);
+  assert.doesNotMatch(currentText(app.calls[1]), /递归中序遍历/,'a fresh screenshot does not inherit the previous AI answer');
   app.captureFailure();
   await app.ask('assist', '再加上空树判断。');
   assert.equal(app.calls.length, 2, 'capture failure must not send a stale screenshot');
@@ -149,9 +149,8 @@ for (const scenario of [
     app.answer(scenario.completion);
     await app.ask('say', scenario.followup);
     const pending = app.requests[1].checklist.pending;
-    assert.equal(pending.length, 1, 'only the actually omitted third answer remains pending');
-    assert.match(pending[0].text, scenario.anchors[2]);
-    assert.ok(currentText(app.calls[1]).includes(pending[0].text), 'the omitted question must be visible in the final SDK message');
+    assert.equal(pending.length, 0, 'old AI coverage does not create dynamic pending asks');
+    assert.ok(scenario.anchors.every(re=>re.test(JSON.stringify(app.calls[1].messages))),'an explicit nearby ordinal reference keeps the interviewer question');
     app.answer('该方案需要验证容量、延迟和故障恢复，再根据瓶颈调整。');
     await app.ask('say', '继续解释这个方案。');
     assert.equal(app.requests[2].checklist.pending.some(row => scenario.anchors[2].test(row.text)), false,
@@ -170,10 +169,10 @@ test('a new standard project question does not reactivate unknown old asks, whil
   await app.ask('say',nextQuestion);
   assert.equal(app.requests[1].checklist.pending.length,0);
   assert.ok(app.requests[1].checklist.questions.every(row=>row.current));
-  assert.ok(!app.requests[1].projectInterviewState.unresolvedTopics.includes(oldQuestion));
+  assert.equal(app.requests[1].projectInterviewState,null);
   const nextPrompt=currentText(app.calls[1]);
   assert.ok(nextPrompt.includes(nextQuestion));
-  assert.match(nextPrompt,/我刚才说 Kafka 是口误/);
+  assert.doesNotMatch(nextPrompt,/我刚才说 Kafka 是口误/,'candidate corrections are off by default');
   assert.doesNotMatch(nextPrompt,/此前未确认覆盖|含同话题仍适用的遗漏/);
 
   const compound='RepoPilot 重试身份如何确定？崩溃恢复后怎样避免重复？';
@@ -189,9 +188,8 @@ test('a new standard project question does not reactivate unknown old asks, whil
   assert.equal(app.requests[3].checklist.pending.length,0,'a reference inside a new specific question must not request the whole earlier answer');
   app.answer('通过持久化执行身份核对恢复结果，避免重复执行。');
   await app.ask('say','第二个问题呢？');
-  assert.equal(app.requests[4].checklist.pending.length,1);
-  assert.equal(app.requests[4].checklist.pending[0].text,planned[1].text);
-  assert.ok(currentText(app.calls[4]).includes(planned[1].text));
+  assert.equal(app.requests[4].checklist.pending.length,0);
+  assert.ok(JSON.stringify(app.calls[4].messages).includes(planned[1].text));
   assert.ok(!app.requests[4].checklist.pending.some(row=>row.text===oldQuestion));
 });
 
@@ -202,7 +200,8 @@ for (const finishReason of ['length', null]) {
     await app.ask('say', 'RepoPilot 为什么使用 Redis？缓存击穿怎么办？');
     app.answer('仍需要补充完整回答。');
     await app.ask('say', '继续把刚才的两个问题答完整。');
-    assert.equal(app.requests[1].checklist.pending.length, 2);
+    assert.equal(app.requests[1].checklist.pending.length, 0);
+    assert.ok(JSON.stringify(app.calls[1].messages).includes('缓存击穿怎么办'));
     assert.ok(app.requests[1].checklist.pending.every(row => !row.answered));
     assert.ok(app.commits[0].config.completion);
     assert.equal(app.commits[0].config.completion.complete, false);
@@ -221,15 +220,15 @@ test('generic Redis interlude suspends project state and its explicit return res
   assert.equal(formalSearches(app).length, count, 'generic technical questions do not search project sources');
   app.answer('LangGraph 显式建模工具执行的状态，并在 checkpoint 后继续运行验证闭环。');
   await app.ask('say', '回到刚才那个项目，你为什么用 LangGraph？');
-  assert.match(app.requests[2].projectInterviewState.project, /RepoPilot/);
-  assert.ok(app.requests[2].projectInterviewState.evidence.length > 0);
+  assert.equal(app.requests[2].projectInterviewState,null);
+  assert.match(lastSystem(app),/REPO_ONLY/);
   assert.doesNotMatch(JSON.stringify(app.requests[2].projectInterviewState), /sorted set|基础数据类型/);
   assert.doesNotMatch(JSON.stringify(app.calls[2].messages), /Redis 的基础数据类型/);
   assertScoped(app);
 });
 
 test('30-minute real runtime keeps project facts source-faithful across more than 24 answered turns', async t => {
-  const app = createInterviewRuntime(t);
+  const app = createInterviewRuntime(t,{settings:{currentProjectId:'fixture-repopilot'}});
   const factualSpeech = '我在 RepoPilot 实际负责工具验证模块，其他模块由团队成员负责。';
   app.answer(repoAnswer + ' 我独立负责所有模块，QPS 达到 987654321；ASSISTANT_INVENTED_FACT。');
   await app.ask('say', '介绍 RepoPilot 的架构和你的职责？');
@@ -243,18 +242,11 @@ test('30-minute real runtime keeps project facts source-faithful across more tha
   assert.ok(app.value('conversation.recent.length') <= 24);
   assert.ok(app.value('conversation.archive.length') > 0);
   const last = app.requests.at(-1), state = last.projectInterviewState;
-  assert.match(state.project, /RepoPilot/);
-  assert.ok(state.evidence.length > 0);
-  assert.ok(last.stats.historyChars <= last.stats.budget);
-  assert.ok(JSON.stringify(state).length < 24_000, 'project state stays compact independently of chat retention');
-  assert.doesNotMatch(JSON.stringify(state), /987654321|ASSISTANT_INVENTED_FACT|独立负责所有模块/);
-  assert.ok(state.evidence.every(row => row.kind !== 'assistant' && row.projectId && row.path && row.text),
-    'state facts cite imported sources rather than summarizing assistant prose');
-  const normalizedSpeech = app.commits[1].request.spokenContext;
-  assert.match(normalizedSpeech, /我在 RepoPilot 实际负责工具验证模块[,，]其他模块由团队成员负责/,
-    'candidate speech keeps its actual source boundary through normal ASR punctuation cleanup');
-  assert.ok(app.calls[2].messages.some(row => row.role === 'user' && typeof row.content === 'string' && row.content.includes(normalizedSpeech)),
-    'actual candidate speech is carried as a user source, independently of generated assistant history');
+  assert.equal(state,null,'dynamic project progress cannot bypass the nearby window');
+  assert.ok(last.plan.canonicalProjectIds.includes('fixture-repopilot'),'a manually locked project remains an explicit material scope');
+  assert.ok(last.turns.length<=2);assert.equal(last.memory,'');
+  assert.doesNotMatch(JSON.stringify(app.calls.at(-1)),/987654321|ASSISTANT_INVENTED_FACT|实际负责工具验证模块/);
+  assert.equal(app.commits[1].request.spokenContext,'');
   assert.ok(firstState === null || !JSON.stringify(firstState).includes('ASSISTANT_INVENTED_FACT'));
   assertScoped(app);
   app.clear();
@@ -273,14 +265,14 @@ test('project Redis decisions and outage follow-ups reselect scoped typed eviden
   await app.ask('say', '介绍 Order 项目？');
   let count = formalSearches(app).length;
   app.answer('选择 Redis 是因为缓存降低数据库读压力，但需要处理缓存一致性。');
-  await app.ask('say', '为什么选择 Redis？');
+  await app.ask('say', 'Order 项目为什么选择 Redis？');
   assert.ok(formalSearches(app).length > count, 'a new requirement must be reselected rather than reuse an overview as a decision');
   assert.match(lastSystem(app), /降低数据库读压力/);
   app.answer('Redis失效时先熔断限流，通过数据库回源降级，恢复后逐步预热缓存。');
-  await app.ask('say', '如果 Redis 失效怎么办？');
+  await app.ask('say', 'Order 项目如果 Redis 失效怎么办？');
   assert.ok(formalSearches(app).length > count);
   count = formalSearches(app).length;
-  await app.ask('say', '这块代码中的 UnknownHandler 怎么实现？');
+  await app.ask('say', 'Order 项目这块代码中的 UnknownHandler 怎么实现？');
   assert.equal(formalSearches(app).length, count + 1);
   assertScoped(app);
 });
@@ -296,13 +288,13 @@ test('source-code question sends a cited Controller-Service-Repository chain to 
   const app = createInterviewRuntime(t, { chunks });
   app.answer('Order 项目用分层服务处理订单。');
   await app.ask('say', '介绍 Order 项目？');
-  await app.ask('say', '订单创建流程代码在哪里实现？');
+  await app.ask('say', 'Order 项目订单创建流程代码在哪里实现？');
   const source = lastSystem(app);
   for (const layer of ['OrderController', 'OrderService', 'OrderRepository']) assert.ok(source.includes(layer + '.java'), layer);
   assert.match(source, /orderService\.createOrder/);
   assert.match(source, /orderRepository\.save/);
   assert.match(source, /interface OrderRepository extends JpaRepository/);
-  assert.match(source, /已核对引用|调用关系/);
+  assert.ok(formalSearches(app).length>0,'actual source retrieval supplied the cited layers');
   assertScoped(app);
 });
 

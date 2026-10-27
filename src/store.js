@@ -17,6 +17,10 @@ const DEFAULTS = {
   realtimeEvidencePrefetch: true,
   realtimeAnswerMode: 'instant',
   saveInterviewTranscript: true,
+  liveContextPolicy: { ...require('./live-context-policy').DEFAULTS },
+  speechInputMode: 'dual-channel',
+  qaAnswerDetailed: false,
+  vibeMaxTokens: 4000,
   responseBudgets: { oral: 600, code: 6000 },
   instantRagPolicy: 'ready-only',
   projectFactsEnabled: true,
@@ -139,6 +143,7 @@ module.exports = {
     for (const key of replaceFields) if (Object.hasOwn(update, key)) nextSettings[key] = update[key];
     for (const key of deleteFields) delete nextSettings[key];
     nextSettings.baseUrl = normalizeBaseUrl(nextSettings.baseUrl);
+    nextSettings.liveContextPolicy = require('./live-context-policy').normalize(nextSettings.liveContextPolicy);
     nextSettings.deepseekBaseUrl = normalizeBaseUrl(nextSettings.deepseekBaseUrl || 'https://api.deepseek.com');
     const previous = data;
     data = nextSettings;

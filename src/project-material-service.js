@@ -58,7 +58,7 @@ class ProjectMaterialService extends EventEmitter {
   }
   makeSnapshot(facts,sources,registry,pointer) {
     return Object.freeze({generation:pointer.generation,factRevision:pointer.files.facts.sha256,sourceRevision:pointer.files.sources.sha256,registryRevision:registry.revision,
-      facts:immutable(facts),sources:immutable(sources),registry:immutable(registry),factPacks:new ProjectFactPacks({index:facts})});
+      facts:immutable(facts),sources:immutable(sources),registry:immutable(registry),factPacks:new ProjectFactPacks({index:facts}),qaIndex:new (require('./qa-index').QAIndex)(facts,pointer.files.facts.sha256)});
   }
   writeFile(file,text) {const fd=fs.openSync(file,'w',0o600);try{fs.writeFileSync(fd,text,'utf8');fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
   atomicPointer(name,pointer) {

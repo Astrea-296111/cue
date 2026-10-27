@@ -14,6 +14,7 @@ const data = fs.mkdtempSync(path.join(os.tmpdir(), 'cue-core-ui-'));
 app.setPath('userData', data);
 
 let failProvider = false, finished = false;
+const uiEvents=[];
 const requests = [], windows = new Set(), selections = [];
 class OpenAI {
   constructor() {
@@ -31,6 +32,8 @@ class TestWindow extends electron.BrowserWindow {
   constructor(options) {
     super({ ...options, webPreferences: { ...options.webPreferences, sandbox: false,
       preload: path.join(__dirname, 'helpers/renderer-localization-preload.cjs') } });
+    const originalSend=this.webContents.send.bind(this.webContents);
+    this.webContents.send=(channel,payload)=>{if(channel==='llm:start')uiEvents.push({channel,...payload});return originalSend(channel,payload);};
     this.createdHidden = !this.isVisible();
     this.protectionRequested = false;
     const protect = this.setContentProtection.bind(this);
@@ -66,7 +69,7 @@ dialog.showOpenDialog = async (...args) => {
   assert.ok(selection, 'Material selection must use an explicit synthetic fixture');
   return { canceled: false, filePaths: [selection] };
 };
-const timeout = setTimeout(() => { console.error('UI_TIMEOUT'); finish(1); }, 45000);
+const timeout = setTimeout(() => { console.error('UI_TIMEOUT'); finish(1); }, 90000);
 async function until(check, name) {
   const deadline = Date.now() + 6000;
   while (!(await check())) {
@@ -83,6 +86,7 @@ function finish(code) {
 }
 app.on('quit', () => { if (!finished) { console.error('UI_EARLY_QUIT'); process.exitCode = 1; } });
 app.on('browser-window-created', (_event, win) => {
+  win.webContents.on('console-message',(_event,level,message)=>{if(level>=2)console.log('RENDERER_DIAGNOSTIC',message);});
   win.webContents.once('did-finish-load', async () => {
     if (!win.webContents.getURL().endsWith('/renderer/index.html')) return;
     const js = code => win.webContents.executeJavaScript(code);
@@ -102,9 +106,12 @@ app.on('browser-window-created', (_event, win) => {
       const materialImport = await require('./helpers/material-import-ui-checks.cjs')({
         js, until, data, selectMaterial: file => selections.push(file)
       });
+      console.log('UI_MATERIAL_IMPORT_OK');
       const personalImport = await require('./helpers/personal-workspace-ui-checks.cjs')({
         js, until, data, selectMaterial: file => selections.push(file)
       });
+      console.log('UI_PERSONAL_IMPORT_OK');
+      const liveTools = await require('./helpers/live-tools-ui-checks.cjs')({js,until,requests});
       const settings = await js('cue.settingsGet()');
       assert.equal(settings.resumeText, 'PROFILE_LOCAL_EDIT');
       assert.equal(settings.jobDescription, 'JD_RETAINED');
@@ -118,12 +125,14 @@ app.on('browser-window-created', (_event, win) => {
       await submit('解释事务隔离与并发更新。');
       await until(() => requests.length === 1 && js("!document.getElementById('send-btn').classList.contains('busy')"), 'streamed reply');
       await until(() => js("document.querySelectorAll('.response-group:first-child .ai-text ol li').length===3"), 'answer rendered');
+      const qaPerformance=await require('./helpers/qa-ui-benchmark.cjs')({js,requests,output:process.env.CUE_UI_QA_BENCHMARK_FILE});
+      const windowsShortcuts=await require('./helpers/windows-live-shortcuts.cjs')({win,js,events:uiEvents,output:process.env.CUE_UI_WINDOWS_SHORTCUT_FILE});
       failProvider = true;
       await submit('解释另一个事务隔离问题。');
       await until(() => js("document.querySelector('.response-group:first-child .ai-text')?.textContent.includes('UI_MODEL_FAILURE_FIXTURE')"), 'provider error visible');
       assert.equal(await js("document.getElementById('send-btn').classList.contains('busy')"), false);
       console.log('UI_CORE_OK', JSON.stringify({ boot: true, textReply: true, providerError: true,
-        createdHidden: true, protectionRequested: true, profileAndJdRetained: true, materialImport, personalImport }));
+        createdHidden: true, protectionRequested: true, profileAndJdRetained: true, materialImport, personalImport, liveTools, qaPerformance, windowsShortcuts }));
       finish(0);
     } catch (error) { console.error('UI_FAILED', error.stack || error); finish(1); }
   });

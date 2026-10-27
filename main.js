@@ -104,6 +104,21 @@ transcriptRecorder.startSession(dialogue.sessionId);
 const speechDraftIds = new Map();
 let speechEventSequence = 0;
 const questionResolver = new QuestionResolver();
+const { LiveQuestionWindow } = require('./src/live-context-policy');
+const liveQuestions = new LiveQuestionWindow();
+const screenTaskState = new (require('./src/screen-task-router').ScreenTaskState)();
+let pendingSubmitDiagnostic = null;
+const pendingSubmit = new (require('./src/pending-submit').PendingSubmit)({
+  onReady: (snapshot, mode) => { const identity=speechIdentity();queueMicrotask(() => {
+    if(identity===speechIdentity())runFeature(mode, '', { submitSnapshot: snapshot });
+  }); },
+  onChange: (reason, pending) => {
+    pendingSubmitDiagnostic = {reason, ...pending};
+    send('status', {message:reason==='waiting'?'已记住按键，正在补全当前问题':reason==='timeout'?'仍缺少完整题意；请补全后再次按键':reason==='submitted'?'当前问题已补全，开始回答':'已取消待提交：'+reason});
+    publishQuestionTarget();
+  }
+});
+const speechIdentity = () => JSON.stringify([conversation.epoch, streamingSessionSequence]);
 questionResolver.reset({ epoch: conversation.epoch });
 const instantCards = new InstantContextCards(store.getSettings());
 let lastFrozenSnapshot = null;
@@ -148,7 +163,7 @@ const ragSession = new ProjectRagSession({
 function retrievalInput(question, projectPlan, interviewPlan, contextBudget, sourceKey = '', snapshot = null, mode='say') {
   const policy=resolveInstantPolicy(store.getSettings(),mode,question);
   return { question, questionId: snapshot?.questionId || undefined, questionRevision: snapshot?.questionId ? snapshot.revision : undefined,
-    materialIdentity:[store.getSettings().answerDomain, store.getSettings().activeJobProfileId, store.getSettings().provider, store.getSettings().models, require('./src/oral-answer-policy').VERSION, materialService.snapshot.generation,projectPlan.canonicalProjectIds||[],policy.instant?'instant':'standard',policy.ragPolicy,require('./src/project-evidence-policy').VERSION],
+    materialIdentity:[store.getSettings().liveContextPolicy,store.getSettings().qaAnswerDetailed,store.getSettings().answerDomain, store.getSettings().activeJobProfileId, store.getSettings().provider, store.getSettings().models, require('./src/oral-answer-policy').VERSION, materialService.snapshot.generation,projectPlan.canonicalProjectIds||[],policy.instant?'instant':'standard',policy.ragPolicy,require('./src/project-evidence-policy').VERSION],
     projectPlan, interviewPlan, contextBudget, sourceKey, hashFallback: !!store.getSettings().smart,
     realtimeEvidencePrefetch: realtimePrefetchEnabled(store.getSettings()),
     questionVersion: interviewPlan?.questionVersion || stableId(question),
@@ -168,10 +183,10 @@ function scheduleProjectPrefetch(payload) {
   if (settings.realtimeAnswerMode !== 'standard' && (!preview.text || preview.text !== text)) return;
   const interviewPlan = planInterviewQuestion({ text, mode: 'say', sourceKey });
   const projectPlan = planProjectRetrieval([{ channel: 'them', text }], 'say', {
-    catalog: getProjectCatalog(), previousPlan: conversation.lastPlan,
-    activeProjectPlan: formalProjectPlan?.activeProject || conversation.activeProjectPlan,
+    catalog: getProjectCatalog(), previousPlan: null,
+    activeProjectPlan: null,
     manualProjectId: settings.currentProjectId, interviewPlan,
-    answerHint: conversation.recent.at(-1)?.answer || ''
+    answerHint: ''
   });
   if (!projectPlan.retrieveSources) { ragSession.pause(); return; }
   const budget = contextCharsFor('say', getAnswerPlan(text, interviewPlan));
@@ -189,7 +204,7 @@ const snapshotSourceKey = snapshot => {
 function currentTargetEnvelope() {
   return { snapshot: questionResolver.resolveForSubmit({ allowPartial: true, epoch: conversation.epoch }),
     frozenSnapshot: activeGeneration?.snapshot || lastFrozenSnapshot, state: state.busy ? 'answering' : 'idle',
-    requestId: activeGeneration?.id || latestUiRequestId, epoch: conversation.epoch };
+    pendingSubmit:!!pendingSubmit.pending, requestId: activeGeneration?.id || latestUiRequestId, epoch: conversation.epoch };
 }
 function publishQuestionTarget() { send('question:target', currentTargetEnvelope()); }
 function observeProjectPrefetch(final) {
@@ -225,6 +240,7 @@ function stopGenerationForSources() {
   uiReplyTimings.clear();
   conversation.invalidateSources();
   questionResolver.reset({ epoch: conversation.epoch });
+  pendingSubmit.cancel('reset'); liveQuestions.reset(); screenTaskState.end();
   lastFrozenSnapshot = null; latestUiRequestId = null;
   lastScreenSnapshot = null;
   targetModes.clear();
@@ -301,6 +317,11 @@ function send(channel, data) {
   if (channel === 'vad:state') questionResolver.speechState(data);
   if (channel === 'stt:interim') { questionResolver.observe(data, false); if (data.channel === 'them') observeProjectPrefetch(false); }
   if (channel === 'transcript') { questionResolver.observe(data, true); if (data.channel === 'them') observeProjectPrefetch(true); }
+  if (['stt:interim','transcript'].includes(channel) && data?.channel === 'them') {
+    const target = questionResolver.resolveForSubmit();
+    liveQuestions.observe(target);
+    pendingSubmit.observe(target, speechIdentity());
+  }
   replyLatency.observe(channel, data);
   if (win && !win.isDestroyed()) win.webContents.send(channel, data);
   if (['vad:state', 'stt:interim', 'transcript'].includes(channel) && data?.channel === 'them') publishQuestionTarget();
@@ -327,7 +348,7 @@ function normalizeSpeechText(text, settings = store.getSettings(), recentText = 
   let normalized = normalizeTranscript(text, settings);
   if (!normalized) return '';
   normalized = normalizeTechnicalVocabulary(normalized, { settings, recentText });
-  normalized = require('./src/contextual-asr').normalize(normalized, recentText).normalizedText;
+  // Dynamic corrections from previous interview topics must not rewrite a new question.
   return normalizeTranscript(normalized, settings);
 }
 
@@ -349,7 +370,7 @@ function publishTranscript(channel, text, meta = {}) {
 
 function dialogueChanged() { send('dialogue:changed', {sessionId:dialogue.sessionId,revision:dialogue.revision}); }
 function speechTurn(event) {
-  return {...event, ts:event.receivedAt, channel:event.speaker==='candidate'?'you':event.speaker==='interviewer'?'them':'unknown',
+  return {...event, audioSourceChannel:event.channel, ts:event.receivedAt, channel:event.speaker==='interviewer'||event.channel==='them'&&!event.roleCorrected&&store.getSettings().speechInputMode!=='single-microphone'?'them':event.speaker==='candidate'?'you':'unknown',
     utteranceKey:event.utteranceKey || event.eventId, sourceId:event.sourceId || event.source,
     sourceSessionId:event.sourceSessionId || event.sessionId};
 }
@@ -361,14 +382,25 @@ function updateSpeechTranscript(event) {
   // Echo detection can change the earlier event's role too.
   for(const old of transcript) {
     const current=dialogue.events.get(old.eventId);
-    if(current?.speaker==='unknown') {old.channel='unknown';old.speaker='unknown';old.echoOf=current.echoOf;}
+    if(current?.speaker==='unknown'&&!(current.channel==='them'&&!current.roleCorrected&&store.getSettings().speechInputMode!=='single-microphone')) {old.channel='unknown';old.speaker='unknown';old.echoOf=current.echoOf;}
   }
   return turn;
 }
-function rebuildSpeechTarget() {
+function rebuildSpeechTarget(changedEvent) {
+  const before=questionResolver.resolveForSubmit(),claims=questionResolver.claims,lastSubmitted=questionResolver.lastSubmitted,lastRetryable=questionResolver.lastRetryable;
   questionResolver.reset({epoch:conversation.epoch});
-  const latest=dialogue.ordered().findLast(event=>event.isFinal&&event.speaker==='interviewer'&&!event.echoOf);
-  if(latest) questionResolver.observe(speechTurn(latest),true);
+  liveQuestions.reset(); pendingSubmit.cancel('target-rebuilt');
+  for (const event of dialogue.ordered()) if (event.speaker === 'interviewer' || event.channel === 'them' && !event.roleCorrected) {
+    questionResolver.observe(speechTurn(event), event.isFinal);
+    liveQuestions.observe(questionResolver.resolveForSubmit());
+  }
+  const rebuilt=questionResolver.resolveForSubmit();
+  if(before.questionId&&rebuilt.sourceKeys.some(key=>before.sourceKeys.includes(key))) {
+    questionResolver.currentQuestionId=before.questionId;questionResolver.revision=before.revision+(before.text===rebuilt.text?0:1);
+    const last=liveQuestions.turns.at(-1);if(last){last.questionId=before.questionId;last.revision=questionResolver.revision;}
+  }
+  if(changedEvent?.roleCorrected&&changedEvent.speaker!=='interviewer'&&before.sourceKeys.some(key=>key.endsWith(':'+(changedEvent.utteranceKey||changedEvent.eventId)))&&!rebuilt.sourceKeys.some(key=>before.sourceKeys.includes(key)))questionResolver._clearActive('current-speaker-uncertain');
+  questionResolver.claims=claims;questionResolver.lastSubmitted=lastSubmitted;questionResolver.lastRetryable=lastRetryable;
   publishQuestionTarget();
 }
 function ingestSpeechEvent(input={}) {
@@ -376,7 +408,7 @@ function ingestSpeechEvent(input={}) {
   if(input.sessionId&&input.sessionId!==dialogue.sessionId||input.session_id&&input.session_id!==dialogue.sessionId)
     return {accepted:false,reason:'stale-session'};
   const channel=['you','them'].includes(input.channel)?input.channel:input.speaker==='candidate'?'you':input.speaker==='interviewer'?'them':null;
-  const normalized=normalizeSpeechText(input.text,store.getSettings(),recentInterviewerText());
+  const normalized=normalizeSpeechText(input.text,store.getSettings(),'');
   if(!normalized) return {accepted:false,reason:'empty'};
   if(channel==='them'&&isSpeechNoise(normalized)) return {accepted:false,reason:'speech-noise'};
   const isFinal=input.isFinal!==false&&input.is_final!==false;
@@ -391,7 +423,11 @@ function ingestSpeechEvent(input={}) {
     if(!isFinal) speechDraftIds.set(draftKey,eventId);
   }
   dialogue.setActiveProject(dialogue.activeProjectIds,getProjectIndexRevision());
-  const result=dialogue.ingest({...input,channel,eventId,text:normalized,rawText:input.rawText??input.text,isFinal});
+  const sourceIdentityKey=String(input.sourceId||input.source||'stream');
+  if((channel==='them'||input.speaker==='interviewer')&&input.sourceSessionId&&questionResolver.retiredSessions.has(`${sourceIdentityKey}@${input.sourceSessionId}`))return {accepted:false,reason:'stale-source-session'};
+  const oldSourceSession = questionResolver.sourceSessions.get(sourceIdentityKey);
+  if ((channel==='them'||input.speaker==='interviewer') && oldSourceSession && input.sourceSessionId && oldSourceSession !== input.sourceSessionId) pendingSubmit.cancel('source-changed');
+  const result=dialogue.ingest({...input,channel,speechInputMode:store.getSettings().speechInputMode,eventId,text:normalized,rawText:input.rawText??input.text,isFinal});
   if(!result.accepted) return result;
   transcriptRecorder.recordEvent(result.event);
   if(result.event.echoOf)transcriptRecorder.recordEvent(dialogue.events.get(result.event.echoOf));
@@ -399,7 +435,7 @@ function ingestSpeechEvent(input={}) {
   const turn=updateSpeechTranscript(result.event);
   if(isFinal) {send('transcript',turn);send('stt:final',turn);}
   else send('stt:interim',turn);
-  if(result.event.echoOf) rebuildSpeechTarget();
+  // Microphone echo markings never invalidate the selected system question.
   dialogueChanged();
   return result;
 }
@@ -676,7 +712,7 @@ function handleSttError(err, settings) {
 
 function startFlushLoop() {
   if (flushTimer) return;
-  flushTimer = setInterval(() => { flushChannel('you'); flushChannel('them'); }, FLUSH_MS);
+  flushTimer = setInterval(() => { flushChannel('them'); flushChannel('you'); }, FLUSH_MS);
 }
 function stopFlushLoop() { if (flushTimer) { clearInterval(flushTimer); flushTimer = null; } }
 
@@ -685,6 +721,7 @@ function initStreamingSTT() {
   const settings = store.getSettings();
   streamingMode = false;
 
+  pendingSubmit.cancel('source-reconnected');
   const sourceSessionId = `stream-session-${++streamingSessionSequence}`;
   const sessionId=dialogue.sessionId;
   ['you', 'them'].forEach((channel) => {
@@ -886,36 +923,36 @@ async function setCapturing(active) {
 }
 
 // -------- feature runner --------
-async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
+async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot = null } = {}) {
+  if(submitSnapshot&&(submitSnapshot.epoch!==conversation.epoch||submitSnapshot.questionId!==questionResolver.currentQuestionId))return;
   const triggerAt = performance.now();
   const def = MODES[mode];
   if (!def) { send('llm:error', { message: '未知的回答模式。' }); return; }
   const settings = JSON.parse(JSON.stringify({...store.getSettings(),...personalWorkspace.getSelectedJobProfileContext({store,materialService})}));
   const explicit = typeof userText === 'string' ? userText.trim() : '';
+  const screenRequest = ['assist','leetcode'].includes(mode);
   const voiceAnswer = ['say', 'answerThis', 'ask', 'assist', 'technical'].includes(mode);
   let resolved = explicit ? questionResolver.manualSnapshot(explicit, { epoch: conversation.epoch })
-    : retrySnapshot || (voiceAnswer ? questionResolver.resolveForSubmit({ allowPartial: true, epoch: conversation.epoch }) : null);
-  if(resolved) {
-    const interviewerReference=require('./src/question-topic-context').reference(resolved.text,transcript);
-    resolved={...resolved,referenceContext:interviewerReference||resolved.referenceContext,
-      referenceSpeaker:interviewerReference?'interviewer':resolved.referenceSpeaker};
-  }
-  if (mode === 'assist' && !explicit && !resolved?.text) {
-    const requirement = lastScreenSnapshot?.epoch === conversation.epoch && !resolved?.awaitingNewQuestion
-      ? lastScreenSnapshot.text : '请解决当前屏幕上的技术题';
-    resolved = questionResolver.manualSnapshot(requirement, { epoch: conversation.epoch });
-  }
-  const question = mode === 'leetcode' ? '请解决当前屏幕上的技术题'
+    : retrySnapshot || submitSnapshot || (voiceAnswer ? questionResolver.resolveForSubmit({ allowPartial: true, epoch: conversation.epoch }) : null);
+  if (explicit && resolved) liveQuestions.observe(resolved);
+  const liveContext = liveQuestions.select(resolved || {text:explicit}, settings.liveContextPolicy);
+  if (resolved) resolved = {...resolved, referenceContext: liveContext.referenceContext || undefined, referenceSpeaker: liveContext.referenceContext?'interviewer':undefined};
+  const question = screenRequest ? explicit || resolved?.text || '识别当前屏幕任务并给出解题帮助'
     : explicit || resolved?.text || (voiceAnswer ? '' : conversation.recent.at(-1)?.question || '');
-  if (!resolved && question) resolved = questionResolver.manualSnapshot(question, { epoch: conversation.epoch });
-  if (voiceAnswer && !question) {
+  if (screenRequest) resolved = {...questionResolver.manualSnapshot(question,{epoch:conversation.epoch}),screenSourceQuestionId:resolved?.source==='manual'?undefined:resolved?.questionId};
+  if (!resolved && question) resolved = questionResolver.manualSnapshot(question, {epoch:conversation.epoch});
+  if (voiceAnswer && !screenRequest && !question) {
+    if (state.capturing || state.transcribing.them || resolved?.pendingText || resolved?.interimText) {
+      pendingSubmit.arm(resolved, speechIdentity(), mode);
+    } else send('status', {message:'请开启监听或输入问题。'});
     publishQuestionTarget();
-    send('status', { message: resolved?.awaitingNewQuestion ? '新问题尚未识别完整。' : '当前没有新的回答目标；可输入问题，或点击重答。' });
     return;
   }
+  pendingSubmit.cancel('explicit-submit');
+  if (!retrySnapshot && resolved && questionResolver.claims.has(`${resolved.epoch}:${resolved.questionId}:${resolved.revision}`)) return;
   const policy = resolveInstantPolicy(settings, mode, question);
   if (state.busy) {
-    if (activeGeneration?.snapshot?.text === question && activeGeneration.mode === mode && !retrySnapshot) return;
+    if (activeGeneration?.snapshot?.questionId === resolved?.questionId && activeGeneration?.snapshot?.revision === resolved?.revision && activeGeneration.mode === mode && !retrySnapshot) return;
     if (!voiceAnswer && mode !== 'leetcode') { send('status', { message: '当前回答仍在生成。' }); return; }
     const previous = activeGeneration;
     activeGeneration = null;
@@ -933,24 +970,27 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
   // Freeze real speech separately from suggestions and from request timestamps.
   // An explicit topic exit is handled by the speech selector, not by dropping
   // all candidate speech whenever the question lacks a follow-up keyword.
-  const spokenState = dialogue.selectContext({question,projectIds:spokenProjectIds(question),maxEvents:10,maxChars:3600});
+  const spokenState = liveContext.policy.includeCandidateSpeech && !screenRequest
+    ? dialogue.selectContext({question,projectIds:spokenProjectIds(question),maxEvents:10,maxChars:3600,
+        since:liveQuestions.turns.slice(-(liveContext.policy.historyWindowTurns+1))[0]?.startedAt || dialogue.ordered().slice(-10)[0]?.receivedAt || Date.now()})
+    : {eventIds:[],claims:[],projectIds:[],text:'',revision:dialogue.revision};
   const speechIds = new Set(spokenState.eventIds);
   const freshTranscript = ['recap','followup'].includes(mode) ? transcript.slice()
     : transcript.filter(turn => turn.channel === 'you' && speechIds.has(turn.eventId));
   const contextTranscript = withCurrentQuestion(freshTranscript, question);
   const fromResolved = !explicit && resolved?.text === question;
-  const partial = fromResolved && !!resolved?.partial;
+  const partial = fromResolved && resolved?.semanticStatus === 'incomplete';
   const sourceKey = fromResolved ? snapshotSourceKey(resolved) : '';
   const interviewPlan = ['say', 'answerThis', 'ask', 'assist', 'technical'].includes(mode) && question
     ? planInterviewQuestion({ text: question, partial, sourceKey, mode }) : null;
   const timing = replyLatency.start(mode, question, { sourceKeys: resolved?.sourceKeys || resolved?.keys || [],
-    triggerAt, questionSnapshot: resolved, questionSource: explicit ? 'manual' : retrySnapshot ? 'retry' : resolved?.partial ? 'stt-interim' : 'stt-final',
+    triggerAt, questionSnapshot: resolved, questionSource: explicit ? 'manual' : retrySnapshot ? 'retry' : resolved?.provisional ? 'stt-interim' : 'stt-final',
     epoch: conversation.epoch, executionProfile: policy.instant ? 'instant' : 'standard', ...getBuildIdentity() });
   const frozen = voiceAnswer || mode === 'leetcode' ? questionResolver.claim(resolved, timing.requestId) || resolved : resolved;
   const generation = { id: timing.requestId, sessionId:dialogue.sessionId, spokenRevision:spokenState.revision, entityIndex:projectEntityIndex, controller: new AbortController(), epoch: conversation.epoch, snapshot: frozen, mode, policy, timing, materials:materialService.snapshot };
   generation.diagnostic={requestId:generation.id,sessionId:generation.sessionId,epoch:generation.epoch,mode,
     executionProfile:policy.executionProfile,startedAt:new Date().toISOString(),status:'preparing',dispatched:false,
-    answerDomain:settings.answerDomain,styleVersion:require('./src/oral-answer-policy').VERSION,questionRevision:frozen?.revision,
+    answerDomain:settings.answerDomain,styleVersion:require('./src/oral-answer-policy').VERSION,questionRevision:frozen?.revision,triggerId:timing.requestId,liveContext:{...liveContext,turns:liveContext.turns.map(t=>({questionId:t.questionId,revision:t.revision}))},triggerAt,questionId:frozen?.questionId,pendingSubmit:pendingSubmitDiagnostic,
     provider:null,model:null,modelIdentitySource:'not-created',servedModel:null,build:{...getBuildIdentity()},
     materials:{generation:generation.materials.generation,factRevision:generation.materials.factRevision,sourceRevision:generation.materials.sourceRevision,registryRevision:generation.materials.registryRevision},
     evidenceRevision:null,jobProfileId:diagnosticText(settings.jobProfileId||settings.activeJobProfileId||'',80)};
@@ -970,6 +1010,17 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
   publishQuestionTarget();
   if (policy.instant) ragSession.suspend(generation.id);
   try {
+    // Local verbatim answers are available before adapter creation or API-key checks.
+    const qa = !screenRequest ? generation.materials.qaIndex.match(question, {projectId:settings.currentProjectId,referenceContext:liveContext.referenceContext,detailed:settings.qaAnswerDetailed}) : null;
+    generation.diagnostic.qa = qa ? {...qa,answer:undefined} : null;
+    if (qa?.direct) {
+      generation.diagnostic.status='completed'; generation.diagnostic.delivery='qa-verbatim'; generation.diagnostic.modelCalls=0;
+      emit('llm:start',{mode,userBubble:question,snapshot:frozen}); emit('qa:hit',qa);
+      emit('llm:token',{text:qa.answer}); emit('llm:done',{delivery:'qa-verbatim'});
+      dialogue.recordSuggestion({requestId:generation.id,sessionId:generation.sessionId,status:'completed',text:qa.answer,question,eventIds:[]});
+      transcriptRecorder.recordAnswer({sessionId:generation.sessionId,requestId:generation.id,question,answer:qa.answer});
+      questionResolver.settle(frozen,'completed'); return;
+    }
     const llm = createLLM(settings, { executionProfile: policy.executionProfile });
     generation.provider = llm.provider;
     Object.assign(generation.diagnostic,{provider:diagnosticText(llm.provider),model:diagnosticText(llm.model),modelIdentitySource:'selected-adapter'});
@@ -983,11 +1034,23 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     emit('llm:profile', { ...llm.diagnostics, executionProfile: policy.instant ? 'instant' : 'standard', referenceDraft: policy.instant });
     if (!llm.ready) throw new Error(llm.configurationError || '请先完成模型设置。');
     if (!question && ['ask', 'answerThis'].includes(mode)) throw new Error('请先输入问题或等待识别到面试官发言。');
+    if (screenRequest) {
+      const result = await require('./src/screen-task-runner').runScreenTask({llm,settings,requirement:explicit || resolved?.text || '',taskState:screenTaskState,
+        questionId:resolved?.screenSourceQuestionId,capture:captureScreenshot,signal:generation.controller.signal,emit,timing,diagnostic:generation.diagnostic});
+      if (!owned()) return;
+      const screenSnapshot=Object.freeze({...frozen,text:result.route.title,screenType:result.route.type,taskId:result.task.taskId});
+      generation.snapshot=screenSnapshot; lastFrozenSnapshot=screenSnapshot;
+      generation.diagnostic.rawAnswer=result.answer;
+      emit('screen:task',{...result.task,override:screenTaskState.override});
+      transcriptRecorder.recordAnswer({sessionId:generation.sessionId,requestId:generation.id,question:result.route.title,answer:result.answer});
+      dialogue.recordSuggestion({requestId:generation.id,sessionId:generation.sessionId,status:'completed',text:result.answer,question:result.route.title,eventIds:[]});
+      questionResolver.settle(frozen,'completed'); timing.finish({aborted:false}); emit('llm:done',{}); return;
+    }
     const request = conversation.begin({ mode, question, transcript: contextTranscript,
       settings: effectiveSettings, catalog: generation.materials.registry.projects,
       executionProfile: policy.instant ? 'instant' : 'standard', questionSnapshot: frozen,
       manualFingerprint: policy.instant ? instantCards.manualFingerprint : undefined,
-      interviewPlan, spokenState,projectEntityHint:generation.entityIndex.infer(question), evidenceRevision: readProjectIndexRevision({ preparedOnly: true }) });
+      interviewPlan, spokenState:liveContext.policy.includeCandidateSpeech?spokenState:null,liveContext,projectEntityHint:generation.entityIndex.infer(question), evidenceRevision: readProjectIndexRevision({ preparedOnly: true }) });
     generation.diagnostic.evidenceRevision=diagnosticText(request.evidenceRevision,128);
     dialogue.setActiveProject(request.plan.canonicalProjectIds || [], request.evidenceRevision);
     dialogue.recordSuggestion({requestId:generation.id,sessionId:generation.sessionId,status:'generating',question,eventIds:spokenState.eventIds});
@@ -1026,10 +1089,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const materialIdentity = {generation:generation.materials.generation,factRevision:generation.materials.factRevision,sourceRevision:generation.materials.sourceRevision,registryRevision:generation.materials.registryRevision};
     request.materials=materialIdentity;
     const relatedSpeech=(request.spokenState?.claims||[]).filter(claim=>claim.status!=='uncertain').map(claim=>claim.text).join('\n');
-    const priorQuestion=conversation.recent.at(-1);
-    const sameTopic=request.plan.canonicalProjectIds?.some(id=>priorQuestion?.plan?.canonicalProjectIds?.includes(id));
-    const topicContext=frozen?.referenceContext || (sameTopic&&/这条|这个|这套|这些|同一个|它|上述|前面|刚才|你刚|你说|你(?:的)?方案|该方案|证伪|怎样验证|如何验证|怎么验证/.test(question)
-      ? String(priorQuestion.question||'').slice(-1600) : '');
+    const topicContext=liveContext.referenceContext || '';
     retrieval.topicContext=topicContext;
     const contextualQuestion=topicContext?question+'\n被指代的上一真人问题（仅用于检索，不作为本轮待答）：'+topicContext:question;
     const factQuery=relatedSpeech?contextualQuestion+'\n当前相关真人发言（用于检索，不是事实依据）：'+relatedSpeech:contextualQuestion;
@@ -1118,7 +1178,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const narrativeRule='\nUSER/source-claim 是用户指定的口述资料，可按范围直接回答既有职责，不复述资料编辑历史；没有材料才简短说明缺口。';
     const oralRule=require('./src/oral-answer-policy').instruction({...answerPlan,code:answerPlan.code||!!imageDataUrl||mode==='leetcode'});
     const legacyNarrative='不要编造项目结果。';
-    const resolvedSystem = builtSystem + (instantContext?'':'\n' + oralRule + narrativeRule + SPOKEN_CONTEXT_RULES) + (request.plan.kind==='unresolved'?'\n当前未定位到对应项目资料，直接给出可落地的通用方案或小例子，不猜测具体项目身份或职责。':'');
+    const resolvedSystem = builtSystem + (instantContext?'':'\n' + oralRule + narrativeRule + (liveContext.policy.includeCandidateSpeech?SPOKEN_CONTEXT_RULES:'')) + (request.plan.kind==='unresolved'?'\n当前未定位到对应项目资料，直接给出可落地的通用方案或小例子，不猜测具体项目身份或职责。':'');
     const initialSystem = llm.prepareSystem ? llm.prepareSystem(resolvedSystem) : resolvedSystem;
     const questionReferenceSection={id:'question-reference',text:frozen?.referenceContext ? '最近真人提问实体（仅消解指代；面试官的公司、规模、假设不属于候选人经历）：\n'+JSON.stringify({speaker:frozen.referenceSpeaker||'unspecified-question',text:frozen.referenceContext}):'',protected:true};
     const candidateRoleSection={id:'candidate-role',text:candidateRole.text,protected:candidateRole.required,priority:2};
@@ -1128,7 +1188,7 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
     const responseBudgets={oral:600,code:Math.min(16384,Number(settings.responseBudgets?.code)||6000)};
     const maxTokens=codeRequest?responseBudgets.code:answerPlan.maxTokens;
     request.responseBudget={kind:codeRequest?'code':'oral',maxTokens,maxVisibleCharacters:answerPlan.maxVisibleCharacters,styleVersion:answerPlan.version};
-    request.settingsSnapshot={answerDomain:settings.answerDomain,workspaceRevision:settings.personalWorkspaceRevision,sourceRevision:generation.materials.sourceRevision,styleVersion:answerPlan.version,questionRevision:frozen?.revision,provider:settings.provider,model:llm.model,smart:!!settings.smart,jobProfileId:settings.jobProfileId,
+    request.settingsSnapshot={liveContextPolicy:liveContext.policy,qaAnswerDetailed:!!settings.qaAnswerDetailed,answerDomain:settings.answerDomain,workspaceRevision:settings.personalWorkspaceRevision,sourceRevision:generation.materials.sourceRevision,styleVersion:answerPlan.version,questionRevision:frozen?.revision,provider:settings.provider,model:llm.model,smart:!!settings.smart,jobProfileId:settings.jobProfileId,
       contextWindowTokens:settings.contextWindowTokens||16384,responseBudgets};
     // A fresh screen task stands on its own; its answer is still available to
     // subsequent manual follow-ups. No previous screenshot bytes are retained.
@@ -1175,6 +1235,8 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
       path: item.path, startLine: item.startLine, endLine: item.endLine, text: item.text,
       docType: item.docType, truthScope: item.truthScope, status: item.status, partial: item.partial })),
       missing: [...(contextBundle.missing || []), ...(prepared.missing || [])] });
+    const qaEvidence=sentEvidence.filter(item=>item.qa);
+    if(qaEvidence.length)emit('qa:generated',{cardIds:qaEvidence.map(item=>item.cardId),revision:generation.materials.factRevision});
     let requestSent = performance.now();
     generation.timing = timing;
     generation.requestSent = requestSent;
@@ -1338,8 +1400,10 @@ async function runFeature(mode, userText, { retrySnapshot = null } = {}) {
   }
 }
 
+require('./src/application-integration').setFeatureDispatcher(mode => runFeature(mode, ''), shortcutState);
 // -------- IPC --------
 function cancelCurrentGeneration(reason='user') {
+  pendingSubmit.cancel(reason);
   const previous=activeGeneration;
   activeGeneration=null;
   previous?.controller.abort();
@@ -1353,6 +1417,7 @@ function cancelCurrentGeneration(reason='user') {
   publishQuestionTarget();
   return {ok:true,canceled:!!previous,sessionId:dialogue.sessionId};
 }
+ipcMain.on('shortcut:action', (_event, mode) => require('./src/application-integration').dispatchFeature(mode,'renderer'));
 ipcMain.handle('llm:cancel',()=>cancelCurrentGeneration());
 ipcMain.on('llm:cancel',()=>cancelCurrentGeneration());
 ipcMain.handle('dialogue:event',(_event,input)=>ingestSpeechEvent(input));
@@ -1372,10 +1437,36 @@ ipcMain.handle('dialogue:correct',(_event,input={})=>{
     cancelCurrentGeneration('dialogue-corrected');
     const turn=updateSpeechTranscript(result.event);
     send('transcript',turn);
-    rebuildSpeechTarget();
+    rebuildSpeechTarget(result.event);
     dialogueChanged();
   }
   return result;
+});
+const qaService = require('./src/qa-service');
+ipcMain.handle('qa:state',()=>qaService.state(materialService));
+ipcMain.handle('qa:prepare',async(_event,input={})=>{
+  if (!input.text && !input.filePath) {
+    const selected=await dialog.showOpenDialog(win,{title:'导入项目问答 JSON / 标准 Markdown',properties:['openFile'],filters:[{name:'问答',extensions:['json','md']}]});
+    if(selected.canceled)return {canceled:true};
+    input={filePath:selected.filePaths[0]};
+  }
+  return qaService.prepare(materialService,input);
+});
+ipcMain.handle('qa:commit',(_event,input)=>materialService.commitImport(input));
+ipcMain.handle('qa:try',(_event,input={})=>materialService.snapshot.qaIndex.match(String(input.question||''),{projectId:input.projectId||store.getSettings().currentProjectId,detailed:!!input.detailed}));
+ipcMain.handle('qa:edit',(_event,input)=>qaService.edit(materialService,input));
+ipcMain.handle('qa:export',async()=>{
+  const selected=await dialog.showSaveDialog(win,{title:'导出项目问答库',defaultPath:'cue-qa.json',filters:[{name:'JSON',extensions:['json']}]});
+  if(selected.canceled)return {canceled:true};
+  fs.writeFileSync(selected.filePath,JSON.stringify(qaService.state(materialService).library,null,2),{mode:0o600});return {ok:true};
+});
+ipcMain.handle('screen:attachment',(_event,input={})=>screenTaskState.attach(input.name||'题面与DDL',input.text));
+ipcMain.handle('screen:accept',(_event,input={})=>screenTaskState.accept(input.label));
+ipcMain.handle('screen:mode',(_event,input={})=>{
+  if(input.end){cancelCurrentGeneration('screen-task-ended');screenTaskState.end();}
+  if(input.continue)screenTaskState.continueNext=true;
+  if(input.mode){if(!['auto','solve','vibe-coding'].includes(input.mode))throw new Error('无效屏幕模式');screenTaskState.overrideNext=input.mode;screenTaskState.continueNext=!!screenTaskState.task;}
+  return {mode:screenTaskState.overrideNext||screenTaskState.override,task:screenTaskState.task};
 });
 ipcMain.handle('materials:personal:state',()=>personalWorkspace.getPersonalWorkspaceState({materialService,store}));
 ipcMain.handle('materials:personal:prepare',async(_event,input={})=>{
@@ -1421,6 +1512,7 @@ function redactedDiagnostics() {
     materials:{generation:materialService.snapshot.generation,factRevision:materialService.snapshot.factRevision,sourceRevision:materialService.snapshot.sourceRevision},
     jobProfileId:settings.activeJobProfileId||'',model:{provider:lastActualRequest?.provider||null,model:lastActualRequest?.model||null},
     configuredModel:{provider:diagnosticText(settings.provider),fast:diagnosticText(settings.models?.[settings.provider]?.fast),smart:diagnosticText(settings.models?.[settings.provider]?.smart),smartEnabled:!!settings.smart},
+    liveContextPolicy:require('./src/live-context-policy').normalize(settings.liveContextPolicy),pendingSubmit:pendingSubmitDiagnostic,screenTask:screenTaskState.task,
     lastActualRequest,
     dialogue:dialogue.snapshot(),question:currentTargetEnvelope(),lastRequest:conversation.recent.at(-1)||null});
 }
@@ -1485,8 +1577,8 @@ ipcMain.handle('settings:set', (_e, patch) => {
   const next = store.setSettings(patch);
   transcriptRecorder.configure(next.saveInterviewTranscript!==false);
   if (['resumeText', 'projectKnowledge', 'starStories', 'whyCompany', 'whyLeaving', 'workStyle', 'salaryTarget'].some(key => before[key] !== next[key])) instantCards.update(next);
-  const identity = settings => JSON.stringify([settings.realtimeAnswerMode, settings.instantRagPolicy, settings.realtimeEvidencePrefetch, settings.smart, settings.provider,
-    settings.models, settings.answerDomain, settings.activeJobProfileId, settings.personalWorkspaceRevision, settings.aiRules, settings.projectFactsEnabled,settings.sourceRagPolicies,settings.manualProjectKnowledgeEnabled, settings.currentProjectId, settings.baseUrl, settings.projectKnowledge, settings.starStories]);
+  const identity = settings => JSON.stringify([settings.liveContextPolicy,settings.qaAnswerDetailed,settings.speechInputMode,settings.realtimeAnswerMode, settings.instantRagPolicy, settings.realtimeEvidencePrefetch, settings.smart, settings.provider,
+    settings.models, settings.liveContextPolicy, settings.answerDomain, settings.activeJobProfileId, settings.personalWorkspaceRevision, settings.aiRules, settings.projectFactsEnabled,settings.sourceRagPolicies,settings.manualProjectKnowledgeEnabled, settings.currentProjectId, settings.baseUrl, settings.projectKnowledge, settings.starStories]);
   if (identity(before) !== identity(next)) {
     ragSession.reset(); semanticRetriever?.resetSession?.();
     if (activeGeneration?.policy.instant && !activeGeneration.firstContent) ragSession.suspend(activeGeneration.id);
@@ -1643,6 +1735,8 @@ ipcMain.handle('transcript:clear', () => {
   activeProjectContextCache.clear();
   semanticRetriever?.resetSession?.();
   questionResolver.reset({ epoch: conversation.epoch });
+  pendingSubmit.cancel('session-reset'); liveQuestions.reset(); screenTaskState.end();
+  pendingSubmit.cancel('reset'); liveQuestions.reset(); screenTaskState.end();
   lastFrozenSnapshot = null; latestUiRequestId = null;
   lastScreenSnapshot = null;
   targetModes.clear();
@@ -1716,11 +1810,7 @@ ipcMain.on('permissions:continue', async () => {
 
 // -------- shortcuts --------
 function registerShortcuts() {
-  shortcutState.assist = globalShortcut.register('CommandOrControl+Shift+Return', () => runFeature('assist', ''));
-  shortcutState.say = globalShortcut.register('CommandOrControl+Return', () => runFeature('say', ''));
-  shortcutState.technical = globalShortcut.register('CommandOrControl+L', () => runFeature('technical', ''));
-  shortcutState.leetcode = globalShortcut.register('CommandOrControl+H', () => runFeature('leetcode', ''));
-  shortcutState.hide = globalShortcut.register('CommandOrControl+Shift+/', () => send('hide:toggle', {}));
+  require('./src/application-integration').installFeatureShortcuts();
   shortcutState.quit = globalShortcut.register('CommandOrControl+Shift+X', () => app.quit());
   for (const [name, wasRegistered] of Object.entries(shortcutState)) {
     if (!wasRegistered) {
