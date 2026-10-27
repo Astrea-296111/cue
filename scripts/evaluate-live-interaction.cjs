@@ -24,7 +24,7 @@ async function run(output=path.resolve('artifacts/oct27-live'),env=process.env){
     app=createInterviewRuntime({after:f=>cleanups.push(f)},{realTime:true,inMemorySettings:true,chunks:[],
      screenImagePath:c.image?path.join(ROOT,'test/fixtures/live-interaction',c.image):undefined,
      settings:{provider:actual,apiKeys:{[actual]:config.apiKey},models:{[actual]:{fast:config.model,smart:config.model}},
-      baseUrl:config.baseURL,deepseekBaseUrl:config.baseURL,firstContentDeadlineMs:15000,saveInterviewTranscript:false,
+      baseUrl:config.baseURL,deepseekBaseUrl:config.baseURL,realtimeAnswerMode:'instant',firstContentDeadlineMs:6000,saveInterviewTranscript:false,
       providerProtocolPresets:{[actual]:id==='qwen'?'dashscope':'deepseek'},instantProviderOptions:{[actual]:id==='qwen'?{enable_thinking:false}:{thinking:{type:'disabled'}}}},
      liveTransport:{maxOutputTokens:8000,totalTimeoutMs:120000,firstContentTimeoutMs:30000,onAttempt:()=>{if(++calls>20)throw new Error('Live call cap exceeded');row.attempts++;save();}}});
     await app.ready;

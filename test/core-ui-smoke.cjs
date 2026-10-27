@@ -13,7 +13,7 @@ const root = path.resolve(__dirname, '..');
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'cue-core-ui-'));
 app.setPath('userData', data);
 
-let failProvider = false, finished = false;
+let failProvider = false, finished = false, screenEnabled=false;
 const uiEvents=[];
 const requests = [], windows = new Set(), selections = [];
 class OpenAI {
@@ -21,6 +21,7 @@ class OpenAI {
     this.chat = { completions: { create: async body => {
       requests.push(body);
       if (failProvider) throw new Error('UI_MODEL_FAILURE_FIXTURE');
+      if(body.messages.some(m=>Array.isArray(m.content)&&m.content.some(p=>p.type==='image_url')))return (async function*(){yield {choices:[{delta:{content:'CUE_SCREEN {"type":"vibe-coding","title":"合成应用任务","observed":["synthetic screen"],"inferred":[],"missing":[],"stage":"plan"}\n### 当前步骤\n先确认契约。\n### 现在复制这一段\n```text\nUI_COPY_PROMPT 先读取题面与工程，列出契约和未知项，本步不改代码。\n```\n### 分步推进\n后续阶段保留完整提示。'+('验收边界。'.repeat(70))},finish_reason:'stop'}]};})();
       return (async function* () {
         yield { choices: [{ delta: { content: '1. 先确认项目事实。\n2.' } }] };
         yield { choices: [{ delta: { content: ' 根据源码解释实现。\n3. 说明限制和验证方法。' }, finish_reason: 'stop' }] };
@@ -54,7 +55,7 @@ Module._load = function(id, parent, isMain) {
   if (id === 'electron') return { ...electron, BrowserWindow: TestWindow };
   if (id === 'openai') return OpenAI;
   if (id.startsWith('.') && parent && Module._resolveFilename(id, parent, isMain) === path.join(root, 'src/screen.js')) {
-    return { captureScreenshot: async () => { throw new Error('Text smoke must not capture a screen'); } };
+    return { captureScreenshot: async () => { if(!screenEnabled)throw new Error('Text smoke must not capture a screen');return 'data:image/png;base64,'+fs.readFileSync(path.join(root,'test/fixtures/live-interaction/vibe.png')).toString('base64'); } };
   }
   return originalLoad.apply(this, arguments);
 };
@@ -138,13 +139,16 @@ app.on('browser-window-created', (_event, win) => {
         const diagnostic=JSON.parse(fs.readFileSync(process.env.CUE_UI_DIAGNOSTIC_FILE,'utf8'));
         assert.equal(diagnostic.lastActualRequest.delivery,'qa-verbatim');assert.equal(diagnostic.lastActualRequest.modelCalls,0);
       }
+      screenEnabled=true;
+      const screenUi=await require('./helpers/screen-output-ui-checks.cjs')({js,until,clipboard:electron.clipboard,screenshot:process.env.CUE_UI_SCREEN_SCREENSHOT,win});
+      screenEnabled=false;
       const windowsShortcuts=await require('./helpers/windows-live-shortcuts.cjs')({win,js,events:uiEvents,output:process.env.CUE_UI_WINDOWS_SHORTCUT_FILE});
       failProvider = true;
       await submit('解释另一个事务隔离问题。');
       await until(() => js("document.querySelector('.response-group:first-child .ai-text')?.textContent.includes('UI_MODEL_FAILURE_FIXTURE')"), 'provider error visible');
       assert.equal(await js("document.getElementById('send-btn').classList.contains('busy')"), false);
       console.log('UI_CORE_OK', JSON.stringify({ boot: true, textReply: true, providerError: true,
-        createdHidden: true, protectionRequested: true, profileAndJdRetained: true, materialImport, personalImport, liveTools, qaPerformance, windowsShortcuts }));
+        createdHidden: true, protectionRequested: true, profileAndJdRetained: true, materialImport, personalImport, liveTools, qaPerformance, screenUi, windowsShortcuts }));
       finish(0);
     } catch (error) { console.error('UI_FAILED', error.stack || error); finish(1); }
   });

@@ -39,7 +39,8 @@ async function runScreenTask({ llm, settings, requirement, taskState, questionId
     if(!prepared.fits)throw new Error('当前题面与附件超出模型窗口，请提高窗口设置或拆分本题附件。');
     diagnostic.screen.attachments=(attachments||[]).map(a=>({name:a.name,sha256:a.sha256,characters:a.text.length}));
     await llm.stream({ system: prepared.system, turns:prepared.turns,
-      imageDataUrl: image, signal: combined, mode: 'screen', maxTokens,
+      imageDataUrl: image, signal: combined, mode: 'assist', maxTokens,
+      onDiagnostics:metadata=>{diagnostic.transport=metadata;timing.configure(metadata);emit('llm:profile',metadata);},
       onRequest: serialized => { diagnostic.dispatched = true; diagnostic.screen.calls++; diagnostic.model = serialized.model; diagnostic.modelIdentitySource = 'serialized-request'; timing.dispatched(); },
       onToken: text => { arm(); stream.push(text); }, onActivity: arm,
       onUsage: usage => timing.usage(usage), onCompletion: value => { completion = value; } });

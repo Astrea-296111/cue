@@ -29,15 +29,34 @@ class RouteStream {
   push(text) {
     if (this.route) return this.onText(text);
     this.buffer += text;
-    if (this.buffer.length > 6000 && !this.buffer.includes('\n')) throw new Error('屏幕识别没有返回有效路由头，请重试或输入题目。');
-    const at = this.buffer.indexOf('\n'); if (at < 0) return;
-    const line = this.buffer.slice(0, at).trim();
-    if(line.length>6000)throw new Error('屏幕识别头超过上限，请缩小当前题面。');
-    let route; try { route = JSON.parse(line.replace(/^CUE_SCREEN\s*/, '')); } catch { throw new Error('屏幕路由格式无效，未展示未确认代码。'); }
-    if (!line.startsWith('CUE_SCREEN ') || !TYPES.includes(route.type) || typeof route.title !== 'string' || !route.title.trim() || route.title.length > 2000 || ['observed','inferred','missing'].some(k => !Array.isArray(route[k]) || route[k].some(t => typeof t !== 'string' || t.length > 2000))) throw new Error('屏幕路由数据无效。');
+    let input=this.buffer.replace(/^\uFEFF/,'').trimStart(),fenced=false;
+    const invalid=()=>{throw new Error('屏幕路由格式无效，未展示未确认代码。');};
+    if(this.buffer.length>6000&&(!input||'CUE_SCREEN'.startsWith(input)||'```json'.startsWith(input)))invalid();
+    if(input.startsWith('CUE_SCREEN'))input=input.slice(10).trimStart();
+    else if('CUE_SCREEN'.startsWith(input)||'```json'.startsWith(input))return;
+    if(input.startsWith('```')){
+      const newline=input.indexOf('\n');if(newline<0)return;
+      if(!/^```(?:json)?\s*$/.test(input.slice(0,newline)))invalid();
+      fenced=true;input=input.slice(newline+1).trimStart();
+    }
+    if(!input){if(this.buffer.length>6000)invalid();return;}
+    if(input[0]!=='{')invalid();
+    let depth=0,quoted=false,escaped=false,end=-1;
+    for(let i=0;i<input.length;i++){
+      const c=input[i];
+      if(quoted){if(escaped)escaped=false;else if(c==='\\')escaped=true;else if(c==='"')quoted=false;continue;}
+      if(c==='"')quoted=true;else if(c==='{')depth++;else if(c==='}'&&--depth===0){end=i+1;break;}
+    }
+    if(end<0){if(this.buffer.length>6000)invalid();return;}
+    if(end>6000)invalid();
+    let body=input.slice(end);
+    if(fenced){const tail=body.trimStart();if(!tail||'```'.startsWith(tail))return;const close=/^```[ \t]*(?:\r?\n|$)/.exec(tail);if(!close)invalid();body=tail.slice(close[0].length);}
+    let route;try{route=JSON.parse(input.slice(0,end));}catch{invalid();}
+    if(!TYPES.includes(route.type)||typeof route.title!=='string'||!route.title.trim()||route.title.length>2000||['observed','inferred','missing'].some(k=>!Array.isArray(route[k])||route[k].length>24||route[k].some(t=>typeof t!=='string'||t.length>2000)))throw new Error('屏幕路由数据无效。');
+    route={type:route.type,title:route.title,observed:route.observed,inferred:route.inferred,missing:route.missing,stage:route.stage==='debug'?'debug':'plan'};
     const explicit = classify(this.requirement, this.override);
     if ((this.override === 'vibe-coding' || explicit !== 'unknown') && this.override !== 'solve' && route.type !== explicit || this.override === 'solve' && route.type === 'vibe-coding') throw new Error('模型模式与当前明确要求不一致，请重试或手动选择模式。');
-    this.route = route; this.onRoute(route); this.onText(this.buffer.slice(at + 1)); this.buffer = '';
+    this.route = route; this.onRoute(route); this.onText(body); this.buffer = '';
   }
   finish() { if (!this.route) throw new Error('屏幕任务识别未完成，请重新截图。'); }
 }

@@ -32,3 +32,7 @@
 Windows CI 会运行真实 Electron UI 和 `user32.keybd_event` 合成热键；CI 桌面不支持时写 unverified，不能用 Linux 结果替代。物理麦克风、声卡环回、用户电脑的录屏软件均未验证。
 
 最终真实结果、构建提交与残留问题将在本目录更新。10 月 26 日四组结果已完整发布：acceptance Qwen 117/130，DeepSeek 详见原报告；multiturn Qwen 24/24、DeepSeek 23/24。它们保留为历史证据，本轮未将其作为新功能通过证明。
+
+## 首轮真实结果（开发中发现的问题）
+
+已执行 9 次生成：[完整结果](live-initial/report.json)、[逐条人工审阅](live-initial/review.md)。SQL/调试两例被过严的路由头格式拦截，Vibe 的步骤和执行防护需补足；这些失败保留。随后补充裸 JSON / fenced 多行 JSON 的增量解码、Vibe 五步四项协议、实际 Electron 原生复制与折叠检查，等待修复版的真实回归。
