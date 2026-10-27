@@ -17,6 +17,25 @@ loopback devices, echo in real calls and Windows desktop capture remain separate
 acceptance checks. Recognized text is retained to distinguish transcription
 accuracy from correct channel/event wiring. Flite: https://github.com/festvox/flite
 
+## Synthetic Mandarin scenario
+
+`zh-scenario/01-context.wav`, `02-constraint.wav` and `03-question.wav` are
+synthetic Mandarin produced with Debian eSpeak NG 1.52.0 (`cmn`, speed 150),
+converted to mono 16 kHz PCM16 with FFmpeg. They contain only invented interview
+material, not a user's speech. The expected text is recorded in
+`scripts/evaluate-chinese-audio.cjs`. To reproduce each file, synthesize the
+corresponding text with `espeak-ng -v cmn -s 150 -w /tmp/voice.wav 'TEXT'` and
+convert it with `ffmpeg -i /tmp/voice.wav -ar 16000 -ac 1 -c:a pcm_s16le OUT.wav`.
+
+Run the **Real Mandarin scenario audio** workflow on trusted main. It sends the
+three recordings in order through real ASR and the production question resolver.
+The report retains each recognition and target and separately checks that the
+context, constraint and question terms were recognized and retained. It does
+not call the text model, assert perfect transcription, or simulate physical
+microphone/loopback behavior. A failure can reflect speech synthesis, ASR, VAD
+or question buffering; inspect the separate fields rather than rewriting the
+expected text to make it pass.
+
 The workflow uses `QWEN_ASR_API_KEY` when present and otherwise the existing
 `QWEN_API_KEY`. The credential must authorize Alibaba's streaming ASR service;
 a key for a text-only gateway does not prove ASR access. `QWEN_ASR_MODEL` and

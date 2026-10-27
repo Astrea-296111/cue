@@ -112,6 +112,8 @@ GitHub Secrets 供 Actions 使用，不会自动出现在你的本机应用。�
 
 Qwen ASR 在“音频与转写”配置，可复用官方 DashScope 的自定义服务密钥；也可以选其他已支持的云 ASR 或本地 Whisper。本地模式需要先下载对应模型和运行时，不以文本模型密钥是否有效推断 ASR 权限。
 
+GitHub Actions 中可在仓库 **Settings → Secrets and variables → Actions → New repository secret** 添加 `QWEN_ASR_API_KEY`，填入有阿里云百炼流式语音识别权限的密钥。已有 `QWEN_API_KEY` 也可被测试工作流复用，但仍需确认它有语音权限。区域或型号与默认值不同时，可在同一页面的 Variables 设置 `QWEN_ASR_MODEL` 和 `QWEN_ASR_WEBSOCKET_URL`；不确定时先使用默认值。通过 Actions 的 **Real Mandarin scenario audio** 手动运行中文合成语音测试，结果在运行记录的 artifact 中。GitHub Secrets 供 Actions 使用，不会自动配置你电脑上的 CUE：本机仍需在应用设置中填写语音服务凭据。不要将密钥写进代码、配置文件或聊天。
+
 角色映射是输入线索：低置信或跨通道回声可能标为待确认。在“简历与岗位 → 核对实际发言的角色和文字”查看最近记录，选择“我 / 面试官 / 待确认”，修改识别文字，点击“保存纠正”。保留原文和修订关系，不把真实口误偷偷改成从未说错。
 
 只有真人事件和你明确修订的发言进入已说账本。AI 显示过的建议单独保存，不能因为显示过就当作你已经照读。断线重发、重复 final 和 interim 修订按事件 ID/revision 处理。

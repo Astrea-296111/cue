@@ -1,0 +1,38 @@
+name: Real Mandarin scenario audio
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mandarin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Require trusted main
+        env:
+          TRUSTED_REF: ${{ github.ref }}
+        run: test "$TRUSTED_REF" = refs/heads/main
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run real ASR on synthetic Mandarin fragments
+        timeout-minutes: 5
+        env:
+          QWEN_ASR_API_KEY: ${{ secrets.QWEN_ASR_API_KEY || secrets.QWEN_API_KEY }}
+          QWEN_ASR_MODEL: ${{ vars.QWEN_ASR_MODEL }}
+          QWEN_ASR_WEBSOCKET_URL: ${{ vars.QWEN_ASR_WEBSOCKET_URL }}
+          QWEN_BASE_URL: ${{ vars.QWEN_BASE_URL }}
+        run: node scripts/evaluate-chinese-audio.cjs artifacts/chinese-audio
+      - name: Retain synthetic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-mandarin-${{ github.run_id }}
+          path: artifacts/chinese-audio/
+          if-no-files-found: warn
+          retention-days: 14
