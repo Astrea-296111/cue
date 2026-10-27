@@ -458,7 +458,7 @@ class QuestionResolver {
       const id = part.key || `sequence:${part.sequence}`;
       return { id, text: part.text, answered: !!part.final && this.answeredParts.get(id) === part.text, canMark: !!part.final };
     });
-    if (segments.some(part => part.answered)) text = segments.filter(part => !part.answered).map(part => part.text).join('\n');
+    if (!this.awaitingNewQuestion && segments.some(part => part.answered)) text = segments.filter(part => !part.answered).map(part => part.text).join('\n');
     const at = selected.reduce((latest, part) => Math.max(latest, part.at || 0), 0) || this.pendingAt || 0;
     const sourceKeys = selected.flatMap(part => part.keys || [part.key]).filter(Boolean);
     return this._snapshot({ epoch, questionId: this.currentQuestionId || '', revision: this.revision,
