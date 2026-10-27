@@ -26,6 +26,9 @@ test('A01/A02: actual main dispatches answerable interim before final and rememb
   assert.equal(app.value('lastFrozenSnapshot.asrFinal'),false);
   assert.equal(app.value('lastFrozenSnapshot.semanticStatus'),'answerable');
   await app.ask('say');assert.equal(app.calls.length,1);
+  const english=createInterviewRuntime(t);await english.ready;
+  english.interim('How do you',{utteranceKey:'english',revision:1});await english.ask('say');assert.equal(english.calls.length,0);
+  english.interim('How do you prevent duplicate task execution?',{utteranceKey:'english',revision:2});await tick();await tick();assert.equal(english.calls.length,1);
 });
 
 test('A03: pending keys expire on new draft, reset and provider source generation; timeout is visible',async t=>{

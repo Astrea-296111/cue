@@ -73,6 +73,8 @@ function isLikelyIncompleteFragment(value) {
   if (!body) return true;
   if (isSpeechNoise(text)) return true;
   if (hasQuestionMark(text)) return false;
+  if(/^(?:how|why|what|which|where|when|could|would|can)(?:\s+(?:do|does|did|would|can|could|should|is|are|will|you|we|it|the|a|an|to|of|about))*$/i.test(text))return true;
+  if(text.split(/\s+/).length<=5&&/^(?:how|why|could|would|can)\b/i.test(text)&&/\b(?:use|prevent|implement|design|handle|explain|describe|compare|build|return|duplicate)\s*$/i.test(text))return true;
 
   // Tiny partials such as “如果平”, “为什么用”, “还有一个问题” must never
   // replace a previously confirmed question just because ASR emitted sentence_end.
