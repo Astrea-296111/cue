@@ -90,8 +90,9 @@ function finish(code) {
   if (finished) return;
   finished = true; clearTimeout(timeout);
   for (const win of [...windows]) if (!win.isDestroyed()) win.destroy();
-  fs.rmSync(data, { recursive: true, force: true });
-  app.exit(code);
+  try { fs.rmSync(data, { recursive: true, force: true }); }
+  catch (error) { console.error('UI_CLEANUP_WARNING', error.message); }
+  finally { app.exit(code); }
 }
 app.on('quit', () => { if (!finished) { console.error('UI_EARLY_QUIT'); process.exitCode = 1; } });
 app.on('browser-window-created', (_event, win) => {
