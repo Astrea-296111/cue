@@ -8,6 +8,7 @@
   let preview = null, busy = false, returnFocus = null, refreshSequence = 0;
   let speechChoosers = [];
   const jobChooser = window.CueCaptureSafeSelect.install($('personal-job'));
+  document.getElementById('settings-scrim').append(document.getElementById('personal-job-options'));
   document.body.append($('personal-job-options'));
   const status = message => { $('personal-status').textContent = message; };
   const labels = { ai_supply_chain: 'AI 算法 · 供应链', java_security: 'Java 后端 · 基础安全' };
@@ -31,8 +32,10 @@
     busy = value;
     for (const id of ['personal-import', 'personal-confirm', 'personal-cancel', 'personal-job']) $(id).disabled = value;
   }
+  let previewInert=[];
   function closePreview() {
     preview = null; $('personal-preview').hidden = true;
+    for(const [node,old] of previewInert)node.inert=old;previewInert=[];
     returnFocus?.focus(); returnFocus = null;
   }
   $('personal-import').addEventListener('click', async () => {
@@ -46,6 +49,8 @@
       const data = result.summary || result.state || result;
       const jobs = Array.isArray(data.jobProfiles) ? data.jobProfiles.length : Object.keys(data.jobProfiles || {}).length;
       $('personal-preview-summary').textContent = `${data.cardCount ?? data.facts ?? data.counts?.facts ?? result.cardCount ?? '已校验'} 张卡；${jobs} 个岗位；${data.sourceCount ?? result.sourceCount ?? '已校验'} 个来源。${result.alreadyApplied ? '此版本已导入，本机编辑将保留。' : ''}`;
+      previewInert=[...document.body.children].filter(node=>node.id!=='personal-preview'&&node.tagName!=='SCRIPT').map(node=>[node,node.inert]);
+      for(const [node] of previewInert)node.inert=true;
       $('personal-preview').hidden = false;
       document.querySelector('#personal-preview .personal-dialog').focus();
       status('资料校验完成，等待确认。');
@@ -132,7 +137,7 @@
   bridge.on('materials:personal:changed', () => void refreshState());
   bridge.on('materials:changed', () => { if (!busy) void refreshState(); });
   $('personal-preview').addEventListener('keydown', event => {
-    if (event.key === 'Escape' && !busy) { event.preventDefault(); closePreview(); }
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); if (!busy) closePreview(); return; }
     if (event.key !== 'Tab') return;
     const nodes = [...$('personal-preview').querySelectorAll('button:not(:disabled)')];
     if (!nodes.length) return;

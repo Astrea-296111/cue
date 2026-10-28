@@ -25,6 +25,7 @@ const { requestWindowProtection, setProtectedMouseEvents } = require('./window-p
 
 let forcedPassthrough = false;
 let manualDragState = null;
+const modalWindows = new WeakSet();
 
 const PASSTHROUGH_ACCELERATOR =
   'CommandOrControl+Shift+I';
@@ -104,7 +105,7 @@ function applyForcedPassthrough() {
   ) {
     setWindowPassthrough(
       win,
-      forcedPassthrough
+      forcedPassthrough && !modalWindows.has(win)
     );
   }
 }
@@ -116,7 +117,9 @@ function toggleForcedPassthrough() {
   applyForcedPassthrough();
 
   sendStatus(
-    forcedPassthrough
+    forcedPassthrough && getCueOverlayWindows().some(win=>modalWindows.has(win))
+      ? '已选择鼠标穿透；弹窗打开期间暂时允许交互，关闭弹窗后恢复。'
+      : forcedPassthrough
       ? '鼠标穿透已开启。再次按 Ctrl/Cmd+Shift+I 恢复 Cue 鼠标交互。'
       : '鼠标穿透已关闭。Cue 已恢复正常鼠标交互。'
   );
@@ -737,6 +740,17 @@ ipcMain.on(
       return;
     }
 
+    if (value === '__cue_modal_open__') {
+      modalWindows.add(senderWindow);
+      setWindowPassthrough(senderWindow, false);
+      return;
+    }
+    if (value === '__cue_modal_closed__') {
+      modalWindows.delete(senderWindow);
+      setWindowPassthrough(senderWindow, forcedPassthrough);
+      return;
+    }
+
     if (
       value === DRAG_START
     ) {
@@ -777,7 +791,7 @@ ipcMain.on(
     // - forced passthrough ON: all clicks pass through until shortcut toggled off.
     setWindowPassthrough(
       senderWindow,
-      forcedPassthrough
+      modalWindows.has(senderWindow) ? false : forcedPassthrough
         ? true
         : !!value
     );

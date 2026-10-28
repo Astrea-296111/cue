@@ -115,7 +115,7 @@
   </div>
 
   <!-- Settings -->
-  <div id="settings-scrim" class="hidden">
+  <div id="settings-scrim" data-cue-modal class="hidden">
     <div id="settings" class="glass">
       <div class="s-head">
         <div class="s-title">设置</div>
@@ -129,7 +129,7 @@
         <button class="s-tab" data-tab="personal">简历与岗位</button>
         <button class="s-tab" data-tab="prep">🎯 准备</button>
         <button class="s-tab" data-tab="style">✨ 风格</button>
-        <button class="s-tab" data-tab="qa">💬 问答</button>
+        <button class="s-tab" data-tab="qa">💬 薪资与反问</button>
       </div>
 
       <!-- Tab: Keys -->
@@ -174,6 +174,7 @@
         <div class="s-field"><span>服务地址</span><input id="azure-endpoint" type="text" placeholder="https://host.cognitiveservices.azure.com" autocomplete="off" /></div>
 
 <button id="test-provider" type="button">测试当前服务连接</button><div id="provider-test-result" role="status"></div>
+<label class="s-label"><input type="checkbox" id="screen-vision">确认当前服务与模型支持视觉截图</label><div id="screen-vision-status" class="s-note" role="status"></div>
         <label class="s-label">模型 <span class="s-hint">关闭深度思考使用快速模型，开启后使用深度模型</span></label>
         <div class="s-field"><span>快速模型</span><input id="model-fast" type="text" autocomplete="off" /></div>
         <div class="s-field"><span>深度思考</span><input id="model-smart" type="text" autocomplete="off" /></div>
@@ -199,6 +200,7 @@
 
       <!-- Tab: Transcription -->
       <div class="s-body s-tab-pane hidden" data-pane="transcription">
+        <section class="whisper-card"><h3>音频角色</h3><p class="s-note">双声道使用系统音频识别面试官；单麦克风需要在对话记录中确认说话人。</p><div><button type="button" data-speech-mode="dual-channel">双声道</button><button type="button" data-speech-mode="single-microphone">单麦克风</button></div><div id="speech-mode-status" class="s-note" role="status"></div></section>
         <label class="s-label">音频服务凭据</label>
         <div class="s-field"><span>Deepgram</span><input id="key-deepgram" type="password" placeholder="dg-..." autocomplete="off" /></div>
         <label class="s-label">语音识别服务</label>
@@ -293,6 +295,18 @@
 
       <!-- Tab: Project materials -->
       <div class="s-body s-tab-pane hidden" data-pane="profile">
+<section class="whisper-card"><h3>材料概况</h3><div id="fact-pack-status" role="status"></div></section>
+<section class="whisper-card" aria-label="项目问答库"><h3>项目问答库</h3>
+<p class="s-note">导入问答文件：先预览，确认后生效；相同 ID 更新原条目，不影响其他项目。</p>
+<button type="button" id="qa-import">导入问答文件…</button><button type="button" id="qa-export">导出</button><button type="button" id="qa-refresh">刷新</button>
+<label><input type="checkbox" id="qa-detailed">直达显示详答</label>
+<input id="qa-search" placeholder="搜索问答条目" aria-label="搜索问答条目"><div id="qa-count" role="status"></div><div id="qa-items"></div><button id="qa-more" type="button" hidden>显示更多</button>
+<p class="s-note">试问仅检查本地匹配，不调用大模型；未命中不代表导入失败。</p><input id="qa-question" placeholder="输入问题试问" aria-label="输入问题试问"><select id="qa-project" data-capture-safe aria-label="试问项目"><option value="">自动选择</option></select><button id="qa-try" type="button">试问（不调用模型）</button>
+<pre id="qa-status" role="status" aria-live="polite"></pre>
+<details><summary>编辑问答 JSON（整条，保留换行）</summary><textarea id="qa-editor" rows="8" aria-label="问答条目 JSON"></textarea><button id="qa-save-item" type="button">保存当前条目</button><button id="qa-preview-text" type="button">按问答库文件预览</button></details>
+</section>
+<div id="project-index-slot"></div>
+<details id="advanced-materials"><summary>高级材料管理</summary><p class="s-note">事实包、替换模式、旧手动资料和版本恢复；请先确认范围。</p>
         <label class="s-label">
           手动项目补充
           <span class="s-hint">
@@ -318,24 +332,11 @@
 <label class="s-label"><input id="manual-project-enabled" type="checkbox" /> 启用旧手动项目资料</label>
 <div class="s-note">事实卡与源码开关独立。旧手动长文本可能与新事实冲突，可在此停用；不会自动删除原文。</div>
 <div id="materials-migration-note" class="s-note" hidden>源码检索与项目事实已拆分。<button id="materials-dismiss" type="button">知道了</button></div>
-<section class="whisper-card" aria-label="实时上下文设置"><h3>实时上下文</h3>
-<div>最多保留当前题加近邻题：<button type="button" data-history-window="0">最近 1 轮</button><button type="button" data-history-window="1">最近 2 轮</button><button type="button" data-history-window="2">最近 3 轮</button></div>
-<label><input type="checkbox" id="live-candidate-speech">参考我实际回答（默认关闭，仅近邻范围）</label><div class="s-note">独立问题不带历史；旧 AI 建议和归档不会进入实时答题。</div>
-<label><input type="checkbox" id="screen-vision">确认当前服务与模型支持视觉</label>
-<div>音频角色：<button type="button" data-speech-mode="dual-channel">双声道：系统音频为面试官</button><button type="button" data-speech-mode="single-microphone">单麦克风：手动选择说话人</button></div>
-</section>
-<section class="whisper-card" aria-label="项目问答库"><h3>项目问答库</h3>
-<button type="button" id="qa-import">导入 JSON…</button><button type="button" id="qa-export">导出</button><button type="button" id="qa-refresh">刷新</button>
-<label><input type="checkbox" id="qa-detailed">直达显示详答</label>
-<input id="qa-search" placeholder="搜索条目或输入问题试问" aria-label="问答搜索与试问"><input id="qa-project" placeholder="项目 ID（同题跨项目时填写）" aria-label="试问项目"><button id="qa-try" type="button">试问（不调用模型）</button>
-<pre id="qa-status" role="status"></pre><div id="qa-items"></div>
-<details><summary>编辑问答 JSON（整条，保留换行）</summary><textarea id="qa-editor" rows="8" aria-label="问答条目 JSON"></textarea><button id="qa-save-item" type="button">保存当前条目</button><button id="qa-preview-text" type="button">按问答库文件预览</button></details>
-</section>
-<label class="s-label">事实卡与版本（仅本机保存）</label><div id="fact-pack-status" role="status"></div>
 <label class="s-label" for="material-mode">事实导入方式</label><select id="material-mode" class="s-select"><option value="merge">合并更新</option><option value="replace-projects">替换本次项目</option><option value="replace-all">替换全部事实</option></select>
 <label class="s-label" for="material-fact-paths">额外事实文件相对路径（文件夹 / ZIP，每行一项）</label><textarea id="material-fact-paths" rows="2" placeholder="interview/custom-facts.json"></textarea>
 <button id="fact-import" type="button">导入事实 JSON…</button><button id="fact-rebuild" type="button">重载事实资料</button><button id="materials-rollback" type="button" disabled>恢复上一版材料</button>
 <details><summary>编辑本地事实包</summary><textarea id="fact-editor" rows="5" aria-label="本地事实包 JSON"></textarea><button id="fact-save" type="button">校验并预览</button></details>
+</details>
 
       </div>
 
@@ -389,6 +390,7 @@
 
       <!-- Tab: Style -->
       <div class="s-body s-tab-pane hidden" data-pane="style">
+        <section class="whisper-card" aria-label="实时上下文设置"><h3>实时上下文</h3><p class="s-note">轮数包含当前题及近邻面试官问题；独立题不带旧题，旧 AI 建议不作为本人发言。</p><div><button type="button" data-history-window="0">最近 1 轮</button><button type="button" data-history-window="1">最近 2 轮</button><button type="button" data-history-window="2">最近 3 轮</button></div><label><input type="checkbox" id="live-candidate-speech">参考我实际回答（默认关闭，仅近邻范围）</label><div id="live-context-status" class="s-note" role="status"></div></section>
         <label class="s-label">回答风格 <span class="s-hint">默认按问题复杂度调整回答长度</span></label>
         <textarea id="ai-rules" rows="10" spellcheck="false" maxlength="2000" placeholder="例如：
 - 使用自然的口语，先说结论。
@@ -403,9 +405,9 @@
     </div>
   </div>
 
-  <div id="qa-preview" hidden><section class="glass qa-dialog" role="dialog" aria-modal="true" aria-labelledby="qa-preview-title" tabindex="-1"><h2 id="qa-preview-title">问答导入预览</h2><pre id="qa-preview-details"></pre><button type="button" id="qa-confirm">应用预览中的更新</button><button type="button" id="qa-cancel">取消</button></section></div>
+  <div id="qa-preview" data-cue-modal hidden><section class="glass qa-dialog" role="dialog" aria-modal="true" aria-labelledby="qa-preview-title" tabindex="-1"><div class="qa-dialog-header"><h2 id="qa-preview-title">问答导入预览</h2><button type="button" id="qa-close" aria-label="关闭预览">关闭</button></div><p>当前只是预览，确认后才生效；取消不会应用导入。</p><div id="qa-preview-details"></div><p id="qa-preview-error" role="alert" hidden></p><div class="qa-dialog-actions"><button type="button" id="qa-cancel">取消</button><button type="button" id="qa-confirm">确认导入</button></div></section></div>
   <!-- Global preview remains visible from every settings page. -->
-  <div id="materials-preview" hidden>
+  <div id="materials-preview" data-cue-modal hidden>
     <section id="materials-dialog" class="glass" role="dialog" aria-modal="true" aria-labelledby="materials-preview-title" aria-describedby="materials-preview-summary" tabindex="-1">
       <h2 id="materials-preview-title">材料导入预览</h2>
       <p id="materials-preview-summary" role="status" aria-live="polite"></p>
@@ -419,7 +421,7 @@
   </div>
 
   <!-- First-run tutorial / walkthrough -->
-  <div id="onboard-scrim" class="hidden">
+  <div id="onboard-scrim" data-cue-modal class="hidden">
     <div id="onboard" class="glass">
       <div class="ob-dots" id="ob-dots"></div>
       <div class="ob-icon" id="ob-icon"></div>
@@ -436,7 +438,7 @@
   </div>
 
   <!-- Assistant access request -->
-  <div id="consent-scrim" class="hidden">
+  <div id="consent-scrim" data-cue-modal class="hidden">
     <div id="consent" class="glass">
       <div class="cs-title" id="cs-title"></div>
       <div class="cs-body" id="cs-body"></div>
@@ -447,7 +449,7 @@
     </div>
   </div>
 
-  <div id="personal-preview" hidden>
+  <div id="personal-preview" data-cue-modal hidden>
     <section class="glass personal-dialog" role="dialog" aria-modal="true" aria-labelledby="personal-preview-title" tabindex="-1">
       <h2 id="personal-preview-title">个人资料导入预览</h2>
       <p id="personal-preview-summary" role="status" aria-live="polite"></p>

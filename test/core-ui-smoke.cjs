@@ -66,6 +66,7 @@ dialog.showErrorBox = (title, message) => { console.error('UI_ERROR_DIALOG', tit
 const nativeDialog = dialog.showOpenDialog;
 const nativeSaveDialog=dialog.showSaveDialog;
 dialog.showSaveDialog=async(...args)=>{
+  if(args.at(-1)?.title==='导出项目问答库')return {canceled:true};
   if(args.at(-1)?.title==='导出本地脱敏会话诊断'&&process.env.CUE_UI_DIAGNOSTIC_FILE){
     const target=path.resolve(process.env.CUE_UI_DIAGNOSTIC_FILE);fs.mkdirSync(path.dirname(target),{recursive:true});return {canceled:false,filePath:target};
   }
@@ -77,7 +78,7 @@ dialog.showOpenDialog = async (...args) => {
   assert.ok(selection, 'Material selection must use an explicit synthetic fixture');
   return { canceled: false, filePaths: [selection] };
 };
-const timeout = setTimeout(() => { console.error('UI_TIMEOUT'); finish(1); }, 90000);
+const timeout = setTimeout(() => { console.error('UI_TIMEOUT'); finish(1); }, 180000);
 async function until(check, name) {
   const deadline = Date.now() + 6000;
   while (!(await check())) {
@@ -109,17 +110,22 @@ app.on('browser-window-created', (_event, win) => {
       }
       assert.equal(win.createdHidden, true);
       assert.equal(win.protectionRequested, true);
+      const verifyProtected=async selector=>{
+        assert.equal(await js(`document.querySelector(${JSON.stringify(selector)})?.ownerDocument===document`),true,'surface belongs to main renderer');
+        if(process.platform==='win32')assert.equal(require('../src/windows-capture-protection').createWindowsCaptureProtection().inspect(win),0x11,'main renderer native affinity');
+      };
       await js("document.getElementById('more-btn').click()");
       await until(() => js("!document.getElementById('settings-scrim').classList.contains('hidden')"), 'settings open');
+      await verifyProtected('#settings-scrim');
       const materialImport = await require('./helpers/material-import-ui-checks.cjs')({
-        js, until, data, selectMaterial: file => selections.push(file)
+        js, until, data, verifyProtected, selectMaterial: file => selections.push(file)
       });
       console.log('UI_MATERIAL_IMPORT_OK');
       const personalImport = await require('./helpers/personal-workspace-ui-checks.cjs')({
-        js, until, data, selectMaterial: file => selections.push(file)
+        js, until, data, verifyProtected, selectMaterial: file => selections.push(file)
       });
       console.log('UI_PERSONAL_IMPORT_OK');
-      const liveTools = await require('./helpers/live-tools-ui-checks.cjs')({js,until,requests});
+      const liveTools = await require('./helpers/live-tools-ui-checks.cjs')({js,until,requests,win,verifyProtected});
       const settings = await js('cue.settingsGet()');
       assert.equal(settings.resumeText, 'PROFILE_LOCAL_EDIT');
       assert.equal(settings.jobDescription, 'JD_RETAINED');

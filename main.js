@@ -1462,6 +1462,7 @@ ipcMain.handle('qa:prepare',async(_event,input={})=>{
   return qaService.prepare(materialService,input);
 });
 ipcMain.handle('qa:commit',(_event,input)=>materialService.commitImport(input));
+ipcMain.handle('qa:discard',(_event,token)=>typeof token==='string'&&materialService.previews.delete(token));
 ipcMain.handle('qa:try',(_event,input={})=>materialService.snapshot.qaIndex.match(String(input.question||''),{projectId:input.projectId||store.getSettings().currentProjectId,detailed:!!input.detailed}));
 ipcMain.handle('qa:edit',(_event,input)=>qaService.edit(materialService,input));
 ipcMain.handle('qa:export',async()=>{
@@ -1780,7 +1781,7 @@ ipcMain.on('llm:rendered', (_event, payload) => {
 });
 ipcMain.on('mic:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('you', arrayBuffer); });
 ipcMain.on('system:pcm', (_e, arrayBuffer) => { if (state.capturing) routeAudio('them', arrayBuffer); });
-ipcMain.on('mouse:ignore', (_e, v) => { if (win) setProtectedMouseEvents(win, !!v); });
+ipcMain.on('mouse:ignore', (_e, v) => { if (win) setProtectedMouseEvents(win, typeof v === 'boolean' ? v : false); });
 ipcMain.on('open-pane', (_e, url) => { shell.openExternal(url).catch(() => {}); });
 ipcMain.on('app:quit', () => app.quit());
 ipcMain.on('log', (_e, msg) => console.log('[renderer]', msg));

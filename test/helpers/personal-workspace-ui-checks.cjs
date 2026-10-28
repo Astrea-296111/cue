@@ -8,7 +8,7 @@ const {ProjectMaterialService} = require('../../src/project-material-service');
 const {migrateFactIndex} = require('../../src/project-fact-packs');
 
 // Synthetic identities and statements only; real renderer/preload/IPC/storage.
-module.exports = async function({js,until,data,selectMaterial}) {
+module.exports = async function({js,until,data,selectMaterial,verifyProtected}) {
   const facts = migrateFactIndex(fixture(4));
   facts.cards = facts.cards.map(card => ({...card,cardId:card.cardId.replace('.synthetic-', '.personal-ui-')}));
   const workspace = validatePersonalWorkspace({schemaVersion:2,facts,profile:{
@@ -20,6 +20,7 @@ module.exports = async function({js,until,data,selectMaterial}) {
   await js("document.querySelector('.s-tab[data-tab=personal]').click()");
   selectMaterial(file); await js("document.getElementById('personal-import').click()");
   await until(()=>js("!document.getElementById('personal-preview').hidden"),'single-file personal preview');
+  await verifyProtected('#personal-preview');
   assert.match(await js("document.getElementById('personal-preview-summary').textContent"),/4 张卡；2 个岗位/);
   await js("document.getElementById('personal-confirm').click()");
   await until(()=>js("document.getElementById('personal-preview').hidden"),'personal committed');

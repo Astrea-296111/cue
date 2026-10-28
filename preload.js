@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('cue', {
   qaState:()=>ipcRenderer.invoke('qa:state'),
   qaPrepare:input=>ipcRenderer.invoke('qa:prepare',input||{}),
   qaCommit:input=>ipcRenderer.invoke('qa:commit',input),
+  qaDiscard:token=>ipcRenderer.invoke('qa:discard',token),
   qaTry:input=>ipcRenderer.invoke('qa:try',input),
   qaEdit:input=>ipcRenderer.invoke('qa:edit',input),
   qaExport:()=>ipcRenderer.invoke('qa:export'),

@@ -18,7 +18,7 @@ async function prepare(service, { filePath, text } = {}) {
   }
   if (typeof raw !== 'string') throw new Error('请选择 JSON 或输入问答正文');
   const index = parse(raw), preview = await service.prepareImport({ index, mode: 'merge' });
-  return { ...preview, qaSummary: index.cards.map(c => ({ id: c.cardId, question: c.questions?.[0], projectId: c.projectId,
+  return { ...preview, fileName: filePath ? require('path').basename(filePath) : '编辑器内容', qaProjects:index.projects.map(p=>({id:p.id,name:p.name})), qaSummary: index.cards.map(c => ({ id: c.cardId, question: c.questions?.[0], projectId: c.projectId, answerShort:c.answerShort, answerDetailed:c.qa?.answerDetailed||'',
     shortChars: [...(c.answerShort || c.text)].length, warning: [...(c.answerShort || c.text)].length > 260 ? '短答超过 260 字，将完整展示；建议编辑精简' : '' })) };
 }
 async function edit(service, { cardId, item, enabled, remove, baseGeneration }) {

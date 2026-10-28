@@ -12,6 +12,21 @@ const tick = () => new Promise(setImmediate), plain = v => JSON.parse(JSON.strin
 const sample = (items = []) => ({format:'cue-qa/v1',projects:[{id:'maple',name:'枫叶平台',aliases:['Maple']}],items:items.length?items:[
   {id:'qa.maple.idempotency',projectId:'maple',question:'如何避免重复提交？',aliases:['重复请求怎样处理？'],answerShort:'保留原文。\n第二行保留。',answerDetailed:'详答第一段。\n\n详答第二段。',boundaries:['这是设计建议。'],sourceType:'proposed_design',applicableVersion:'design-v1'}]});
 async function install(app, value = sample()) { const p=await app.invoke('qa:prepare',{text:JSON.stringify(value)});await app.invoke('qa:commit',p); }
+test('canceling a QA preview releases it without changing the material generation',async t=>{
+  const app=createInterviewRuntime(t);await app.ready;const before=(await app.invoke('qa:state')).generation;
+  const preview=await app.invoke('qa:prepare',{text:JSON.stringify(sample())});
+  assert.equal(await app.invoke('qa:discard',preview.token),true);
+  assert.equal((await app.invoke('qa:state')).generation,before);
+  await assert.rejects(app.invoke('qa:commit',preview),/失效/);
+});
+test('52 synthetic QA entries survive repeat import and a service restart',async t=>{
+  const app=createInterviewRuntime(t);await app.ready;
+  const items=Array.from({length:52},(_,i)=>({id:`qa.maple.batch${i}`,projectId:'maple',question:`合成问题 ${i} 怎么处理？`,answerShort:`合成答案 ${i}。`}));
+  const value=sample(items);await install(app,value);await install(app,value);
+  const state=await app.invoke('qa:state');assert.equal(state.library.items.filter(item=>item.id.startsWith('qa.maple.batch')).length,52);
+  const restarted=new (require('../src/project-material-service').ProjectMaterialService)({directory:app.temp,bundled:compile(JSON.stringify(value))});
+  assert.equal(restarted.snapshot.facts.cards.filter(card=>card.cardId.startsWith('qa.maple.batch')).length,52);
+});
 const header = (type='vibe-coding',title='Build a read-only query helper',stage='plan') => `CUE_SCREEN ${JSON.stringify({type,title,observed:['Visible synthetic task'],inferred:[],missing:['No hidden schema assumed'],stage})}\n`;
 
 test('long spoken scenario retains consecutive ASR fragments and incomplete leading context',()=>{

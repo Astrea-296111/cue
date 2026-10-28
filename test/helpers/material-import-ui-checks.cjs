@@ -4,7 +4,7 @@ const {ProjectMaterialService}=require('../../src/project-material-service');
 const {writeFolder}=require('./material-fixture');
 // The picker uses synthetic disk fixtures. Renderer, preload, material IPC,
 // scanner, atomic publication, and restart reconstruction all run normally.
-module.exports=async function({js,until,data,selectMaterial}){
+module.exports=async function({js,until,data,selectMaterial,verifyProtected}){
   await js("document.querySelector('.s-tab[data-tab=profile]').click()");
   await until(()=>js("!document.querySelector('.s-tab-pane[data-pane=profile]').classList.contains('hidden')"),'material page opens');
   assert.equal(await js("document.querySelector('.s-tab-pane[data-pane=keys]').contains(document.getElementById('materials-preview'))"),false);
@@ -26,6 +26,7 @@ module.exports=async function({js,until,data,selectMaterial}){
   await js("window.materialProgress=[];cue.on('materials:progress',p=>window.materialProgress.push(p))");
   selectMaterial(folder);await js("document.getElementById('project-import-folder').focus();document.getElementById('project-import-folder').click();document.getElementById('project-import-folder').click()");
   await until(()=>js("!document.getElementById('materials-preview').hidden"),'folder preview visible from material page');
+  await verifyProtected('#materials-preview');
   const modal=await js("(()=>{const p=document.getElementById('materials-dialog'),r=p.getBoundingClientRect();return {role:p.getAttribute('role'),modal:p.getAttribute('aria-modal'),width:r.width,height:r.height,top:r.top,bottom:r.bottom,viewport:innerHeight,focus:p.contains(document.activeElement),pageHidden:document.querySelector('.s-tab-pane[data-pane=profile]').classList.contains('hidden')};})()");
   assert.equal(modal.role,'dialog');assert.equal(modal.modal,'true');assert.ok(modal.width>0&&modal.height>0&&modal.top>=0&&modal.bottom<=modal.viewport+1);assert.equal(modal.focus,true);assert.equal(modal.pageHidden,false);
   assert.equal((await js('cue.materialState()')).generation,before.generation,'folder preview does not publish');
@@ -47,6 +48,7 @@ module.exports=async function({js,until,data,selectMaterial}){
   assert.ok(!JSON.stringify(progress).includes(data),'progress exposes counters without local paths');
   await js("document.getElementById('materials-rollback').click()");
   await until(async()=>(await js('cue.materialState()')).counts.sourceChunks===before.counts.sourceChunks,'restore source fixture after lifecycle test');
+  await js("document.getElementById('advanced-materials').open=true");
   const edited=JSON.parse(JSON.stringify(facts.index));edited.cards[0].text+=' UI_PREVIEW_CANCEL_ONLY';
   const cancelBase=await js('cue.materialState()');
   await js(`document.getElementById('fact-editor').value=${JSON.stringify(JSON.stringify(edited))};document.getElementById('fact-save').closest('details').open=true;document.getElementById('fact-save').focus();document.getElementById('fact-save').click()`);

@@ -1016,4 +1016,36 @@ select[data-capture-safe][hidden] { display: none !important; }
 #qa-preview {position:fixed;inset:0;background:#0009;z-index:10005;display:flex;align-items:center;justify-content:center} #qa-preview[hidden] {display:none} .qa-dialog {padding:20px;max-width:90vw;width:650px;max-height:85vh;overflow:auto} #qa-preview-details,#qa-status {white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;max-height:45vh;overflow:auto} #qa-items {max-height:260px;overflow:auto} .qa-row {padding:8px;border-bottom:1px solid #8884;font-size:12px} #qa-search,#qa-project {width:100%;margin:5px 0} #qa-editor {width:100%}
 .answer-bound-question {font-size:12px;opacity:.8;white-space:pre-wrap;overflow-wrap:anywhere;padding:4px 0} #screen-task-summary {white-space:pre-wrap} #screen-task-attachment {width:100%;max-height:150px}
 #screen-copy-prompt {border:1px solid #719cdb66;background:#27446a88;color:#e8f2ff;border-radius:8px;padding:6px 12px;margin:3px 8px;font-size:12px} #screen-copy-prompt[hidden] {display:none} #screen-controls button,#qa-import,#qa-export,#qa-refresh,#qa-try,#qa-save-item,#qa-preview-text,.qa-row button {border:1px solid #7894bb66;background:#33435e88;color:#eff5ff;border-radius:6px;padding:5px 8px}
+
+/* All setup and import UI remains on the protected renderer surface. */
+#settings, .qa-dialog, .personal-dialog, #materials-dialog { background:#191d27; color:#f3f6fc; opacity:1; -webkit-app-region:no-drag; }
+#settings { --tx-mut:#c3cbd8; --tx-1:#f3f6fc; --tx-2:#e4eaf4; }
+#settings .s-tab-pane > *, #settings .whisper-card > * { flex-shrink:0; }
+#settings h3, #settings label, #settings summary, #settings p, #settings pre, #settings div, .qa-dialog h2, .qa-dialog p, #qa-preview-details, .personal-dialog, #materials-dialog { color:inherit; }
+#settings .s-note, #settings .s-hint, #settings .s-hint-block { color:#c3cbd8; }
+#settings button, #settings input:not([type=checkbox]), #settings textarea, #settings .capture-safe-trigger, .qa-dialog button { color:#f3f6fc; background:#303a4e; border:1px solid #64748b; border-radius:6px; padding:6px 9px; font:inherit; }
+#settings input:not([type=checkbox]), #settings textarea { background:#111722; width:100%; user-select:text; }
+#settings input:not([type=checkbox]), .qa-dialog input { min-height:32px; }
+#settings input::placeholder, #settings textarea::placeholder { color:#adb8ca; opacity:1; }
+#settings button:disabled, .qa-dialog button:disabled { color:#aeb8c6; background:#30343c; opacity:.75; }
+#settings input[type=checkbox] { accent-color:#639cff; }
+#settings .s-tab.on, #settings .s-seg button.on, #settings [aria-pressed="true"] { background:#315eac; border-color:#a5c8ff; color:#fff; }
+#settings .s-tab.on::before, #settings .s-seg button.on::before, #settings [aria-pressed="true"]::before { content:'✓ '; }
+#settings-scrim .capture-safe-options { z-index:120; }
+#settings-scrim .capture-safe-trigger { width:100%; min-height:32px; }
+#qa-preview { padding:12px; -webkit-app-region:no-drag; }
+.qa-dialog { display:flex; flex-direction:column; gap:10px; overflow:hidden; width:min(650px,94vw); max-height:88vh; }
+.qa-dialog-header, .qa-dialog-actions { display:flex; gap:8px; justify-content:space-between; align-items:center; flex-shrink:0; flex-wrap:wrap; }
+.qa-dialog h2, .qa-dialog p { margin:0; }
+#qa-preview-details { flex:1; min-height:0; max-height:none; overflow:auto; white-space:normal; }
+.qa-dialog input { width:100%; padding:7px 9px; color:#f3f6fc; background:#111722; border:1px solid #64748b; border-radius:6px; font:inherit; }
+.qa-dialog input::placeholder { color:#adb8ca; opacity:1; }
+.qa-preview-list > div { padding:6px; border-bottom:1px solid #566172; overflow-wrap:anywhere; }
+.qa-preview-list > details { padding:6px; border-bottom:1px solid #566172; overflow-wrap:anywhere; }
+.qa-preview-list pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+.qa-row pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+#qa-preview-error, .qa-warning { color:#ffc4c4 !important; overflow-wrap:anywhere; }
+#qa-items { max-height:260px; overflow:auto; }
+#qa-search, #qa-question, #qa-editor { width:100%; }
+#settings [data-keyboard-focus="true"], .qa-dialog [data-keyboard-focus="true"], .personal-dialog [data-keyboard-focus="true"], #materials-dialog [data-keyboard-focus="true"] { outline:2px solid #a5c8ff; outline-offset:2px; }
 #screen-controls summary {color:#cad7e9} .answer-bound-question {color:#b8c7dc}

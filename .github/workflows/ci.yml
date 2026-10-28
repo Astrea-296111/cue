@@ -65,9 +65,19 @@ jobs:
       - name: Verify native Windows capture exclusion
         run: npm run test:protection -- --native-only
 
+      - name: Attempt desktop capture pixel verification
+        id: capture-pixels
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/windows-ui | Out-Null
+          npm run test:protection 2>&1 | Tee-Object -FilePath artifacts/windows-ui/capture-pixels.log
+          exit $LASTEXITCODE
+
       - name: Verify actual Windows UI and native synthetic hotkeys
         env:
           CUE_UI_SETTINGS_SCREENSHOT: artifacts/windows-ui/settings.png
+          CUE_UI_QA_SCREENSHOT: artifacts/windows-ui/qa-preview.png
           CUE_UI_SCREEN_SCREENSHOT: artifacts/windows-ui/vibe.png
           CUE_UI_DIAGNOSTIC_FILE: artifacts/windows-ui/diagnostic.json
           CUE_UI_QA_BENCHMARK_FILE: artifacts/windows-ui/qa-ui-performance.json

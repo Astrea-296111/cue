@@ -1573,6 +1573,11 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
 
   // ---- settings ----------------------------------------------------------
   const scrim = $('#settings-scrim');
+  const settingsChoosers=[...scrim.querySelectorAll('select')].filter(select=>!['personal-job','qa-project'].includes(select.id)).map(select=>{
+    const chooser=window.CueCaptureSafeSelect.install(select);
+    scrim.append(document.getElementById(select.id+'-options'));
+    return chooser;
+  });
 
   async function openSettings() {
     try {
@@ -1587,6 +1592,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
       }
 
       fillSettings();
+      for(const chooser of settingsChoosers)chooser.sync();
 
       // 显示 Settings
       scrim.classList.remove('hidden');
@@ -1797,7 +1803,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
       '<div id="project-semantic-status" class="s-note">本地语义检索未准备，仍可使用基础检索。</div>' +
       '<div class="s-note">会跳过 .env、私钥、凭据文件、node_modules、.git 和构建产物。回答时仅向所选模型发送与当前问题相关的检索片段。</div>';
 
-    textarea.insertAdjacentElement('afterend', card);
+    $('#project-index-slot').append(card);
     document.getElementById('project-import-folder')?.addEventListener('click', () => void importProjectIndex('folder'));
     document.getElementById('project-import-zip')?.addEventListener('click', () => void importProjectIndex('zip'));
     document.getElementById('project-index-clear')?.addEventListener('click', () => void clearProjectIndex());
@@ -2420,6 +2426,10 @@ cue.on(
     settings.salaryTarget = $('#salary-target').value.trim();
     settings.questionsToAsk = $('#questions-to-ask').value.trim();
     try {
+      // These controls save immediately from live-tools; do not overwrite them
+      // with the copy captured when the settings page was opened.
+      const latest = await cue.settingsGet();
+      for (const key of ['liveContextPolicy','speechInputMode','qaAnswerDetailed','providerOptions']) settings[key]=latest[key];
       settings = await cue.settingsSet(settings);
       $('#s-status').textContent = statusText();
       updateSmartTooltip();
@@ -2444,6 +2454,7 @@ cue.on(
 
   // ---- global keys -------------------------------------------------------
   document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && [...document.querySelectorAll('[data-cue-modal]')].some(el => el !== scrim && !el.hidden && !el.classList.contains('hidden'))) return;
     if (
       e.key === 'Escape' &&
       !scrim.classList.contains('hidden')
@@ -2463,6 +2474,7 @@ cue.on(
 
   // ---- click-through: only the UI blocks the mouse; empty gaps pass to your screen ----
   let ignoring = null;
+  let pointer = null, modalActive = false;
 
   function setIgnore(v) {
     if (v !== ignoring) {
@@ -2475,8 +2487,26 @@ cue.on(
   // 其他平台如果一开始就 setIgnore(true)，可能导致整个 UI 永久无法点击。
   const supportsForwardedMouseMove = isWindows || isMac;
 
+  function updateModalInteraction() {
+    const active = [...document.querySelectorAll('[data-cue-modal]')].some(el => !el.hidden && !el.classList.contains('hidden'));
+    if (active === modalActive) return;
+    modalActive = active;
+    cue.setIgnoreMouse(active ? '__cue_modal_open__' : '__cue_modal_closed__');
+    ignoring = null;
+    if (active || !supportsForwardedMouseMove || !pointer) setIgnore(false);
+    else {
+      const el=document.elementFromPoint(pointer.x,pointer.y);
+      setIgnore(!(el && el.closest('#toolbar, #panel-wrap, #transcript-sidebar, [data-cue-modal], .capture-safe-options')));
+    }
+  }
+  const modalObserver = new MutationObserver(updateModalInteraction);
+  for (const modal of document.querySelectorAll('[data-cue-modal]')) modalObserver.observe(modal,{attributes:true,attributeFilter:['hidden','class']});
+  document.addEventListener('focusin', event=>{if(event.target instanceof HTMLElement)event.target.dataset.keyboardFocus='true';});
+  document.addEventListener('focusout', event=>{if(event.target instanceof HTMLElement)delete event.target.dataset.keyboardFocus;});
+
   if (supportsForwardedMouseMove) {
     document.addEventListener('mousemove', (e) => {
+      pointer = {x:e.clientX,y:e.clientY};
       const el = document.elementFromPoint(
         e.clientX,
         e.clientY
@@ -2486,11 +2516,11 @@ cue.on(
         el &&
         el.closest &&
         el.closest(
-          '#toolbar, #panel-wrap, #transcript-sidebar, #settings-scrim, #onboard-scrim, #consent-scrim, .capture-safe-options'
+          '#toolbar, #panel-wrap, #transcript-sidebar, [data-cue-modal], .capture-safe-options'
         )
       );
 
-      setIgnore(!overUI);
+      setIgnore(modalActive ? false : !overUI);
     });
 
     // 默认空白区域鼠标穿透；
