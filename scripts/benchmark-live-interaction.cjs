@@ -8,9 +8,9 @@ const {QuestionResolver}=require('../src/question-resolver');
 const {createInterviewRuntime}=require('../test/helpers/interview-agent-runtime');
 const {classify}=require('../src/screen-task-router');
 const topics=['持久化快照','输入版本','幂等身份','故障恢复','执行租约','资源限额','取消请求','状态回查','消息确认','超时控制','只读权限','参数校验','重复关联','空值处理','时间范围','单位换算','聚合粒度','错误回传','任务重试','结果校验'];
-function library(){return {format:'cue-qa/v1',projects:[{id:'cedar',name:'杉木平台',aliases:['Cedar']}],items:Array.from({length:1000},(_,i)=>({
+function library(){return {format:'cue-qa/v1',projects:[{id:'cedar',name:'杉木平台',aliases:['Cedar'],kind:'knowledge'}],items:Array.from({length:1000},(_,i)=>({
  id:`qa.cedar.case-${i}`,projectId:'cedar',question:`第${i}类任务的${topics[i%20]}如何保证并发请求的数据一致性？`,aliases:[],
- answerShort:`这是合成设计建议。第${i}类任务先固定${topics[i%20]}的输入契约，再通过受控并发测试验证一致性。`,sourceType:'proposed_design',enabled:true,applicableVersion:'synthetic-v1'}))};}
+ answerShort:`这是合成设计建议。第${i}类任务先固定${topics[i%20]}的输入契约，再通过受控并发测试验证一致性。`,sourceType:'general_knowledge',delivery:'prefer_verbatim',enabled:true,applicableVersion:'synthetic-v1'}))};}
 function heldout(){return topics.flatMap((topic,offset)=>{const i=100+offset;const q=`第${i}类任务的${topic}如何保证并发请求的数据一致性`;return [
  {id:`p-${i}-a`,question:'麻烦讲讲'+q+'？',expected:`qa.cedar.case-${i}`},
  {id:`p-${i}-b`,question:q.replace('如何','怎么')+'呢？',expected:`qa.cedar.case-${i}`},

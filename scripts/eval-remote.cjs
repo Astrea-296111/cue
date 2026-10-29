@@ -29,7 +29,7 @@ function read(file, maximum = cipher.MAX_INPUT_BYTES) {
 function parseArgs(args) {
   const options = {profile:'smoke', provider:'all', pollMs:5000, waitMs:8*60*60*1000, discoverModels:false, detach:false};
   const names = {'--payload':'payloadFile','--judge-reference':'judgeReferenceFile','--scenarios':'scenarioFile','--profile':'profile','--provider':'provider','--application':'applicationCommit',
-    '--output-dir':'outputDir','--resume':'resumeFile','--repository':'repository','--shards':'shards','--only-shard':'onlyShard','--repeats':'repeats','--concurrency':'concurrency',
+    '--output-dir':'outputDir','--resume':'resumeFile','--repository':'repository','--imports':'importsFile','--shards':'shards','--only-shard':'onlyShard','--repeats':'repeats','--concurrency':'concurrency',
     '--retry-limit':'retryLimit','--poll-ms':'pollMs','--wait-ms':'waitMs','--label':'label','--output-ceiling':'outputCeiling','--timeout-ms':'timeoutMs','--source-snapshot':'sourceSnapshot'};
   for (let index=0; index<args.length; index++) {
     const key=args[index];
@@ -68,6 +68,7 @@ function preparePayload(options) {
   if(activeJobProfileId!==undefined)profile.activeJobProfileId=activeJobProfileId;
   const payload={schemaVersion:2,facts:workspace.facts,profile,revision:workspace.revision,
     scenarios:options.scenarioFile?read(options.scenarioFile):embeddedScenarios,evaluation:embeddedEvaluation||{}};
+  if(options.importsFile)payload.imports=require('./lib/evaluation-imports.cjs').validateImports(read(options.importsFile));
   for (const name of ['sourceManifest','mergeLog']) if (workspace[name] !== undefined) payload[name]=workspace[name];
   if (options.judgeReferenceFile) payload.judgeReference=projectJudgeReference(read(options.judgeReferenceFile));
   if (!payload.facts || !payload.profile || !payload.scenarios) throw new Error('A workspace payload and multi-turn scenarios are required.');
@@ -175,7 +176,7 @@ async function runRemote(options,{github,log=message=>process.stdout.write(messa
     fs.mkdirSync(directory,{recursive:true,mode:0o700});fs.chmodSync(directory,0o700);
     manifest=path.join(directory,'resume.json');
     const payload=preparePayload(options);save(path.join(directory,'payload.json'),payload);
-    state={schemaVersion:1,kind:'cue-remote-evaluation',repository,trustedSha,tag,directory,createdAt:new Date().toISOString(),options:{...options,payloadFile:undefined,scenarioFile:undefined,judgeReferenceFile:undefined},runs:Array.from({length:options.shards},(_,index)=>({shardIndex:index,tag:tag+'-s'+index,stage:'pending'})).filter(run=>options.onlyShard===undefined||run.shardIndex===options.onlyShard)};
+    state={schemaVersion:1,kind:'cue-remote-evaluation',repository,trustedSha,tag,directory,createdAt:new Date().toISOString(),options:{...options,payloadFile:undefined,scenarioFile:undefined,judgeReferenceFile:undefined,importsFile:undefined},runs:Array.from({length:options.shards},(_,index)=>({shardIndex:index,tag:tag+'-s'+index,stage:'pending'})).filter(run=>options.onlyShard===undefined||run.shardIndex===options.onlyShard)};
     save(manifest,state);
   }
   github ||= new Github(state.repository);

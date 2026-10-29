@@ -3,7 +3,7 @@
   const $ = id => document.getElementById(id), cue = window.cue;
   let state, preview, editingId, prompt = '', settings, returning, screenType = null, qaBusy=false, qaLimit=100, modalInert=[], qaSelect, settingsEpoch=0;
   new MutationObserver(()=>{if($('settings-scrim').classList.contains('hidden'))settingsEpoch++;}).observe($('settings-scrim'),{attributes:true,attributeFilter:['class']});
-  const reasons={'no-match':'没有找到对应问法或条件不同','disabled-or-evidence-only':'条目已停用或仅作为生成资料','ambiguous-project':'请先明确本题所属项目','excluded-intent':'当前问法属于排除范围','incomplete-coverage':'当前条件未完整匹配','insufficient-coverage-or-margin':'匹配不够明确，可补充等价问法','conflicting-answers':'相同问题存在不同答案或版本'};
+  const reasons={'no-match':'没有找到对应问法或条件不同','disabled':'条目已停用','evidence-only':'候选条目仅作为生成资料，实际回答还取决于检索','project-evidence-only':'项目问答作为参考资料，由模型结合实际问题回答','ambiguous-project':'请先明确本题所属项目','excluded-intent':'当前问法属于排除范围','incomplete-coverage':'当前条件未完整匹配','insufficient-coverage-or-margin':'匹配不够明确，可补充等价问法','conflicting-answers':'相同问题存在不同答案或版本'};
   const status = text => { $('qa-status').textContent = text; };
   const safe = fn => async () => { try { await fn(); } catch(e) { status(e.message); } };
   const previewCounts = result => { const ids=new Set((result.qaSummary||[]).map(item=>item.id)), changes=(result.changes||[]).filter(c=>ids.has(c.id));

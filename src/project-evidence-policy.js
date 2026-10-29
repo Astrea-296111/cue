@@ -15,7 +15,7 @@ function resolveEvidenceLimits({question='',answerPlan={},instant=false}={}) {
       : {maxSources:instant?4:7,evidenceTokens:instant?1500:2800,softInputTokens:3000,longScenario:false};
 }
 function planProjectEvidence({question='',resolution={},facts=[],sources=[],factsEnabled=true,sourcePolicy='ready-only',maxSources=4,evidenceTokens=1500}={}) {
-  const dropped=[],reasons=[],selected=[],seen=new Set();let tokens=0;
+  const dropped=[],reasons=[],selected=[],seen=new Set(),seenBodies=new Map();let tokens=0;
   const general=resolution.kind==='general',unresolved=resolution.kind==='unresolved';
   if(!factsEnabled)reasons.push('facts-disabled');if(sourcePolicy==='off')reasons.push('source-rag-off');
   if(general)reasons.push('general-question');if(unresolved)reasons.push('unresolved-project');
@@ -110,9 +110,15 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
   for(const c of rankedFacts)queue(c);for(const c of allowedSources)queue(c);
   for(const c of candidates.slice(0,32)) {
     if(seen.has(c.id))continue;seen.add(c.id);
+    // Deduplicate only byte-identical text with identical evidentiary scope.
+    // Different claims, provenance, versions, and source code are never merged.
+    const identity=c.sourceType==='project-pack' && c.text ? JSON.stringify([c.projectId,c.docType,c.provenance,c.status,c.applicableVersion,c.text]) : '';
+    if(identity && seenBodies.has(identity)){dropped.push({id:c.id,reason:'duplicate',duplicateOf:seenBodies.get(identity)});continue;}
     const size=estimateTokens(formatEvidenceBlock(c));
-    if(!(c.protectedMetric||c.protectedMechanism)&&(selected.length>=maxSources||tokens+size>evidenceTokens)){dropped.push({id:c.id,reason:'budget-pruned'});continue;}
+    const protectedItem=c.protectedMetric||c.protectedMechanism;
+    if(selected.length >= maxSources+(protectedItem?12:0) || tokens+size > evidenceTokens*(protectedItem?4:1)){dropped.push({id:c.id,reason:'budget-pruned'});continue;}
     selected.push(c);tokens+=size;
+    if(identity)seenBodies.set(identity,c.id);
   }
   return {evidence:selected,dropped,reasons,estimatedTokens:tokens,policyVersion:VERSION,
     selectedFactIds:facts.map(c=>c.id),selectedSourceIds:sources.map(c=>c.id),contextFactIds:selected.filter(c=>c.sourceType==='project-pack').map(c=>c.id),contextSourceIds:selected.filter(c=>c.sourceType!=='project-pack').map(c=>c.id)};

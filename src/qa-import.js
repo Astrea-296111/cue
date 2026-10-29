@@ -52,7 +52,7 @@ function compile(raw) {
       deepPoints: detailed ? [detailed] : [], boundaries, cannotSay: [], followups: [], facts: [], related: [],
       keywords: strings(item.keywords, loc + '.keywords'), applicableVersion: item.applicableVersion || '',
       sources: [{ path: sourcePath, symbol: id, commit: null, contentSha256: sourceHash }],
-      qa: { enabled: item.enabled !== false, delivery: item.delivery || 'prefer_verbatim', answerDetailed: detailed,
+      qa: { enabled: item.enabled !== false, delivery: item.delivery || 'evidence_only', answerDetailed: detailed,
         mustCover: strings(item.mustCover, loc + '.mustCover'), excludeIntents: strings(item.excludeIntents, loc + '.excludeIntents') } };
   });
   return validateIndex({ schemaVersion: 2, projects, cards, sourceDocuments: { [sourcePath]: raw } });

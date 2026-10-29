@@ -35,12 +35,14 @@ class QAIndex {
     let reason = 'no-match';
     if (first) {
       const c = first.card;
-      if (c.qa?.enabled === false || c.qa?.delivery === 'evidence_only') reason = 'disabled-or-evidence-only';
+      if (c.qa?.enabled === false) reason = 'disabled';
+      else if (c.qa?.delivery === 'evidence_only') reason = 'evidence-only';
       else if (scope.length > 1) reason = 'ambiguous-project';
       else if (c.qa?.excludeIntents?.some(t => normalize(question).includes(normalize(t)))) reason = 'excluded-intent';
       else if (c.qa?.mustCover?.some(t => !normalize(question).includes(normalize(t)))) reason = 'incomplete-coverage';
       else if (first.score < 0.9 || first.score < 1 && (key.length < 8 || margin < 0.15)) reason = 'insufficient-coverage-or-margin';
       else if (ranked.some((r, i) => i && (first.score===1?r.score===1:r.score >= first.score - 0.05) && (r.card.answerShort !== c.answerShort || r.card.applicableVersion !== c.applicableVersion))) reason = 'conflicting-answers';
+      else if (this.projects.find(p=>p.id===c.projectId)?.kind!=='knowledge') reason = 'project-evidence-only';
       else reason = 'verbatim';
     }
     const answer = reason === 'verbatim' ? (detailed && (first.card.qa?.answerDetailed || first.card.deepPoints.join('\n\n')) || first.card.answerShort) : '';

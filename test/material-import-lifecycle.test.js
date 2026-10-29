@@ -48,3 +48,20 @@ test('internal bundled source snapshot is validated, copied and requires fact in
   const invalid=sourceFixture();invalid.chunks[0].path='../secret';
   await assert.rejects(service.prepareImport({index:fixture(),sourceSnapshot:invalid}),/路径/);
 });
+test('a new ZIP activates its canonical project while retaining archived sources and rollback',async t=>{
+  const {directory,service,config}=setup(t);const original=sourceFixture();
+  const base=await service.prepareImport({index:fixture(),sourceSnapshot:original});await service.commitImport(base);
+  const previous=service.state().generation,file=path.join(directory,'cae-job-platform-main.zip');
+  fs.writeFileSync(file,zip({'cae-job-platform-main/src/worker.js':'export function worker(){ return "NEW_SOURCE_FIXTURE"; }'}));
+  const preview=await service.prepareImport({kind:'zip',path:file});assert.equal(preview.conflicts.length,0);
+  await service.commitImport(preview);
+  const project=service.state().projects.find(p=>p.id==='cae');
+  assert.equal(project.sourceProjectIds.length,1);assert.ok(project.archivedSourceProjectIds.includes('legacy-cae'));
+  assert.equal(project.activeSourceProjectId,project.sourceProjectIds[0]);assert.match(project.activeSourceSnapshotId,/^[a-f0-9]{64}$/);
+  assert.ok(service.snapshot.sources.chunks.some(c=>c.projectId==='legacy-cae'),'old sources remain stored');
+  assert.ok(service.snapshot.sources.chunks.some(c=>c.projectId===project.activeSourceProjectId&&c.text.includes('NEW_SOURCE_FIXTURE')));
+  const generation=service.state().generation,repeated=await service.prepareImport({kind:'zip',path:file});
+  assert.equal(repeated.unchanged,true);await service.commitImport(repeated);assert.equal(service.state().generation,generation);
+  const restarted=new ProjectMaterialService(config);assert.deepEqual(restarted.state().projects.find(p=>p.id==='cae').sourceProjectIds,project.sourceProjectIds);
+  await restarted.rollbackMaterials({targetGeneration:previous});assert.deepEqual(restarted.state().projects.find(p=>p.id==='cae').sourceProjectIds,['legacy-cae']);
+});

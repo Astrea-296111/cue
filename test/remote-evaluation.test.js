@@ -5,6 +5,15 @@ const {Github,parseArgs,preparePayload,runRemote,verifySession}=require('../scri
 const {resolveProfile,buildTasks}=require('../scripts/lib/evaluation-profiles.cjs');
 const {validateEvaluation,validateScenarios}=require('../scripts/evaluate-multiturn-projects.cjs');
 const {fixture}=require('./helpers/material-fixture');
+test('private material payload validates ZIP names and digests and remains data only',()=>{
+ const crypto=require('node:crypto'),{validateImports}=require('../scripts/lib/evaluation-imports.cjs');
+ const data=Buffer.from('synthetic zip bytes'),valid={name:'test.zip',base64:data.toString('base64'),sha256:crypto.createHash('sha256').update(data).digest('hex')};
+ assert.deepEqual(validateImports({qa:['{}'],zips:[valid]}),{qa:['{}'],zips:[valid]});
+ assert.throws(()=>validateImports({qa:[],zips:[{...valid,name:'../test.zip'}]}));
+ assert.throws(()=>validateImports({qa:[],zips:[{...valid,sha256:'a'.repeat(64)}]}));
+ assert.throws(()=>validateImports({qa:[],zips:[valid,valid]}));
+ assert.throws(()=>validateImports({qa:[],zips:[],extra:'unexpected'}));
+});
 function suite(){return{schema_version:'cue_multiturn_seed_v1',sessions:Array.from({length:20},(_,i)=>({id:'s'+i,execution_profile:'instant',events:Array.from({length:4},(_,j)=>({event_id:'s'+i+'q'+j,text:'PRIVATE_QUESTION_'+i+'_'+j,speaker:'interviewer',channel:'them',is_final:true,invoke_cue:true}))}))};}
 test('judged deep workloads are automatically divided into bounded jobs and explicit plans remain stable',t=>{
  const d=fs.mkdtempSync(path.join(os.tmpdir(),'cue-workload-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
@@ -90,7 +99,7 @@ test('workflow exposes secrets only in evaluation and never checks out the encry
  const file=fs.readFileSync(path.join(__dirname,'../.github/workflows/project-deep-live.yml'),'utf8');
  const evaluation=file.indexOf('- name: Wait for encrypted data and call real providers'),upload=file.indexOf('- name: Upload encrypted answers');
  for(const match of file.matchAll(/\$\{\{\s*secrets\./g))assert.ok(match.index>evaluation&&match.index<upload);
- assert.ok(file.includes('ref: ${{ github.sha }}'));assert.ok(file.includes('9898a05184a8f860411da8e084cd4b1ed22093a6'));assert.ok(!file.includes('ref: cue-evaluation-inputs'));
+ assert.ok(file.includes('ref: ${{ github.sha }}'));assert.ok(file.includes('5473204b3c4184aae3c49e576cc3a3c66e3f9e81'));assert.ok(!file.includes('ref: cue-evaluation-inputs'));
  assert.ok(file.includes('persist-credentials: false'));assert.ok(!file.includes('GITHUB_TOKEN:'));assert.ok(file.includes('node scripts/private-live-session.cjs evaluate'));
 });
 

@@ -6,7 +6,7 @@ const {setTimeout:pause}=require('node:timers/promises');
 const {resolveProfile,buildTasks}=require('./lib/evaluation-profiles.cjs');
 const {providerConfig,createBudget,createProviderRuntime,runCase,buildIdentity,codePositions}=require('./e2e-live-llm.cjs');
 const {writeReports,sanitizeText}=require('./lib/live-evaluation-report.cjs');
-const ROOT=path.resolve(__dirname,'..'), BASELINE='9898a05184a8f860411da8e084cd4b1ed22093a6';
+const ROOT=path.resolve(__dirname,'..'), BASELINE='5473204b3c4184aae3c49e576cc3a3c66e3f9e81';
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 function validateScenarios(value){
  if(!value||value.schema_version!=='cue_multiturn_seed_v1'||!Array.isArray(value.sessions)||!value.sessions.length||value.sessions.length>100)throw new Error('Invalid private multi-turn suite.');
@@ -54,7 +54,7 @@ async function deliverEvent(runtime,event,sessionId){
  if(event.speaker==='candidate')runtime.candidate(event.text,meta);else if(event.speaker==='interviewer'){if(event.is_final)runtime.final(event.text,meta);else runtime.interim(event.text,meta);}
  return 'legacy-production-transcript-publisher';
 }
-async function importMaterials(runtime,input,bundle){
+async function importMaterials(runtime,input,bundle,dialogPaths=[]){
  let state,importMethod;
  if(runtime.hasHandler('materials:personal:prepare')&&runtime.hasHandler('materials:personal:commit')) {
    // Install the distributed sources first, then use the same validated personal
@@ -70,6 +70,17 @@ async function importMaterials(runtime,input,bundle){
    state=await runtime.importMaterialSnapshot({facts:input.facts,sources:bundle.sources});
    await runtime.invoke('settings:set',{...input.profile});
    importMethod='legacy-production-material-and-settings';
+ }
+ if(input.imports){
+   const imports=require('./lib/evaluation-imports.cjs').validateImports(input.imports);
+   for(const text of imports.qa){const preview=await runtime.invoke('qa:prepare',{text});await runtime.invoke('qa:commit',preview);}
+   for(const zip of imports.zips){
+     const file=path.join(runtime.temp,zip.name);fs.writeFileSync(file,Buffer.from(zip.base64,'base64'),{mode:0o600});dialogPaths.push(file);
+     const preview=await runtime.invoke('materials:prepare',{kind:'zip'});
+     if(preview.canceled||preview.conflicts.length||preview.packConflicts.length)throw new Error('Private ZIP import has unresolved conflicts.');
+     await runtime.invoke('materials:commit',preview);
+   }
+   state=await runtime.invoke('materials:state');importMethod+='+qa-zip-preview-commit';
  }
  await runtime.invoke('settings:set',{currentProjectId:'',projectFactsEnabled:true,manualProjectKnowledgeEnabled:false,projectKnowledge:''});
  await runtime.exports('src/project-knowledge.js').warmProjectIndex();
@@ -88,7 +99,6 @@ async function evaluateMultiturn({payload,outputDir,env=process.env,provider='al
  if(input.judgeReference)Object.assign(report.inputs,{judgeReferenceSha256:input.judgeReference.sha256,judgeReferenceRevision:input.judgeReference.revision});
  fs.mkdirSync(outputDir,{recursive:true,mode:0o700});
  const save=()=>{report.budget={...budget.snapshot(),concurrency:profile.concurrency,profileVersion:profile.version,retryLimit:profile.retryLimit};return writeReports(report,{outputDir,sanitize:{secrets,workspaceRoot:ROOT,tempRoots}});};save();
- if(app.kind==='frozen-baseline'&&input.facts.schemaVersion!==1){report.status='failed';report.compatibility={status:'incompatible',reason:'The frozen application only accepts original v1 facts; no silent downgrade is applied.',applicationSchema:1,inputSchema:input.facts.schemaVersion};report.finishedAt=new Date().toISOString();report.failures.push({code:'baseline-schema-incompatible',message:report.compatibility.reason});return save();}
  const configs=Object.fromEntries(providerIds.map(id=>[id,providerConfig(id,env,mock)]));
  for(const p of report.providers){const c=configs[p.id];p.model=c.model||null;p.endpointHostname=c.hostname||null;if(c.error){p.status='failed';p.error=c.error;report.failures.push({provider:p.id,...c.error});}}
  const {loadTrustedSources}=require('./evaluate-private-projects.cjs');
@@ -99,8 +109,8 @@ async function evaluateMultiturn({payload,outputDir,env=process.env,provider='al
   while(cursor<tasks.length){const task=tasks[cursor++],p=report.providers.find(p=>p.id===task.provider),config=configs[p.id];if(config.error||fatalProviders.has(p.id))continue;
    const cleanups=[];let runtime;
    try{
-    runtime=createProviderRuntime({id:p.id,config,options,budget,provider:p,cleanups});tempRoots.push(runtime.temp);await runtime.ready;
-    const imported=await importMaterials(runtime,input,bundle);p.materialImport||=imported;
+    const dialogPaths=[];runtime=createProviderRuntime({id:p.id,config,options,budget,provider:p,cleanups,dialogPaths});tempRoots.push(runtime.temp);await runtime.ready;
+    const imported=await importMaterials(runtime,input,bundle,dialogPaths);p.materialImport||=imported;
     runtime.clear();
     if(runtime.hasHandler('materials:personal:job')&&(input.profile.jobProfiles||[]).some(job=>job.id===task.session.job_profile))
       await runtime.invoke('materials:personal:job',{jobProfileId:task.session.job_profile});
@@ -120,7 +130,8 @@ async function evaluateMultiturn({payload,outputDir,env=process.env,provider='al
       await pause(Math.min(10000,1000*(2**attempt)));
      }
      result={...result,repeat:task.repeat+1,attempts:history,scenarioEventId:event.event_id,scenarioEvaluation:event.evaluation,dialogueEvents:dialogue.slice(),deliveryMode,jobProfile:task.session.job_profile,jobDescriptionSha256,applicationCommit:app.commit,tags:task.session.tags||[],sessionTags:task.session.tags||[]};
-     const sent=new Set(result.sentSourceIds||[]);result.authoritativeSources=bundle.sources.chunks.filter(c=>sent.has(c.id)).map(c=>({id:c.id,projectId:c.projectId,path:c.path,text:c.text,startLine:c.startLine,endLine:c.endLine}));
+     const sent=new Set(result.sentSourceIds||[]);const actualSources=input.imports?runtime.snapshot('materialService.snapshot.sources'):bundle.sources;
+     result.authoritativeSources=actualSources.chunks.filter(c=>sent.has(c.id)).map(c=>({id:c.id,projectId:c.projectId,path:c.path,text:c.text,startLine:c.startLine,endLine:c.endLine}));
      // Preserve every observed attempt. A successful retry cannot erase it.
      p.cases[p.cases.findIndex(c=>c.id===result.id)]=result;if(result.error)report.failures.push({provider:p.id,caseId:result.id,...result.error});save();
      if(/^provider-http-(?:401|403)$/.test(result.error?.code||'')){fatalProviders.add(p.id);break;}

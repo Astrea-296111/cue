@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
 module.exports=async({js,requests,output})=>{
   const {library}=require('../../scripts/benchmark-live-interaction.cjs'),source=library(),times=[];
+  source.projects[0].kind='knowledge';for(const item of source.items)item.delivery='prefer_verbatim';
   await js(`(async()=>{const preview=await cue.qaPrepare({text:${JSON.stringify(JSON.stringify(source))}});return cue.qaCommit(preview);})()`);
   const calls=requests.length;
   for(let i=0;i<100;i++){

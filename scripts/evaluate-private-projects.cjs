@@ -20,12 +20,13 @@ const boundedString = (value, bytes) => typeof value === 'string' && Buffer.byte
 function validatePrivatePayload(payload) {
   if(payload?.schemaVersion===3)return require('./lib/judge-recovery.cjs').validateRecoveryPayload(payload);
   if (payload?.schemaVersion === 2) {
-    if (Object.keys(payload).some(key=>!['schemaVersion','facts','profile','scenarios','evaluation','revision','sourceManifest','mergeLog','judgeReference'].includes(key)) || Buffer.byteLength(JSON.stringify(payload),'utf8') > MAX_PAYLOAD_BYTES) throw new Error('Invalid multi-turn private payload.');
+    if (Object.keys(payload).some(key=>!['schemaVersion','facts','profile','scenarios','evaluation','revision','sourceManifest','mergeLog','judgeReference','imports'].includes(key)) || Buffer.byteLength(JSON.stringify(payload),'utf8') > MAX_PAYLOAD_BYTES) throw new Error('Invalid multi-turn private payload.');
     const {validateScenarios,validateEvaluation}=require('./evaluate-multiturn-projects.cjs');
     const workspace={schemaVersion:payload.facts?.schemaVersion,facts:payload.facts,profile:payload.profile};
     for(const name of ['revision','sourceManifest','mergeLog'])if(payload[name]!==undefined)workspace[name]=payload[name];
     const validated=validateEvaluationWorkspace(workspace);
     const judgeReference=payload.judgeReference===undefined?undefined:validateJudgeReference(payload.judgeReference);
+    require('./lib/evaluation-imports.cjs').validateImports(payload.imports);
     validateScenarios(payload.scenarios);validateEvaluation(payload.evaluation||{});
     return {...payload,facts:validated.facts,profile:validated.profile,revision:validated.revision,...(judgeReference?{judgeReference}:{})};
   }

@@ -80,12 +80,11 @@ module.exports=async({js,until,requests,win,verifyProtected})=>{
   await click(`#qa-project-options [data-index="${projectIndex}"]`);await until(()=>js("document.getElementById('qa-project').value==='ui-maple'"),'protected project selection');
   await js("document.getElementById('qa-question').value='重复提交如何验证？';document.getElementById('qa-try').click()");
   assert.ok(await js("document.getElementById('qa-question').getBoundingClientRect().height>=28"),'question input does not collapse');
-  await until(()=>js("document.getElementById('qa-status').textContent.includes('QA_UI_VERBATIM')"),'QA try verbatim');
+  await until(()=>js("document.getElementById('qa-status').textContent.includes('仅作为生成资料')"),'QA try evidence only');
   const before=requests.length;
   await js("cue.ask({mode:'say',text:'UI 枫叶平台如何验证重复提交？'})");
-  await until(()=>js("document.querySelector('.response-group:first-child .ai-text')?.textContent.includes('QA_UI_VERBATIM')"),'direct answer visible');
-  assert.equal(requests.length,before);
-  assert.ok((await js("document.getElementById('qa-hit-summary').textContent")).includes('问答库命中'));
+  await until(()=>js("document.querySelector('.response-group:first-child .ai-text')?.textContent.includes('先确认项目事实')"),'model answer visible');
+  assert.equal(requests.length,before+1);
   await js("document.querySelector('[data-screen-mode=vibe-coding]').click()");
   await until(()=>js("document.getElementById('screen-mode-label').textContent==='Vibe Coding'"),'screen mode override');
   await js("document.getElementById('screen-end').click()");

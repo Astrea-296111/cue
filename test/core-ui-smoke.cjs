@@ -137,8 +137,8 @@ app.on('browser-window-created', (_event, win) => {
       await js("document.getElementById('s-close').click()");
       await until(() => js("document.getElementById('settings-scrim').classList.contains('hidden')"), 'settings close');
       const submit = question => js(`document.getElementById('input').value=${JSON.stringify(question)};document.getElementById('input').dispatchEvent(new Event('input'));document.getElementById('send-btn').click()`);
-      await submit('解释事务隔离与并发更新。');
-      await until(() => requests.length === 1 && js("!document.getElementById('send-btn').classList.contains('busy')"), 'streamed reply');
+      const beforeSubmit=requests.length;await submit('解释事务隔离与并发更新。');
+      await until(() => requests.length === beforeSubmit+1 && js("!document.getElementById('send-btn').classList.contains('busy')"), 'streamed reply');
       await until(() => js("document.querySelectorAll('.response-group:first-child .ai-text ol li').length===3"), 'answer rendered');
       const qaPerformance=await require('./helpers/qa-ui-benchmark.cjs')({js,requests,output:process.env.CUE_UI_QA_BENCHMARK_FILE});
       if(process.env.CUE_UI_DIAGNOSTIC_FILE){

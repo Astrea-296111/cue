@@ -6,7 +6,7 @@ const sourceScopes = project => Array.isArray(project.sourceScopes) ? project.so
 function strictProjectScopes(scopes) {
   return Array.isArray(scopes) && scopes.length>0 && scopes.every(s=>typeof s==='string'&&s.trim()===s&&s.length>0&&(s.startsWith('@project:')?s.length>9:!s.includes('..')));
 }
-function buildRegistry(facts, source, mappings={}) {
+function buildRegistry(facts, source, mappings={}, activeSources={}) {
   const rows = facts.projects.filter(p=>p.kind!=='knowledge').map(p=>({...p,projectId:p.id,factProjectId:p.id,sourceProjectIds:[],sourceScopes:[],resumeOrder:Number.isInteger(p.resumeOrder)?p.resumeOrder:null,factRevision:facts.revision,sourceRevision:''}));
   const conflicts=[];
   for(const original of buildProjectCatalog(source)) {
@@ -32,6 +32,16 @@ function buildRegistry(facts, source, mappings={}) {
     row.hasManifest=original.hasManifest;row.manifestPath=original.manifestPath;
   }
   for(const row of rows) {
+    const active=activeSources[row.id];
+    if(active && row.sourceProjectIds.includes(active)) {
+      row.archivedSourceProjectIds=row.sourceProjectIds.filter(id=>id!==active);
+      row.sourceProjectIds=[active];
+      row.sourceScopes=row.sourceScopes.filter(scope=>scope===`@project:${active}`);
+      const current=source.projects?.find(project=>project.id===active);
+      row.sourceRevision=current?.revision||current?.sourceRevision||'';
+      row.activeSourceProjectId=active;
+      row.activeSourceSnapshotId=current?.contentHash||current?.revision||'';
+    }
     row.sourceScopes=[...new Set(row.sourceScopes)];row.prefix=row.sourceScopes[0]||`@facts:${row.id}`;
     row.retrieveSources=strictProjectScopes(row.sourceScopes);row.label=row.name;
   }

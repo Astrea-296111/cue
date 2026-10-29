@@ -52,7 +52,7 @@ class ProjectMaterialService extends EventEmitter {
       const text=fs.readFileSync(target,'utf8');if(digest(text)!==record.sha256)throw new Error('材料摘要不匹配');data[key]=JSON.parse(text);
     }
     validateIndex(data.facts);validateSources(data.sources);
-    const registry=buildRegistry(data.facts,data.sources,pointer.mappings||{});
+    const registry=buildRegistry(data.facts,data.sources,pointer.mappings||{},pointer.activeSources||{});
     if(JSON.stringify(registry)!==JSON.stringify(data.registry))throw new Error('项目目录与材料不一致');
     return this.makeSnapshot(data.facts,data.sources,registry,pointer);
   }
@@ -67,15 +67,15 @@ class ProjectMaterialService extends EventEmitter {
     for(let i=0;i<3;i++){try{fs.renameSync(temp,file);return;}catch(e){error=e;if(!['EPERM','EACCES','EBUSY','EEXIST'].includes(e.code))break;}}
     try{fs.unlinkSync(temp);}catch{}throw error;
   }
-  publish({facts,sources,mappings={}},notify=true) {
-    facts=validateIndex(facts);sources=validateSources(sources);const registry=buildRegistry(facts,sources,mappings);
+  publish({facts,sources,mappings={},activeSources=this.pointer?.activeSources||{}},notify=true) {
+    facts=validateIndex(facts);sources=validateSources(sources);const registry=buildRegistry(facts,sources,mappings,activeSources);
     if(registry.conflicts.length)throw materialError('ambiguous-project','项目身份有歧义，请在预览中指定映射。');
     // Canonical identity outlives the presence of fact cards. Replacing the fact
     // layer must not rename a retained source project or orphan a manual choice.
     mappings={...mappings};for(const project of registry.projects)if(project.factProjectId)for(const sourceId of project.sourceProjectIds)mappings[sourceId]=project.id;
     const n=Number(this.snapshot?.generation.split('-')[0]||0)+1,generation=`${n}-${randomUUID()}`;
     const dir=path.join(this.directory,'snapshots',generation);fs.mkdirSync(dir,{recursive:true});
-    const pointer={schemaVersion:1,generation,mappings,files:{}};
+    const pointer={schemaVersion:1,generation,mappings,...(Object.keys(activeSources).length?{activeSources}:{}),files:{}};
     for(const [key,value] of Object.entries({facts,sources,registry})) {
       const text=JSON.stringify(value);this.writeFile(path.join(dir,key+'.json'),text);pointer.files[key]={path:`snapshots/${generation}/${key}.json`,sha256:digest(text)};this.failpoint('write-'+key);
     }
@@ -145,25 +145,40 @@ class ProjectMaterialService extends EventEmitter {
     const combined=combinePacks(discovered.packs);
     let facts=base.facts,changes=[];
     if(combined.index){const merged=mergeFactIndexes(facts,combined.index,{mode:input.mode||'merge'});facts=merged.index;changes=merged.changes;}
-    const registry=buildRegistry(facts,sources,this.pointer.mappings||{});
+    const mappings=this.pointer.mappings||{},activeSources={...(this.pointer.activeSources||{})};
+    const fullRegistry=buildRegistry(facts,sources,mappings);
+    if(input.kind==='folder'||input.kind==='zip'){
+      const previous=new Map(base.sources.projects.map(project=>[project.id,`${project.revision||''}\0${project.updatedAt||''}`]));
+      for(const project of sources.projects){
+        if(previous.get(project.id)===`${project.revision||''}\0${project.updatedAt||''}`)continue;
+        const owner=fullRegistry.projects.find(row=>row.sourceProjectIds.includes(project.id));
+        if(owner)activeSources[owner.id]=project.id;
+      }
+    }
+    const registry=buildRegistry(facts,sources,mappings,activeSources);
+    const unchanged=(input.kind==='folder'||input.kind==='zip') && !discovered.packs.length &&
+      sources.projects.length===base.sources.projects.length &&
+      sources.projects.every(p=>base.sources.projects.some(old=>old.id===p.id&&(p.revision ? old.revision===p.revision : JSON.stringify(old)===JSON.stringify(p)))) &&
+      JSON.stringify(activeSources)===JSON.stringify(this.pointer.activeSources||{});
     onProgress({phase:'ready',sourceChunks:sources.chunks.length,facts:facts.cards.length});
-    const token=randomUUID();this.previews.set(token,{baseGeneration:base.generation,facts,sources,packs:discovered.packs,mode:input.mode||'merge',mappings:this.pointer.mappings||{},createdAt:Date.now()});
+    const token=randomUUID();this.previews.set(token,{baseGeneration:base.generation,facts,sources,packs:discovered.packs,mode:input.mode||'merge',mappings,activeSources,unchanged,createdAt:Date.now()});
     if(this.previews.size>8)this.previews.delete(this.previews.keys().next().value);
-    return {token,baseGeneration:base.generation,summary:{projects:registry.projects.map(p=>({id:p.id,name:p.name})),facts:facts.cards.length,sourceChunks:sources.chunks.length,factFiles:discovered.excluded},changes,conflicts:registry.conflicts,packConflicts:combined.conflicts,warnings:registry.conflicts.length?['请指定歧义源码项目的 canonical ID']:[],mode:input.mode||'merge'};
+    return {token,baseGeneration:base.generation,unchanged,summary:{projects:registry.projects.map(p=>({id:p.id,name:p.name,activeSourceSnapshotId:p.activeSourceSnapshotId||'',archivedSourceCount:p.archivedSourceProjectIds?.length||0})),facts:facts.cards.length,sourceChunks:sources.chunks.length,factFiles:discovered.excluded},changes,conflicts:registry.conflicts,packConflicts:combined.conflicts,warnings:registry.conflicts.length?['请指定歧义源码项目的 canonical ID']:[],mode:input.mode||'merge'};
   }
   commitImport({token,baseGeneration,resolutions={},mappings={},variants={}}) {
     const job=async()=>{
       const prepared=this.previews.get(token);if(!prepared||Date.now()-prepared.createdAt>15*60000)throw materialError('preview-expired','预览已失效，请重新选择材料。');
       if(prepared.baseGeneration!==baseGeneration||this.snapshot.generation!==baseGeneration)throw materialError('revision-changed','材料版本已变化，请刷新预览后重试。');
+      if(prepared.unchanged && !Object.keys(mappings).length && !Object.keys(resolutions).length && !Object.keys(variants).length){this.previews.delete(token);return this.state();}
       let facts=this.snapshot.facts;
       const combined=combinePacks(prepared.packs,variants,true);
       if(combined.index)facts=mergeFactIndexes(facts,combined.index,{mode:prepared.mode,resolutions}).index;
-      const result=this.publish({facts,sources:prepared.sources,mappings:{...prepared.mappings,...mappings}});this.previews.delete(token);return result;
+      const result=this.publish({facts,sources:prepared.sources,mappings:{...prepared.mappings,...mappings},activeSources:prepared.activeSources});this.previews.delete(token);return result;
     };
     const result=this.queue.then(job,job);this.queue=result.catch(()=>{});return result;
   }
   rollbackMaterials({targetGeneration}={}) {
-    const job=()=>{const previous=JSON.parse(fs.readFileSync(path.join(this.directory,'previous.json'),'utf8'));if(targetGeneration&&previous.generation!==targetGeneration)throw new Error('仅支持恢复上一代有效材料');const old=this.readPointer(previous);return this.publish({facts:old.facts,sources:old.sources,mappings:previous.mappings||{}});};
+    const job=()=>{const previous=JSON.parse(fs.readFileSync(path.join(this.directory,'previous.json'),'utf8'));if(targetGeneration&&previous.generation!==targetGeneration)throw new Error('仅支持恢复上一代有效材料');const old=this.readPointer(previous);return this.publish({facts:old.facts,sources:old.sources,mappings:previous.mappings||{},activeSources:previous.activeSources||{}});};
     const result=this.queue.then(job,job);this.queue=result.catch(()=>{});return result;
   }
   publishSource(sources) {const job=()=>this.publish({facts:this.snapshot.facts,sources,mappings:this.pointer.mappings||{}});const result=this.queue.then(job,job);this.queue=result.catch(()=>{});return result;}

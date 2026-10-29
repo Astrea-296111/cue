@@ -17,7 +17,7 @@
 | `excludeIntents` | 当前问题包含该排除项时回退模型 |
 | `applicableVersion` | 答案适用版本；同题冲突版本不会互相覆盖后直接返回 |
 | `enabled` | 默认 true；false 不参与直达与问答资料召回 |
-| `delivery` | `prefer_verbatim`（默认）或 `evidence_only`（仅作模型资料） |
+| `delivery` | 默认 `evidence_only`（仅作模型资料）；`prefer_verbatim` 仅在通用知识项目（`kind: "knowledge"`）明确配置时允许直接回答。项目卡始终作为资料生成回答，旧条目原文与设置会保留。 |
 | `sourceType` | `user_claim`（默认）、`proposed_design`、`general_knowledge` |
 
 `user_claim` 编译为 USER/source-claim/resume_claim；`proposed_design` 为 FUTURE/planned/proposed_design；`general_knowledge` 为 REFERENCE/unverified/general_knowledge。这个入口不能把用户材料升级为源码核实或历史实验实证。空白答案、非法字段/路径、大小超限、错误来源 hash 均不发布。

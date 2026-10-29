@@ -1879,7 +1879,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
   }
   function showFactStatus(state) {
     if (!state || state.canceled) return;
-    $('#fact-pack-status').textContent = (state.projects || []).map(p => `${p.name}：${p.factCount || 0} 卡 / ${p.sourceFiles || 0} 文件 / ${p.sourceChunks || 0} 片段${p.sourceChunks ? ' · 源码可用' : ' · 无源码'}`).join('；') + ` · ${state.generation || state.revision || ''}` + (state.warnings?.length ? ' · ' + state.warnings.join('；') : '');
+    $('#fact-pack-status').textContent = (state.projects || []).map(p => `${p.name}：${p.factCount || 0} 卡 / ${p.sourceFiles || 0} 文件 / ${p.sourceChunks || 0} 活动片段${p.sourceChunks ? ' · 源码可用' : ' · 无源码'}${p.activeSourceSnapshotId ? ' · 版本 '+p.activeSourceSnapshotId.slice(0,12) : ''}${p.archivedSourceProjectIds?.length ? ' · 归档 '+p.archivedSourceProjectIds.length+' 份' : ''}`).join('；') + ` · ${state.generation || state.revision || ''}` + (state.warnings?.length ? ' · ' + state.warnings.join('；') : '');
     if(state.index) $('#fact-editor').value=JSON.stringify(state.index,null,2);
     materialPreviousAvailable=!!state.previousGeneration;
     $('#materials-rollback').disabled=!!materialOperation||!materialPreviousAvailable;
@@ -1958,7 +1958,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
     setMaterialOperation('commit');materialMessage('正在提交并校验索引持久化…');
     try{
       const result=await cue.materialCommit({...materialPreview,variants:Object.fromEntries(Object.entries(materialPreview.variants).map(([k,v])=>[k,Number(v)]))});
-      if(!result.persisted||!result.generation||!result.counts||result.counts.sourceChunks!==(result.projects||[]).reduce((n,p)=>n+p.sourceChunks,0))throw new Error('材料索引校验失败，请重载资料后检查。');
+      if(!result.persisted||!result.generation||!result.counts||(result.projects||[]).reduce((n,p)=>n+p.sourceChunks,0)>result.counts.sourceChunks)throw new Error('材料索引校验失败，请重载资料后检查。');
       const persisted=await cue.materialState();
       if(persisted.generation!==result.generation||persisted.counts.sourceChunks!==result.counts.sourceChunks||persisted.counts.facts!==result.counts.facts)throw new Error('材料版本或数量校验失败，请重载资料后检查。');
       const indexState=await cue.projectIndexState();
