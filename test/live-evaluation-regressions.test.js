@@ -79,3 +79,12 @@ test('implicit project follow-ups retain only the active identity until an expli
   await runtime.ask('say','换个话题，一般来说 Redis 为什么快？');
   assert.deepEqual(runtime.requests.at(-1).plan.canonicalProjectIds,[]);
 });
+test('multi-metric project follow-up sends the intact supporting QA to the model',async t=>{
+  const app=createInterviewRuntime(t);await app.ready;
+  const qa={format:'cue-qa/v1',projects:[{id:'alpha',name:'Alpha',aliases:[]}],items:[{id:'alpha.metric',projectId:'alpha',question:'两项测试的口径是什么？',answerShort:'启动工具定义是 12.5k；40 项累计下降 22.3% 是不同测量，不可混用。',sourceType:'user_claim'}]};
+  const preview=await app.invoke('qa:prepare',{text:JSON.stringify(qa)});await app.invoke('qa:commit',preview);
+  await app.ask('say','Alpha 项目的工具加载开销是什么？');
+  await app.ask('say','12.5k 和 40 项累计下降 22.3% 是同一次测量吗？');
+  const messages=JSON.stringify(app.calls.at(-1).messages);
+  assert.match(messages,/启动工具定义是 12\.5k/);assert.match(messages,/40 项累计下降 22\.3% 是不同测量/);
+});

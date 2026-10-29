@@ -37,6 +37,8 @@ const ALIASES = [
   ['求解进程', '进程启动', 'spawn', 'subprocess', 'process'], ['受理', 'submit', 'submission'],
   ['状态回传', 'callback'], ['消息', 'message', 'event', 'delivery'],
   ['会话', 'session', 'conversation'], ['恢复', 'resume', 'recovery', 'restore'],
+  ['工具输出', '工具返回', 'tool result', 'tool output', 'tool_result', 'persisted output'],
+  ['长输出', '大输出', '几十万字', '超长输出', 'large output', 'large tool result', 'persisted output', 'persist_tool_result'],
   ['压缩', 'compact', 'compaction', 'summary'], ['替换状态', 'replacement', 'replacement_records']
 ];
 

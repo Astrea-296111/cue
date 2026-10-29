@@ -9,6 +9,24 @@ const {requestText}=require('../src/final-request-budget');
 const {peekReadyEvidence}=require('../src/instant-ready-evidence');
 const {selectEvidence}=require('../src/evidence-selector');
 
+test('multiple numeric anchors retain their QA evidence without mixing project scopes',()=>{
+  const raw={format:'cue-qa/v1',projects:[{id:'alpha',name:'Alpha',aliases:[]},{id:'beta',name:'Beta',aliases:[]}],items:[
+    {id:'alpha.metrics',projectId:'alpha',question:'两种测量的统计范围是什么？',answerShort:'启动时 12.5k 是工具定义；40 项累计下降 22.3% 属于另一种测量。',sourceType:'user_claim'},
+    {id:'beta.metrics',projectId:'beta',question:'其他项目指标？',answerShort:'12.5k 和 22.3% 属于另外的实验。',sourceType:'user_claim'}]};
+  const facts=require('../src/qa-import').compile(JSON.stringify(raw));
+  const question='12.5k 和 40 项累计下降 22.3% 是同一测量吗？';
+  const selected=new ProjectFactPacks({index:facts}).select(question,{resolution:{canonicalProjectIds:['alpha']},primaryQuestion:question});
+  assert.equal(selected.evidence[0].id,'alpha.metrics');assert.equal(selected.evidence[0].protectedMetric,true);
+  assert.ok(!selected.evidence.some(c=>c.projectId==='beta'));
+});
+test('tool output questions keep a matching persisted-result function even when Schema is another term',()=>{
+  const source={id:'output-source',projectId:'alpha',path:'src/output.py',symbol:'persist_tool_result',kind:'function',startLine:1,endLine:2,text:'def persist_tool_result(content):\n    return save(content)'};
+  const index=ProjectSearch.build([source]),scopes=['@project:alpha'],snapshot={text:'工具返回几十万字时，按需加载 Schema 能解决吗？',epoch:1,questionId:'q',revision:1};
+  const prepared={ready:true,revision:'r',lookup:(...args)=>index.lookupPrepared(...args),lookupRelated:()=>[],lookupSourceHints:()=>({rows:[]}),resolveSource:item=>item.id===source.id?source:null};
+  const result=peekReadyEvidence({snapshot,epoch:1,projectPlan:{retrieve:true,scopes,projectLabel:'Alpha'},projectRevision:'r',projectIndexSnapshot:prepared,maxSources:3,maxChars:2400});
+  assert.ok(result.evidence.some(e=>e.id===source.id));
+});
+
 test('Python multiline constructors keep their body and declared instance calls link to the correct project implementation',()=>{
   const {chunkText}=require('../src/project-chunks'),{buildProjectCodeRelations}=require('../src/project-code-relations'),{hasImplementationBody}=require('../src/project-search');
   const input='class Router:\n    def __init__(\n        self,\n        gate: Gate,\n    ) -> None:\n        self.gate = gate\n\n    def check(self, value):\n        return self.gate.decide(value)\n';

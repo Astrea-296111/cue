@@ -6,6 +6,7 @@ const { performance } = require('perf_hooks');
 const {boundedRankingText, projectQuestionParts} = require('./project-question-parts');
 const {normalizeConceptText}=require('./project-search');
 const hash = x => createHash('sha256').update(JSON.stringify(x)).digest('hex').slice(0, 24);
+const metricNumbers = text => [...new Set((String(text||'').normalize('NFKC').match(/\d+(?:\.\d+)?/g)||[]).slice(0,32))];
 const validPath = x => typeof x === 'string' && x.length > 0 && !/^(?:[A-Za-z]:|[/\\])/.test(x) && !x.replace(/\\/g,'/').split('/').some(p=>p==='..'||p==='.');
 const types = new Set('overview implementation decision challenge incident performance ownership collaboration limitation'.split(' '));
 const scopes = new Set('implemented test_only planned hypothetical unverified'.split(' '));
@@ -92,7 +93,7 @@ class ProjectFactPacks {
       // foreground requests only compare bounded, project-scoped features.
       const keywords=c.keywords.slice(0,64).map(k=>String(k).toLowerCase().slice(0,256));
       const questions=(c.questions||[]).slice(0,16).map(value=>String(value).slice(0,1000));
-      return {card:c,terms:grams(keywords.join(' ')+c.text),keywords,
+      return {card:c,terms:grams(keywords.join(' ')+c.text),keywords,numbers:new Set(metricNumbers(c.text)),
         subjects:grams([...keywords,...questions,c.topic||''].join(' ')),questions:questions.map(grams)};
     });
     this.metricIndex=require('./metric-index').build(next.cards.filter(c=>c.qa?.enabled!==false));
@@ -158,6 +159,14 @@ class ProjectFactPacks {
     const directMechanisms=require('./metric-index').mechanisms(q,metricIds,mentioned.map(p=>p.id));
     const mechanismIds=directMechanisms.length?directMechanisms:require('./metric-index').mechanisms(metricQuestion,metricIds,mentioned.map(p=>p.id));
     const chosen=[]; const add=c=>{if(c&&!chosen.includes(c)&&chosen.length<Math.min(12,maxCards)) chosen.push(c);};
+    // Match multiple numeric anchors as a single bounded QA evidence unit.
+    // Numbers alone do not validate the claim; retain its original wording and
+    // provenance and never merge different scopes or infer missing results.
+    const numbers=metricNumbers(q);
+    const numericCards=numbers.length>=2 ? scoped.filter(f=>f.card.qa&&numbers.filter(n=>f.numbers.has(n)).length>=2)
+      .map(f=>({card:f.card,count:numbers.filter(n=>f.numbers.has(n)).length,match:scoreFor(f,rankText,terms,requested)}))
+      .filter(row=>row.match.relevant).sort((a,b)=>b.count-a.count||b.match.score-a.match.score||a.card.cardId.localeCompare(b.card.cardId)).slice(0,1).map(row=>row.card) : [];
+    for(const card of numericCards)add(card);
     for(const id of metricIds) add(this.metricIndex.get(id));
     for(const id of mechanismIds)add(scoped.find(f=>f.card.cardId===id)?.card);
     // Each actual ask gets a relevant card before global intent preferences.
@@ -178,7 +187,7 @@ class ProjectFactPacks {
     }
     for(const x of ranked) if(x.relevant&&x.score>.04) add(x.c);
     if(chosen.length<Math.min(4,maxCards)&&chosen.length) { const first=chosen[0];add(scoped.find(f=>first.related.includes(f.card.cardId))?.card); }
-    const evidence=chosen.map(c=>({...this.evidenceById.get(c.cardId),protectedMetric:metricIds.includes(c.cardId),protectedMechanism:mechanismIds.includes(c.cardId)}));
+    const evidence=chosen.map(c=>({...this.evidenceById.get(c.cardId),protectedMetric:metricIds.includes(c.cardId)||numericCards.includes(c),protectedMechanism:mechanismIds.includes(c.cardId)}));
     const localFacts=evidence.filter(c=>c.status==='verified'&&c.provenance==='CODE').slice(0,2).map(c=>({cardId:c.cardId,text:c.text,projectName:c.projectName}));
     return {evidence,localFacts,anchor:{projectId:mentioned.length===1?mentioned[0].id:null,cardIds:chosen.map(c=>c.cardId),revision:this.index.revision},projectIds:mentioned.map(p=>p.id),gaps:chosen.filter(c=>c.status==='missing').map(c=>c.cardId),stats:{selectedCardCount:chosen.length,selectionMs:performance.now()-at,packRevision:this.index.revision,cacheKey:hash([mentioned.map(p=>p.id),this.index.revision,q,resolution?.sourceScopes||[],resolution?.intent||[]])}};
   }

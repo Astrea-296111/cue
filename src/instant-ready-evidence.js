@@ -35,7 +35,9 @@ function relevant(source, text, terms, projectPlan, prepared) {
   // One snippet establishes only its own part of a compound ask. Requiring
   // every identifier (e.g. Outbox, Inbox and Execution) in every source made
   // all valid per-component snippets disappear from long questions.
-  if (!navigated&&identifiers.length&&!identifiers.some(word => body.toLowerCase().includes(word.toLowerCase()))) return false;
+  const toolResultAsk=/(?:工具(?:返回|输出|结果)|tool\s+(?:output|result))/i.test(text);
+  const toolResultBody=/tool[_ -]?(?:result|output)\b|persisted[_ -]output/i.test(body);
+  if (!navigated&&identifiers.length&&!identifiers.some(word => body.toLowerCase().includes(word.toLowerCase()))&&!(toolResultAsk&&toolResultBody)) return false;
   // Scenario constraints are questions, not quotations from the source. Their
   // negation need not occur verbatim in code. Authorship still needs personal
   // evidence; object responsibilities (Job/Execution) are implementation asks.
@@ -167,7 +169,13 @@ function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision,
       preparedScores.set(row.id,.85+Math.min(80,hits)/500);
       return {...projectSource(row,projectRevision,scopes),sourceHint:true};
     });
-    candidates=[...definitions,...extra,...candidates].filter((row,i,all)=>all.findIndex(other=>other.id===row.id)===i).slice(0,candidateLimit);
+    // A bounded relation expansion must not evict the strongest source from
+    // the full current question. Related helpers supplement that source.
+    const first=primarySeeds[0];
+    const primary=/(?:工具(?:返回|输出|结果)|tool\s+(?:output|result))/i.test(snapshot.text) &&
+      first && /tool[_ -]?(?:result|output)\b|persisted[_ -]output/i.test(`${first.symbol||''} ${first.text}`) && hasImplementationBody(first) ? first : null;
+    if(primary)preparedScores.set(primary.id,Math.max(preparedScores.get(primary.id)||0,1.1));
+    candidates=[...definitions,...(primary?[primary]:[]),...extra,...candidates].filter((row,i,all)=>all.findIndex(other=>other.id===row.id)===i).slice(0,candidateLimit);
   }
   const ranked = [];
   for (const cached of candidates.slice(0, candidateLimit)) {
