@@ -42,7 +42,6 @@ function changesTechnicalSubject(previous, next) {
 
 function continuesQuestion(previous, next) {
   if (NEW_TOPIC_RE.test(next) || isCorrection(next)) return false;
-  if (changesTechnicalSubject(previous, next)) return false;
   return OPEN_END_RE.test(previous) || /(?:怎么|如何|为什么)[\s，,。.!！]*$/.test(previous) || /^(?:它们|他们|这两种|这些)/.test(next) || SEMANTIC_CONTINUATION_RE.test(next) || ELLIPTIC_QUESTION_RE.test(next) || CONTINUATION_QUESTION_RE.test(next) ||
     isLikelySupplement(next) || isCodeChangeRequest(next);
 }
@@ -152,8 +151,8 @@ function classifyCandidateUtterance(value, { uncertain = false } = {}) {
   if (uncertain) return 'uncertain';
   const spoken = compact(value).toLowerCase();
   if (!spoken) return 'empty';
-  const rest = spoken.replace(/(?:这个我了解了?|我想一下|让我想想|稍等|那我先说一下|嗯|啊|哦|噢|好的|好|明白|对的|对|是的|了解|可以|没问题|行|收到|知道了|懂了|okay|ok|right|yes|uh|hmm)/g, '');
-  if (!rest) return /我想|想想|稍等|我了解|先说/.test(spoken) ? 'thinking' : 'acknowledgement';
+  if (/^(?:我想一下|让我想想|稍等|这个我了解|那我先说一下)$/.test(spoken)) return 'thinking';
+  if (/^(?:嗯哼|嗯嗯|嗯|啊|哦|噢|好的|好|明白了|明白|对的|对|是的|是|了解了|了解|没错|可以|没问题|行|收到|知道了|懂了|okay|ok|right|yes|uh|hmm)+$/.test(spoken)) return 'acknowledgement';
   return 'substantive';
 }
 
@@ -186,9 +185,8 @@ function mergeFragment(pending, next) {
 
   // A clearly independent new question should not be glued to an unfinished tail.
   if (isLikelyCompleteQuestion(b) &&
-      (changesTechnicalSubject(a, b) ||
-       (/^(?:为什么|怎么|如何|什么|哪些|是否|是不是|能不能|有没有|会不会|要不要|请|介绍|讲讲|解释|what\b|why\b|how\b|can\b|could\b|would\b)/i.test(b) &&
-        !continuesQuestion(a, b) && !(compact(a).length >= 12 && !isLikelyCompleteQuestion(a)) && !(compact(a).length >= 8 && (CONTEXT_PREAMBLE_RE.test(a) || PREMISE_RE.test(a)))))) {
+      ((changesTechnicalSubject(a, b) && compact(a).length < 12) || /^(?:为什么|怎么|如何|什么|哪些|是否|是不是|能不能|有没有|会不会|要不要|请|介绍|讲讲|解释|what\b|why\b|how\b|can\b|could\b|would\b)/i.test(b) &&
+        !continuesQuestion(a, b) && !(compact(a).length >= 12 && !isLikelyCompleteQuestion(a)) && !(compact(a).length >= 8 && (CONTEXT_PREAMBLE_RE.test(a) || PREMISE_RE.test(a))))) {
     return null;
   }
 
@@ -212,7 +210,7 @@ class QuestionResolver {
 
   reset({ epoch } = {}) {
     this.epoch = Number.isFinite(epoch) ? epoch : this.epoch + 1;
-    this.stableParts = []; this.pendingText = ''; this.pendingAt = 0; this.pendingRelated = false;
+    this.stableParts = []; this.pendingText = ''; this.pendingUnits = []; this.pendingAt = 0; this.pendingRelated = false;
     this.interim = null; this.speaking = false; this.awaitingText = false; this.awaitingNewQuestion = false;
     this.lastSpeechEndAt = 0; this.lastFinalAt = 0; this.boundary = null; this.hasSpeechState = false;
     this.revision = 0; this.lastSubmitted = null; this.currentQuestionId = ''; this.referenceContext = '';
@@ -222,7 +220,7 @@ class QuestionResolver {
   }
 
   _clearActive(reason = 'no-current-question') {
-    this.stableParts = []; this.pendingText = ''; this.pendingAt = 0; this.pendingRelated = false;
+    this.stableParts = []; this.pendingText = ''; this.pendingUnits = []; this.pendingAt = 0; this.pendingRelated = false;
     this.interim = null; this.awaitingText = false; this.awaitingNewQuestion = false;
     this.boundary = null; this.currentQuestionId = ''; this.referenceContext = ''; this.reason = reason; this.revision++;
     this.answeredParts.clear();
@@ -259,7 +257,6 @@ class QuestionResolver {
       const previous = this.sourceSessions.get(source);
       if (previous && previous !== session) {
         this.retiredSessions.add(`${source}@${previous}`);
-        if (this.stableParts.some(part => part.source === source) || this.interim?.source === source) this._clearActive('source-session-changed');
       }
       this.sourceSessions.set(source, session);
     }
@@ -276,7 +273,7 @@ class QuestionResolver {
       if (previous.text === raw && (previous.final || !final)) return null;
       if (previous.final && !final && (version === undefined || previous.version !== undefined && version <= previous.version)) return null;
     }
-    const activeKey = key && (this.stableParts.some(part => part.key === key) || this.interim?.key === key);
+    const activeKey = key && (this.stableParts.some(part => part.key === key) || this.pendingUnits.some(part => part.key === key) || this.interim?.key === key);
     const high = this.highWater.get(sourceKey);
     if (order !== undefined && high !== undefined && order < high && !activeKey) return null;
     // Missing upstream order cannot establish global chronology. A known older
@@ -310,10 +307,7 @@ class QuestionResolver {
     }
     // Bound the number of ASR units, preserving the complete text of each unit.
     // No question text or constraints are clipped to meet a token target.
-    if (this.stableParts.length > 64) {
-      const first = this.stableParts.splice(0, 2);
-      this.stableParts.unshift({ ...first[0], text: first.map(p => p.text).join('\n'), key: '', keys: first.flatMap(p => p.keys || [p.key]).filter(Boolean) });
-    }
+    this.stableParts.sort((a,b)=>a.sourceKey === b.sourceKey && a.order !== undefined && b.order !== undefined ? a.order-b.order : a.firstSequence-b.firstSequence);
     this._touch('final');
   }
 
@@ -360,10 +354,7 @@ class QuestionResolver {
     if (!final) {
       // A draft has an identity before it becomes answerable. An unrelated new
       // incomplete draft blocks submission of the previous question.
-      if (!complete && previousText && !related && !samePart && !sameInterim) {
-        this._clearActive('new-incomplete-question');
-        this.awaitingNewQuestion = true;
-      }
+      if (!complete && previousText && !related && !samePart && !sameInterim) related = true;
       this.interim = { ...meta, text, pendingText: trailingPending, related, correction };
       this.awaitingText = false;
       this._touch(complete ? correction ? 'interim-correction' : 'meaningful-interim' : 'incomplete-fragment');
@@ -383,11 +374,12 @@ class QuestionResolver {
     }
     if (this.pendingText && !this.awaitingNewQuestion && !correction) {
       const merged = mergeFragment(this.pendingText, text);
-      if (merged) {
-        text = merged; related = related || this.pendingRelated;
+      if (merged && complete) {
+        for (const unit of this.pendingUnits) this._appendStable(unit.text, unit);
+        this.pendingUnits = []; related = true;
         this.pendingText = ''; this.pendingAt = 0; this.pendingRelated = false;
-      } else if (isLikelyCompleteQuestion(text)) {
-        this.pendingText = ''; this.pendingAt = 0; this.pendingRelated = false;
+      } else if (!merged && isLikelyCompleteQuestion(text)) {
+        this.pendingText = ''; this.pendingUnits = []; this.pendingAt = 0; this.pendingRelated = false;
       }
     } else if (this.awaitingNewQuestion && complete) {
       this.pendingText = ''; this.pendingAt = 0; this.awaitingNewQuestion = false;
@@ -405,8 +397,11 @@ class QuestionResolver {
       if (correction) this.reason = 'correction';
       return;
     }
-    const pending = this.pendingText && !this.pendingRelated ? mergeFragment(this.pendingText, text) : null;
-    this.pendingText = pending || text; this.pendingAt = meta.at; this.pendingSequence = meta.sequence;
+    const existingPending = meta.key && this.pendingUnits.findIndex(p => p.key === meta.key);
+    if (existingPending !== false && existingPending >= 0) this.pendingUnits[existingPending] = {...meta, text};
+    else this.pendingUnits.push({...meta, text});
+    this.pendingUnits.sort((a,b)=>a.sourceKey === b.sourceKey && a.order !== undefined && b.order !== undefined ? a.order-b.order : a.firstSequence-b.firstSequence);
+    this.pendingText = this.pendingUnits.map(p=>p.text).join('\n'); this.pendingAt = meta.at; this.pendingSequence = meta.sequence;
     this.pendingRelated = !!this.stableParts.length && (related || CONDITION_START_RE.test(text) || isLikelySupplement(text));
     this.interim = null; this.awaitingText = false; this.lastFinalAt = meta.at;
     this._touch('incomplete-fragment');
@@ -439,7 +434,7 @@ class QuestionResolver {
       let related = this.interim.related;
       if (this.pendingText) {
         const merged = mergeFragment(this.pendingText, candidate);
-        if (merged) { candidate = merged; related ||= this.pendingRelated; }
+        if (merged) { selected.push(...this.pendingUnits); text = selected.map(part => part.text).join('\n'); related = true; }
       }
       if (isLikelyCompleteQuestion(candidate) || isLikelySupplement(candidate) && !isLikelyIncompleteFragment(candidate) && text) {
         const same = this.interim.key ? selected.findIndex(part => part.key === this.interim.key) : -1;

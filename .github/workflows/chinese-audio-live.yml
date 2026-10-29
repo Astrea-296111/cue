@@ -1,6 +1,11 @@
 name: Real Mandarin scenario audio
 on:
   workflow_dispatch:
+    inputs:
+      model:
+        description: ASR model identifier (leave empty to use repository configuration)
+        type: string
+        required: false
 permissions:
   contents: read
 jobs:
@@ -24,7 +29,7 @@ jobs:
         timeout-minutes: 5
         env:
           QWEN_ASR_API_KEY: ${{ secrets.QWEN_ASR_API_KEY || secrets.QWEN_API_KEY }}
-          QWEN_ASR_MODEL: ${{ vars.QWEN_ASR_MODEL }}
+          QWEN_ASR_MODEL: ${{ inputs.model || vars.QWEN_ASR_MODEL }}
           QWEN_ASR_WEBSOCKET_URL: ${{ vars.QWEN_ASR_WEBSOCKET_URL }}
           QWEN_BASE_URL: ${{ vars.QWEN_BASE_URL }}
         run: node scripts/evaluate-chinese-audio.cjs artifacts/chinese-audio

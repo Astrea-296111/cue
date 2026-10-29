@@ -11,6 +11,44 @@ const { classify } = require('../src/screen-task-router');
 const tick = () => new Promise(setImmediate), plain = v => JSON.parse(JSON.stringify(v));
 const sample = (items = []) => ({format:'cue-qa/v1',projects:[{id:'maple',name:'枫叶平台',aliases:['Maple']}],items:items.length?items:[
   {id:'qa.maple.idempotency',projectId:'maple',question:'如何避免重复提交？',aliases:['重复请求怎样处理？'],answerShort:'保留原文。\n第二行保留。',answerDetailed:'详答第一段。\n\n详答第二段。',boundaries:['这是设计建议。'],sourceType:'proposed_design',applicableVersion:'design-v1'}]});
+test('background and question retain independent sentence identities through interim and revisions', async t => {
+  const app=createInterviewRuntime(t);await app.ready;
+  const background='你简历里写，50 个 MCP 工具的场景下，初始 Token 从 18.6k 降到了 4.2k。';
+  app.final(background,{utteranceKey:'background',utteranceOrder:1,revision:1});
+  const id=app.value('questionResolver.resolveForSubmit().questionId');
+  app.candidate('嗯，对，OK');
+  app.interim('你先介绍一下：当时遇到了什么问题，为什么会想到用 ToolSearch 按需加载？',{utteranceKey:'question',utteranceOrder:2,revision:1});
+  const draft=app.value('questionResolver.resolveForSubmit()');
+  assert.equal(draft.questionId,id);
+  for(const anchor of ['50','MCP','Token','18.6k','4.2k','ToolSearch'])assert.ok(draft.text.includes(anchor),anchor);
+  app.final('你先介绍一下：当时遇到了什么问题，为什么会想到用 ToolSearch 按需加载？',{utteranceKey:'question',utteranceOrder:2,revision:2});
+  app.final('为什么会想到用 ToolSearch 按需加载？',{utteranceKey:'question',utteranceOrder:2,revision:3});
+  app.answer('合成回答');await app.ask('say');
+  const request=JSON.stringify(app.calls.at(-1).messages);
+  for(const anchor of ['50','MCP','Token','18.6k','4.2k','ToolSearch'])assert.ok(request.includes(anchor),anchor);
+  assert.equal(app.value('lastFrozenSnapshot.questionId'),id);
+  assert.equal(classifyCandidateUtterance('嗯哼，没错，了解了'),'acknowledgement');
+  assert.equal(classifyCandidateUtterance('好，我用 Redis 做缓存'),'substantive');
+});
+test('long pauses and multiple background units remain context until an answerable question',()=>{
+  for(const gap of [500,3000,5000,10000,15000]){
+    let now=10000;const r=new QuestionResolver({now:()=>now});
+    const emit=(text,n,revision=1)=>r.observe({channel:'them',sourceId:'stream',sourceSessionId:'s1',utteranceKey:`s${n}`,utteranceOrder:n,revision,text},true);
+    emit('你简历里写，50 个 MCP 工具，初始 Token 从 18.6k 降到了 4.2k。',1);
+    now+=gap;emit('这些工具由多个服务提供。',2);
+    assert.equal(r.resolveForSubmit().semanticStatus,'incomplete');
+    emit('你为什么想到用 ToolSearch 按需加载？',3);
+    const target=r.resolveForSubmit();for(const a of ['50','MCP','Token','18.6k','4.2k','多个服务','ToolSearch'])assert.ok(target.text.includes(a),a);
+    emit('换个问题，Redis 为什么快？',4);
+    const next=r.resolveForSubmit();assert.match(next.text,/Redis/);assert.doesNotMatch(next.text,/ToolSearch|18\.6k/);
+  }
+});
+test('Qwen audio overflow reports a gap instead of silently discarding the beginning',()=>{
+  const statuses=[];const {QwenStreamingSTT}=require('../src/stt-providers/qwen');
+  const stt=new QwenStreamingSTT({apiKey:'synthetic'},{onStatusChange:s=>statuses.push(s)});
+  stt.sendAudio(Buffer.alloc(16000*2*6));
+  assert.deepEqual(statuses,['audio-gap']);assert.equal(stt._droppedAudioMs,1000);
+});
 async function install(app, value = sample()) { const p=await app.invoke('qa:prepare',{text:JSON.stringify(value)});await app.invoke('qa:commit',p); }
 test('canceling a QA preview releases it without changing the material generation',async t=>{
   const app=createInterviewRuntime(t);await app.ready;const before=(await app.invoke('qa:state')).generation;

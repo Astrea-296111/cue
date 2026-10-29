@@ -282,6 +282,7 @@ class QwenStreamingSTT {
     this._lastFinalKey = '';
     this._lastInterimAt = 0;
     this._audioBaseAt = null; this._pendingStartAt = null;
+    this._overflowWarned = false; this._droppedAudioMs = 0;
     this.sourceSessionId = null;
     this._reconnectTimer = null;
   }
@@ -486,7 +487,9 @@ class QwenStreamingSTT {
     ]);
 
     if (this._pendingAudio.length > MAX_PENDING_BYTES) {
-      this._pendingStartAt+=(this._pendingAudio.length-MAX_PENDING_BYTES)/32;
+      const dropped = (this._pendingAudio.length-MAX_PENDING_BYTES)/32;
+      this._droppedAudioMs += dropped; this._pendingStartAt+=dropped;
+      if (!this._overflowWarned) { this._overflowWarned = true; this.onStatusChange('audio-gap'); }
       this._pendingAudio =
         this._pendingAudio.subarray(
           this._pendingAudio.length - MAX_PENDING_BYTES
@@ -494,6 +497,7 @@ class QwenStreamingSTT {
     }
 
     if (this.taskStarted) {
+      this._overflowWarned = false;
       this._flushAudio();
     }
   }

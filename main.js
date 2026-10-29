@@ -110,7 +110,8 @@ const screenTaskState = new (require('./src/screen-task-router').ScreenTaskState
 let pendingSubmitDiagnostic = null;
 const pendingSubmit = new (require('./src/pending-submit').PendingSubmit)({
   onReady: (snapshot, mode) => { const identity=speechIdentity();queueMicrotask(() => {
-    if(identity===speechIdentity())runFeature(mode, '', { submitSnapshot: snapshot });
+    const latest=questionResolver.resolveForSubmit();
+    if(identity===speechIdentity() && latest.questionId===snapshot.questionId && latest.semanticStatus==='answerable')runFeature(mode, '', { submitSnapshot: latest });
   }); },
   onChange: (reason, pending) => {
     pendingSubmitDiagnostic = {reason, ...pending};
@@ -750,6 +751,7 @@ function initStreamingSTT() {
       onStatusChange: (ch, status) => {
         if(sessionId!==dialogue.sessionId)return;
         send('stt:status', { channel: ch, status });
+        if (status === 'audio-gap') send('status', {message:`${ch === 'them' ? '面试官' : '候选人'}音频缓冲已溢出，部分语音未送达识别服务；请检查网络并核对题目。`});
         if (status === 'connected') {
           console.log(`[streaming-stt] ${ch} channel connected`);
         }
