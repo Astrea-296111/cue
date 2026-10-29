@@ -67,7 +67,7 @@ test('standard source evidence survives a full fact-card candidate list without 
 
 test('identical same-scope evidence is deduplicated without merging distinct provenance or versions',()=>{
   const item={id:'one',projectId:'cae',sourceType:'project-pack',path:'facts.json',docType:'overview',provenance:'USER',status:'source-claim',applicableVersion:'v1',text:'相同的背景。'};
-  const plan=planProjectEvidence({question:'介绍 CAE',resolution:{kind:'resolved',canonicalProjectIds:['cae'],retrieveFacts:true},facts:[item,{...item,id:'two'},{...item,id:'other-origin',provenance:'CODE'},{...item,id:'other-version',applicableVersion:'v2'}],maxSources:8,evidenceTokens:3000});
-  assert.deepEqual(plan.evidence.map(x=>x.id),['one','other-origin','other-version']);
+  const plan=planProjectEvidence({question:'介绍 CAE',resolution:{kind:'resolved',canonicalProjectIds:['cae'],retrieveFacts:true},facts:[item,{...item,id:'two'},{...item,id:'other-origin',provenance:'CODE'},{...item,id:'other-version',applicableVersion:'v2'},{...item,id:'different-boundary',boundaries:['仅用于模拟']}],maxSources:8,evidenceTokens:3000});
+  assert.deepEqual(plan.evidence.map(x=>x.id),['one','other-origin','other-version','different-boundary']);
   assert.ok(plan.dropped.some(x=>x.id==='two'&&x.reason==='duplicate'));
 });

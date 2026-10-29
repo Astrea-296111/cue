@@ -112,7 +112,7 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
     if(seen.has(c.id))continue;seen.add(c.id);
     // Deduplicate only byte-identical text with identical evidentiary scope.
     // Different claims, provenance, versions, and source code are never merged.
-    const identity=c.sourceType==='project-pack' && c.text ? JSON.stringify([c.projectId,c.docType,c.provenance,c.status,c.applicableVersion,c.text]) : '';
+    const identity=c.sourceType==='project-pack' && c.text ? JSON.stringify([c.projectId,c.docType,c.provenance,c.status,c.truthScope,c.implementation,c.applicableVersion,c.answerShort||c.text,c.deepPoints,c.qa?.answerDetailed,c.boundaries,c.cannotSay,c.facts]) : '';
     if(identity && seenBodies.has(identity)){dropped.push({id:c.id,reason:'duplicate',duplicateOf:seenBodies.get(identity)});continue;}
     const size=estimateTokens(formatEvidenceBlock(c));
     const protectedItem=c.protectedMetric||c.protectedMechanism;
