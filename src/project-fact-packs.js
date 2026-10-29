@@ -166,6 +166,12 @@ class ProjectFactPacks {
     const numericCards=numbers.length>=2 ? scoped.filter(f=>f.card.qa&&numbers.filter(n=>f.numbers.has(n)).length>=2)
       .map(f=>({card:f.card,count:numbers.filter(n=>f.numbers.has(n)).length,match:scoreFor(f,rankText,terms,requested)}))
       .filter(row=>row.match.relevant).sort((a,b)=>b.count-a.count||b.match.score-a.match.score||a.card.cardId.localeCompare(b.card.cardId)).slice(0,1).map(row=>row.card) : [];
+    if(numericCards.length){
+      const claims=scoped.filter(f=>f.card.qa&&f.card.implementation==='resume_claim'&&numbers.some(n=>f.numbers.has(n)))
+        .map(f=>({card:f.card,count:numbers.filter(n=>f.numbers.has(n)).length,match:scoreFor(f,rankText,terms,requested)}))
+        .filter(row=>row.match.relevant).sort((a,b)=>b.count-a.count||b.match.score-a.match.score||a.card.cardId.localeCompare(b.card.cardId));
+      for(const row of claims.slice(0,2))if(!numericCards.includes(row.card))numericCards.push(row.card);
+    }
     for(const card of numericCards)add(card);
     for(const id of metricIds) add(this.metricIndex.get(id));
     for(const id of mechanismIds)add(scoped.find(f=>f.card.cardId===id)?.card);
