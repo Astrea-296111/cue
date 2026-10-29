@@ -99,7 +99,11 @@ class ConversationMemory {
     const boundedTurns = liveContext?.turns || [];
     const routeTurns = liveAnswer ? [...boundedTurns.map(t => ({channel:'them',text:t.text})), {channel:'them',text:current}] : transcript;
     const previousPlan = liveAnswer ? (boundedTurns.length ? planProjectRetrieval(routeTurns.slice(0,-1), mode, {catalog}) : null) : this.lastPlan;
-    const previousActive = liveAnswer ? previousPlan?.activeProject : this.activeProjectPlan;
+    // Keep project identity as bounded routing state even when the question
+    // history is not selected for the prompt. Explicit generic/topic exits are
+    // still handled by the project router; no previous AI answer is reused.
+    const previousActive = liveAnswer ? (previousPlan || (this.activeProjectPlan ? {activeProject:this.activeProjectPlan} : null))
+      : (this.activeProjectPlan ? {activeProject:this.activeProjectPlan} : null);
     let plan = planProjectRetrieval(routeTurns, mode, {
       previousPlan: previousPlan,
       activeProjectPlan: previousActive,
@@ -135,7 +139,7 @@ class ConversationMemory {
       }
     }
     const currentIds=plan.canonicalProjectIds||[];
-    const priorIds=previousActive?.canonicalProjectIds||previousActive?.projectIds||[];
+    const priorIds=previousActive?.canonicalProjectIds||previousActive?.projectIds||previousActive?.activeProject?.projectIds||[];
     if(plan.retrieve&&currentIds.length===1&&priorIds.length===1&&currentIds[0]!==priorIds[0]&&
         /比较|区别|不同|相比|\b(?:compare|difference)\b/i.test(current)&&/前面|刚才|之前|上一个|先前|\bprevious\b/i.test(current)) {
       const compared=catalog.filter(project=>[...currentIds,...priorIds].includes(project.id||project.projectId));

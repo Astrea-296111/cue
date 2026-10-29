@@ -71,3 +71,11 @@ test('identical same-scope evidence is deduplicated without merging distinct pro
   assert.deepEqual(plan.evidence.map(x=>x.id),['one','other-origin','other-version','different-boundary']);
   assert.ok(plan.dropped.some(x=>x.id==='two'&&x.reason==='duplicate'));
 });
+test('implicit project follow-ups retain only the active identity until an explicit topic exit',async t=>{
+  const runtime=createInterviewRuntime(t);await runtime.ready;
+  for(const text of ['CAE 平台用户重复点击任务提交，同时消息可能重复投递，当前有哪些防重机制？','你提到幂等键，它约束提交记录、任务领取还是外部执行？','Worker 在启动外部进程后崩溃，恢复时怎么判断任务到底有没有跑？']){
+    await runtime.ask('say',text);assert.deepEqual(runtime.requests.at(-1).plan.canonicalProjectIds,['cae']);
+  }
+  await runtime.ask('say','换个话题，一般来说 Redis 为什么快？');
+  assert.deepEqual(runtime.requests.at(-1).plan.canonicalProjectIds,[]);
+});

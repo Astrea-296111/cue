@@ -111,6 +111,8 @@ async function evaluateMultiturn({payload,outputDir,env=process.env,provider='al
    try{
     const dialogPaths=[];runtime=createProviderRuntime({id:p.id,config,options,budget,provider:p,cleanups,dialogPaths});tempRoots.push(runtime.temp);await runtime.ready;
     const imported=await importMaterials(runtime,input,bundle,dialogPaths);p.materialImport||=imported;
+    const registry=runtime.snapshot('materialService.snapshot.registry');
+    const canonicalBySource=new Map(registry.projects.flatMap(project=>[...(project.sourceProjectIds||[]),...(project.archivedSourceProjectIds||[])].map(source=>[source,project.id])));
     runtime.clear();
     if(runtime.hasHandler('materials:personal:job')&&(input.profile.jobProfiles||[]).some(job=>job.id===task.session.job_profile))
       await runtime.invoke('materials:personal:job',{jobProfileId:task.session.job_profile});
@@ -124,7 +126,7 @@ async function evaluateMultiturn({payload,outputDir,env=process.env,provider='al
      const history=[];let result;
      for(let attempt=0;attempt<=profile.retryLimit;attempt++){
       const judge=getQuality();
-      result=await runCase(runtime,item,p,options,budget,args=>judge({...args,event,scenarioEvaluation:event.evaluation,dialogueEvents:dialogue,jobProfile:task.session.job_profile}));
+      result=await runCase(runtime,item,p,options,budget,args=>judge({...args,sentSources:(args.sentSources||[]).map(source=>({...source,projectId:canonicalBySource.get(source.projectId)||source.projectId})),event,scenarioEvaluation:event.evaluation,dialogueEvents:dialogue,jobProfile:task.session.job_profile}));
       result.attempt=attempt+1;history.push({...result});if(mock&&result.attempted)p.attemptedCalls++;
       if(!result.error||!/^provider-http-(?:429|5\d\d)$|^(?:provider-error|total-timeout|first-content-timeout)$/.test(result.error.code)||attempt===profile.retryLimit)break;
       await pause(Math.min(10000,1000*(2**attempt)));
