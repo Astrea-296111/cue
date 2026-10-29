@@ -26,6 +26,17 @@ test('tool output questions keep a matching persisted-result function even when 
   const result=peekReadyEvidence({snapshot,epoch:1,projectPlan:{retrieve:true,scopes,projectLabel:'Alpha'},projectRevision:'r',projectIndexSnapshot:prepared,maxSources:3,maxChars:2400});
   assert.ok(result.evidence.some(e=>e.id===source.id));
 });
+test('same-file callers are returned only when requested, without crossing project scopes',async t=>{
+  const {chunkText}=require('../src/project-chunks');
+  const chunks=chunkText('manager.py','def persist_tool_result(value):\n    return value\n\ndef apply_tool_result_budget(value):\n    if len(value) > 10:\n        return persist_tool_result(value)\n    return value\n').map((c,i)=>({...c,id:'source-'+i,projectId:'alpha'}));
+  const index={version:2,projects:[{id:'alpha',name:'Alpha'}],chunks,stats:{fileCount:1,chunkCount:chunks.length}};
+  const app=createInterviewRuntime(t,{indexSnapshot:index});await app.ready;const knowledge=app.exports('src/project-knowledge.js');await knowledge.warmProjectIndex();
+  const prepared=knowledge.getPreparedProjectIndexSnapshot(),seed=chunks.find(c=>c.symbol==='persist_tool_result');
+  const related=prepared.lookupRelated([seed],['@project:alpha'],{includeCallers:true});
+  assert.ok(related.some(c=>c.symbol==='apply_tool_result_budget'&&c.relation?.reason==='same-file-caller'));
+  assert.ok(!prepared.lookupRelated([seed],['@project:alpha']).some(c=>c.relation?.reason==='same-file-caller'));
+  assert.equal(prepared.lookupRelated([seed],['@project:beta'],{includeCallers:true}).length,0);
+});
 
 test('Python multiline constructors keep their body and declared instance calls link to the correct project implementation',()=>{
   const {chunkText}=require('../src/project-chunks'),{buildProjectCodeRelations}=require('../src/project-code-relations'),{hasImplementationBody}=require('../src/project-search');

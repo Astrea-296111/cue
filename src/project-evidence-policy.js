@@ -92,6 +92,7 @@ function planProjectEvidence({question='',resolution={},facts=[],sources=[],fact
       queue(item);files.add(item.path);if(++reserved>=(!personal?2:1))break;
     }
   }
+  if(implementation)for(const source of allowedSources.filter(c=>c.relation?.reason==='same-file-caller').slice(0,2))queue(source);
   if(multi)for(const part of parts){
     const eligible=item=>item.sourceType==='project-pack' ? !part.projectIds.length||part.projectIds.includes(item.projectId)
       : !part.scopes.length||inProjectScope(item,part.scopes);

@@ -74,6 +74,7 @@ let indexFingerprint = 'empty';
 let preparedSearchIndex = null;
 let preparedSearch = null;
 let preparedRelations = null;
+let preparedCallers = null;
 let chunksByFile = null;
 let chunksById = null;
 let rowById = null;
@@ -88,6 +89,7 @@ function resetSearchRuntime() {
   preparedSearchIndex = null;
   preparedSearch = null;
   preparedRelations = null;
+  preparedCallers = null;
   chunksByFile = null;
   chunksById = null; rowById = null; parentsById = null;
   warming = null;
@@ -181,7 +183,7 @@ function getPreparedProjectIndexSnapshot() {
   return { index, chunks: index?.chunks || [], projects: index?.projects || [], revision,
     ready: !!search, byId: chunksById, resolveSource,
     lookupSourceHints:(hints,query,scopes,limits)=>search?.lookupSourceHints(hints,query,scopes,limits)||{rows:[],examined:0},
-    lookupRelated:(seeds,scopes)=>getRelatedProjectEvidence(seeds,{scopes,revision,preparedOnly:true,limit:16,maxDepth:2}),
+    lookupRelated:(seeds,scopes,options={})=>getRelatedProjectEvidence(seeds,{scopes,revision,preparedOnly:true,limit:16,maxDepth:2,includeCallers:!!options.includeCallers}),
     lookup: (query,scopes,limits) => search?.lookupPrepared(query,scopes,limits) || {rows:[],postingsVisited:0} };
 }
 
@@ -853,6 +855,12 @@ function selectChunks(rows, options = {}) {
 
 function prepareRelations(index) {
   preparedRelations = buildProjectCodeRelations(index.chunks);
+  preparedCallers = new Map();
+  for(const [caller,edges] of preparedRelations.edges)for(const edge of edges){
+    if(edge.status!=='resolved'||edge.reason!=='same-file-function'||!Number.isInteger(edge.targetId))continue;
+    if(!preparedCallers.has(edge.targetId))preparedCallers.set(edge.targetId,[]);
+    const rows=preparedCallers.get(edge.targetId);if(rows.length<16)rows.push({caller,edge});
+  }
   chunksByFile = new Map();
   chunksById = new Map(); rowById = new Map();
   parentsById = new Map((index.projects || []).flatMap(project => (project.parents || []).map(parent => [String(parent.id), parent])));
@@ -974,6 +982,13 @@ function getRelatedProjectEvidence(selected, options = {}) {
     if (!chunk || out.length >= maxNeighbors || seen.has(identity(chunk)) || !inProjectScope(chunk, options.scopes)) return;
     seen.add(identity(chunk)); out.push({ ...chunk, neighbor: true, ...(relation ? { relation } : {}) });
   };
+  // Same-file resolved callers provide the conditions around a helper. They
+  // are bounded, revision-scoped source excerpts, not proof of execution.
+  if(options.includeCallers)for(const seed of seeds.slice(0,2))for(const row of (preparedCallers?.get(seed.id)||[]).slice(0,2)){
+    const caller=index.chunks[row.caller];
+    if(caller?.projectId===seed.chunk.projectId && caller.path===seed.chunk.path)
+      add(caller,{...row.edge,reason:'same-file-caller'});
+  }
   // Explicit references are already checked against this project and revision.
   for (const chunk of own) for (const ref of [...(chunk.codeRefs || []), ...(chunk.relatedDocs || [])]) {
     if (ref.status === 'resolved') for (const id of ref.targetIds || []) add(index.chunks[ids.get(id)], { status: 'resolved', reason: 'declared-project-reference', sourcePath: chunk.path, ...(ref.sourceLine ? { sourceLine: ref.sourceLine } : {}), fromSymbol: chunk.symbol || '', toSymbol: ref.symbol || ref.path });

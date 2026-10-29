@@ -88,3 +88,9 @@ test('multi-metric project follow-up sends the intact supporting QA to the model
   const messages=JSON.stringify(app.calls.at(-1).messages);
   assert.match(messages,/启动工具定义是 12\.5k/);assert.match(messages,/40 项累计下降 22\.3% 是不同测量/);
 });
+test('a resolved same-file caller is reserved with its implementation helper',()=>{
+  const scope=['@project:alpha'],base={projectId:'alpha',sourceType:'imported',path:'src/output.py',kind:'function',startLine:1,endLine:2,text:'def persist_tool_result(value):\n    return save(value)'};
+  const helper={...base,id:'helper'},caller={...base,id:'caller',startLine:3,endLine:5,symbol:'apply_tool_result_budget',text:'def apply_tool_result_budget(value):\n    return persist_tool_result(value)',relation:{status:'resolved',reason:'same-file-caller'}};
+  const plan=planProjectEvidence({question:'工具输出太长的代码实现是什么？',resolution:{kind:'project',canonicalProjectIds:['alpha'],sourceScopes:scope,retrieveFacts:true,retrieveSources:true},facts:[],sources:[helper,caller],sourcePolicy:'ready-only',maxSources:2,evidenceTokens:1500});
+  assert.ok(plan.evidence.some(c=>c.id==='helper'));assert.ok(plan.evidence.some(c=>c.id==='caller'));
+});

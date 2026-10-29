@@ -51,7 +51,7 @@ function projectSource(source, revision, scopes) {
   const result = {};
   // Avoid serializing retrievalText/relations/old score and relevance grants.
   for (const key of ['id', 'projectId', 'projectName', 'path', 'startLine', 'endLine', 'startOffset', 'endOffset',
-    'text', 'kind', 'symbol', 'docType', 'truthScope', 'status', 'partial', 'fullParent', 'filePartial']) {
+    'text', 'kind', 'symbol', 'docType', 'truthScope', 'status', 'partial', 'fullParent', 'filePartial', 'relation', 'neighbor']) {
     if (source[key] != null) result[key] = source[key];
   }
   return { ...result, sourceType: 'imported', revision, scopeKey: [...scopes].sort().join('|'),
@@ -150,7 +150,7 @@ function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision,
     const named=definitions.length?definitions:methods.filter(row=>{const terms=new Set(tokenize(row.text));return namedQueryTerms.some(term=>terms.has(term));});
     for(const row of named)preparedScores.set(row.id,Math.max(preparedScores.get(row.id)||0,1.4));
     const seeds=(named.length?named:methods.sort((a,b)=>(preparedScores.get(b.id)||0)-(preparedScores.get(a.id)||0))).slice(0,1);
-    const related=projectIndexSnapshot.lookupRelated(seeds,scopes).filter(row=>row.relation?.status==='resolved');
+    const related=projectIndexSnapshot.lookupRelated(seeds,scopes,{includeCallers:/(?:工具(?:返回|输出|结果)|tool\s+(?:output|result))/i.test(snapshot.text)}).filter(row=>row.relation?.status==='resolved');
     stats.preparedRelationCandidates=related.length;
     const terms=[...querySpec(snapshot.text).weights];
     const callers=[...seeds,...related];
@@ -191,7 +191,7 @@ function peekReadyEvidence({ snapshot, projectPlan = {}, epoch, projectRevision,
     const ownParts=parts.filter(part=>!part.scopes.length||inProjectScope(source,part.scopes));
     const body=`${source.symbol||''}\n${source.path}\n${source.text}`,prepared={body,available:new Set(tokenize(body,true))};
     const score = Math.max(cached.sourceHint ? 0.1 : 0,...ownParts.map(part=>relevant(source,part.text,part.terms,projectPlan,prepared)||0));
-    if (score) ranked.push({ source, score:preparedScores.get(source.id)||score });
+    if (score) ranked.push({ source:cached.relation ? {...source,relation:cached.relation,neighbor:cached.neighbor} : source, score:preparedScores.get(source.id)||score });
   }
   let used = 0;
   const files=new Map();
