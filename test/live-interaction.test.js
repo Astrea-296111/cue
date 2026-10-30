@@ -87,6 +87,10 @@ test('unsubmitted scene retains multiple questions and grouped context across lo
   const snapshot=r.resolveForSubmit();
   for(const text of ['资源十分有限','不能重复执行','任务领取','崩溃应该如何恢复'])assert.ok(snapshot.text.includes(text),text);
   assert.ok(snapshot.segments.length < 4);
+  const question=snapshot.segments.find(part=>part.text.includes('任务领取'));
+  r.markAnswered({questionId:snapshot.questionId,partId:question.id,text:question.text,answered:true});
+  assert.match(r.resolveForSubmit().text,/资源十分有限/,'shared context survives marking a question');
+  r.markAnswered({questionId:snapshot.questionId,partId:question.id,text:question.text,answered:false});
   const first=snapshot.segments[0];r.markAnswered({questionId:snapshot.questionId,partId:first.id,text:first.text,answered:true});
   assert.doesNotMatch(r.resolveForSubmit().text,/资源十分有限/);
   r.markAnswered({questionId:snapshot.questionId,partId:first.id,text:first.text,answered:false});

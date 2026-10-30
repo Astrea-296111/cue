@@ -63,6 +63,9 @@ function groupCoverage(parts, answeredParts) {
     const previous = groups.at(-1);
     const separate = CONTINUATION_QUESTION_RE.test(part.text) || NEW_TOPIC_RE.test(part.text) || isCorrection(part.text);
     const sameScene = previous && !separate && previous.answered === answered && previous.canMark === !!part.final &&
+      // Keep shared scene context separate from the first question, so
+      // marking that question answered does not remove other questions' context.
+      !(!isLikelyCompleteQuestion(previous.text) && isLikelyCompleteQuestion(part.text)) &&
       (!isLikelyCompleteQuestion(previous.text) || !isLikelyCompleteQuestion(part.text) || continuesQuestion(previous.text, part.text));
     if (sameScene) {
       previous.text += '\n' + part.text;
