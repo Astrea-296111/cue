@@ -99,7 +99,10 @@ module.exports=async({js,until,requests,win,verifyProtected})=>{
   await js("document.querySelector('#answer-coverage-list button').click()");
   await until(async()=>/重复提交/.test((await js('cue.questionTarget()')).snapshot.text),'answered fragment restored');
   await js('cue.clearTranscript()');
-  for(let i=0;i<7;i++) await js(`cue.dialogueEvent({eventId:'ui-recent-${i}',utteranceKey:'ui-recent-${i}',utteranceOrder:${i+1},sourceId:'ui-recent',channel:'them',speaker:'interviewer',text:'${i ? '另外' : ''}如何处理任务${i}？',isFinal:true})`);
+  for(let i=0;i<7;i++) {
+    const text=`${i ? '另外' : ''}如何处理任务${i}？${i===6?'还要考虑失败恢复与资源限制。'.repeat(30):''}`;
+    await js(`cue.dialogueEvent({eventId:'ui-recent-${i}',utteranceKey:'ui-recent-${i}',utteranceOrder:${i+1},sourceId:'ui-recent',channel:'them',speaker:'interviewer',text:${JSON.stringify(text)},isFinal:true})`);
+  }
   await until(()=>js("document.querySelectorAll('#answer-coverage-list button').length===5"),'only five recent controls');
   assert.match((await js('cue.questionTarget()')).snapshot.text,/任务0/,'hidden old fragments are not deleted');
   assert.doesNotMatch(await js("document.getElementById('answer-coverage-list').textContent"),/任务0/);
@@ -107,6 +110,7 @@ module.exports=async({js,until,requests,win,verifyProtected})=>{
   assert.equal(await js("document.getElementById('answer-target-toggle').getAttribute('aria-expanded')"),'true');
   assert.equal(await js("getComputedStyle(document.getElementById('answer-target-text')).whiteSpace"),'pre-wrap');
   assert.equal(await js("getComputedStyle(document.getElementById('answer-target-text')).overflowX"),'visible');
+  assert.equal(await js("getComputedStyle(document.getElementById('answer-target-text')).maxHeight"),'none');
   assert.equal(await js("document.getElementById('answer-target-text').scrollHeight<=document.getElementById('answer-target-text').clientHeight"),true,'expanded question is not internally clipped');
   await js('cue.clearTranscript()');
   return {qaPreview:true,qaTry:true,qaDirectUI:true,modelCallsForDirect:0,shortContext:true,screenModeControls:true,answeredFragment:true,pointerInput:process.platform==='win32'?'native-windows':'electron-coordinate'};
