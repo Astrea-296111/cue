@@ -136,6 +136,13 @@ test('a later cross-channel echo retracts an automatic close before a new target
   assert.match((await app.invoke('question:get-target')).snapshot.text,/自我介绍/);
 });
 
+test('uncertain microphone speech is excluded from enabled spoken context',async t=>{
+  const app=createInterviewRuntime(t,{settings:{liveContextPolicy:{includeCandidateSpeech:true}}});await app.ready;
+  await app.invoke('dialogue:event',{eventId:'uncertain-spoken',channel:'you',speaker:'unknown',text:'UNTRUSTED_CANDIDATE_MARKER 这是一个未经确认的说法。',isFinal:true});
+  app.final('请解释并发任务怎样进行失败恢复？');app.answer('模拟回答');await app.ask('say');
+  assert.doesNotMatch(JSON.stringify(app.calls.at(-1).messages),/UNTRUSTED_CANDIDATE_MARKER/);
+});
+
 test('manual clear cancels waiting, ignores late final and preserves later questions through rebuild',async t=>{
   const app=createInterviewRuntime(t);await app.ready;
   app.interim('如果',{utteranceKey:'old',utteranceOrder:1,revision:1});await app.ask('say');

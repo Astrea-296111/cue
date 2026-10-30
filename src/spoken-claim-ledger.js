@@ -235,7 +235,7 @@ class DialogueStore {
     const qTerms = terms(question), qFamilies = family(question);
     const metaConversation=/(?:发言|改口|口误|对话|说过).{0,16}(?:保留|记住|保存|承接)|最近.{0,8}(?:句话|发言|对话)/.test(question);
     ids=ids.length?ids:metaConversation?[]:this.activeProjectIds;
-    const ranked = this.ledger.claims.filter(claim => claim.status !== 'corrected' && claim.eventIds.some(id=>(this.events.get(id)?.receivedAt||0)>=since) && overlaps(ids, claim.projectIds)).map((claim, index, all) => {
+    const ranked = this.ledger.claims.filter(claim => claim.status !== 'corrected' && claim.status !== 'uncertain' && claim.eventIds.some(id=>(this.events.get(id)?.receivedAt||0)>=since) && overlaps(ids, claim.projectIds)).map((claim, index, all) => {
       const shared = intersection(qTerms, terms(claim.text));
       const sharedFamily = claim.concepts.filter(group => qFamilies.includes(group)).length;
       const recency = index >= all.length - 3;
