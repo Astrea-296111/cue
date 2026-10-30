@@ -114,6 +114,18 @@ test('trusted introduction closes one question, uncertain speech and acknowledge
   const body=JSON.stringify(app.calls.at(-1).messages);assert.match(body,/两个项目/);assert.doesNotMatch(body,/自我介绍/);
 });
 
+test('overlapping, interim and ambiguous multi-question answers do not clear the target',()=>{
+  const resolver=new QuestionResolver();
+  resolver.observe({channel:'them',text:'请做一下自我介绍。',utteranceKey:'intro',startMs:1000,endMs:6000,clockDomain:'audio'},true);
+  resolver.observe({channel:'you',speaker:'candidate',text:'我目前是计算机专业研究生，主要研究分布式系统。',startMs:5000,endMs:7000,clockDomain:'audio'},true);
+  assert.match(resolver.resolveForSubmit().text,/自我介绍/);
+  resolver.observe({channel:'you',speaker:'candidate',text:'我目前是计算机专业研究生，主要研究分布式系统。',startMs:7001,endMs:8000,clockDomain:'audio'},false);
+  assert.match(resolver.resolveForSubmit().text,/自我介绍/);
+  resolver.observe({channel:'them',text:'另外你的项目遇到什么困难？',utteranceKey:'second'},true);
+  resolver.observe({channel:'you',speaker:'candidate',text:'我目前是计算机专业研究生，主要研究分布式系统。'},true);
+  assert.match(resolver.resolveForSubmit().text,/自我介绍/);assert.match(resolver.resolveForSubmit().text,/困难/);
+});
+
 test('manual clear cancels waiting, ignores late final and preserves later questions through rebuild',async t=>{
   const app=createInterviewRuntime(t);await app.ready;
   app.interim('如果',{utteranceKey:'old',utteranceOrder:1,revision:1});await app.ask('say');
