@@ -217,7 +217,7 @@
     if(latest?.pendingTail)$('#answer-next-target').textContent += ' 正在补充：'+latest.pendingTail;
     const coverage = $('#answer-coverage-list');
     coverage.replaceChildren();
-    for (const part of latest?.segments || []) {
+    for (const part of (latest?.segments || []).slice(-5)) {
       const row=document.createElement('div'), label=document.createElement('span'), button=document.createElement('button');
       label.textContent=part.text; button.type='button'; button.textContent=part.answered?'恢复待答':'标为已回答'; button.disabled=!part.canMark;
       button.onclick=async()=>{ try { applyQuestionTarget(await cue.questionMarkAnswered({questionId:latest.questionId,partId:part.id,text:part.text,answered:!part.answered})); } catch(e) { showToast(e.message); } };
@@ -1289,8 +1289,12 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
 
   group.appendChild(sep);
   if(snapshot?.text){
-    const bound=document.createElement('div');bound.className='answer-bound-question';
-    bound.textContent='本次回答的问题：'+snapshot.text+(snapshot.provisional?'（临时转写）':'');group.appendChild(bound);
+    const row=document.createElement('div'), bound=document.createElement('span'), toggle=document.createElement('button');
+    row.className='answer-bound-row'; bound.className='answer-bound-question';
+    bound.textContent='本次回答的问题：'+snapshot.text+(snapshot.provisional?'（临时转写）':'');
+    toggle.type='button';toggle.textContent='展开';toggle.setAttribute('aria-expanded','false');
+    toggle.addEventListener('click',()=>{const open=bound.classList.toggle('expanded');toggle.textContent=open?'折叠':'展开';toggle.setAttribute('aria-expanded',String(open));});
+    row.append(bound,toggle);group.appendChild(row);
   }
 
   if (userBubble) {
@@ -1853,7 +1857,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
   }
   $('#quick-provider').addEventListener('change',async e=>{settings=await cue.settingsSet({provider:e.target.value});fillSettings();updateSmartTooltip();});
   $('#diagnostics-toggle').addEventListener('click',()=>{const open=$('#diagnostics-drawer').classList.toggle('hidden')===false;$('#diagnostics-toggle').setAttribute('aria-expanded',String(open));});
-  $('#answer-target-text').addEventListener('click',()=>$('#answer-target-text').classList.toggle('expanded'));
+  $('#answer-target-toggle').addEventListener('click',()=>{const open=$('#answer-target-text').classList.toggle('expanded');$('#answer-target-toggle').textContent=open?'折叠':'展开';$('#answer-target-toggle').setAttribute('aria-expanded',String(open));});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#diagnostics-drawer').classList.add('hidden');$('#diagnostics-toggle').setAttribute('aria-expanded','false');}});
   let materialPreview = null, materialOperation = '', materialOperationId = '', materialSequence = 0;
   let materialReturnFocus = null, materialPreviousAvailable = false, materialInert = [];

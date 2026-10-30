@@ -77,6 +77,24 @@ test('long spoken scenario retains consecutive ASR fragments and incomplete lead
   assert.match(text,/批处理服务/);assert.match(text,/结果不能重复/);assert.match(text,/难点/);assert.match(text,/怎么解决/);
 });
 
+test('unsubmitted scene retains multiple questions and grouped context across long pauses',()=>{
+  let now=1000;const r=new QuestionResolver({now:()=>now});
+  const emit=(text,n)=>{now+=5000;r.observe({channel:'them',text,utteranceKey:`scene-${n}`,utteranceOrder:n},true);};
+  emit('假设一个任务平台遇到高峰，资源十分有限。',1);
+  emit('任务不能重复执行。',2);
+  emit('你会怎么设计任务领取？',3);
+  emit('发生崩溃应该如何恢复？',4);
+  const snapshot=r.resolveForSubmit();
+  for(const text of ['资源十分有限','不能重复执行','任务领取','崩溃应该如何恢复'])assert.ok(snapshot.text.includes(text),text);
+  assert.ok(snapshot.segments.length < 4);
+  const first=snapshot.segments[0];r.markAnswered({questionId:snapshot.questionId,partId:first.id,text:first.text,answered:true});
+  assert.doesNotMatch(r.resolveForSubmit().text,/资源十分有限/);
+  r.markAnswered({questionId:snapshot.questionId,partId:first.id,text:first.text,answered:false});
+  assert.match(r.resolveForSubmit().text,/资源十分有限/);
+  emit('换个问题，Redis 为什么快？',5);
+  assert.doesNotMatch(r.resolveForSubmit().text,/资源十分有限/);
+});
+
 test('locally confirmed answered fragments are excluded from the actual request and can be restored',async t=>{
   const app=createInterviewRuntime(t);await app.ready;
   app.final('如何避免重复提交？',{utteranceKey:'a',utteranceOrder:1});

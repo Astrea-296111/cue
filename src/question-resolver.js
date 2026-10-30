@@ -46,6 +46,32 @@ function continuesQuestion(previous, next) {
     isLikelySupplement(next) || isCodeChangeRequest(next);
 }
 
+// An ASR final is a transport boundary, not necessarily a topic boundary.
+// Preserve a scene introduced before its question until the user submits it or
+// the interviewer explicitly changes topic. A pause alone is not a switch.
+function hasOpenScene(parts, lastSubmitted, questionId) {
+  if (!parts.length || lastSubmitted?.questionId === questionId) return false;
+  return !isLikelyCompleteQuestion(parts[0].text) &&
+    parts.some(part => isLikelyCompleteQuestion(part.text));
+}
+
+function groupCoverage(parts, answeredParts) {
+  const groups = [];
+  for (const part of parts) {
+    const id = part.key || `sequence:${part.sequence}`;
+    const answered = !!part.final && answeredParts.get(id) === part.text;
+    const previous = groups.at(-1);
+    const separate = CONTINUATION_QUESTION_RE.test(part.text) || NEW_TOPIC_RE.test(part.text) || isCorrection(part.text);
+    const sameScene = previous && !separate && previous.answered === answered && previous.canMark === !!part.final &&
+      (!isLikelyCompleteQuestion(previous.text) || !isLikelyCompleteQuestion(part.text) || continuesQuestion(previous.text, part.text));
+    if (sameScene) {
+      previous.text += '\n' + part.text;
+      previous.partIds.push(id);
+    } else groups.push({ id, text: part.text, answered, canMark: !!part.final, partIds: [id] });
+  }
+  return groups;
+}
+
 // Full current questions take priority over optional context budgets. Real model
 // window handling belongs to request budgeting, not silent speech truncation.
 function clipQuestion(text) { return text; }
@@ -329,12 +355,13 @@ class QuestionResolver {
     if (trailing) text = trailing.completeText;
     const previousText = this.stableParts.map(part => part.text).join('\n');
     if (!previousText && REFERENTIAL_RE.test(text) && this.lastSubmitted?.text) this.referenceContext = this.lastSubmitted.text.slice(0, 1000);
-    let related = !!samePart || !!sameInterim || !!previousText && continuesQuestion(previousText, text);
+    let related = !!samePart || !!sameInterim || !!previousText && (continuesQuestion(previousText, text) ||
+      !correction && !announced && hasOpenScene(this.stableParts, this.lastSubmitted, this.currentQuestionId));
     let complete = isLikelyCompleteQuestion(text);
     const pendingContext = this.pendingText && !this.awaitingNewQuestion && !correction && !announced &&
       mergeFragment(this.pendingText, text) ? { text: this.pendingText, related: this.pendingRelated, at: this.pendingAt } : null;
     if (pendingContext?.related) related = true;
-    const newPendingTarget=complete&&this.pendingText&&!this.pendingRelated&&!sameInterim&&mergeFragment(this.pendingText,text)===null;
+    const newPendingTarget=complete&&this.pendingText&&!this.pendingRelated&&!sameInterim&&!related&&mergeFragment(this.pendingText,text)===null;
     const newTarget = newPendingTarget || !samePart && !sameInterim && (correction || announced) || complete && (previousText || this.interim?.text) && !related && !sameInterim;
     const newInterimTarget = !final && complete && this.interim && !sameInterim && !related;
     if (newTarget || newInterimTarget) {
@@ -379,6 +406,7 @@ class QuestionResolver {
         this.pendingUnits = []; related = true;
         this.pendingText = ''; this.pendingAt = 0; this.pendingRelated = false;
       } else if (!merged && isLikelyCompleteQuestion(text)) {
+        if (related) for (const unit of this.pendingUnits) this._appendStable(unit.text, unit);
         this.pendingText = ''; this.pendingUnits = []; this.pendingAt = 0; this.pendingRelated = false;
       }
     } else if (this.awaitingNewQuestion && complete) {
@@ -417,9 +445,12 @@ class QuestionResolver {
   }
   markAnswered({ questionId, partId, text, answered }) {
     if (questionId !== this.currentQuestionId || typeof answered !== 'boolean') throw new Error('问题已更新，请重新确认');
-    const part = this.stableParts.find(p => (p.key || `sequence:${p.sequence}`) === partId && p.text === text);
-    if (!part) throw new Error('该发言已更新，请重新确认');
-    if (answered) this.answeredParts.set(partId, text); else this.answeredParts.delete(partId);
+    const group = groupCoverage(this.stableParts, this.answeredParts).find(p => p.id === partId && p.text === text && p.canMark);
+    if (!group) throw new Error('该发言已更新，请重新确认');
+    for (const id of group.partIds) {
+      const part = this.stableParts.find(p => (p.key || `sequence:${p.sequence}`) === id);
+      if (answered) this.answeredParts.set(id, part.text); else this.answeredParts.delete(id);
+    }
     this._touch('answer-coverage-changed');
   }
   previewForPrefetch(options = {}) { return this.resolveForSubmit({ ...options, allowPartial: true }); }
@@ -449,11 +480,12 @@ class QuestionResolver {
     // allowPartial permits a meaningful latest interim, never a bare “如果” or
     // “另外一个问题”. No model request is a better result than reviving old text.
     const partial = provisional;
-    const segments = selected.map(part => {
+    const individualSegments = selected.map(part => {
       const id = part.key || `sequence:${part.sequence}`;
       return { id, text: part.text, answered: !!part.final && this.answeredParts.get(id) === part.text, canMark: !!part.final };
     });
-    if (!this.awaitingNewQuestion && segments.some(part => part.answered)) text = segments.filter(part => !part.answered).map(part => part.text).join('\n');
+    const segments = groupCoverage(selected, this.answeredParts);
+    if (!this.awaitingNewQuestion && individualSegments.some(part => part.answered)) text = individualSegments.filter(part => !part.answered).map(part => part.text).join('\n');
     const at = selected.reduce((latest, part) => Math.max(latest, part.at || 0), 0) || this.pendingAt || 0;
     const sourceKeys = selected.flatMap(part => part.keys || [part.key]).filter(Boolean);
     return this._snapshot({ epoch, questionId: this.currentQuestionId || '', revision: this.revision,
