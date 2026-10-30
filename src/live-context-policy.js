@@ -11,7 +11,11 @@ function normalize(value = {}) {
 }
 function needsReference(question) {
   const q = String(question || '');
-  return !SWITCH.test(q) && REFERENTIAL.test(q) && !EXPLICIT.test(q);
+  // A named technical subject in a self-contained question is not made
+  // elliptical merely by an incidental phrase such as “这个项目”.
+  if (/这个项目/.test(q) && /\b[A-Za-z][A-Za-z0-9_.+#/-]{2,}\b/.test(q) && !/(?:对比|比较|刚才|前面|上述|这两)/.test(q) &&
+      !/^(?:那(?:么)?[，,\s]*)?(?:这个|这些|上述|刚才|前面|这样|它|他们|这两)/.test(q.trim())) return false;
+  return !SWITCH.test(q) && (REFERENTIAL.test(q) || /^(?:为什么|为何|代价呢|举个例子)[?？。.!！]*$/.test(q.trim())) && !EXPLICIT.test(q);
 }
 class LiveQuestionWindow {
   constructor() { this.reset(); }

@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('cue', {
   ask: (payload) => ipcRenderer.send('ask', payload),
   replyRendered: (requestId, details) => ipcRenderer.send('llm:rendered', details ? { requestId, ...details } : requestId),
   questionTarget: () => ipcRenderer.invoke('question:get-target'),
+  questionClear: () => ipcRenderer.invoke('question:clear'),
   questionMarkAnswered: payload => ipcRenderer.invoke('question:mark-answered', payload),
   questionRetry: () => ipcRenderer.invoke('question:retry'),
   captureToggle: () => ipcRenderer.invoke('capture:toggle').catch((err) => {

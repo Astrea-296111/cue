@@ -165,7 +165,7 @@ class ConversationMemory {
       : Number.isFinite(configured) && configured >= 4000
         ? Math.min(48000, Math.floor(configured), Math.max(legacyBudget, 4000))
         : defaultBudget;
-    const snapshot = liveAnswer ? {turns:boundedTurns.map(t=>({role:'user',text:t.text})),memory:'',stats:{policy:boundedTurns.length?'bounded-reference':'independent',recentPairs:0,recalledPairs:0,historyChars:boundedTurns.reduce((n,t)=>n+t.text.length,0),budget:0}} : this.buildHistory(current, plan, budget, policy);
+    const snapshot = liveAnswer ? {turns:boundedTurns.map(t=>({role:'user',text:'REFERENCE_CONTEXT（仅作背景，不要重新回答）：\n'+t.text})),memory:'',stats:{policy:boundedTurns.length?'bounded-reference':'independent',recentPairs:0,recalledPairs:0,historyChars:boundedTurns.reduce((n,t)=>n+t.text.length,0),budget:0}} : this.buildHistory(current, plan, budget, policy);
     const scopedClaims = spokenState?.claims?.filter(claim => !plan.canonicalProjectIds?.length ||
       !claim.projectIds.length || claim.projectIds.some(id => plan.canonicalProjectIds.includes(id)));
     const spokenContext = liveAnswer && !livePolicy.includeCandidateSpeech ? '' : spokenState ? scopedClaims?.map(claim =>

@@ -202,11 +202,11 @@
   function renderAnswerTarget() {
     const latest = targetState.snapshot;
     const frozen = busy ? (submittedSnapshot || targetState.frozenSnapshot) : null;
-    const display = frozen || latest;
-    const unavailable = !display?.text || ['empty', 'incomplete', 'consumed'].includes(targetState.state) && !frozen;
+    const display = latest;
+    const unavailable = !display?.text || ['empty', 'incomplete', 'consumed'].includes(targetState.state);
     const pending = latest?.pendingText || latest?.interimText || '';
     const value = unavailable ? (pending ? '正在识别：' + pending : targetState.state === 'incomplete' || latest?.awaitingNewQuestion ? '新问题尚未识别完整' : '等待新问题') : display.text;
-    $('#answer-target-label').textContent = frozen ? '正在回答：' : '本次回答：';
+    $('#answer-target-label').textContent = '待回答：';
     $('#answer-target-text').textContent = value;
     $('#answer-target-text').title = value;
     $('#answer-target-edit').disabled = unavailable;
@@ -215,6 +215,8 @@
     $('#answer-next-target').textContent = targetState.pendingSubmit ? '已记住按键，正在补全当前问题' : different ? '题目有补充，按 Ctrl+Enter 更新：' + latest.text : latest?.status === 'partial' && !frozen ? '识别中，可立即回答当前目标' : '';
     $('#answer-next-target').title = $('#answer-next-target').textContent;
     if(latest?.pendingTail)$('#answer-next-target').textContent += ' 正在补充：'+latest.pendingTail;
+    if (frozen?.text) $('#answer-next-target').textContent = '正在生成：' + frozen.text + ($('#answer-next-target').textContent ? '；' + $('#answer-next-target').textContent : '');
+    if (targetState.candidateActivity === 'uncertain') $('#answer-next-target').textContent += ' 本人声音未确认，旧问题保留';
     const coverage = $('#answer-coverage-list');
     coverage.replaceChildren();
     for (const part of (latest?.segments || []).slice(-5)) {
@@ -1849,6 +1851,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
   $('#quick-provider').addEventListener('change',async e=>{settings=await cue.settingsSet({provider:e.target.value});fillSettings();updateSmartTooltip();});
   $('#diagnostics-toggle').addEventListener('click',()=>{const open=$('#diagnostics-drawer').classList.toggle('hidden')===false;$('#diagnostics-toggle').setAttribute('aria-expanded',String(open));});
   $('#answer-target-toggle').addEventListener('click',()=>{const open=$('#answer-target-text').classList.toggle('expanded');$('#answer-target-toggle').textContent=open?'折叠':'展开';$('#answer-target-toggle').setAttribute('aria-expanded',String(open));});
+  $('#answer-target-clear').addEventListener('click',async()=>{try { applyQuestionTarget(await cue.questionClear()); showToast('已清空待回答问题'); } catch(e) { showToast(e.message); }});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#diagnostics-drawer').classList.add('hidden');$('#diagnostics-toggle').setAttribute('aria-expanded','false');}});
   let materialPreview = null, materialOperation = '', materialOperationId = '', materialSequence = 0;
   let materialReturnFocus = null, materialPreviousAvailable = false, materialInert = [];

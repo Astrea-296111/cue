@@ -205,9 +205,14 @@ const snapshotSourceKey = snapshot => {
 function currentTargetEnvelope() {
   return { snapshot: questionResolver.resolveForSubmit({ allowPartial: true, epoch: conversation.epoch }),
     frozenSnapshot: activeGeneration?.snapshot || lastFrozenSnapshot, state: state.busy ? 'answering' : 'idle',
+    candidateActivity: questionResolver.candidateActivity,
     pendingSubmit:!!pendingSubmit.pending, requestId: activeGeneration?.id || latestUiRequestId, epoch: conversation.epoch };
 }
 function publishQuestionTarget() { send('question:target', currentTargetEnvelope()); }
+function clearQuestionPrefetch() {
+  ragSession.reset();
+  if (activeGeneration?.policy.instant && !activeGeneration.firstContent) ragSession.suspend(activeGeneration.id);
+}
 function observeProjectPrefetch(final) {
   const preview = questionResolver.previewForPrefetch();
   if (!preview.text) return;
@@ -316,8 +321,12 @@ function send(channel, data) {
   // Keep answer targeting in the main process so keyboard shortcuts, renderer
   // buttons and every STT provider all share exactly the same question state.
   if (channel === 'vad:state') questionResolver.speechState(data);
-  if (channel === 'stt:interim') { questionResolver.observe(data, false); if (data.channel === 'them') observeProjectPrefetch(false); }
-  if (channel === 'transcript') { questionResolver.observe(data, true); if (data.channel === 'them') observeProjectPrefetch(true); }
+  const candidate = data?.channel === 'you' || data?.audioSourceChannel === 'you' && data?.channel === 'unknown';
+  const beforeCandidate = candidate && channel === 'transcript' ? questionResolver.currentQuestionId : '';
+  const observation = candidate && data.channel !== 'you' ? {...data,channel:'you',speaker:'unknown'} : data;
+  if (channel === 'stt:interim') { questionResolver.observe(observation, false); if (data.channel === 'them') observeProjectPrefetch(false); }
+  if (channel === 'transcript') { questionResolver.observe(observation, true); if (data.channel === 'them') observeProjectPrefetch(true); }
+  if (beforeCandidate && beforeCandidate !== questionResolver.currentQuestionId) { pendingSubmit.cancel('candidate-answer'); clearQuestionPrefetch(); }
   if (['stt:interim','transcript'].includes(channel) && data?.channel === 'them') {
     const target = questionResolver.resolveForSubmit();
     liveQuestions.observe(target);
@@ -325,7 +334,7 @@ function send(channel, data) {
   }
   replyLatency.observe(channel, data);
   if (win && !win.isDestroyed()) win.webContents.send(channel, data);
-  if (['vad:state', 'stt:interim', 'transcript'].includes(channel) && data?.channel === 'them') publishQuestionTarget();
+  if (['vad:state', 'stt:interim', 'transcript'].includes(channel) && (data?.channel === 'them' || candidate)) publishQuestionTarget();
 }
 
 function getWhisperRuntime() {
@@ -389,9 +398,11 @@ function updateSpeechTranscript(event) {
 }
 function rebuildSpeechTarget(changedEvent) {
   const before=questionResolver.resolveForSubmit(),claims=questionResolver.claims,lastSubmitted=questionResolver.lastSubmitted,lastRetryable=questionResolver.lastRetryable;
+  const retiredKeys=new Set(questionResolver.retiredKeys),retiredWatermarks=new Map(questionResolver.retiredWatermarks),answeredParts=new Map(questionResolver.answeredParts),lastHandledText=questionResolver.lastHandledText;
   questionResolver.reset({epoch:conversation.epoch});
+  questionResolver.retiredKeys=retiredKeys;questionResolver.retiredWatermarks=retiredWatermarks;questionResolver.answeredParts=answeredParts;questionResolver.lastHandledText=lastHandledText;
   liveQuestions.reset(); pendingSubmit.cancel('target-rebuilt');
-  for (const event of dialogue.ordered()) if (event.speaker === 'interviewer' || event.channel === 'them' && !event.roleCorrected) {
+  for (const event of dialogue.ordered()) if (event.speaker === 'interviewer' || event.channel === 'them' && !event.roleCorrected || event.speaker === 'candidate') {
     questionResolver.observe(speechTurn(event), event.isFinal);
     liveQuestions.observe(questionResolver.resolveForSubmit());
   }
@@ -947,7 +958,7 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
   if (voiceAnswer && !screenRequest && !question) {
     if (state.capturing || state.transcribing.them || resolved?.pendingText || resolved?.interimText) {
       pendingSubmit.arm(resolved, speechIdentity(), mode);
-    } else send('status', {message:'请开启监听或输入问题。'});
+    } else send('status', {message:'当前未识别到明确问题，可编辑后发送。'});
     publishQuestionTarget();
     return;
   }
@@ -1064,6 +1075,10 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
     formalProjectPlan = request.plan;
     emit('project:active', { answerDomain: settings.answerDomain, switchHint: request.plan.switchHint, projectId: request.plan.projectIds?.length === 1 ? request.plan.projectIds[0] : '',
       label: request.plan.projectLabel || '', reason: request.plan.reason, retrieve: request.plan.retrieve });
+    // Only the resolver's frozen current question may add answer obligations;
+    // checklist bookkeeping from earlier generations is not candidate speech.
+    if (voiceAnswer && request.checklist) request.checklist = { ...request.checklist,
+      scenario: interviewPlan?.scenario || '', questions: request.checklist.questions.filter(item => item.current), pending: [] };
     const checklistText = !policy.instant && interviewPlan ? formatInterviewChecklist(request.checklist, { maxChars: 2600, includeCurrent: !!settings.smart }) : '';
     // Only spend prompt/retrieval/output budgets on old pending items that are
     // actually shown this round. The original current question remains intact.
@@ -1201,7 +1216,8 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
     // subsequent manual follow-ups. No previous screenshot bytes are retained.
     const history = mode === 'leetcode' ? [] : request.turns;
     const memory = mode === 'leetcode' ? '' : request.memory;
-    const topic = mode !== 'leetcode' && request.plan.anchor && request.plan.anchor !== question
+    const topic = mode !== 'leetcode' && request.plan.anchor && request.plan.anchor !== question &&
+      liveContext.turns.some(turn => turn.text === request.plan.anchor)
       ? '=== 当前话题起点（历史用户发言，仅用于理解指代） ===\n' + request.plan.anchor : '';
     const checklist = checklistText;
     // Discussion progress is not a source of project implementation facts.
@@ -1535,6 +1551,13 @@ ipcMain.handle('diagnostics:export',async()=>{
   return {canceled:false,fileName:path.basename(selected.filePath),sessionId:dialogue.sessionId};
 });
 ipcMain.handle('question:get-target', () => currentTargetEnvelope());
+ipcMain.handle('question:clear', () => {
+  questionResolver.retireActive('manual-clear');
+  pendingSubmit.cancel('manual-clear');
+  clearQuestionPrefetch();
+  publishQuestionTarget();
+  return currentTargetEnvelope();
+});
 ipcMain.handle('question:mark-answered', (_event, input = {}) => {
   questionResolver.markAnswered(input);
   publishQuestionTarget();

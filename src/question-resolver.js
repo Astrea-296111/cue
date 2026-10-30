@@ -49,10 +49,27 @@ function continuesQuestion(previous, next) {
 // An ASR final is a transport boundary, not necessarily a topic boundary.
 // Preserve a scene introduced before its question until the user submits it or
 // the interviewer explicitly changes topic. A pause alone is not a switch.
-function hasOpenScene(parts, lastSubmitted, questionId) {
+function hasOpenScene(parts, lastSubmitted, questionId, now) {
   if (!parts.length || lastSubmitted?.questionId === questionId) return false;
+  if (now - (parts.at(-1).at || now) > 45000) return false;
   return !isLikelyCompleteQuestion(parts[0].text) &&
     parts.some(part => isLikelyCompleteQuestion(part.text));
+}
+
+// Auto-close only when the reply itself supplies strong, local evidence of
+// addressing one question. Uncertain/short answers remain manually actionable.
+function candidateAddressesQuestion(question, speech) {
+  const answer = clean(speech), q = clean(question);
+  if (compact(answer).length < 12 || /^(?:嗯|哦|好|啊|那个|稍等|我想一下|让我想想)[，,\s]*(?:我)?(?:调|检查|测试)(?:一下|下)?(?:声音|音量|麦克风|设备)/.test(answer)) return false;
+  if (/自我介绍|介绍(?:一下|下)?自己/.test(q) && /(?:我叫|我的名字|我本科|我毕业|我目前|我现在|我是一名)/.test(answer)) return true;
+  const terms = value => new Set((value.match(/[A-Za-z][A-Za-z0-9_.+#/-]{1,40}|[\u3400-\u9fff]{2,}/g) || []).flatMap(word => {
+    if (/^[A-Za-z]/.test(word)) return [word.toLowerCase()];
+    const result=[]; for(let i=0;i<word.length-1;i++) result.push(word.slice(i,i+2)); return result;
+  }));
+  const ignored = new Set(['怎么','如何','什么','可以','这个','一个','我们','然后','一下','问题','处理','你们','我在','就是','所以']);
+  const questionTerms = terms(q);
+  const common=[...terms(answer)].filter(t=>!ignored.has(t)&&questionTerms.has(t));
+  return common.length >= 2 && /(?:我|我们|首先|因为|通过|采用|使用|一般|需要|主要|比如)/.test(answer);
 }
 
 function groupCoverage(parts, answeredParts) {
@@ -246,6 +263,7 @@ class QuestionResolver {
     this.eventSequence = 0; this.events = new Map(); this.sourceSessions = new Map(); this.retiredSessions = new Set();
     this.highWater = new Map(); this.claims = new Map(); this.lastRetryable = null; this.reason = 'no-current-question';
     this.answeredParts = new Map();
+    this.retiredKeys = new Set(); this.retiredWatermarks = new Map(); this.candidateActivity = ''; this.lastHandledText = '';
   }
 
   _clearActive(reason = 'no-current-question') {
@@ -292,6 +310,8 @@ class QuestionResolver {
     const order = Number.isFinite(data.utteranceOrder) ? data.utteranceOrder : undefined;
     const local = data.utteranceKey != null ? String(data.utteranceKey) : order !== undefined ? String(order) : '';
     const key = local ? `${sourceKey}:${local}` : '';
+    if (key && this.retiredKeys.has(key)) return null;
+    if (order !== undefined && order <= (this.retiredWatermarks.get(sourceKey) ?? -Infinity)) return null;
     const previous = key ? this.events.get(key) : null;
     const version = Number.isFinite(data.utteranceRevision) ? data.utteranceRevision
       : Number.isFinite(data.revision) ? data.revision : Number.isFinite(data.eventRevision) ? data.eventRevision : undefined;
@@ -312,6 +332,7 @@ class QuestionResolver {
     if (order !== undefined) this.highWater.set(sourceKey, Math.max(high ?? order, order));
     const sequence = ++this.eventSequence;
     const meta = { key, at: now, source, sourceKey, session, order, version, final, text: raw, sequence,
+      startMs:data.startMs, endMs:data.endMs, clockDomain:data.clockDomain,
       firstSequence: previous?.firstSequence ?? sequence };
     if (key) this.events.set(key, meta);
     return meta;
@@ -344,22 +365,34 @@ class QuestionResolver {
     const raw = clean(data.text);
     if (data.channel === 'you') {
       this.candidateActivity = classifyCandidateUtterance(raw, { uncertain: !!data.possibleEchoOf || data.speaker === 'unknown' });
+      if (final && this.candidateActivity === 'substantive' && !data.echoOf && !data.possibleEchoOf && !this.speaking && this.stableParts.length) {
+        const current = this.resolveForSubmit();
+        const questionGroups = current.segments.filter(part => !part.answered && isLikelyCompleteQuestion(part.text));
+        const last = this.stableParts.at(-1);
+        const overlapping = data.clockDomain && last.clockDomain === data.clockDomain && Number.isFinite(data.startMs) && Number.isFinite(last.endMs) && data.startMs <= last.endMs;
+        if (!overlapping && questionGroups.length === 1 && !current.pendingText && candidateAddressesQuestion(questionGroups[0].text, raw)) {
+          this.retireActive('candidate-answer-started');
+        }
+      }
       return;
     }
     if (data.channel !== 'them' || !raw || isSpeechNoise(raw)) return;
+    if (/^(?:喂|哈喽|hello|hi|嗯|啊|哦|好|可以|好的|行|测试|收到|开始吧|我们开始吧)+$/i.test(compact(raw))) return;
+    if (/(?:听得?(?:到|清)|听不(?:到|清)|声音|音量|麦克风)/.test(raw) && /(?:喂|听|声音|音量|麦克风)/.test(raw) && !/(?:介绍|项目|技术|代码|设计|实现|架构|为什么|如何|怎么做|举个例子)/.test(raw)) return;
     const meta = this._eventMeta(data, final, raw);
     if (!meta) return;
     const samePart = meta.key && this.stableParts.find(part => part.key === meta.key);
     const sameInterim = meta.key && this.interim?.key === meta.key;
     const correction = isCorrection(raw), announced = NEW_TOPIC_RE.test(raw) || SWITCH_RE.test(raw);
     let text = announced && !correction ? stripSwitchPrefix(raw) : raw;
+    if (final && (this.lastHandledText || this.lastSubmitted?.text) && /^(?:为什么|为何|代价呢|举个例子)[。.!！]*$/.test(text)) text += '？';
     const trailing = splitTrailingIncompleteClause(text);
     const trailingPending = trailing?.pendingText || '';
     if (trailing) text = trailing.completeText;
     const previousText = this.stableParts.map(part => part.text).join('\n');
     if (!previousText && REFERENTIAL_RE.test(text) && this.lastSubmitted?.text) this.referenceContext = this.lastSubmitted.text.slice(0, 1000);
     let related = !!samePart || !!sameInterim || !!previousText && (continuesQuestion(previousText, text) ||
-      !correction && !announced && hasOpenScene(this.stableParts, this.lastSubmitted, this.currentQuestionId));
+      !correction && !announced && hasOpenScene(this.stableParts, this.lastSubmitted, this.currentQuestionId, meta.at));
     let complete = isLikelyCompleteQuestion(text);
     const pendingContext = this.pendingText && !this.awaitingNewQuestion && !correction && !announced &&
       mergeFragment(this.pendingText, text) ? { text: this.pendingText, related: this.pendingRelated, at: this.pendingAt } : null;
@@ -455,6 +488,18 @@ class QuestionResolver {
       if (answered) this.answeredParts.set(id, part.text); else this.answeredParts.delete(id);
     }
     this._touch('answer-coverage-changed');
+  }
+  retireActive(reason = 'manual-clear') {
+    this.lastHandledText = this.resolveForSubmit().text || this.lastHandledText;
+    if (reason === 'manual-clear') this.candidateActivity = '';
+    for (const [key] of this.events) this.retiredKeys.add(key);
+    for (const [sourceKey, order] of this.highWater) this.retiredWatermarks.set(sourceKey, Math.max(this.retiredWatermarks.get(sourceKey) ?? -Infinity, order));
+    for (const part of [...this.stableParts, ...this.pendingUnits, ...(this.interim ? [this.interim] : [])]) {
+      if (part.key) this.retiredKeys.add(part.key);
+      if (part.sourceKey && Number.isFinite(part.order)) this.retiredWatermarks.set(part.sourceKey, Math.max(this.retiredWatermarks.get(part.sourceKey) ?? -Infinity, part.order));
+    }
+    while (this.retiredKeys.size > 500) this.retiredKeys.delete(this.retiredKeys.values().next().value);
+    this._clearActive(reason);
   }
   previewForPrefetch(options = {}) { return this.resolveForSubmit({ ...options, allowPartial: true }); }
   resolveForSubmit({ allowPartial = false, epoch = this.epoch } = {}) {

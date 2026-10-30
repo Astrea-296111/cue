@@ -18,6 +18,7 @@ async function run(output=path.resolve('artifacts/oct27-live'),env=process.env){
   const actual=id==='qwen'?'custom':'deepseek';report.providers.push({id,model:config.model,endpointHost:config.hostname});
   for(const c of [{id:'interim',mode:'say',question:'同一个任务的重复请求怎样避免创建两条记录？',interim:true},
     {id:'qa-miss',mode:'say',question:'解释 SQL 聚合时为什么需要先确定分组粒度？'},
+    {id:'question-lifecycle',mode:'say',question:'Redis 出现故障时怎么保护数据库？',lifecycle:true},
     ...['vibe','algorithm','sql','debug','unknown'].map(name=>({id:name,mode:name==='algorithm'?'leetcode':'assist',question:'',image:name+'.png'}))]) {
    const cleanups=[];let app;const row={provider:id,caseId:c.id,requestedModel:config.model,attempts:0,status:'running'};report.rows.push(row);save();
    try{
@@ -28,7 +29,9 @@ async function run(output=path.resolve('artifacts/oct27-live'),env=process.env){
       providerProtocolPresets:{[actual]:id==='qwen'?'dashscope':'deepseek'},instantProviderOptions:{[actual]:id==='qwen'?{enable_thinking:false}:{thinking:{type:'disabled'}}}},
      liveTransport:{maxOutputTokens:8000,totalTimeoutMs:120000,firstContentTimeoutMs:30000,onAttempt:()=>{if(++calls>20)throw new Error('Live call cap exceeded');row.attempts++;save();}}});
     await app.ready;
-    if(c.interim){app.interim(c.question,{utteranceKey:'synthetic-early',revision:1});app.candidate('嗯，我想一下');await app.ask(c.mode);}
+    if(c.lifecycle){app.final('请做一下自我介绍。');app.candidate('我目前是计算机专业研究生，主要研究分布式系统。');
+      app.final(c.question);await app.ask(c.mode);}
+    else if(c.interim){app.interim(c.question,{utteranceKey:'synthetic-early',revision:1});app.candidate('嗯，我想一下');await app.ask(c.mode);}
     else await app.ask(c.mode,c.question);
     row.requests=app.calls.map(body=>({...body,messages:body.messages.map(m=>({...m,content:Array.isArray(m.content)?m.content.map(part=>part.type==='image_url'?{type:'image_fixture',path:'test/fixtures/live-interaction/'+c.image}:part):m.content}))}));
     row.answer=app.events.filter(e=>e.channel==='llm:token').map(e=>e.text).join('');
@@ -42,7 +45,8 @@ async function run(output=path.resolve('artifacts/oct27-live'),env=process.env){
     if(c.image&&id==='deepseek')row.status=row.attempts===0&&/视觉/.test(row.error||'')?'unsupported-vision':'failed';
     else if(c.image){const expected=c.id==='vibe'?'vibe-coding':c.id;row.expectedType=expected;row.actualType=row.diagnostic?.screen?.type;
       row.status=row.attempts===1&&row.actualType===expected&&row.answer.trim()&&!row.error&&!row.diagnostic?.truncated?'needs-human-review':'failed';}
-    else row.status=row.attempts===1&&row.answer.trim()&&!row.error&&(!c.interim||row.asrFinal===false)?'needs-human-review':'failed';
+    else {row.targetCorrect=!c.lifecycle||app.snapshot('lastFrozenSnapshot?.text')===c.question.normalize('NFKC') && !JSON.stringify(row.requests).includes('自我介绍');
+      row.status=row.attempts===1&&row.answer.trim()&&!row.error&&row.targetCorrect&&(!c.interim||row.asrFinal===false)?'needs-human-review':'failed';}
    }catch(e){row.status='failed';row.error=String(e.message);}finally{for(const cleanup of cleanups.reverse())await cleanup();save();}
   }
  }

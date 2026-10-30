@@ -112,6 +112,13 @@ module.exports=async({js,until,requests,win,verifyProtected})=>{
   assert.equal(await js("getComputedStyle(document.getElementById('answer-target-text')).overflowX"),'visible');
   assert.equal(await js("getComputedStyle(document.getElementById('answer-target-text')).maxHeight"),'none');
   assert.equal(await js("document.getElementById('answer-target-text').scrollHeight<=document.getElementById('answer-target-text').clientHeight"),true,'expanded question is not internally clipped');
+  const answerBefore=await js("document.querySelector('.response-group:first-child .ai-text').textContent");
+  await js("document.getElementById('input').value='保留手动草稿';document.getElementById('answer-target-clear').click()");
+  await until(async()=>!(await js('cue.questionTarget()')).snapshot.text,'clear current question');
+  assert.equal(await js("document.getElementById('input').value"),'保留手动草稿');
+  assert.equal(await js("document.querySelector('.response-group:first-child .ai-text').textContent"),answerBefore);
+  assert.equal(await js("document.getElementById('answer-target-text').textContent"),'等待新问题');
+  assert.equal(await js("document.getElementById('answer-target-clear').getAttribute('aria-label')"),'清空当前待回答问题');
   await js('cue.clearTranscript()');
   return {qaPreview:true,qaTry:true,qaDirectUI:true,modelCallsForDirect:0,shortContext:true,screenModeControls:true,answeredFragment:true,pointerInput:process.platform==='win32'?'native-windows':'electron-coordinate'};
 };

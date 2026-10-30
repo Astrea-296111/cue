@@ -99,6 +99,71 @@ test('unsubmitted scene retains multiple questions and grouped context across lo
   assert.doesNotMatch(r.resolveForSubmit().text,/资源十分有限/);
 });
 
+test('trusted introduction closes one question, uncertain speech and acknowledgements keep it', async t=>{
+  const app=createInterviewRuntime(t);await app.ready;
+  app.final('请做一下自我介绍。',{utteranceKey:'intro',utteranceOrder:1});
+  for(const text of ['嗯','了解','我想一下','我调一下声音']) {
+    app.candidate(text);assert.match((await app.invoke('question:get-target')).snapshot.text,/自我介绍/);
+  }
+  await app.invoke('dialogue:event',{eventId:'uncertain',utteranceKey:'uncertain',channel:'you',speaker:'unknown',text:'我目前是计算机专业研究生，主要研究数据安全。',isFinal:true});
+  assert.match((await app.invoke('question:get-target')).snapshot.text,/自我介绍/);
+  app.candidate('我目前是计算机专业研究生，主要研究数据安全。');
+  assert.equal((await app.invoke('question:get-target')).snapshot.text,'');
+  app.final('请详细介绍两个项目。',{utteranceKey:'projects',utteranceOrder:2});
+  app.answer('模拟回答');await app.ask('say');
+  const body=JSON.stringify(app.calls.at(-1).messages);assert.match(body,/两个项目/);assert.doesNotMatch(body,/自我介绍/);
+});
+
+test('manual clear cancels waiting, ignores late final and preserves later questions through rebuild',async t=>{
+  const app=createInterviewRuntime(t);await app.ready;
+  app.interim('如果',{utteranceKey:'old',utteranceOrder:1,revision:1});await app.ask('say');
+  assert.equal(app.value('!!pendingSubmit.pending'),true);
+  await app.invoke('question:clear');assert.equal(app.value('!!pendingSubmit.pending'),false);
+  app.final('如果并发请求重复，如何防止重复提交？',{utteranceKey:'old',utteranceOrder:1,revision:2});
+  assert.equal((await app.invoke('question:get-target')).snapshot.text,'');
+  app.final('新的问题：Redis 如何持久化？',{utteranceKey:'new',utteranceOrder:2});
+  const dialogue=await app.invoke('dialogue:snapshot');const old=dialogue.events.find(e=>e.utteranceKey==='old');
+  await app.invoke('dialogue:correct',{sessionId:dialogue.sessionId,eventId:old.eventId,speaker:'interviewer'});
+  assert.match((await app.invoke('question:get-target')).snapshot.text,/Redis/);
+  app.answer('模拟回答');await app.ask('say');
+  const body=JSON.stringify(app.calls.at(-1).messages);assert.match(body,/Redis/);assert.doesNotMatch(body,/重复提交/);
+});
+
+test('clear during generation keeps frozen answer, accepts new question and rejects late old revisions',async t=>{
+  const app=createInterviewRuntime(t);await app.ready;const gate=deferred();
+  app.final('请解释 Redis 的持久化机制？',{utteranceKey:'old-running',utteranceOrder:1,revision:1});
+  app.behavior(()=> (async function*(){await gate.promise;yield {choices:[{delta:{content:'生成完成'},finish_reason:'stop'}]};})());
+  const generating=app.ask('say');await app.waitForCalls(1);
+  let state=await app.invoke('question:clear');assert.equal(state.snapshot.text,'');assert.match(state.frozenSnapshot.text,/Redis/);
+  app.final('Kafka 如何保证消息顺序？',{utteranceKey:'new-running',utteranceOrder:2,revision:1});
+  app.final('请解释 Redis 的持久化和恢复机制？',{utteranceKey:'old-running',utteranceOrder:1,revision:2});
+  assert.match((await app.invoke('question:get-target')).snapshot.text,/Kafka/);
+  assert.equal(app.requestOptions[0].signal.aborted,false);gate.resolve();await generating;
+  assert.match((await app.invoke('question:get-target')).snapshot.text,/Kafka/);
+});
+
+test('a short follow-up is the only target and earlier question is reference',async t=>{
+  const app=createInterviewRuntime(t);await app.ready;
+  app.final('请做一下自我介绍。');app.candidate('我目前是计算机专业研究生，主要研究数据安全。');
+  app.final('为什么');const target=(await app.invoke('question:get-target')).snapshot;
+  assert.match(target.text,/^为什么/);assert.doesNotMatch(target.text,/自我介绍/);
+  app.answer('模拟回答');await app.ask('say');
+  const req=app.calls.at(-1).messages.map(x=>x.content).filter(x=>typeof x==='string').join('\n');
+  assert.match(req,/为什么/);
+});
+
+for(const profile of ['instant','standard'])test(`interview replay keeps only the current independent question in ${profile} request`,async t=>{
+  const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:profile}});await app.ready;
+  app.final('喂喂喂，能听到我说话吗？');app.final('请做一下自我介绍。');
+  app.advance(60000);app.final('你为什么要再读研究生？');
+  app.advance(60000);app.final('已经有成熟 Coding Agent，为什么还要做这个项目？');
+  app.answer('模拟回答');await app.ask('say');
+  let body=JSON.stringify(app.calls.at(-1).messages);
+  assert.match(body,/Coding Agent/);assert.doesNotMatch(body,/自我介绍|喂喂|读研究生/);
+  app.final('怎么理解 Agent Loop 的执行闭环？');await app.ask('say');
+  body=JSON.stringify(app.calls.at(-1).messages);assert.match(body,/Agent Loop/);assert.doesNotMatch(body,/自我介绍|喂喂|读研究生|为什么还要做这个项目/);
+});
+
 test('locally confirmed answered fragments are excluded from the actual request and can be restored',async t=>{
   const app=createInterviewRuntime(t);await app.ready;
   app.final('如何避免重复提交？',{utteranceKey:'a',utteranceOrder:1});
