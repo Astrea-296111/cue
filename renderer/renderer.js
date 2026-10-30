@@ -1288,14 +1288,6 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
   });
 
   group.appendChild(sep);
-  if(snapshot?.text){
-    const row=document.createElement('div'), bound=document.createElement('span'), toggle=document.createElement('button');
-    row.className='answer-bound-row'; bound.className='answer-bound-question';
-    bound.textContent='本次回答的问题：'+snapshot.text+(snapshot.provisional?'（临时转写）':'');
-    toggle.type='button';toggle.textContent='展开';toggle.setAttribute('aria-expanded','false');
-    toggle.addEventListener('click',()=>{const open=bound.classList.toggle('expanded');toggle.textContent=open?'折叠':'展开';toggle.setAttribute('aria-expanded',String(open));});
-    row.append(bound,toggle);group.appendChild(row);
-  }
 
   if (userBubble) {
     const b = document.createElement('div');
@@ -1438,9 +1430,8 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
   });
   cue.on('screen:task', ({title,requestId,epoch})=>{
     if(!acceptsReply(requestId,epoch))return;
-    const bound=document.querySelector('.response-group:first-child .answer-bound-question');
-    if(bound)bound.textContent='本次屏幕任务：'+title;
     if(submittedSnapshot)submittedSnapshot={...submittedSnapshot,text:title};
+    renderAnswerTarget();
   });
   cue.on('llm:presentation', ({text, displayTruncated, requestId, epoch}) => {
     if (!acceptsReply(requestId,epoch) || !displayTruncated || !aiEl) return;

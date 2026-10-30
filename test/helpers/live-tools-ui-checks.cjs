@@ -85,9 +85,7 @@ module.exports=async({js,until,requests,win,verifyProtected})=>{
   await js("cue.ask({mode:'say',text:'UI 枫叶平台如何验证重复提交？'})");
   await until(()=>js("document.querySelector('.response-group:first-child .ai-text')?.textContent.includes('先确认项目事实')"),'model answer visible');
   assert.equal(requests.length,before+1);
-  await js("document.querySelector('.response-group:first-child .answer-bound-row button').click()");
-  assert.equal(await js("document.querySelector('.response-group:first-child .answer-bound-row button').getAttribute('aria-expanded')"),'true');
-  assert.equal(await js("getComputedStyle(document.querySelector('.response-group:first-child .answer-bound-question')).whiteSpace"),'nowrap');
+  assert.equal(await js("document.querySelector('.response-group:first-child .answer-bound-row')"),null,'no duplicate question in answer');
   await js("document.querySelector('[data-screen-mode=vibe-coding]').click()");
   await until(()=>js("document.getElementById('screen-mode-label').textContent==='Vibe Coding'"),'screen mode override');
   await js("document.getElementById('screen-end').click()");
@@ -107,7 +105,9 @@ module.exports=async({js,until,requests,win,verifyProtected})=>{
   assert.doesNotMatch(await js("document.getElementById('answer-coverage-list').textContent"),/任务0/);
   await js("document.getElementById('answer-target-toggle').click()");
   assert.equal(await js("document.getElementById('answer-target-toggle').getAttribute('aria-expanded')"),'true');
-  assert.equal(await js("getComputedStyle(document.getElementById('answer-target-text')).whiteSpace"),'nowrap');
+  assert.equal(await js("getComputedStyle(document.getElementById('answer-target-text')).whiteSpace"),'pre-wrap');
+  assert.equal(await js("getComputedStyle(document.getElementById('answer-target-text')).overflowX"),'visible');
+  assert.equal(await js("document.getElementById('answer-target-text').scrollHeight<=document.getElementById('answer-target-text').clientHeight"),true,'expanded question is not internally clipped');
   await js('cue.clearTranscript()');
   return {qaPreview:true,qaTry:true,qaDirectUI:true,modelCallsForDirect:0,shortContext:true,screenModeControls:true,answeredFragment:true,pointerInput:process.platform==='win32'?'native-windows':'electron-coordinate'};
 };

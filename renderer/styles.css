@@ -1028,7 +1028,7 @@ select[data-capture-safe][hidden] { display: none !important; }
 
 #screen-controls {font-size:12px;max-width:100%;padding:4px 8px} #screen-controls button,.qa-row button {margin:3px;padding:4px 8px} #qa-hit-summary {font-size:12px;padding:6px;color:var(--accent,#8ed5cd)}
 #qa-preview {position:fixed;inset:0;background:#0009;z-index:10005;display:flex;align-items:center;justify-content:center} #qa-preview[hidden] {display:none} .qa-dialog {padding:20px;max-width:90vw;width:650px;max-height:85vh;overflow:auto} #qa-preview-details,#qa-status {white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;max-height:45vh;overflow:auto} #qa-items {max-height:260px;overflow:auto} .qa-row {padding:8px;border-bottom:1px solid #8884;font-size:12px} #qa-search,#qa-project {width:100%;margin:5px 0} #qa-editor {width:100%}
-.answer-bound-question {font-size:12px;opacity:.8;white-space:pre-wrap;overflow-wrap:anywhere;padding:4px 0} #screen-task-summary {white-space:pre-wrap} #screen-task-attachment {width:100%;max-height:150px}
+#screen-task-summary {white-space:pre-wrap} #screen-task-attachment {width:100%;max-height:150px}
 #screen-copy-prompt {border:1px solid #719cdb66;background:#27446a88;color:#e8f2ff;border-radius:8px;padding:6px 12px;margin:3px 8px;font-size:12px} #screen-copy-prompt[hidden] {display:none} #screen-controls button,#qa-import,#qa-export,#qa-refresh,#qa-try,#qa-save-item,#qa-preview-text,.qa-row button {border:1px solid #7894bb66;background:#33435e88;color:#eff5ff;border-radius:6px;padding:5px 8px}
 
 /* All setup and import UI remains on the protected renderer surface. */
@@ -1069,7 +1069,7 @@ select[data-capture-safe][hidden] { display: none !important; }
 #qa-items { max-height:260px; overflow:auto; }
 #qa-search, #qa-question, #qa-editor { width:100%; }
 #settings [data-keyboard-focus="true"], .qa-dialog [data-keyboard-focus="true"], .personal-dialog [data-keyboard-focus="true"], #materials-dialog [data-keyboard-focus="true"] { outline:2px solid #a5c8ff; outline-offset:2px; }
-#screen-controls summary {color: var(--tx-2);} .answer-bound-question {color: var(--tx-2);}
+#screen-controls summary {color: var(--tx-2);}
 
 /* 去除主界面背景、阴影和毛玻璃 */
 #toolbar,
@@ -1090,15 +1090,12 @@ select[data-capture-safe][hidden] { display: none !important; }
   border-color: transparent;
 }
 
-/* Compact question previews; expansion scrolls horizontally without adding rows. */
+/* Show the complete question without an inner scrollbar when expanded. */
 .answer-target-line { grid-template-columns: auto minmax(0, 1fr) auto auto auto; }
-#answer-target-text, #answer-target-text.expanded, .answer-bound-question, .answer-bound-question.expanded {
+#answer-target-text {
   display: block; min-width: 0; max-height: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-#answer-target-text.expanded, .answer-bound-question.expanded { overflow-x: auto; text-overflow: clip; }
-.answer-bound-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
-.answer-bound-question { flex: 1 1 auto; }
-.answer-bound-row button { flex: 0 0 auto; padding: 1px 5px; border: 1px solid var(--bd-hair); border-radius: 4px; background: var(--fill-1); color: var(--tx-2); font: inherit; cursor: pointer; }
+#answer-target-text.expanded { white-space: pre-wrap; overflow: visible; overflow-wrap: anywhere; text-overflow: clip; }
 
 /* Preserve readable protected modal surfaces with the custom overlay palette. */
 .glass.qa-dialog, .glass.personal-dialog, #materials-dialog { background: #191d27; }

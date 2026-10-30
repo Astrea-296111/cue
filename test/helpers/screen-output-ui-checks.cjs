@@ -10,11 +10,11 @@ module.exports=async({js,until,clipboard,win,screenshot})=>{
   assert.equal(clipboard.readText().replace(/\r\n/g,'\n'),await js("document.querySelector('.response-group:first-child .ai-text pre code').textContent"));
   await until(()=>js("!document.getElementById('send-btn').classList.contains('busy')"),'screen output complete');
   assert.equal(await js("document.querySelector('.response-group:first-child .ai-text').textContent.length>260"),true);
-  assert.ok((await js("document.querySelector('.response-group:first-child .answer-bound-question').textContent")).includes('合成应用任务'));
+  assert.equal(await js("document.querySelector('.response-group:first-child .answer-bound-question')"),null,'screen answers do not repeat the question');
   assert.equal(await js("document.querySelector('.response-group:first-child .ai-text details')!==null"),true,'later stages collapse after completion');
   if(screenshot){
     await js("new Promise(resolve=>{document.getElementById('messages').scrollTo({top:0,behavior:'instant'});requestAnimationFrame(()=>requestAnimationFrame(resolve));})");
     fs.mkdirSync(path.dirname(screenshot),{recursive:true});fs.writeFileSync(screenshot,(await win.webContents.capturePage()).toPNG());
   }
-  return {routeTitle:true,copyVisible:true,clipboardExact:true,fullGuidanceBeyond260:true,laterStagesCollapse:true,network:'mock SDK'};
+  return {duplicateQuestionRemoved:true,copyVisible:true,clipboardExact:true,fullGuidanceBeyond260:true,laterStagesCollapse:true,network:'mock SDK'};
 };
