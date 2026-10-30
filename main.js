@@ -441,6 +441,7 @@ function ingestSpeechEvent(input={}) {
   if ((channel==='them'||input.speaker==='interviewer') && oldSourceSession && input.sourceSessionId && oldSourceSession !== input.sourceSessionId) pendingSubmit.cancel('source-changed');
   const result=dialogue.ingest({...input,channel,speechInputMode:store.getSettings().speechInputMode,eventId,text:normalized,rawText:input.rawText??input.text,isFinal});
   if(!result.accepted) return result;
+  for (const event of result.changedEchoEvents || []) if (event.channel === 'you' && (event.speaker === 'unknown' || event.possibleEchoOf || event.echoOf)) questionResolver.retractCandidateClose(event.eventId);
   transcriptRecorder.recordEvent(result.event);
   if(result.event.echoOf)transcriptRecorder.recordEvent(dialogue.events.get(result.event.echoOf));
   for(const event of result.changedEchoEvents||[])transcriptRecorder.recordEvent(event);
@@ -1460,6 +1461,7 @@ ipcMain.handle('dialogue:recording:folder',async()=>{
 ipcMain.handle('dialogue:correct',(_event,input={})=>{
   const result=dialogue.correct(input);
   if(result.accepted) {
+    if (result.event.speaker !== 'candidate') questionResolver.retractCandidateClose(result.event.eventId);
     transcriptRecorder.recordEvent(result.event);
     cancelCurrentGeneration('dialogue-corrected');
     const turn=updateSpeechTranscript(result.event);

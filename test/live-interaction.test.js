@@ -126,6 +126,16 @@ test('overlapping, interim and ambiguous multi-question answers do not clear the
   assert.match(resolver.resolveForSubmit().text,/自我介绍/);assert.match(resolver.resolveForSubmit().text,/困难/);
 });
 
+test('a later cross-channel echo retracts an automatic close before a new target exists',async t=>{
+  const app=createInterviewRuntime(t);await app.ready;
+  await app.invoke('dialogue:event',{eventId:'question',channel:'them',speaker:'interviewer',text:'请做一下自我介绍。',startMs:1000,endMs:3000,clockDomain:'audio',isFinal:true});
+  const text='我目前是计算机专业研究生，主要研究分布式系统。';
+  await app.invoke('dialogue:event',{eventId:'mic',channel:'you',speaker:'candidate',text,startMs:5000,endMs:6000,clockDomain:'audio',isFinal:true});
+  assert.equal((await app.invoke('question:get-target')).snapshot.text,'');
+  await app.invoke('dialogue:event',{eventId:'echo',channel:'them',speaker:'interviewer',text,startMs:5000,endMs:6000,clockDomain:'audio',isFinal:true});
+  assert.match((await app.invoke('question:get-target')).snapshot.text,/自我介绍/);
+});
+
 test('manual clear cancels waiting, ignores late final and preserves later questions through rebuild',async t=>{
   const app=createInterviewRuntime(t);await app.ready;
   app.interim('如果',{utteranceKey:'old',utteranceOrder:1,revision:1});await app.ask('say');

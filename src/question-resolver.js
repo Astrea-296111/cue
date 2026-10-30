@@ -263,7 +263,7 @@ class QuestionResolver {
     this.eventSequence = 0; this.events = new Map(); this.sourceSessions = new Map(); this.retiredSessions = new Set();
     this.highWater = new Map(); this.claims = new Map(); this.lastRetryable = null; this.reason = 'no-current-question';
     this.answeredParts = new Map();
-    this.retiredKeys = new Set(); this.retiredWatermarks = new Map(); this.candidateActivity = ''; this.lastHandledText = '';
+    this.retiredKeys = new Set(); this.retiredWatermarks = new Map(); this.candidateActivity = ''; this.lastHandledText = ''; this.autoClose = null;
   }
 
   _clearActive(reason = 'no-current-question') {
@@ -371,7 +371,10 @@ class QuestionResolver {
         const last = this.stableParts.at(-1);
         const overlapping = data.clockDomain && last.clockDomain === data.clockDomain && Number.isFinite(data.startMs) && Number.isFinite(last.endMs) && data.startMs <= last.endMs;
         if (!overlapping && questionGroups.length === 1 && !current.pendingText && candidateAddressesQuestion(questionGroups[0].text, raw)) {
+          const before = { eventId:data.eventId, questionId:this.currentQuestionId, stableParts:[...this.stableParts],
+            answeredParts:new Map(this.answeredParts), retiredKeys:new Set(this.retiredKeys), retiredWatermarks:new Map(this.retiredWatermarks), lastHandledText:this.lastHandledText };
           this.retireActive('candidate-answer-started');
+          this.autoClose = data.eventId ? before : null;
         }
       }
       return;
@@ -491,7 +494,7 @@ class QuestionResolver {
   }
   retireActive(reason = 'manual-clear') {
     this.lastHandledText = this.resolveForSubmit().text || this.lastHandledText;
-    if (reason === 'manual-clear') this.candidateActivity = '';
+    if (reason === 'manual-clear') { this.candidateActivity = ''; this.autoClose = null; }
     for (const [key] of this.events) this.retiredKeys.add(key);
     for (const [sourceKey, order] of this.highWater) this.retiredWatermarks.set(sourceKey, Math.max(this.retiredWatermarks.get(sourceKey) ?? -Infinity, order));
     for (const part of [...this.stableParts, ...this.pendingUnits, ...(this.interim ? [this.interim] : [])]) {
@@ -500,6 +503,15 @@ class QuestionResolver {
     }
     while (this.retiredKeys.size > 500) this.retiredKeys.delete(this.retiredKeys.values().next().value);
     this._clearActive(reason);
+  }
+  retractCandidateClose(eventId) {
+    const previous=this.autoClose;
+    if (!previous || !eventId || previous.eventId !== eventId || this.currentQuestionId || this.interim || this.pendingText) return false;
+    this.stableParts=previous.stableParts; this.answeredParts=previous.answeredParts;
+    this.retiredKeys=previous.retiredKeys; this.retiredWatermarks=previous.retiredWatermarks;
+    this.lastHandledText=previous.lastHandledText; this.currentQuestionId=previous.questionId;
+    this.autoClose=null; this.candidateActivity='uncertain'; this.revision++; this.reason='candidate-uncertain';
+    return true;
   }
   previewForPrefetch(options = {}) { return this.resolveForSubmit({ ...options, allowPartial: true }); }
   resolveForSubmit({ allowPartial = false, epoch = this.epoch } = {}) {
