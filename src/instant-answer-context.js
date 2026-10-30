@@ -84,7 +84,7 @@ function buildInstantContext({ settings = {}, question, snapshot, request, ready
   const references = [];
   if (require('./live-context-policy').needsReference(question) && require('./live-context-policy').normalize(settings.liveContextPolicy).historyWindowTurns>0) {
     if (snapshot?.referenceContext) references.push('先前用户要求：' + snapshot.referenceContext);
-    for (const turn of (request.turns || []).filter(t=>t.role==='user').slice(-require('./live-context-policy').normalize(settings.liveContextPolicy).historyWindowTurns)) references.push(`${turn.role === 'assistant' ? '旧 AI 建议，非事实' : '先前用户要求'}：${turn.text}`);
+    else for (const turn of (request.turns || []).filter(t=>t.role==='user').slice(-require('./live-context-policy').normalize(settings.liveContextPolicy).historyWindowTurns)) references.push('先前用户要求：' + turn.text);
   }
   // Real speech has its own protected section. A soft latency target must not
   // erase a correction or a numeric qualification to retain an old suggestion.
