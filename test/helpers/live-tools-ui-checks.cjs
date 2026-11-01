@@ -122,5 +122,5 @@ module.exports=async({js,until,requests,win,verifyProtected})=>{
   assert.equal(await js("document.getElementById('answer-target-text').textContent"),'等待新问题');
   assert.equal(await js("document.getElementById('answer-target-clear').getAttribute('aria-label')"),'清空当前待回答问题');
   await js('cue.clearTranscript()');
-  return {qaPreview:true,qaTry:true,qaDirectUI:true,modelCallsForDirect:0,shortContext:true,screenModeControls:true,answeredFragment:true,pointerInput:process.platform==='win32'?'native-windows':'electron-coordinate'};
+  return {qaPreview:true,qaTry:true,projectAnswersUseModel:true,shortContext:true,screenModeControls:true,answeredFragment:true,pointerInput:process.platform==='win32'?'native-windows':'electron-coordinate'};
 };

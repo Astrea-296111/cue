@@ -145,7 +145,7 @@ app.on('browser-window-created', (_event, win) => {
       if(process.env.CUE_UI_DIAGNOSTIC_FILE){
         await js('cue.exportDiagnostics()');
         const diagnostic=JSON.parse(fs.readFileSync(process.env.CUE_UI_DIAGNOSTIC_FILE,'utf8'));
-        assert.equal(diagnostic.lastActualRequest.delivery,'qa-verbatim');assert.equal(diagnostic.lastActualRequest.modelCalls,0);
+        assert.notEqual(diagnostic.lastActualRequest.delivery,'qa-verbatim');assert.equal(diagnostic.lastActualRequest.dispatched,true);
       }
       screenEnabled=true;
       const screenUi=await require('./helpers/screen-output-ui-checks.cjs')({js,until,clipboard:electron.clipboard,screenshot:process.env.CUE_UI_SCREEN_SCREENSHOT,win});
