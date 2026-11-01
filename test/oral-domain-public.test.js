@@ -40,6 +40,15 @@ test('selected project facts and online knowledge can both reach the SDK',async 
   await app.ask('say','50个MCP工具的初始Token从18.6k到4.2k如何优化？SQL查询如何设计？');
   const body=JSON.stringify(app.calls.at(-1).messages);assert.match(body,/ONLINE_SQL_REFERENCE_MARKER/);assert.match(body,/metric\.arc\.mcp/);
 });
+for(const domain of ['arclight','general'])test(`screen SQL respects ${domain} scope and uses online reference`,async t=>{
+  const net={fetch:async()=>({ok:true,text:async()=>JSON.stringify({query:{search:[{title:'SQL',snippet:'SCREEN_ONLINE_REFERENCE_MARKER'}]}})})};
+  const app=createInterviewRuntime(t,{net,settings:{answerDomain:domain,providerOptions:{custom:{vision:true}}}});
+  await app.importMaterialSnapshot({facts:workspace().facts,sources:sources()});
+  app.answer('CUE_SCREEN {"type":"sql","title":"合成查询","observed":[],"inferred":[],"missing":[],"stage":"plan"}\n先讲清楚思路。');
+  await app.ask('assist','50个MCP工具初始Token从18.6k到4.2k如何优化？SQL查询如何设计？');
+  const body=JSON.stringify(app.calls.at(-1).messages);assert.match(body,/SCREEN_ONLINE_REFERENCE_MARKER/);
+  if(domain==='arclight')assert.match(body,/metric\.arc\.mcp/);else assert.doesNotMatch(body,/metric\.arc\.mcp|oct26\.code\.toolsearch/);
+});
 test('domain change rejects a late stream and persists the selected scope',async t=>{
   const app=createInterviewRuntime(t,{settings:{answerDomain:'cae'}}),gate=deferred();
   app.behavior(async()=>{await gate.promise;return(async function*(){yield {choices:[{delta:{content:'STALE_CA E'}}]};})();});

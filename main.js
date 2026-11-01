@@ -1028,7 +1028,7 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
   state.busy = true;
   let streamSettled = false;
   const owned = () => activeGeneration === generation && conversation.epoch === generation.epoch;
-  const onlinePromise = screenRequest ? Promise.resolve({status:'screen-mode',sources:[]}) : require('./src/online-knowledge').lookup(question, {
+  const onlinePromise = require('./src/online-knowledge').lookup(question, {
     fetchImpl:process.env.CUE_TEST_NO_ONLINE !== '1' && typeof net?.fetch === 'function' ? (url, options) => net.fetch(url, options) : undefined, signal:generation.controller.signal });
   const emit = (channel, data) => { if (owned()) send(channel, { ...data, requestId: generation.id, epoch: generation.epoch,
     questionId: frozen?.questionId, questionRevision: frozen?.revision }); };
@@ -1062,7 +1062,20 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
     if (!llm.ready) throw new Error(llm.configurationError || '请先完成模型设置。');
     if (!question && ['ask', 'answerThis'].includes(mode)) throw new Error('请先输入问题或等待识别到面试官发言。');
     if (screenRequest) {
-      const result = await require('./src/screen-task-runner').runScreenTask({llm,settings,requirement:explicit || resolved?.text || '',taskState:screenTaskState,
+      const screenPlan=require('./src/answer-domain').constrain(planProjectRetrieval([{channel:'them',text:question}],mode,
+        {catalog:generation.materials.registry.projects}),settings.answerDomain,question,generation.materials.registry.projects);
+      const screenFacts=policy.factsEnabled&&screenPlan.retrieveFacts?generation.materials.factPacks.select(question,{resolution:screenPlan,primaryQuestion:question,maxCards:6}):null;
+      const screenRetrieval=retrievalInput(question,screenPlan,interviewPlan,3600,'',frozen,mode);
+      const screenSources=peekReadyEvidence({snapshot:frozen,projectPlan:screenPlan,epoch:conversation.epoch,projectRevision:screenRetrieval.projectRevision,
+        projectIndexSnapshot:readProjectIndexSnapshot({preparedOnly:true}),cache:activeProjectContextCache,ragSession,retrievalInput:screenRetrieval,
+        policy:policy.ragPolicy==='off'?'off':'ready-only',maxSources:2,maxChars:2200});
+      const selected=planProjectEvidence({question,resolution:screenPlan,facts:screenFacts?.evidence||[],sources:screenSources.evidence,
+        factsEnabled:policy.factsEnabled,sourcePolicy:policy.ragPolicy,maxSources:3,evidenceTokens:900});
+      const screenOnline=await onlinePromise;if(!owned())return;
+      generation.diagnostic.onlineKnowledge={status:screenOnline.status,sourceCount:screenOnline.sources.length,cached:!!screenOnline.cached};
+      const references=[...selected.evidence.map(require('./src/evidence-selector').formatEvidenceBlock),
+        ...screenOnline.sources.map(s=>`维基百科 ${s.title}：${s.snippet}`)].join('\n\n');
+      const result = await require('./src/screen-task-runner').runScreenTask({llm,settings,requirement:explicit || resolved?.text || '',taskState:screenTaskState,referenceText:references,
         questionId:resolved?.screenSourceQuestionId,capture:captureScreenshot,signal:generation.controller.signal,emit,timing,diagnostic:generation.diagnostic});
       if (!owned()) return;
       const screenSnapshot=Object.freeze({...frozen,text:result.route.title,screenType:result.route.type,taskId:result.task.taskId});
