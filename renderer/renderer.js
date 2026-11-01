@@ -1158,23 +1158,6 @@ micStream = stream;
 
   // ---- real-time transcript display (interim + final) ----
   let interimEl = null;
-  function getOrCreateInterimEl() {
-    if (!interimEl) {
-      interimEl = document.createElement('div');
-      interimEl.className = 'interim-transcript';
-      // Insert into panel-main (the left column), before the action row
-      const panelMain = document.getElementById('panel-main');
-      const actionRow = document.getElementById('action-row');
-      if (panelMain && actionRow && actionRow.parentNode === panelMain) {
-        panelMain.insertBefore(interimEl, actionRow);
-      } else if (panelMain) {
-        panelMain.appendChild(interimEl);
-      } else {
-        document.getElementById('panel').appendChild(interimEl);
-      }
-    }
-    return interimEl;
-  }
   // FIX #12: Show interim text in input box (grayed/italic) before final arrives
   let inputInterimEl = null;
   function showInterimInInput(text) {
@@ -1196,12 +1179,6 @@ micStream = stream;
   
   cue.on('stt:interim', ({ channel, text, utteranceKey = '', sourceId = 'stream' }) => {
     setLiveDotState('transcribing');
-    const el = getOrCreateInterimEl();
-    const label = channel === 'them' ? '面试官' : '候选人';
-    el.textContent = text?.trim() ? `${label}: ${text}` : '';
-    el.classList.toggle('show', !!text?.trim());
-    // Keep the latest words visible inside a bounded caption viewport.
-    el.scrollTop = el.scrollHeight;
     appendTranscriptHistoryTurn(channel, text, true); // update sidebar interim
 
     // Main observes accepted ASR events and owns both prefetch and targeting.

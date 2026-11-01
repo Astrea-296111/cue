@@ -1,4 +1,5 @@
 'use strict';
+process.env.CUE_TEST_NO_ONLINE = '1';
 
 // One actual Electron flow: boot safely, import materials, render a streamed
 // answer, show an error, and retain the local profile. No audio device fixtures.

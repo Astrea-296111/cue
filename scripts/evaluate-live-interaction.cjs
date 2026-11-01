@@ -19,10 +19,12 @@ async function run(output=path.resolve('artifacts/oct27-live'),env=process.env){
   for(const c of [{id:'interim',mode:'say',question:'同一个任务的重复请求怎样避免创建两条记录？',interim:true},
     {id:'qa-miss',mode:'say',question:'解释 SQL 聚合时为什么需要先确定分组粒度？'},
     {id:'question-lifecycle',mode:'say',question:'Redis 出现故障时怎么保护数据库？',lifecycle:true},
+    {id:'oral-sql-online',mode:'say',question:'SQL 怎么查出重复的用户记录？',online:true},
     ...['vibe','algorithm','sql','debug','unknown'].map(name=>({id:name,mode:name==='algorithm'?'leetcode':'assist',question:'',image:name+'.png'}))]) {
    const cleanups=[];let app;const row={provider:id,caseId:c.id,requestedModel:config.model,attempts:0,status:'running'};report.rows.push(row);save();
    try{
     app=createInterviewRuntime({after:f=>cleanups.push(f)},{realTime:true,inMemorySettings:true,chunks:[],
+     net:c.online?{fetch:(url,options)=>fetch(url,options)}:undefined,
      screenImagePath:c.image?path.join(ROOT,'test/fixtures/live-interaction',c.image):undefined,
      settings:{provider:actual,apiKeys:{[actual]:config.apiKey},models:{[actual]:{fast:config.model,smart:config.model}},
       baseUrl:config.baseURL,deepseekBaseUrl:config.baseURL,realtimeAnswerMode:'instant',firstContentDeadlineMs:6000,saveInterviewTranscript:false,

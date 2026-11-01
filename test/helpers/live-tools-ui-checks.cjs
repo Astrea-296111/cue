@@ -91,6 +91,8 @@ module.exports=async({js,until,requests,win,verifyProtected})=>{
   await js("document.getElementById('screen-end').click()");
   await until(()=>js("document.getElementById('screen-mode-label').textContent==='自动识别'"),'screen mode reset');
   await js("cue.dialogueEvent({eventId:'ui-buffer-1',utteranceKey:'ui-buffer-1',utteranceOrder:1,sourceId:'ui-buffer',channel:'them',speaker:'interviewer',text:'如何处理重复提交？',isFinal:true})");
+  await js("cue.dialogueEvent({eventId:'ui-interim-check',utteranceKey:'ui-interim-check',utteranceOrder:1,sourceId:'ui-interim',channel:'you',speaker:'candidate',text:'临时语音回显检查',isFinal:false})");
+  assert.equal(await js("document.querySelector('#panel-main > .interim-transcript')"),null,'no bottom transcript echo');
   await js("cue.dialogueEvent({eventId:'ui-buffer-2',utteranceKey:'ui-buffer-2',utteranceOrder:2,sourceId:'ui-buffer',channel:'them',speaker:'interviewer',text:'另外如何处理失败重试？',isFinal:true})");
   await until(()=>js("document.querySelectorAll('#answer-coverage-list button').length===2"),'question coverage controls');
   await js("document.getElementById('answer-coverage').open=true;document.querySelector('#answer-coverage-list button').click()");

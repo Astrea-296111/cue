@@ -176,7 +176,7 @@ function createInterviewRuntime(t, options = {}) {
   }
 
   const mocks = {
-    electron: { app, ipcMain: ipc, BrowserWindow: { getAllWindows: () => window ? [window] : [] },
+    electron: { app, ipcMain: ipc, net:options.net, BrowserWindow: { getAllWindows: () => window ? [window] : [] },
       globalShortcut: { unregister: key => shortcuts.delete(key), register: (key, fn) => { shortcuts.set(key, fn); return true; } },
       dialog: options.dialogPaths ? { showOpenDialog: async () => {
         const selected = options.dialogPaths.shift();

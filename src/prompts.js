@@ -101,8 +101,7 @@ const REALTIME_CONTEXT_RULES = `
 const HUMAN_INTERVIEW_RULES = `
 像真实候选人说话：
 短句、口语化，第一两句直接回答；不铺背景、写 AI 开场或补未问的知识清单。
-核心名词可以自然重复，无需刻意替换成书面同义词。多个观点编号分行，单点短答不强行列点；重要结论可少量加粗。
-${oralPolicy.RULES}
+用简短自然的中文解释术语，不强行列点；代码里的名称保持准确。
 `;
 
 const PROJECT_GROUNDING_RULES = `

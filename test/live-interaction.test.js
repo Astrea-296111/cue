@@ -143,13 +143,15 @@ test('uncertain microphone speech is excluded from enabled spoken context',async
   assert.doesNotMatch(JSON.stringify(app.calls.at(-1).messages),/UNTRUSTED_CANDIDATE_MARKER/);
 });
 
-test('manual clear cancels waiting, ignores late final and preserves later questions through rebuild',async t=>{
+test('manual clear cancels waiting, ignores unchanged text and accepts continued speech through rebuild',async t=>{
   const app=createInterviewRuntime(t);await app.ready;
   app.interim('如果',{utteranceKey:'old',utteranceOrder:1,revision:1});await app.ask('say');
   assert.equal(app.value('!!pendingSubmit.pending'),true);
   await app.invoke('question:clear');assert.equal(app.value('!!pendingSubmit.pending'),false);
-  app.final('如果并发请求重复，如何防止重复提交？',{utteranceKey:'old',utteranceOrder:1,revision:2});
+  app.final('如果',{utteranceKey:'old',utteranceOrder:1,revision:2});
   assert.equal((await app.invoke('question:get-target')).snapshot.text,'');
+  app.final('如果并发请求重复，如何防止重复提交？',{utteranceKey:'old',utteranceOrder:1,revision:3});
+  assert.match((await app.invoke('question:get-target')).snapshot.text,/如何防止重复提交/);
   app.final('新的问题：Redis 如何持久化？',{utteranceKey:'new',utteranceOrder:2});
   const dialogue=await app.invoke('dialogue:snapshot');const old=dialogue.events.find(e=>e.utteranceKey==='old');
   await app.invoke('dialogue:correct',{sessionId:dialogue.sessionId,eventId:old.eventId,speaker:'interviewer'});

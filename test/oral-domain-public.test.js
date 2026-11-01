@@ -30,8 +30,15 @@ for(const mode of ['instant','standard'])test(`${mode}: selected domain and comp
   assert.ok(!app.commits.at(-1).config.evidence.some(e=>e.sourceType==='project-pack'));
   await app.invoke('answer:domain','cae');await app.ask('say','Arclight的Mailbox怎么传递？');
   assert.ok(app.requests.at(-1).plan.switchHint);assert.equal(app.requests.at(-1).plan.retrieveFacts,true);
-  assert.deepEqual(JSON.parse(JSON.stringify(app.requests.at(-1).plan.canonicalProjectIds)),['arclight']);
+  assert.deepEqual(JSON.parse(JSON.stringify(app.requests.at(-1).plan.canonicalProjectIds)),['cae']);
   assert.equal(app.exports('src/store.js').getSettings().answerDomain,'cae');
+});
+test('selected project facts and online knowledge can both reach the SDK',async t=>{
+  const net={fetch:async()=>({ok:true,text:async()=>JSON.stringify({query:{search:[{title:'SQL',snippet:'ONLINE_SQL_REFERENCE_MARKER'}]}})})};
+  const app=createInterviewRuntime(t,{net,settings:{answerDomain:'arclight',realtimeAnswerMode:'instant'}});
+  await app.importMaterialSnapshot({facts:workspace().facts,sources:sources()});app.answer('先按需加载，再查询。');
+  await app.ask('say','50个MCP工具的初始Token从18.6k到4.2k如何优化？SQL查询如何设计？');
+  const body=JSON.stringify(app.calls.at(-1).messages);assert.match(body,/ONLINE_SQL_REFERENCE_MARKER/);assert.match(body,/metric\.arc\.mcp/);
 });
 test('domain change rejects a late stream and persists the selected scope',async t=>{
   const app=createInterviewRuntime(t,{settings:{answerDomain:'cae'}}),gate=deferred();
@@ -232,11 +239,11 @@ test('SQL fixtures reject the old buyer/buyer formula and duplicate-signup join'
   assert.equal(check(cases[1],cases[1].expectedSql).passed,true);
   assert.equal(check(cases[1],"SELECT SUM(o.pay_amount) FROM orders o JOIN signup s ON s.item_id=o.item_id WHERE s.activity='活动A' AND o.status IN (2,3,4)").passed,false);
 });
-test('personal strengths use candidate history without injecting JD skills or generic training cards',async t=>{
+test('general mode does not inject candidate project history for personal strengths',async t=>{
   const app=createInterviewRuntime(t,{settings:{answerDomain:'general',realtimeAnswerMode:'instant',...workspace().profile}});await app.ready;
   await app.ask('say','这些方向当中，你觉得你哪一个比较强，可以介绍一下？');
   const messages=JSON.stringify(app.calls.at(-1).messages);
-  assert.match(messages,/个人项目开发/);assert.doesNotMatch(messages,/Schema Linking|NL2SQL|oct26.react-pe|targetRole/);
+  assert.doesNotMatch(messages,/个人项目开发|Schema Linking|NL2SQL|oct26.react-pe|targetRole/);
 });
 test('a fragment keyword follow-up protects the verified matching algorithm',()=>{
   const {ProjectFactPacks}=require('../src/project-fact-packs');const packs=new ProjectFactPacks({index:workspace().facts});

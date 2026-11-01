@@ -11,16 +11,12 @@ function constrain(plan, domain, question, catalog = []) {
   const names = catalog.filter(p => p.kind !== 'knowledge' && [p.name, ...(p.aliases || [])]
     .some(n => n && String(question).toLowerCase().includes(n.toLowerCase())));
   const other = names.find(p => (p.id || p.projectId) !== domain);
-  const explicitIds=(plan.canonicalProjectIds||plan.projectIds||[]).filter(id=>names.some(p=>(p.id||p.projectId)===id));
-  if(explicitIds.length&&!require('./project-query').isClearProjectExit(question))return {...plan,answerDomain:domain,
-    switchHint:other?`本题按明确点名的${names.filter(p=>explicitIds.includes(p.id||p.projectId)).map(p=>p.name).join('、')}资料回答；范围按钮仍保留默认选择。`:''};
-  const switchHint = '';
-  if (domain === 'general' || other) return { ...plan, answerDomain: domain, switchHint, kind: 'general', retrieve: false,
+  const switchHint = other && domain !== 'general' ? '当前使用所选项目资料；切换按钮可选择其他项目。' : '';
+  if (domain === 'general') return { ...plan, answerDomain: domain, switchHint, kind: 'general', retrieve: false,
     retrieveFacts: false, retrieveSources: false, scopes: [], sourceScopes: [], canonicalProjectIds: [], projectIds: [],
     activeProject: null, projectActive: false, projectLabel: '', anchor: '', reason: 'explicit-domain-general', subQuestionScopes: [] };
   const project = catalog.find(p => (p.id || p.projectId) === domain);
-  const generic = require('./project-query').isClearProjectExit(question);
-  if (!project || generic) return { ...plan, answerDomain: domain, switchHint, kind: 'general', retrieve: false,
+  if (!project) return { ...plan, answerDomain: domain, switchHint, kind: 'general', retrieve: false,
     retrieveFacts: false, retrieveSources: false, scopes: [], sourceScopes: [], canonicalProjectIds: [], projectIds: [], activeProject: null, projectActive: false, projectLabel: '', subQuestionScopes: [] };
   const scopes = project.sourceScopes || [project.prefix].filter(Boolean);
   return { ...plan, answerDomain: domain, switchHint, kind: 'project', retrieve: true, retrieveFacts: true,

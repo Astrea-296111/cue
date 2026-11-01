@@ -263,7 +263,7 @@ class QuestionResolver {
     this.eventSequence = 0; this.events = new Map(); this.sourceSessions = new Map(); this.retiredSessions = new Set();
     this.highWater = new Map(); this.claims = new Map(); this.lastRetryable = null; this.reason = 'no-current-question';
     this.answeredParts = new Map();
-    this.retiredKeys = new Set(); this.retiredWatermarks = new Map(); this.candidateActivity = ''; this.lastHandledText = ''; this.autoClose = null;
+    this.retiredKeys = new Set(); this.retiredWatermarks = new Map(); this.clearContinuations = new Map(); this.candidateActivity = ''; this.lastHandledText = ''; this.autoClose = null;
   }
 
   _clearActive(reason = 'no-current-question') {
@@ -310,8 +310,9 @@ class QuestionResolver {
     const order = Number.isFinite(data.utteranceOrder) ? data.utteranceOrder : undefined;
     const local = data.utteranceKey != null ? String(data.utteranceKey) : order !== undefined ? String(order) : '';
     const key = local ? `${sourceKey}:${local}` : '';
-    if (key && this.retiredKeys.has(key)) return null;
-    if (order !== undefined && order <= (this.retiredWatermarks.get(sourceKey) ?? -Infinity)) return null;
+    const continued = key && this.clearContinuations.has(key);
+    if (key && this.retiredKeys.has(key) && !continued) return null;
+    if (!continued && order !== undefined && order <= (this.retiredWatermarks.get(sourceKey) ?? -Infinity)) return null;
     const previous = key ? this.events.get(key) : null;
     const version = Number.isFinite(data.utteranceRevision) ? data.utteranceRevision
       : Number.isFinite(data.revision) ? data.revision : Number.isFinite(data.eventRevision) ? data.eventRevision : undefined;
@@ -329,10 +330,13 @@ class QuestionResolver {
     // utterance from this source may finish late, but cannot replace a newer one.
     if (order === undefined && previous && !activeKey && [...this.events.values()].some(record =>
       record.sourceKey === sourceKey && record.firstSequence > previous.firstSequence)) return null;
+    for (const continuationKey of this.clearContinuations.keys()) {
+      if (continuationKey !== key && continuationKey.startsWith(sourceKey + ':')) this.clearContinuations.delete(continuationKey);
+    }
     if (order !== undefined) this.highWater.set(sourceKey, Math.max(high ?? order, order));
     const sequence = ++this.eventSequence;
     const meta = { key, at: now, source, sourceKey, session, order, version, final, text: raw, sequence,
-      startMs:data.startMs, endMs:data.endMs, clockDomain:data.clockDomain,
+      startMs:data.startMs, endMs:data.endMs, clockDomain:data.clockDomain, originalText:clean(data.text),
       firstSequence: previous?.firstSequence ?? sequence };
     if (key) this.events.set(key, meta);
     return meta;
@@ -362,7 +366,7 @@ class QuestionResolver {
   }
 
   observe(data = {}, final = false) {
-    const raw = clean(data.text);
+    let raw = clean(data.text);
     if (data.channel === 'you') {
       this.candidateActivity = classifyCandidateUtterance(raw, { uncertain: !!data.possibleEchoOf || data.speaker === 'unknown' });
       if (final && this.candidateActivity === 'substantive' && !data.echoOf && !data.possibleEchoOf && !this.speaking && this.stableParts.length) {
@@ -380,6 +384,21 @@ class QuestionResolver {
       return;
     }
     if (data.channel !== 'them' || !raw || isSpeechNoise(raw)) return;
+    const source=String(data.sourceId || 'stream'), session=String(data.sourceSessionId ?? data.sourceSession ?? data.sessionId ?? data.streamSessionId ?? '');
+    const local=data.utteranceKey != null ? String(data.utteranceKey) : Number.isFinite(data.utteranceOrder) ? String(data.utteranceOrder) : '';
+    const continuation=this.clearContinuations.get(local ? `${session ? `${source}@${session}` : source}:${local}` : '');
+    if (continuation) {
+      const version=Number.isFinite(data.utteranceRevision)?data.utteranceRevision:Number.isFinite(data.revision)?data.revision:Number.isFinite(data.eventRevision)?data.eventRevision:undefined;
+      if (version !== undefined && continuation.version !== undefined && version <= continuation.version) return;
+      const before=continuation.text;
+      if (raw === before) return;
+      if (raw.startsWith(before)) raw=clean(raw.slice(before.length));
+      else {
+        let shared=0; while(shared<before.length && shared<raw.length && before[shared]===raw[shared]) shared++;
+        if (shared >= 4) raw=clean(raw.slice(shared));
+      }
+      if (!raw || isSpeechNoise(raw)) return;
+    }
     if (/^(?:喂|哈喽|hello|hi|嗯|啊|哦|好|可以|好的|行|测试|收到|开始吧|我们开始吧)+$/i.test(compact(raw))) return;
     if (/(?:听得?(?:到|清)|听不(?:到|清)|声音|音量|麦克风)/.test(raw) && /(?:喂|听|声音|音量|麦克风)/.test(raw) && !/(?:介绍|项目|技术|代码|设计|实现|架构|为什么|如何|怎么做|举个例子)/.test(raw)) return;
     const meta = this._eventMeta(data, final, raw);
@@ -494,7 +513,12 @@ class QuestionResolver {
   }
   retireActive(reason = 'manual-clear') {
     this.lastHandledText = this.resolveForSubmit().text || this.lastHandledText;
-    if (reason === 'manual-clear') { this.candidateActivity = ''; this.autoClose = null; }
+    if (reason === 'manual-clear') {
+      this.candidateActivity = ''; this.autoClose = null;
+      const active=this.interim || (this.speaking ? this.pendingUnits.at(-1) || this.stableParts.at(-1) : null);
+      this.clearContinuations.clear();
+      if (active?.key) this.clearContinuations.set(active.key, {text:active.originalText || active.text,version:active.version});
+    }
     for (const [key] of this.events) this.retiredKeys.add(key);
     for (const [sourceKey, order] of this.highWater) this.retiredWatermarks.set(sourceKey, Math.max(this.retiredWatermarks.get(sourceKey) ?? -Infinity, order));
     for (const part of [...this.stableParts, ...this.pendingUnits, ...(this.interim ? [this.interim] : [])]) {
