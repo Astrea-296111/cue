@@ -78,6 +78,13 @@ test('domain buttons are strict even when the question names another project',()
  assert.deepEqual(constrain(plan,'cae','Arclight 怎么实现？',catalog).canonicalProjectIds,['cae']);
 });
 
+test('selected project personal context excludes the other project',()=>{
+ const {buildCandidateRoleContext}=require('../src/candidate-role-context');
+ const settings={candidateProfile:{subjectRole:'candidate',projects:[{id:'arclight',scope:'ARC_PRIVATE_MARKER'},{id:'cae',scope:'CAE_PRIVATE_MARKER'}],resumeProjectOrder:['arclight','cae']}};
+ const text=buildCandidateRoleContext(settings,'介绍一下自己',{project:true,projectId:'cae'}).text;
+ assert.match(text,/CAE_PRIVATE_MARKER/);assert.doesNotMatch(text,/ARC_PRIVATE_MARKER/);
+});
+
 test('online lookup sends only generic allowlisted keywords and treats snippets as data',async()=>{
  let seen='';const r=await lookup('私人公司 SECRET_PERSON 的 SQL 索引怎么设计？',{fetchImpl:async url=>{seen=url;return {ok:true,text:async()=>JSON.stringify({query:{search:[{title:'SQL',snippet:'<span>结构化查询</span> &amp; 数据'}]}})}}});
  assert.equal(r.status,'ok');assert.equal(r.sources[0].snippet,'结构化查询 & 数据');assert.doesNotMatch(decodeURIComponent(seen),/SECRET_PERSON|私人公司/);assert.equal(queryFor('没有技术词的私人问题'),'');

@@ -6,7 +6,7 @@ const {sanitizeResumeForPrompt}=require('./personal-workspace');
 const PERSONAL=/自我介绍|介绍.{0,8}(?:自己|你自己)|学历|毕业|在读|学校|教育背景|到岗|实习.{0,8}(?:多久|时间|几天|几个月)|工作经历|转正|离职|个人优势|你.{0,14}(?:哪.{0,4}(?:比较强|擅长)|最强|做过.{0,10}(?:最高|最大))|之前.{0,12}(?:复杂度|最高|最大)|\b(?:introduce yourself|tell me about yourself|education|availability)\b/i;
 const ROLE=/岗位|职位|应聘|申请|为什么.{0,12}(?:公司|选择|想来)|供应链|\b(?:job fit|this role|why this company)\b/i;
 const clip=(value,size)=>String(value||'').slice(0,size);
-function buildCandidateRoleContext(settings={},question='',{project=false}={}) {
+function buildCandidateRoleContext(settings={},question='',{project=false,projectId=''}={}) {
   const personal=PERSONAL.test(question),role=ROLE.test(question);
   const introduction=/自我介绍|介绍.{0,8}(?:自己|你自己)|\b(?:introduce yourself|tell me about yourself)\b/i.test(question);
   const job=(settings.jobProfiles||[]).find(value=>value.id===(settings.activeJobProfileId||settings.jobProfileId));
@@ -18,7 +18,8 @@ function buildCandidateRoleContext(settings={},question='',{project=false}={}) {
   if(personal||role) {
     const p=settings.candidateProfile;
     if(p?.subjectRole==='candidate')value.candidate={name:p.name,education:p.education,availability:p.availability,employment:p.employment,
-      projects:p.projects,resumeProjectOrder:p.resumeProjectOrder,doNotInfer:p.doNotInfer};
+      projects:projectId?(p.projects||[]).filter(item=>item.id===projectId):p.projects,
+      resumeProjectOrder:projectId?(p.resumeProjectOrder||[]).filter(id=>id===projectId):p.resumeProjectOrder,doNotInfer:p.doNotInfer};
     else value.resumeExcerpt=sanitizeResumeForPrompt(clip(settings.resumeText,2600));
     if(value.targetRole)value.targetRole.jobDescription=clip(settings.jobDescription||job.jobDescription,1400);
     const seconds=/60\s*秒|六十秒|一分钟|1\s*分钟/.test(question)?'seconds60':'seconds30';

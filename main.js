@@ -1162,7 +1162,8 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
       factsEnabled:policy.factsEnabled,sourcePolicy:policy.ragPolicy,...evidenceLimits});
     // General reference cards use the same finite request budget, but never
     // become another resume project or evidence of personal implementation.
-    const candidateRole=buildCandidateRoleContext(effectiveSettings,question,{project:request.plan.retrieve});
+    const candidateRole=buildCandidateRoleContext(effectiveSettings,question,{project:request.plan.retrieve,
+      projectId:['arclight','cae'].includes(settings.answerDomain)?settings.answerDomain:''});
     const knowledge=settings.answerDomain!=='general'&&policy.factsEnabled&&!candidateRole.personal&&!answerPlan.confirmation&&request.plan.kind!=='unresolved'
       ? generation.materials.factPacks.selectKnowledge(question,{jobProfileId:settings.jobProfileId,maxCards:policy.instant?2:3}):null;
     evidencePlan.contextKnowledgeIds=[];

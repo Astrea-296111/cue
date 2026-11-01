@@ -253,7 +253,7 @@ function buildCandidateContext(settings, mode, transcript, projectRelevant = fal
     const resumeLimit = relevantResume ? (realtime ? 1500 : 2600) : (realtime ? 0 : 850);
     const selectedResume = selectProjectSection(resume, projectPlan);
     const rb = resumeLimit ? (selectedResume === null
-      ? buildResumeBlock(resume, resumeLimit) : clip(selectedResume, resumeLimit)) : '';
+      ? (['arclight','cae'].includes(projectPlan?.answerDomain) ? '' : buildResumeBlock(resume, resumeLimit)) : clip(selectedResume, resumeLimit)) : '';
     if (rb) blocks.push('=== 候选人简历 ===\n' + rb);
   }
 
