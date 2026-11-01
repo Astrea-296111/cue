@@ -110,5 +110,5 @@ test('speech prefetch and answer reuse the same online request',async()=>{
 
 test('oral policy asks for natural spoken SQL alongside complete code',()=>{
  const p=require('../src/oral-answer-policy');const plan=p.plan('SQL 怎么设计查询每个人的最新订单？');assert.equal(plan.code,true);
- const instruction=p.instruction(plan);assert.match(instruction,/自然.*中文/);assert.match(instruction,/完整代码或 SQL/);assert.doesNotMatch(instruction,/1\. 提示词/);
+ const instruction=p.instruction(plan);assert.match(instruction,/自然.*中文/);assert.match(instruction,/完整代码或 SQL/);assert.match(instruction,/不要在口述段说 GROUP BY 或 HAVING/);assert.match(instruction,/一种完整正确/);assert.doesNotMatch(instruction,/1\. 提示词/);
 });
