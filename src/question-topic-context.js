@@ -4,6 +4,6 @@ const stripAuditMarker=text=>String(text||'').replace(/\n?（发言 [^\n]+ · �
 // archived transcript fragments for a matching technology.
 function reference(question, turns=[]) {
   if (!require('./live-context-policy').needsReference(stripAuditMarker(question))) return '';
-  return turns.slice(-2).filter(t=>t.channel !== 'you').map(t=>stripAuditMarker(t.text)).filter(Boolean).join('\n');
+  return turns.slice(-1).filter(t=>t.channel !== 'you').map(t=>stripAuditMarker(t.text)).filter(Boolean).join('\n');
 }
 module.exports={reference,stripAuditMarker};
