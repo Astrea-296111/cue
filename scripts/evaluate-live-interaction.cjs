@@ -12,6 +12,9 @@ async function run(output=path.resolve('artifacts/oct27-live'),env=process.env){
  const report={schemaVersion:1,buildCommit:require('child_process').execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),startedAt:new Date().toISOString(),
   scope:'Real model SDK; synthetic interviewer interim and screenshots; no physical keyboard/audio/screen capture claim. No generation retries or model judge.',providers:[],rows:[],status:'running'};
  const save=()=>fs.writeFileSync(path.join(output,'report.json'),JSON.stringify(sanitizeReport(report,{secrets,workspaceRoot:ROOT}),null,2));
+ const requested=new Set(String(env.CUE_LIVE_CASES||'').split(',').map(s=>s.trim()).filter(Boolean));
+ const allowed=new Set(['interim','qa-miss','question-lifecycle','oral-sql-online','scenario-crash','expand-followup','vibe','algorithm','sql','debug','unknown']);
+ if([...requested].some(id=>!allowed.has(id)))throw new Error('Unknown synthetic case ID');
  let calls=0;
  for(const id of ['qwen','deepseek']){
   const config=providerConfig(id,env,false);if(config.error){report.providers.push({id,status:'unavailable',error:config.error});save();continue;}
@@ -22,7 +25,7 @@ async function run(output=path.resolve('artifacts/oct27-live'),env=process.env){
     {id:'oral-sql-online',mode:'say',question:'SQL 怎么查出重复的用户记录？',online:true},
     {id:'scenario-crash',mode:'say',question:'怎么避免下游再起第二个进程？',scenario:true},
     {id:'expand-followup',mode:'ask',question:'具体怎么安全重试？',expand:true},
-    ...['vibe','algorithm','sql','debug','unknown'].map(name=>({id:name,mode:name==='algorithm'?'leetcode':'assist',question:'',image:name+'.png'}))]) {
+    ...['vibe','algorithm','sql','debug','unknown'].map(name=>({id:name,mode:name==='algorithm'?'leetcode':'assist',question:'',image:name+'.png'}))].filter(item=>!requested.size||requested.has(item.id))) {
    const cleanups=[];let app;const row={provider:id,caseId:c.id,requestedModel:config.model,attempts:0,status:'running'};report.rows.push(row);save();
    try{
     app=createInterviewRuntime({after:f=>cleanups.push(f)},{realTime:true,inMemorySettings:true,chunks:[],

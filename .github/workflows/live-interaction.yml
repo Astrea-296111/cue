@@ -1,6 +1,11 @@
 name: Live interaction synthetic acceptance
 on:
   workflow_dispatch:
+    inputs:
+      case_ids:
+        description: 'Optional comma-separated synthetic case IDs'
+        required: false
+        default: ''
 permissions:
   contents: read
 concurrency:
@@ -32,6 +37,7 @@ jobs:
           DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL || vars.DEEPSEEK_MODEL_ID }}
           QWEN_BASE_URL: ${{ vars.QWEN_BASE_URL }}
           DEEPSEEK_BASE_URL: ${{ vars.DEEPSEEK_BASE_URL }}
+          CUE_LIVE_CASES: ${{ inputs.case_ids }}
         run: node scripts/evaluate-live-interaction.cjs artifacts/oct27-live
       - name: Retain full synthetic requests, answers and diagnostics
         if: always()
