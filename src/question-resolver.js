@@ -43,6 +43,7 @@ function changesTechnicalSubject(previous, next) {
 function continuesQuestion(previous, next) {
   if (NEW_TOPIC_RE.test(next) || isCorrection(next)) return false;
   return OPEN_END_RE.test(previous) || /(?:怎么|如何|为什么)[\s，,。.!！]*$/.test(previous) || /^(?:它们|他们|这两种|这些)/.test(next) || SEMANTIC_CONTINUATION_RE.test(next) || ELLIPTIC_QUESTION_RE.test(next) || CONTINUATION_QUESTION_RE.test(next) ||
+    /(?:如果|假设|假如|这时候|此时|前提是|条件是)[^?？\n]{4,}[。.!！]?$/.test(previous) && /^(?:那(?:么)?[，,\s]*)?(?:怎么|如何|为什么|能否|能不能|会不会|是否|怎么办)/.test(next) ||
     isLikelySupplement(next) || isCodeChangeRequest(next);
 }
 
@@ -475,6 +476,10 @@ class QuestionResolver {
     if (isLikelyCompleteQuestion(text) || isLikelySupplement(text) && this.stableParts.length || relatedConstraint) {
       if (this.stableParts.length && !related && !isLikelySupplement(text) && !relatedConstraint && !samePart) {
         this._clearActive('latest-independent-question');
+      }
+      if (this.pendingRelated && this.pendingUnits.length) {
+        for (const unit of this.pendingUnits) this._appendStable(unit.text, unit);
+        this.pendingUnits=[];
       }
       this._appendStable(text, meta);
       this.pendingText = trailingPending; this.pendingAt = trailingPending ? meta.at : 0; this.pendingSequence = meta.sequence; this.pendingRelated = !!trailingPending;

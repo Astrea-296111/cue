@@ -82,7 +82,7 @@ function buildInstantContext({ settings = {}, question, snapshot, request, ready
     if (dataTokens + size <= limits.evidenceTokens) { blocks.push(block); dataTokens += size; }
   }
   const references = [];
-  if (require('./live-context-policy').needsReference(question) && require('./live-context-policy').normalize(settings.liveContextPolicy).historyWindowTurns>0) {
+  if (snapshot?.expansionRequested || require('./live-context-policy').needsReference(question) && require('./live-context-policy').normalize(settings.liveContextPolicy).historyWindowTurns>0) {
     if (snapshot?.referenceContext) references.push('先前用户要求：' + snapshot.referenceContext);
     else for (const turn of (request.turns || []).filter(t=>t.role==='user').slice(-require('./live-context-policy').normalize(settings.liveContextPolicy).historyWindowTurns)) references.push('先前用户要求：' + turn.text);
   }

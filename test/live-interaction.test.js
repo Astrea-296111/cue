@@ -77,6 +77,28 @@ test('long spoken scenario retains consecutive ASR fragments and incomplete lead
   assert.match(text,/批处理服务/);assert.match(text,/结果不能重复/);assert.match(text,/难点/);assert.match(text,/怎么解决/);
 });
 
+test('pending accident conditions remain with later follow-up questions',async t=>{
+  const app=createInterviewRuntime(t);await app.ready;
+  for(const text of ['简历提到五百次重放，能详细解释吗？','如果消费者刚调用节点启动接口，下游已经启动了进程，但还没确认消息时机器断电。','这时候消息重投到另一台机器，此时去重表还没提交事务。','怎么避免下游再起第二个进程？','还有，测试脚本是怎么写的？'])app.final(text);
+  app.answer('应核对执行身份和进程状态。');await app.ask('say');const body=JSON.stringify(app.calls.at(-1).messages);
+  for(const anchor of ['下游已经启动了进程','机器断电','去重表还没提交','第二个进程','测试脚本'])assert.ok(body.includes(anchor),anchor);
+});
+
+test('imported QA is labeled in evidence only when its content reaches the SDK',async t=>{
+  const app=createInterviewRuntime(t);await app.ready;await install(app);app.answer('合成回答');
+  await app.ask('say','枫叶平台如何避免重复提交？');
+  const body=JSON.stringify(app.calls.at(-1).messages), evidence=app.events.filter(e=>e.channel==='llm:evidence').at(-1);
+  const qa=evidence.sources.find(s=>s.cardId==='qa.maple.idempotency');
+  assert.ok(qa?.qa);assert.match(qa.qaQuestion,/如何避免重复提交/);assert.ok(body.includes('保留原文'));
+});
+
+for(const profile of ['instant','standard'])test(`detail expansion sends latest follow-up as target with prior question as background (${profile})`,async t=>{
+  const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:profile,liveContextPolicy:{historyWindowTurns:0}}});await app.ready;app.answer('具体步骤是先检查状态，再做安全重试。');
+  await app.value("runFeature('ask','具体怎么安全重试？',{expandDetails:true,expansionContext:'任务执行失败后如何恢复？'})");
+  const body=JSON.stringify(app.calls.at(-1).messages);assert.match(body,/具体怎么安全重试/);assert.match(body,/任务执行失败后如何恢复/);assert.match(body,/仅.*(?:背景|指代)|REFERENCE/);assert.match(body,/具体技术/);
+  assert.equal(app.requests.at(-1).question,'具体怎么安全重试？');
+});
+
 test('unsubmitted scene retains multiple questions and grouped context across long pauses',()=>{
   let now=1000;const r=new QuestionResolver({now:()=>now});
   const emit=(text,n)=>{now+=5000;r.observe({channel:'them',text,utteranceKey:`scene-${n}`,utteranceOrder:n},true);};

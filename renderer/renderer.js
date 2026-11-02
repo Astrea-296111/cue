@@ -186,7 +186,7 @@
   }
 
   // ---- actions -----------------------------------------------------------
-  function runMode(mode, text) {
+  function runMode(mode, text, options = {}) {
     // Manual answer shortcuts request a fresh reply, including during generation.
     // The main process aborts the previous request; other modes retain the guard.
     if (busy && !['say', 'answerThis', 'ask', 'assist', 'technical','leetcode'].includes(mode)) return;
@@ -196,7 +196,7 @@
     // speech is a complete question, a supplement, noise, or an unfinished tail.
     const requestText = typeof text === 'string' ? text : '';
 
-    cue.ask({ mode, text: requestText });
+    cue.ask({ mode, text: requestText, ...options });
   }
 
   function renderAnswerTarget() {
@@ -1365,7 +1365,9 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
       const label = document.createElement('div');
       const type = { overview: '概览', implementation: '实现', decision: '选型理由', challenge: '困难', incident: '故障', performance: '指标', ownership: '本人职责', collaboration: '协作', environment: '环境', process: '流程', limitation: '限制', theory: '原理' }[source.docType] || '资料';
       const truth = { implemented: '已实现', test_only: '仅测试', planned: '计划', hypothetical: '假设', abandoned: '已放弃', general_knowledge: '通用知识', unverified: '待核对' }[source.truthScope] || '待核对';
-      label.textContent = `${source.projectName || ''} · ${type} · ${truth} · ${source.path}:${source.startLine}–${source.endLine}${source.partial ? '（片段）' : ''}`;
+      const where=source.qa ? `导入问答 · ${source.cardId || source.id}${source.qaQuestion ? ' · '+source.qaQuestion : ''}`
+        : `${source.path || '资料'}${source.startLine != null ? ':'+source.startLine+'–'+source.endLine : ''}`;
+      label.textContent = `${source.projectName || ''} · ${type} · ${truth} · ${where}${source.partial ? '（片段）' : ''}`;
       const excerpt = document.createElement('pre');
       excerpt.textContent = String(source.text || '');
       body.append(label, excerpt);
@@ -1425,7 +1427,13 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
     const question=submittedSnapshot?.text;
     if (completed && question && delivery!=='qa-verbatim' && !['technical','leetcode','assist'].includes(completed.parentElement?.dataset.mode)) {
       const expand=document.createElement('button');expand.type='button';expand.className='answer-expand';expand.textContent='展开细节';
-      expand.addEventListener('click',()=>runMode('ask','请详细展开这个问题，补充关键细节：'+question));
+      expand.addEventListener('click',()=>{
+        const latest=targetState.snapshot?.text?.trim() || '';
+        const prior=question.trim();
+        const followup=latest && latest!==prior ? (latest.startsWith(prior) ? latest.slice(prior.length).trim() : latest) : '';
+        if(followup) runMode('ask',followup,{expandDetails:true,expansionContext:prior});
+        else runMode('ask','请详细展开这个问题：'+question,{expandDetails:true});
+      });
       completed.after(expand);
     }
   });

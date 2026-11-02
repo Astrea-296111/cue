@@ -940,7 +940,7 @@ async function setCapturing(active) {
 }
 
 // -------- feature runner --------
-async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot = null } = {}) {
+async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot = null, expandDetails = false, expansionContext = '' } = {}) {
   if(submitSnapshot&&(submitSnapshot.epoch!==conversation.epoch||submitSnapshot.questionId!==questionResolver.currentQuestionId))return;
   const triggerAt = performance.now();
   const def = MODES[mode];
@@ -954,12 +954,17 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
   if (!explicit && !retrySnapshot && resolved?.text && !screenRequest) resolved = require('./src/question-focus').focusSnapshot(resolved);
   if (explicit && resolved) liveQuestions.observe(resolved);
   const liveContext = liveQuestions.select(resolved || {text:explicit}, settings.liveContextPolicy);
+  if (expandDetails && typeof expansionContext==='string' && expansionContext.trim()) {
+    const background=expansionContext.trim().slice(0,8000);
+    liveContext.turns=[{questionId:'expand-context',text:background}];liveContext.referenceContext=background;
+  }
   if (settings.answerDomain === 'general') {
     const projectNames=getProjectCatalog().flatMap(p=>[p.name,...(p.aliases||[])]).filter(Boolean).map(n=>String(n).toLowerCase());
     liveContext.turns=liveContext.turns.filter(turn=>!/项目|简历|源码|负责|你们.*实现/i.test(turn.text) && !projectNames.some(name=>turn.text.toLowerCase().includes(name)));
     liveContext.referenceContext=liveContext.turns.map(turn=>turn.text).join('\n');
   }
-  if (resolved) resolved = {...resolved, referenceContext: liveContext.referenceContext || undefined, referenceSpeaker: liveContext.referenceContext?'interviewer':undefined};
+  if (resolved) resolved = {...resolved, referenceContext: liveContext.referenceContext || undefined, referenceSpeaker: liveContext.referenceContext?'interviewer':undefined,
+    expansionRequested:expandDetails && !!liveContext.referenceContext};
   const question = screenRequest ? explicit || resolved?.text || '识别当前屏幕任务并给出解题帮助'
     : explicit || resolved?.text || (voiceAnswer || settings.answerDomain === 'general' ? '' : conversation.recent.at(-1)?.question || '');
   if (screenRequest) resolved = {...questionResolver.manualSnapshot(question,{epoch:conversation.epoch}),screenSourceQuestionId:resolved?.source==='manual'?undefined:resolved?.questionId};
@@ -1118,6 +1123,7 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
       scenario: interviewPlan.scenario || (!policy.instant && request.checklist?.scenario) || '',
       subQuestions: [...interviewPlan.subQuestions, ...(!policy.instant ? request.checklist?.pending || [] : [])] } : null;
     const answerPlan = getAnswerPlan(question, effectiveInterviewPlan);
+    if (expandDetails) {answerPlan.detailed=true;answerPlan.level='detailed';answerPlan.maxTokens=Math.max(answerPlan.maxTokens,1000);answerPlan.maxVisibleCharacters=1200;}
     if (typeof settings.aiRules === 'string' && settings.aiRules.trim()) {
       answerPlan.customStyle = true;
       answerPlan.maxTokens = Math.max(answerPlan.maxTokens, 1000);
@@ -1232,7 +1238,9 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
     const narrativeRule='\nUSER/source-claim 是用户指定的口述资料，可按范围直接回答既有职责，不复述资料编辑历史；没有材料才简短说明缺口。';
     const oralRule=require('./src/oral-answer-policy').instruction({...answerPlan,code:answerPlan.code||!!imageDataUrl||mode==='leetcode'});
     const legacyNarrative='不要编造项目结果。';
-    const resolvedSystem = builtSystem + (instantContext?'':'\n' + oralRule + narrativeRule + (liveContext.policy.includeCandidateSpeech?SPOKEN_CONTEXT_RULES:'')) + (request.plan.kind==='unresolved'?'\n当前未定位到对应项目资料，直接给出可落地的通用方案或小例子，不猜测具体项目身份或职责。':'');
+    const resolvedSystem = builtSystem + (instantContext?'':'\n' + oralRule + narrativeRule + (liveContext.policy.includeCandidateSpeech?SPOKEN_CONTEXT_RULES:'')) +
+      (expandDetails?'\n围绕最新追问展开具体技术、步骤和边界；历史问题仅供理解，不重答。区分已核实实现与建议，缺少依据时说明。':'') +
+      (request.plan.kind==='unresolved'?'\n当前未定位到对应项目资料，直接给出可落地的通用方案或小例子，不猜测具体项目身份或职责。':'');
     const initialSystem = llm.prepareSystem ? llm.prepareSystem(resolvedSystem) : resolvedSystem;
     const questionReferenceSection={id:'question-reference',text:frozen?.referenceContext ? '最近真人提问实体（仅消解指代；面试官的公司、规模、假设不属于候选人经历）：\n'+JSON.stringify({speaker:frozen.referenceSpeaker||'unspecified-question',text:frozen.referenceContext}):'',protected:true};
     const candidateRoleSection={id:'candidate-role',text:candidateRole.text,protected:candidateRole.required,priority:2};
@@ -1288,7 +1296,8 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
     emit('llm:materials',materialDiagnostics);
     emit('llm:evidence', { sources: sentEvidence.map(item => ({ id: item.id, projectName: item.projectName,
       path: item.path, startLine: item.startLine, endLine: item.endLine, text: item.text,
-      docType: item.docType, truthScope: item.truthScope, status: item.status, partial: item.partial })),
+      docType: item.docType, truthScope: item.truthScope, status: item.status, partial: item.partial,
+      sourceType:item.sourceType,cardId:item.cardId,qaQuestion:item.qa ? item.questions?.[0] : undefined,qa:!!item.qa,provenance:item.provenance })),
       missing: [...(contextBundle.missing || []), ...(prepared.missing || [])] });
     const qaEvidence=sentEvidence.filter(item=>item.qa);
     if(qaEvidence.length)emit('qa:generated',{cardIds:qaEvidence.map(item=>item.cardId),revision:generation.materials.factRevision});
@@ -1823,7 +1832,7 @@ ipcMain.handle('transcript:clear', () => {
   if(restartCapture) captureTransition=captureTransition.catch(()=>{}).then(()=>setCapturing(false)).then(()=>desiredCaptureState?setCapturing(true):false);
   return { ok: true,sessionId:dialogue.sessionId };
 });
-ipcMain.on('ask', (_e, payload) => runFeature(payload?.mode, payload?.text));
+ipcMain.on('ask', (_e, payload) => runFeature(payload?.mode, payload?.text, {expandDetails:payload?.expandDetails===true,expansionContext:payload?.expansionContext}));
 ipcMain.on('llm:rendered', (_event, payload) => {
   const details = typeof payload === 'string' ? { requestId: payload, stage: 'dom' } : payload || {};
   const { requestId } = details;
