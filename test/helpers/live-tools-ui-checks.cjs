@@ -112,18 +112,16 @@ module.exports=async({js,until,requests,win,verifyProtected})=>{
   await js("cue.dialogueEvent({eventId:'ui-interim-check',utteranceKey:'ui-interim-check',utteranceOrder:1,sourceId:'ui-interim',channel:'you',speaker:'candidate',text:'临时语音回显检查',isFinal:false})");
   assert.equal(await js("document.querySelector('#panel-main > .interim-transcript')"),null,'no bottom transcript echo');
   await js("cue.dialogueEvent({eventId:'ui-buffer-2',utteranceKey:'ui-buffer-2',utteranceOrder:2,sourceId:'ui-buffer',channel:'them',speaker:'interviewer',text:'另外如何处理失败重试？',isFinal:true})");
-  await until(()=>js("document.querySelectorAll('#answer-coverage-list button').length===2"),'question coverage controls');
-  await js("document.getElementById('answer-coverage').open=true;document.querySelector('#answer-coverage-list button').click()");
-  await until(()=>js("document.querySelector('#answer-coverage-list button').textContent==='恢复待答'"),'answered fragment marked');
-  assert.doesNotMatch((await js('cue.questionTarget()')).snapshot.text,/重复提交/);
-  await js("document.querySelector('#answer-coverage-list button').click()");
-  await until(async()=>/重复提交/.test((await js('cue.questionTarget()')).snapshot.text),'answered fragment restored');
+  await until(()=>js("document.getElementById('answer-coverage-list').textContent.includes('重复提交') && document.getElementById('answer-coverage-list').textContent.includes('失败重试')"),'recent questions visible');
+  await js("document.getElementById('answer-coverage').open=true;document.getElementById('input').value='已有草稿';document.querySelectorAll('#answer-coverage-list button').forEach((b)=>{if(/重复提交|失败重试/.test(b.parentElement.textContent))b.click()})");
+  assert.match(await js("document.getElementById('input').value"),/已有草稿[\s\S]*重复提交[\s\S]*失败重试/);
+  await js("document.getElementById('input').value='';document.getElementById('input').dispatchEvent(new Event('input',{bubbles:true}))");
   await js('cue.clearTranscript()');
   for(let i=0;i<7;i++) {
     const text=`${i ? '另外' : ''}如何处理任务${i}？${i===6?'还要考虑失败恢复与资源限制。'.repeat(30):''}`;
     await js(`cue.dialogueEvent({eventId:'ui-recent-${i}',utteranceKey:'ui-recent-${i}',utteranceOrder:${i+1},sourceId:'ui-recent',channel:'them',speaker:'interviewer',text:${JSON.stringify(text)},isFinal:true})`);
   }
-  await until(()=>js("document.querySelectorAll('#answer-coverage-list button').length===5"),'only five recent controls');
+  await until(()=>js("document.querySelectorAll('#answer-coverage-list button').length===6 && document.getElementById('answer-coverage-list').textContent.includes('任务6')"),'only six recent controls');
   assert.match((await js('cue.questionTarget()')).snapshot.text,/任务0/,'hidden old fragments are not deleted');
   assert.doesNotMatch(await js("document.getElementById('answer-coverage-list').textContent"),/任务0/);
   await js("document.getElementById('answer-target-toggle').click()");
@@ -135,10 +133,15 @@ module.exports=async({js,until,requests,win,verifyProtected})=>{
   const answerBefore=await js("document.querySelector('.response-group:first-child .ai-text').textContent");
   await js("document.getElementById('input').value='保留手动草稿';document.getElementById('answer-target-clear').click()");
   await until(async()=>!(await js('cue.questionTarget()')).snapshot.text,'clear current question');
+  assert.match(await js("document.getElementById('answer-coverage-list').textContent"),/任务6/,'clear retains recent questions');
   assert.equal(await js("document.getElementById('input').value"),'保留手动草稿');
   assert.equal(await js("document.querySelector('.response-group:first-child .ai-text').textContent"),answerBefore);
   assert.equal(await js("document.getElementById('answer-target-text').textContent"),'等待新问题');
   assert.equal(await js("document.getElementById('answer-target-clear').getAttribute('aria-label')"),'清空当前待回答问题');
+  const beforeMulti=requests.length;
+  await js("document.getElementById('input').value='';document.getElementById('input').dispatchEvent(new Event('input',{bubbles:true}));const b=document.querySelectorAll('#answer-coverage-list button');b[0].click();b[1].click();document.getElementById('send-btn').click()");
+  await until(()=>requests.length>beforeMulti,'send selected questions');
+  const multi=JSON.stringify(requests.at(-1).messages);assert.match(multi,/任务1/);assert.match(multi,/任务2/);assert.match(multi,/逐一回答/);
   await js('cue.clearTranscript()');
   return {qaPreview:true,qaTry:true,projectAnswersUseModel:true,shortContext:true,screenModeControls:true,answeredFragment:true,pointerInput:process.platform==='win32'?'native-windows':'electron-coordinate'};
 };

@@ -104,6 +104,7 @@ transcriptRecorder.startSession(dialogue.sessionId);
 const speechDraftIds = new Map();
 let speechEventSequence = 0;
 const questionResolver = new QuestionResolver();
+const recentQuestions = new (require('./src/recent-questions').RecentQuestions)();
 const { LiveQuestionWindow } = require('./src/live-context-policy');
 const liveQuestions = new LiveQuestionWindow();
 const screenTaskState = new (require('./src/screen-task-router').ScreenTaskState)();
@@ -205,7 +206,7 @@ const snapshotSourceKey = snapshot => {
 function currentTargetEnvelope() {
   const snapshot = questionResolver.resolveForSubmit({ allowPartial: true, epoch: conversation.epoch });
   const asr = require('./src/contextual-asr').normalize(snapshot.text || snapshot.pendingText || snapshot.interimText, liveQuestions.turns.slice(-3).map(t=>t.text).join('\n'));
-  return { snapshot: {...snapshot, asrCandidate:asr.rules.length ? asr.normalizedText : undefined},
+  return { snapshot: {...snapshot, asrCandidate:asr.rules.length ? asr.normalizedText : undefined}, recentQuestions:recentQuestions.snapshot(),
     frozenSnapshot: activeGeneration?.snapshot || lastFrozenSnapshot, state: state.busy ? 'answering' : 'idle',
     candidateActivity: questionResolver.candidateActivity,
     pendingSubmit:!!pendingSubmit.pending, requestId: activeGeneration?.id || latestUiRequestId, epoch: conversation.epoch };
@@ -322,12 +323,13 @@ function pushTranscript(turn) {
 function send(channel, data) {
   // Keep answer targeting in the main process so keyboard shortcuts, renderer
   // buttons and every STT provider all share exactly the same question state.
-  if (channel === 'vad:state') questionResolver.speechState(data);
+  if (channel === 'vad:state') { questionResolver.speechState(data); recentQuestions.speechState(data); }
   const candidate = data?.channel === 'you' || data?.audioSourceChannel === 'you' && data?.channel === 'unknown';
   const beforeCandidate = candidate && channel === 'transcript' ? questionResolver.currentQuestionId : '';
   const observation = candidate && data.channel !== 'you' ? {...data,channel:'you',speaker:'unknown'} : data;
   if (channel === 'stt:interim') { questionResolver.observe(observation, false); if (data.channel === 'them') observeProjectPrefetch(false); }
   if (channel === 'transcript') { questionResolver.observe(observation, true); if (data.channel === 'them') observeProjectPrefetch(true); }
+  if (['stt:interim','transcript'].includes(channel) && data?.channel==='them') recentQuestions.observe(observation,channel==='transcript');
   if (['stt:interim','transcript'].includes(channel) && data?.channel === 'them' && process.env.CUE_TEST_NO_ONLINE !== '1' && typeof net?.fetch === 'function')
     require('./src/online-knowledge').prime(data.text,(url,options)=>net.fetch(url,options));
   if (beforeCandidate && beforeCandidate !== questionResolver.currentQuestionId) { pendingSubmit.cancel('candidate-answer'); clearQuestionPrefetch(); }
@@ -1822,6 +1824,7 @@ ipcMain.handle('transcript:clear', () => {
   state.busy = false;
   conversation.reset();
   dialogue.reset();
+  recentQuestions.newSession();
   transcriptRecorder.startSession(dialogue.sessionId);
   speechDraftIds.clear();
 

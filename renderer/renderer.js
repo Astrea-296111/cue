@@ -220,10 +220,10 @@
     if (targetState.candidateActivity === 'uncertain') $('#answer-next-target').textContent += ' 本人声音未确认，旧问题保留';
     const coverage = $('#answer-coverage-list');
     coverage.replaceChildren();
-    for (const part of (latest?.segments || []).slice(-5)) {
+    for (const part of (targetState.recentQuestions || [])) {
       const row=document.createElement('div'), label=document.createElement('span'), button=document.createElement('button');
-      label.textContent=part.text; button.type='button'; button.textContent=part.answered?'恢复待答':'标为已回答'; button.disabled=!part.canMark;
-      button.onclick=async()=>{ try { applyQuestionTarget(await cue.questionMarkAnswered({questionId:latest.questionId,partId:part.id,text:part.text,answered:!part.answered})); } catch(e) { showToast(e.message); } };
+      label.textContent=part.text; button.type='button'; button.textContent='填入问题';
+      button.onclick=()=>{input.value=(input.value.trim() ? input.value.trimEnd()+'\n\n' : '')+part.text;inputFromSTT=false;recentQuestionsAdded++;input.dispatchEvent(new Event('input',{bubbles:true}));input.focus();};
       row.append(label,button);coverage.append(row);
     }
   }
@@ -289,6 +289,7 @@
   // ========== SMART AUTO-FILL SYSTEM ==========
   // Track whether the current input text came from STT auto-fill (Them channel)
   let inputFromSTT = false;
+  let recentQuestionsAdded = 0;
   let sttFillTimer = null;
   let questionFinalizeTimer = null;
   let softClearTimer = null;
@@ -571,6 +572,7 @@
   
   input.addEventListener('input', () => {
     const currentValue = input.value;
+    if (!currentValue.trim()) recentQuestionsAdded = 0;
     
     // FIX #5: Clear interim text when user starts typing
     clearInputInterim();
@@ -625,7 +627,9 @@
     
     // If text came from STT (interviewer question), use answerThis mode
     // Otherwise use ask mode (user typed their own question)
-    runMode(wasFromSTT ? 'answerThis' : 'ask', text);
+    const requestText = recentQuestionsAdded > 1 ? '请逐一回答以下所有问题：\n' + text : text;
+    recentQuestionsAdded = 0;
+    runMode(wasFromSTT ? 'answerThis' : 'ask', requestText);
   }
   $('#send-btn').addEventListener('click', send);
   input.addEventListener('keydown', (e) => {

@@ -378,6 +378,25 @@ test('clearing imported QA preserves other facts, rejects stale changes and allo
   assert.ok((await app.invoke('qa:state')).library.items.some(i=>i.id==='qa.maple.idempotency'));
 });
 
+test('recent interviewer questions survive target clearing and roll over at six',async t=>{
+  const app=createInterviewRuntime(t);await app.ready;
+  app.final('假设数据库出现故障，',{sourceId:'recent',utteranceKey:'context',utteranceOrder:1});
+  app.final('如何恢复数据？',{sourceId:'recent',utteranceKey:'q1',utteranceOrder:2});
+  let state=await app.invoke('question:get-target');assert.match(state.recentQuestions.at(-1).text,/数据库出现故障/);assert.match(state.recentQuestions.at(-1).text,/如何恢复/);
+  await app.invoke('question:clear');state=await app.invoke('question:get-target');assert.match(state.recentQuestions.at(-1).text,/数据库出现故障/);
+  for(let i=2;i<=7;i++)app.final(`另外如何处理任务${i}？`,{sourceId:'recent',utteranceKey:'q'+i,utteranceOrder:i+1});
+  state=await app.invoke('question:get-target');assert.equal(state.recentQuestions.length,6);assert.doesNotMatch(JSON.stringify(state.recentQuestions),/数据库出现故障/);assert.match(state.recentQuestions.at(-1).text,/任务7/);
+  await app.invoke('transcript:clear');assert.equal((await app.invoke('question:get-target')).recentQuestions.length,6);
+  app.final('新的一轮如何处理任务？',{sourceId:'recent',utteranceKey:'q1',utteranceOrder:1});
+  state=await app.invoke('question:get-target');assert.equal(state.recentQuestions.length,6);assert.match(state.recentQuestions.at(-1).text,/新的一轮/);
+});
+
+test('explicitly selected multiple questions reach the model as one request',async t=>{
+  const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:'instant'}});await app.ready;
+  app.answer('逐一回答。');await app.ask('ask','请逐一回答以下所有问题：\n如何处理重复提交？\n\n如何恢复失败任务？');
+  const body=JSON.stringify(app.calls.at(-1));assert.match(body,/如何处理重复提交/);assert.match(body,/如何恢复失败任务/);assert.match(body,/逐一回答全部所选问题/);
+});
+
 test('Q02/Q03/Q05: reject ambiguous project/version, opposite conditions, compound undercoverage and malformed imports atomically',async t=>{
   const app=createInterviewRuntime(t);await install(app);const before=await app.invoke('qa:state');
   for(const mutate of [v=>v.items.push({...v.items[0]}),v=>v.items[0].projectId='../escape',v=>v.items[0].enabled='yes']) {
