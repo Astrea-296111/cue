@@ -11,6 +11,7 @@ const RULES = [
 ];
 function normalize(rawText, contextText='') {
   let text=String(rawText||''); const rules=[];
+  if (/说错|更正|纠正|不是.{0,20}(?:是|而是)/.test(text)) return {rawText:text,normalizedText:text,rules};
   for(const rule of RULES) {
     if(!rule.context.test(text+'\n'+contextText)||rule.protect?.test(text))continue;
     const next=text.replace(rule.pattern,rule.to);

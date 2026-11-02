@@ -46,6 +46,16 @@ test('ASR vocabulary corrections retain original and report contextual uncertain
  const j=normalize('GM 用什么收集器？','JVM 的 CMS');assert.equal(j.rawText,'GM 用什么收集器？');assert.match(j.normalizedText,/JVM/);assert.equal(j.rules[0].basis,'current-or-recent-topic');
  const m=normalize('NVCC 是什么？','MySQL 事务');assert.equal(m.rawText,'NVCC 是什么？');assert.match(m.normalizedText,/MVCC/);
  assert.equal(normalize('NVCC 如何编译 CUDA？','MySQL').rules.length,0);
+ assert.equal(normalize('说错了，是 MVCC 不是 NVCC','MySQL 事务').rules.length,0);
+});
+
+test('ASR suggestion is visible and reaches model as uncertain without rewriting the question',async t=>{
+ const app=createInterviewRuntime(t,{settings:{answerDomain:'general'}});await app.ready;
+ app.final('MySQL 事务隔离怎么处理？',{utteranceKey:'one',utteranceOrder:1});
+ app.final('NVCC 是什么？',{utteranceKey:'two',utteranceOrder:2});
+ const s=(await app.invoke('question:get-target')).snapshot;assert.match(s.text,/NVCC/);assert.match(s.asrCandidate,/MVCC/);
+ app.answer('可能是多版本并发控制。');await app.ask('say');const body=JSON.stringify(app.calls.at(-1).messages);
+ assert.match(body,/NVCC/);assert.match(body,/MVCC/);assert.match(body,/仅为推测/);
 });
 
 test('clear ignores unchanged speech, while a later independent utterance survives',async t=>{

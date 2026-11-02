@@ -215,6 +215,7 @@
     $('#answer-next-target').textContent = latest?.clearBoundaryUncertain ? '清空前后识别边界不确定，请核对并编辑当前文字' : targetState.pendingSubmit ? '已记住按键，等待后续语音：' + (latest?.pendingText || latest?.interimText || '尚无文字') : different ? '题目有补充，按 Ctrl+Enter 更新：' + latest.text : latest?.status === 'partial' && !frozen ? '识别中，可立即回答当前目标' : '';
     $('#answer-next-target').title = $('#answer-next-target').textContent;
     if(latest?.pendingTail)$('#answer-next-target').textContent += ' 正在补充：'+latest.pendingTail;
+    if(latest?.asrCandidate)$('#answer-next-target').textContent += '；可能识别为：'+latest.asrCandidate+'（请核对）';
     if (frozen?.text) $('#answer-next-target').textContent = '正在生成：' + frozen.text + ($('#answer-next-target').textContent ? '；' + $('#answer-next-target').textContent : '');
     if (targetState.candidateActivity === 'uncertain') $('#answer-next-target').textContent += ' 本人声音未确认，旧问题保留';
     const coverage = $('#answer-coverage-list');

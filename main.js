@@ -203,7 +203,9 @@ const snapshotSourceKey = snapshot => {
   return keys.length > 1 ? JSON.stringify(keys) : keys[0] || '';
 };
 function currentTargetEnvelope() {
-  return { snapshot: questionResolver.resolveForSubmit({ allowPartial: true, epoch: conversation.epoch }),
+  const snapshot = questionResolver.resolveForSubmit({ allowPartial: true, epoch: conversation.epoch });
+  const asr = require('./src/contextual-asr').normalize(snapshot.text || snapshot.pendingText || snapshot.interimText, liveQuestions.turns.slice(-3).map(t=>t.text).join('\n'));
+  return { snapshot: {...snapshot, asrCandidate:asr.rules.length ? asr.normalizedText : undefined},
     frozenSnapshot: activeGeneration?.snapshot || lastFrozenSnapshot, state: state.busy ? 'answering' : 'idle',
     candidateActivity: questionResolver.candidateActivity,
     pendingSubmit:!!pendingSubmit.pending, requestId: activeGeneration?.id || latestUiRequestId, epoch: conversation.epoch };
@@ -962,6 +964,10 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
     const projectNames=getProjectCatalog().flatMap(p=>[p.name,...(p.aliases||[])]).filter(Boolean).map(n=>String(n).toLowerCase());
     liveContext.turns=liveContext.turns.filter(turn=>!/项目|简历|源码|负责|你们.*实现/i.test(turn.text) && !projectNames.some(name=>turn.text.toLowerCase().includes(name)));
     liveContext.referenceContext=liveContext.turns.map(turn=>turn.text).join('\n');
+  }
+  if (!explicit && resolved?.text) {
+    const asr=require('./src/contextual-asr').normalize(resolved.text,liveContext.referenceContext || liveQuestions.turns.slice(-3).map(t=>t.text).join('\n'));
+    if(asr.rules.length) { resolved={...resolved,asrCandidate:asr.normalizedText}; liveContext.referenceContext += `\n语音识别可能的说法（仅为推测，以原文和明确纠正为准）：${asr.normalizedText}`; }
   }
   if (resolved) resolved = {...resolved, referenceContext: liveContext.referenceContext || undefined, referenceSpeaker: liveContext.referenceContext?'interviewer':undefined,
     expansionRequested:expandDetails && !!liveContext.referenceContext};
