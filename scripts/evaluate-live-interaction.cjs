@@ -20,6 +20,8 @@ async function run(output=path.resolve('artifacts/oct27-live'),env=process.env){
     {id:'qa-miss',mode:'say',question:'解释 SQL 聚合时为什么需要先确定分组粒度？'},
     {id:'question-lifecycle',mode:'say',question:'Redis 出现故障时怎么保护数据库？',lifecycle:true},
     {id:'oral-sql-online',mode:'say',question:'SQL 怎么查出重复的用户记录？',online:true},
+    {id:'scenario-crash',mode:'say',question:'怎么避免下游再起第二个进程？',scenario:true},
+    {id:'expand-followup',mode:'ask',question:'具体怎么安全重试？',expand:true},
     ...['vibe','algorithm','sql','debug','unknown'].map(name=>({id:name,mode:name==='algorithm'?'leetcode':'assist',question:'',image:name+'.png'}))]) {
    const cleanups=[];let app;const row={provider:id,caseId:c.id,requestedModel:config.model,attempts:0,status:'running'};report.rows.push(row);save();
    try{
@@ -31,7 +33,9 @@ async function run(output=path.resolve('artifacts/oct27-live'),env=process.env){
       providerProtocolPresets:{[actual]:id==='qwen'?'dashscope':'deepseek'},instantProviderOptions:{[actual]:id==='qwen'?{enable_thinking:false}:{thinking:{type:'disabled'}}}},
      liveTransport:{maxOutputTokens:8000,totalTimeoutMs:120000,firstContentTimeoutMs:30000,onAttempt:()=>{if(++calls>20)throw new Error('Live call cap exceeded');row.attempts++;save();}}});
     await app.ready;
-    if(c.lifecycle){app.final('请做一下自我介绍。');app.candidate('我目前是计算机专业研究生，主要研究分布式系统。');
+    if(c.scenario){for(const text of ['简历提到五百次重放，能详细解释吗？','如果消费者刚调用节点启动接口，下游已经启动了进程，但还没确认消息时机器断电。','这时候消息重投到另一台机器，此时去重表还没提交事务。',c.question])app.final(text);await app.ask(c.mode);}
+    else if(c.expand)await app.value("runFeature('ask','具体怎么安全重试？',{expandDetails:true,expansionContext:'任务执行失败后如何恢复？'})");
+    else if(c.lifecycle){app.final('请做一下自我介绍。');app.candidate('我目前是计算机专业研究生，主要研究分布式系统。');
       app.final(c.question);await app.ask(c.mode);}
     else if(c.interim){app.interim(c.question,{utteranceKey:'synthetic-early',revision:1});app.candidate('嗯，我想一下');await app.ask(c.mode);}
     else await app.ask(c.mode,c.question);
@@ -47,7 +51,8 @@ async function run(output=path.resolve('artifacts/oct27-live'),env=process.env){
     if(c.image&&id==='deepseek')row.status=row.attempts===0&&/视觉/.test(row.error||'')?'unsupported-vision':'failed';
     else if(c.image){const expected=c.id==='vibe'?'vibe-coding':c.id;row.expectedType=expected;row.actualType=row.diagnostic?.screen?.type;
       row.status=row.attempts===1&&row.actualType===expected&&row.answer.trim()&&!row.error&&!row.diagnostic?.truncated?'needs-human-review':'failed';}
-    else {row.targetCorrect=!c.lifecycle||app.snapshot('lastFrozenSnapshot?.text')===c.question.normalize('NFKC') && !JSON.stringify(row.requests).includes('自我介绍');
+    else {row.targetCorrect=c.scenario ? /下游已经启动了进程/.test(JSON.stringify(row.requests)) && /机器断电/.test(JSON.stringify(row.requests)) && /去重表还没提交/.test(JSON.stringify(row.requests))
+      : c.expand ? /具体怎么安全重试/.test(JSON.stringify(row.requests)) && /任务执行失败后如何恢复/.test(JSON.stringify(row.requests)) : !c.lifecycle||app.snapshot('lastFrozenSnapshot?.text')===c.question.normalize('NFKC') && !JSON.stringify(row.requests).includes('自我介绍');
       row.status=row.attempts===1&&row.answer.trim()&&!row.error&&row.targetCorrect&&(!c.interim||row.asrFinal===false)?'needs-human-review':'failed';}
    }catch(e){row.status='failed';row.error=String(e.message);}finally{for(const cleanup of cleanups.reverse())await cleanup();save();}
   }

@@ -88,6 +88,7 @@ module.exports=async({js,until,requests,win,verifyProtected})=>{
   assert.equal(await js("document.querySelector('.response-group:first-child .answer-bound-row')"),null,'no duplicate question in answer');
   await until(()=>js("!!document.querySelector('.response-group:first-child .answer-expand')"),'expand button');
   await js("cue.dialogueEvent({eventId:'ui-expand-followup',utteranceKey:'ui-expand-followup',utteranceOrder:1,sourceId:'ui-expand',channel:'them',speaker:'interviewer',text:'具体说说失败重试如何处理？',isFinal:true})");
+  await until(()=>js("document.getElementById('answer-target-text').textContent.includes('失败重试')"),'new interviewer follow-up visible');
   const beforeExpand=requests.length;await js("document.querySelector('.response-group:first-child .answer-expand').click()");
   await until(()=>requests.length===beforeExpand+1,'follow-up expansion request');
   const expanded=JSON.stringify(requests.at(-1).messages);assert.match(expanded,/具体说说失败重试/);assert.match(expanded,/参考|背景|REFERENCE/);assert.match(expanded,/具体技术/);

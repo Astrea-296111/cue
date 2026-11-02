@@ -1364,7 +1364,7 @@ cue.on('llm:start', ({ userBubble, small, category, requestId, epoch, snapshot, 
     for (const source of sources) {
       const label = document.createElement('div');
       const type = { overview: '概览', implementation: '实现', decision: '选型理由', challenge: '困难', incident: '故障', performance: '指标', ownership: '本人职责', collaboration: '协作', environment: '环境', process: '流程', limitation: '限制', theory: '原理' }[source.docType] || '资料';
-      const truth = { implemented: '已实现', test_only: '仅测试', planned: '计划', hypothetical: '假设', abandoned: '已放弃', general_knowledge: '通用知识', unverified: '待核对' }[source.truthScope] || '待核对';
+      const truth = source.status==='source-claim' ? '用户资料声明' : { implemented: '已实现', test_only: '仅测试', planned: '计划', hypothetical: '假设', abandoned: '已放弃', general_knowledge: '通用知识', unverified: '待核对' }[source.truthScope] || '待核对';
       const where=source.qa ? `导入问答 · ${source.cardId || source.id}${source.qaQuestion ? ' · '+source.qaQuestion : ''}`
         : `${source.path || '资料'}${source.startLine != null ? ':'+source.startLine+'–'+source.endLine : ''}`;
       label.textContent = `${source.projectName || ''} · ${type} · ${truth} · ${where}${source.partial ? '（片段）' : ''}`;
