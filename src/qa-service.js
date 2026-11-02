@@ -40,8 +40,19 @@ async function edit(service, { cardId, item, enabled, remove, baseGeneration }) 
   const preview = await service.prepareImport({ index: validateIndex(index), mode: 'replace-all' });
   return service.commitImport(preview);
 }
+async function clearImported(service, { baseGeneration } = {}) {
+  if (baseGeneration !== service.snapshot.generation) throw new Error('材料已变化，请刷新后重试');
+  const index = migrateFactIndex(service.snapshot.facts);
+  const ids = new Set(index.cards.filter(c => /^qa\/import-[a-f0-9]{64}\.(json|md)$/.test(c.path)).map(c => c.cardId));
+  if (!ids.size) return { removed: 0 };
+  index.cards = index.cards.filter(c => !ids.has(c.cardId));
+  for (const card of index.cards) card.related = card.related.filter(id => !ids.has(id));
+  const preview = await service.prepareImport({ index: validateIndex(index), mode: 'replace-all' });
+  await service.commitImport(preview);
+  return { removed: ids.size };
+}
 function state(service) {
   return { generation: service.snapshot.generation, revision: service.snapshot.factRevision,
     library: exportQA(migrateFactIndex(service.snapshot.facts)) };
 }
-module.exports = { parse, prepare, edit, state };
+module.exports = { parse, prepare, edit, clearImported, state };

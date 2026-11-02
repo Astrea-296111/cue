@@ -363,6 +363,21 @@ test('Q01/Q04/Q06/Q07: project QA is evidence, edit/export/reimport, disable/del
   const persisted=new (require('../src/project-material-service').ProjectMaterialService)({directory:app.temp,bundled:compile(JSON.stringify(sample()))});assert.ok(!persisted.snapshot.facts.cards.some(c=>c.cardId===item.id));
 });
 
+test('clearing imported QA preserves other facts, rejects stale changes and allows reimport',async t=>{
+  const app=createInterviewRuntime(t); await app.ready;
+  const before=await app.invoke('qa:state');
+  await install(app);
+  let state=await app.invoke('qa:state');
+  await assert.rejects(app.invoke('qa:clear-imported',{baseGeneration:before.generation}),/变化/);
+  const result=await app.invoke('qa:clear-imported',{baseGeneration:state.generation});
+  assert.ok(result.removed>0);
+  state=await app.invoke('qa:state');
+  assert.ok(!state.library.items.some(i=>i.id==='qa.maple.idempotency'));
+  for(const item of before.library.items) assert.ok(state.library.items.some(i=>i.id===item.id));
+  await install(app);
+  assert.ok((await app.invoke('qa:state')).library.items.some(i=>i.id==='qa.maple.idempotency'));
+});
+
 test('Q02/Q03/Q05: reject ambiguous project/version, opposite conditions, compound undercoverage and malformed imports atomically',async t=>{
   const app=createInterviewRuntime(t);await install(app);const before=await app.invoke('qa:state');
   for(const mutate of [v=>v.items.push({...v.items[0]}),v=>v.items[0].projectId='../escape',v=>v.items[0].enabled='yes']) {

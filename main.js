@@ -1532,6 +1532,7 @@ ipcMain.handle('qa:commit',(_event,input)=>materialService.commitImport(input));
 ipcMain.handle('qa:discard',(_event,token)=>typeof token==='string'&&materialService.previews.delete(token));
 ipcMain.handle('qa:try',(_event,input={})=>materialService.snapshot.qaIndex.match(String(input.question||''),{projectId:input.projectId||store.getSettings().currentProjectId,detailed:!!input.detailed}));
 ipcMain.handle('qa:edit',(_event,input)=>qaService.edit(materialService,input));
+ipcMain.handle('qa:clear-imported',(_event,input)=>qaService.clearImported(materialService,input));
 ipcMain.handle('qa:export',async()=>{
   const selected=await dialog.showSaveDialog(win,{title:'导出项目问答库',defaultPath:'cue-qa.json',filters:[{name:'JSON',extensions:['json']}]});
   if(selected.canceled)return {canceled:true};

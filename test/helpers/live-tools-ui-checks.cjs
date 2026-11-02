@@ -96,6 +96,13 @@ module.exports=async({js,until,requests,win,verifyProtected})=>{
   await js("cue.ask({mode:'say',text:'UI 枫叶平台如何验证重复提交？'})");
   await until(()=>js("document.querySelector('.response-group:first-child .answer-evidence')?.textContent.includes('导入问答')"),'imported QA evidence label');
   assert.ok(await js("document.querySelector('.response-group:first-child .answer-evidence').textContent.includes('qa.ui.example')"));
+  await js("document.getElementById('qa-clear').click();document.getElementById('qa-clear-cancel').click()");
+  assert.ok((await js('cue.qaState()')).library.items.some(i=>i.id==='qa.ui.example'));
+  await js("document.getElementById('qa-clear').click();document.getElementById('qa-clear-confirm').click()");
+  await until(()=>js("document.getElementById('qa-status').textContent.includes('已清空')"),'QA clear');
+  assert.ok(!(await js('cue.qaState()')).library.items.some(i=>i.id==='qa.ui.example'));
+  await js(`(async()=>{const p=await cue.qaPrepare({text:${JSON.stringify(JSON.stringify(library))}});await cue.qaCommit(p);})()`);
+  assert.ok((await js('cue.qaState()')).library.items.some(i=>i.id==='qa.ui.example'));
   await js("cue.answerDomain('general')");
   await js("document.querySelector('[data-screen-mode=vibe-coding]').click()");
   await until(()=>js("document.getElementById('screen-mode-label').textContent==='Vibe Coding'"),'screen mode override');

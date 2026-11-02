@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('cue', {
   qaDiscard:token=>ipcRenderer.invoke('qa:discard',token),
   qaTry:input=>ipcRenderer.invoke('qa:try',input),
   qaEdit:input=>ipcRenderer.invoke('qa:edit',input),
+  qaClearImported:input=>ipcRenderer.invoke('qa:clear-imported',input),
   qaExport:()=>ipcRenderer.invoke('qa:export'),
   screenAttachment:input=>ipcRenderer.invoke('screen:attachment',input),
   screenAccept:input=>ipcRenderer.invoke('screen:accept',input),

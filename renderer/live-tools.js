@@ -70,6 +70,9 @@
   $('qa-cancel').onclick=close;$('qa-close').onclick=close;
   $('qa-preview').onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();return;}if(e.key==='Tab'){const focusable=[...$('qa-preview').querySelectorAll('button:not(:disabled)')];if(!focusable.length)return;if(e.shiftKey&&(document.activeElement===focusable[0]||document.activeElement===$('qa-preview').querySelector('section'))){e.preventDefault();focusable.at(-1).focus();}else if(!e.shiftKey&&document.activeElement===focusable.at(-1)){e.preventDefault();focusable[0].focus();}}};
   $('qa-export').onclick=safe(async()=>{const r=await cue.qaExport();status(r?.canceled?'已取消导出。':'导出操作已完成。');});
+  $('qa-clear').onclick=()=>{$('qa-clear-confirmation').hidden=false;};
+  $('qa-clear-cancel').onclick=()=>{$('qa-clear-confirmation').hidden=true;};
+  $('qa-clear-confirm').onclick=safe(async()=>{if(qaBusy)return;qaBusy=true;$('qa-clear-confirm').disabled=true;try{const result=await cue.qaClearImported({baseGeneration:state.generation});editingId=null;$('qa-editor').value='';$('qa-clear-confirmation').hidden=true;await refresh();status(`已清空 ${result.removed} 条导入的问答。`);}finally{qaBusy=false;$('qa-clear-confirm').disabled=false;}});
   $('qa-refresh').onclick=safe(refresh); $('qa-search').oninput=()=>{qaLimit=100;render();};$('qa-more').onclick=()=>{qaLimit+=100;render();};
   $('qa-try').onclick=safe(async()=>{const r=await cue.qaTry({question:$('qa-question').value,projectId:$('qa-project').value,detailed:$('qa-detailed').checked});status((r.direct?'问答库命中':'没有明确直达匹配：'+(reasons[r.reason]||'需要结合完整问题生成'))+'\n'+(r.answer||'')+'\n匹配分值（非概率）：'+r.score);});
   $('qa-save-item').onclick=safe(async()=>{if(!editingId)throw new Error('先选择条目编辑');await cue.qaEdit({cardId:editingId,item:JSON.parse($('qa-editor').value),baseGeneration:state.generation});await refresh();status('条目已保存。');});
