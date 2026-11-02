@@ -30,6 +30,11 @@ jobs:
         id: install
       - name: Compile distributable materials
         run: npm run compile:materials
+      - name: Compile and verify fixed Java tree fixture
+        run: |
+          mkdir -p "$RUNNER_TEMP/cue-tree"
+          javac -d "$RUNNER_TEMP/cue-tree" test/fixtures/screen-tree/Main.java
+          timeout 10 java -cp "$RUNNER_TEMP/cue-tree" Main
       - name: Exercise the production chain without external API calls
         run: npm run test:llm:mock -- --mode smoke --provider qwen --output-dir artifacts/llm-mock
       - name: Exercise actual Electron import, chat and errors

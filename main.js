@@ -115,7 +115,7 @@ const pendingSubmit = new (require('./src/pending-submit').PendingSubmit)({
   }); },
   onChange: (reason, pending) => {
     pendingSubmitDiagnostic = {reason, ...pending};
-    send('status', {message:reason==='waiting'?'已记住按键，正在补全当前问题':reason==='timeout'?'仍缺少完整题意；请补全后再次按键':reason==='submitted'?'当前问题已补全，开始回答':'已取消待提交：'+reason});
+    send('status', {message:reason==='waiting'?'已记住按键，等待后续语音；可编辑当前识别文字':reason==='timeout'?'等待语音超时；请编辑当前内容后再次按键':reason==='submitted'?'已收到后续语音，开始回答':'已取消待提交：'+reason});
     publishQuestionTarget();
   }
 });

@@ -209,10 +209,10 @@
     $('#answer-target-label').textContent = '待回答：';
     $('#answer-target-text').textContent = value;
     $('#answer-target-text').title = value;
-    $('#answer-target-edit').disabled = unavailable;
+    $('#answer-target-edit').disabled = !display?.text && !pending;
     $('#answer-target-retry').disabled = !submittedSnapshot && !targetState.frozenSnapshot;
     const different = frozen && latest?.text && (latest.questionId !== frozen.questionId || latest.revision !== frozen.revision);
-    $('#answer-next-target').textContent = targetState.pendingSubmit ? '已记住按键，正在补全当前问题' : different ? '题目有补充，按 Ctrl+Enter 更新：' + latest.text : latest?.status === 'partial' && !frozen ? '识别中，可立即回答当前目标' : '';
+    $('#answer-next-target').textContent = latest?.clearBoundaryUncertain ? '清空前后识别边界不确定，请核对并编辑当前文字' : targetState.pendingSubmit ? '已记住按键，等待后续语音：' + (latest?.pendingText || latest?.interimText || '尚无文字') : different ? '题目有补充，按 Ctrl+Enter 更新：' + latest.text : latest?.status === 'partial' && !frozen ? '识别中，可立即回答当前目标' : '';
     $('#answer-next-target').title = $('#answer-next-target').textContent;
     if(latest?.pendingTail)$('#answer-next-target').textContent += ' 正在补充：'+latest.pendingTail;
     if (frozen?.text) $('#answer-next-target').textContent = '正在生成：' + frozen.text + ($('#answer-next-target').textContent ? '；' + $('#answer-next-target').textContent : '');
@@ -247,9 +247,10 @@
   cue.on('question:target', applyQuestionTarget);
   $('#answer-target-edit').addEventListener('click', () => {
     const snapshot = busy ? submittedSnapshot || targetState.frozenSnapshot || targetState.snapshot : targetState.snapshot;
-    if (!snapshot?.text) return;
+    const editText = snapshot?.text || snapshot?.pendingText || snapshot?.interimText;
+    if (!editText) return;
     // Speech is copied only after this explicit edit action, never on ASR events.
-    input.value = snapshot.text;
+    input.value = editText;
     inputFromSTT = false;
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.focus();

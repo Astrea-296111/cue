@@ -393,10 +393,16 @@ class QuestionResolver {
       if (version !== undefined && continuation.version !== undefined && version <= continuation.version) return;
       const before=continuation.text;
       if (raw === before) return;
-      if (raw.startsWith(before)) raw=clean(raw.slice(before.length));
+      if (raw.startsWith(before)) { raw=clean(raw.slice(before.length)); continuation.uncertain=false; }
       else {
-        let shared=0; while(shared<before.length && shared<raw.length && before[shared]===raw[shared]) shared++;
-        if (shared >= 4) raw=clean(raw.slice(shared));
+        // Align across punctuation/spacing changes only when the entire old
+        // prefix still matches. A partial common prefix cannot locate the
+        // clear boundary after ASR rewrites and would silently lose speech.
+        const significant = value => Array.from(value).filter(c=>/[\p{L}\p{N}]/u.test(c)).join('');
+        const old = significant(before); let seen='', end=0;
+        for (const char of raw) { end+=char.length; if(/[\p{L}\p{N}]/u.test(char))seen+=char; if(seen.length>=old.length)break; }
+        if (old && seen===old) { raw=clean(raw.slice(end)); continuation.uncertain=false; }
+        else continuation.uncertain=true;
       }
       if (!raw || isSpeechNoise(raw)) return;
     }
@@ -584,6 +590,7 @@ class QuestionResolver {
       referenceContext: undefined, pendingText, partial, provisional, asrFinal: text ? !provisional : !this.interim&&!!pendingText,
       semanticStatus: text ? 'answerable' : 'incomplete', completePrefix: text, pendingTail: pendingText,
       awaitingText: this.awaitingText, awaitingNewQuestion: this.awaitingNewQuestion,
+      clearBoundaryUncertain: [...selected, ...this.pendingUnits, ...(this.interim ? [this.interim] : [])].some(part => this.clearContinuations.get(part.key)?.uncertain),
       parts: segments.filter(part => !part.answered).map(part => part.text), segments, interimText,
       utterances:selected.map(part=>Object.freeze({key:part.key,sourceId:part.source,sourceSessionId:part.session,utteranceOrder:part.order,revision:part.version,isFinal:part.final})) });
   }

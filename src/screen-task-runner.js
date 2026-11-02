@@ -49,6 +49,7 @@ async function runScreenTask({ llm, settings, requirement, taskState, questionId
     stream.finish();
     diagnostic.screen.modelBodySuppressed=compiledGuidance;diagnostic.rawModelBody=rawModelBody;
     if (!answer.trim()) throw new Error('模型未返回屏幕任务正文。');
+    if (completion.truncated) display('\n\n（回答可能被截断，请继续提问或缩小任务范围。）');
     diagnostic.screen.firstCopyPromptMs = copyAt === null ? null : copyAt - started;
     diagnostic.screen.generationAfterRouteMs = performance.now() - routeAt;
     diagnostic.status = 'completed'; diagnostic.finishReason = completion.finishReason; diagnostic.truncated = !!completion.truncated;

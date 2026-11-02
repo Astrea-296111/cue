@@ -16,6 +16,38 @@ test('clear during ongoing interim accepts later revisions of the same utterance
  app.answer('先去重，再查询。');await app.ask('say');assert.doesNotMatch(JSON.stringify(app.calls.at(-1).messages),/历史问题/);
 });
 
+test('clear aligns punctuation changes and exposes rewritten boundaries without dropping words',async t=>{
+ const app=createInterviewRuntime(t);await app.ready;
+ app.interim('旧问题，先说缓存',{utteranceKey:'u',utteranceOrder:1,revision:1});await app.invoke('question:clear');
+ app.interim('旧问题先说缓存，接下来 SQL 怎么查？',{utteranceKey:'u',utteranceOrder:1,revision:2});
+ let s=(await app.invoke('question:get-target')).snapshot;assert.match(s.text,/SQL/);assert.doesNotMatch(s.text,/旧问题/);assert.equal(s.clearBoundaryUncertain,false);
+ await app.invoke('question:clear');
+ app.interim('此前聊了缓存，现在 SQL 如何查重复？',{utteranceKey:'u',utteranceOrder:1,revision:3});
+ s=(await app.invoke('question:get-target')).snapshot;assert.match(s.text,/此前聊了缓存/);assert.match(s.text,/SQL/);assert.equal(s.clearBoundaryUncertain,true);
+});
+
+test('elliptical technical follow-ups retain recent interviewer context only',()=>{
+ const {LiveQuestionWindow,needsReference}=require('../src/live-context-policy');
+ for(const q of ['可以详细说一下吗？','它里面的 put 怎么做？','这个下标怎么计算？','还有其他的吗？']) assert.equal(needsReference(q),true,q);
+ const w=new LiveQuestionWindow();w.observe({questionId:'1',text:'HashMap 的 put 怎么做？'});w.observe({questionId:'2',text:'这个下标怎么计算？'});
+ assert.match(w.select({questionId:'2',text:'这个下标怎么计算？'}).referenceContext,/HashMap/);
+ assert.equal(needsReference('换个话题，SQL 如何查询？'),false);
+});
+
+for(const profile of ['instant','standard']) test(`${profile}: latest abbreviated question and previous interviewer topic reach model separately`,async t=>{
+ const app=createInterviewRuntime(t,{settings:{answerDomain:'general',realtimeAnswerMode:profile}});await app.ready;
+ app.final('HashMap 的 put 方法怎么定位数组下标？',{utteranceKey:'one',utteranceOrder:1});app.answer('先算哈希。');await app.ask('say');
+ app.final('这个下标能详细说一下吗？',{utteranceKey:'two',utteranceOrder:2});app.answer('按位定位。');await app.ask('say');
+ const body=JSON.stringify(app.calls.at(-1).messages);assert.match(body,/这个下标能详细说一下吗/);assert.match(body,/HashMap/);assert.match(body,/仅.*指代|REFERENCE_ONLY/);
+});
+
+test('ASR vocabulary corrections retain original and report contextual uncertainty',()=>{
+ const {normalize}=require('../src/contextual-asr');
+ const j=normalize('GM 用什么收集器？','JVM 的 CMS');assert.equal(j.rawText,'GM 用什么收集器？');assert.match(j.normalizedText,/JVM/);assert.equal(j.rules[0].basis,'current-or-recent-topic');
+ const m=normalize('NVCC 是什么？','MySQL 事务');assert.equal(m.rawText,'NVCC 是什么？');assert.match(m.normalizedText,/MVCC/);
+ assert.equal(normalize('NVCC 如何编译 CUDA？','MySQL').rules.length,0);
+});
+
 test('clear ignores unchanged speech, while a later independent utterance survives',async t=>{
  const app=createInterviewRuntime(t);await app.ready;
  app.interim('之前的条件',{utteranceKey:'same',utteranceOrder:1,revision:1});await app.invoke('question:clear');

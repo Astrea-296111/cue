@@ -456,6 +456,15 @@ test('V04/V07: nonvisual refuses before capture/network; malformed route never s
   const keys=require('../src/shortcuts');assert.equal(keys.actionForKey({ctrlKey:true,key:'?',shiftKey:true}),'assist');assert.equal(keys.actionForKey({ctrlKey:true,key:'h'}),'leetcode');
 });
 
+test('screen request preserves visible Java editor constraints and returns model output',async t=>{
+  const app=createInterviewRuntime(t,{settings:{providerOptions:{custom:{vision:true}}}});await app.ready;
+  app.answer(header('algorithm','二叉树展开')+'保留 Main；在 main 中构造示例，并保留 num。');
+  await app.ask('leetcode','构造一个测试树并打印结果');
+  const body=JSON.stringify(app.calls.at(-1).messages);
+  assert.match(body,/保留.*Main/);assert.match(body,/num/);assert.match(body,/构造.*case|构造.*输入/);assert.match(body,/可见报错/);
+  assert.ok(app.events.some(e=>e.channel==='llm:token'&&e.text.includes('保留 Main')));
+});
+
 test('V04: bounded route decoder accepts observed JSON transports before releasing any body',()=>{
   const {RouteStream}=require('../src/screen-task-router');
   for(const wrapper of ['prefix','bare','fenced']){

@@ -3,7 +3,7 @@
 const DEFAULTS = Object.freeze({ historyWindowTurns: 2, includeCandidateSpeech: false,
   includePreviousAiAnswers: false, recallArchivedTurns: false, clearOnTopicSwitch: true });
 const SWITCH = /换.{0,3}(?:问题|题)|不聊项目|不谈项目|现在做这个题|新话题|单独问|一般来说/;
-const REFERENTIAL = /对比过|对照组|怎么融合|第[一二三四五六七八九十0-9]+(?:个问题|道题|点)|third question|second question|you mentioned|你们几个人|你负责哪块|是你一个人|团队|同事|那这个项目|它们|他们|这两|两种|这个(?:怎么|如何|方案|项目|机制|实现)|这些|上述|刚才|前面|这样|那(?:么)?为什么|失败后|代价呢|怎么恢复/;
+const REFERENTIAL = /对比过|对照组|怎么融合|第[一二三四五六七八九十0-9]+(?:个问题|道题|点)|third question|second question|you mentioned|你们几个人|你负责哪块|是你一个人|团队|同事|那这个项目|它们|他们|这两|两种|这个(?:怎么|如何|方案|项目|机制|实现|下标)|它(?:的|里面|是|怎么|如何)|详细(?:说|讲|解释)|展开(?:说|讲|解释)|还有其他|还有什么|这些|上述|刚才|前面|这样|那(?:么)?为什么|失败后|代价呢|怎么恢复/;
 const EXPLICIT = /Redis|JVM|SQL|Kafka|RabbitMQ|temperature|top[- _]?p|MCP|RAG|Arclight|CAE/i;
 function normalize(value = {}) {
   return { ...DEFAULTS, ...value, historyWindowTurns: Math.max(0, Math.min(2, Math.floor(Number(value.historyWindowTurns ?? 2)) || 0)),

@@ -13,7 +13,7 @@ async function run(output=path.resolve('artifacts/oct27-live'),env=process.env){
   scope:'Real model SDK; synthetic interviewer interim and screenshots; no physical keyboard/audio/screen capture claim. No generation retries or model judge.',providers:[],rows:[],status:'running'};
  const save=()=>fs.writeFileSync(path.join(output,'report.json'),JSON.stringify(sanitizeReport(report,{secrets,workspaceRoot:ROOT}),null,2));
  const requested=new Set(String(env.CUE_LIVE_CASES||'').split(',').map(s=>s.trim()).filter(Boolean));
- const allowed=new Set(['interim','qa-miss','question-lifecycle','oral-sql-online','scenario-crash','expand-followup','vibe','algorithm','sql','debug','unknown']);
+ const allowed=new Set(['interim','qa-miss','question-lifecycle','oral-sql-online','scenario-crash','expand-followup','thread-submit','thread-blocked','hashmap-index','jvm-gc','database-mvcc','vibe','algorithm','sql','debug','unknown']);
  if([...requested].some(id=>!allowed.has(id)))throw new Error('Unknown synthetic case ID');
  let calls=0;
  for(const id of ['qwen','deepseek']){
@@ -25,6 +25,11 @@ async function run(output=path.resolve('artifacts/oct27-live'),env=process.env){
     {id:'oral-sql-online',mode:'say',question:'SQL 怎么查出重复的用户记录？',online:true},
     {id:'scenario-crash',mode:'say',question:'怎么避免下游再起第二个进程？',scenario:true},
     {id:'expand-followup',mode:'ask',question:'具体怎么安全重试？',expand:true},
+    {id:'thread-submit',mode:'say',context:'Java 线程池的 submit 方法有什么逻辑？',question:'可以详细说一下吗？'},
+    {id:'thread-blocked',mode:'say',question:'Java 线程的 BLOCKED 状态是不是只与 synchronized 相关？'},
+    {id:'hashmap-index',mode:'say',context:'HashMap 的 put 方法怎么计算位置？',question:'这个下标怎么计算？'},
+    {id:'jvm-gc',mode:'say',context:'JVM 中 CMS 垃圾收集器是怎么工作的？',question:'GM 的收集器还有什么选择？'},
+    {id:'database-mvcc',mode:'say',context:'MySQL 的事务隔离是怎么做的？',question:'刚才说错了，我问的是 MVCC，不是 NVCC，它怎么实现？'},
     ...['vibe','algorithm','sql','debug','unknown'].map(name=>({id:name,mode:name==='algorithm'?'leetcode':'assist',question:'',image:name+'.png'}))].filter(item=>!requested.size||requested.has(item.id))) {
    const cleanups=[];let app;const row={provider:id,caseId:c.id,requestedModel:config.model,attempts:0,status:'running'};report.rows.push(row);save();
    try{
@@ -38,6 +43,7 @@ async function run(output=path.resolve('artifacts/oct27-live'),env=process.env){
     await app.ready;
     if(c.scenario){for(const text of ['简历提到五百次重放，能详细解释吗？','如果消费者刚调用节点启动接口，下游已经启动了进程，但还没确认消息时机器断电。','这时候消息重投到另一台机器，此时去重表还没提交事务。',c.question])app.final(text);await app.ask(c.mode);}
     else if(c.expand)await app.value("runFeature('ask','具体怎么安全重试？',{expandDetails:true,expansionContext:'任务执行失败后如何恢复？'})");
+    else if(c.context){app.final(c.context,{utteranceKey:'context',utteranceOrder:1});app.final(c.question,{utteranceKey:'followup',utteranceOrder:2});await app.ask(c.mode);}
     else if(c.lifecycle){app.final('请做一下自我介绍。');app.candidate('我目前是计算机专业研究生，主要研究分布式系统。');
       app.final(c.question);await app.ask(c.mode);}
     else if(c.interim){app.interim(c.question,{utteranceKey:'synthetic-early',revision:1});app.candidate('嗯，我想一下');await app.ask(c.mode);}

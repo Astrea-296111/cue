@@ -95,7 +95,6 @@ function buildInstantContext({ settings = {}, question, snapshot, request, ready
   const fixed = SYSTEM + (require('./live-context-policy').normalize(settings.liveContextPolicy).includeCandidateSpeech?SPOKEN_CONTEXT_RULES:'') + '\n' + require('./oral-answer-policy').instruction(answerPlan);
   const systemBase = appendAiRules(fixed, settings.aiRules || '');
   const current = 'CURRENT_QUESTION\n' + question;
-  if (estimateTokens(systemBase + current + spoken + reference + optional) > limits.softInputTokens) reference = '';
   // Soft target never crops the question, constraints or configured style.
   while (blocks.length && estimateTokens(systemBase + current + spoken + reference + optional) > limits.softInputTokens) {
     const last = blocks.at(-1);
@@ -109,10 +108,9 @@ function buildInstantContext({ settings = {}, question, snapshot, request, ready
     const index = evidence.findIndex(source => dropped.includes(`--- 来源 ${source.id} 开始 ---`));
     if (index >= 0) evidence.splice(index, 1);
   }
-  if (estimateTokens(systemBase + current + spoken + reference + optional) > limits.softInputTokens) reference = '';
   const system = systemBase + (optional ? `\n\n${DATA_START}\n${optional}\n${DATA_END}` : '');
   return { system, evidence, history: [], currentSections: [
-    { id: 'reference', text: reference ? 'REFERENCE_ONLY（仅解释当前指代，不是待答清单）\n' + reference : '', priority: 0 },
+    { id: 'reference', text: reference ? 'REFERENCE_ONLY（仅解释当前指代，不是待答清单）\n' + reference : '', protected: true },
     { id: 'spoken-state', text:spoken, protected:true },
     { id: 'question', text: current, protected: true }
   ], stats: { fixedInstructionTokensEstimate: estimateTokens(fixed), userStyleTokensEstimate: estimateTokens(systemBase) - estimateTokens(fixed),
