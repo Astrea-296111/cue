@@ -99,6 +99,14 @@ test('detail expansion can include the imported QA detailed answer as evidence',
   assert.match(body,/详答第一段/);assert.ok(evidence.sources.some(s=>s.qa && s.text.includes('详答第一段')));
 });
 
+test('long imported QA detail stays bounded and reports its excerpt',async t=>{
+  const app=createInterviewRuntime(t);await app.ready;
+  await install(app,sample([{id:'qa.maple.long',projectId:'maple',question:'如何避免重复提交？',answerShort:'提交使用幂等校验。',answerDetailed:'详细方案关键步骤。'.repeat(200)}]));
+  app.answer('合成回答');await app.value("runFeature('ask','枫叶平台如何避免重复提交？',{expandDetails:true})");
+  const body=JSON.stringify(app.calls.at(-1).messages), evidence=app.events.filter(e=>e.channel==='llm:evidence').at(-1);
+  assert.match(body,/详细方案关键步骤/);assert.ok(evidence.sources.some(s=>s.cardId==='qa.maple.long' && s.partial));
+});
+
 for(const profile of ['instant','standard'])test(`detail expansion sends latest follow-up as target with prior question as background (${profile})`,async t=>{
   const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:profile,liveContextPolicy:{historyWindowTurns:0}}});await app.ready;app.answer('具体步骤是先检查状态，再做安全重试。');
   await app.value("runFeature('ask','具体怎么安全重试？',{expandDetails:true,expansionContext:'任务执行失败后如何恢复？'})");

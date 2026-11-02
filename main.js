@@ -1158,6 +1158,7 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
       .filter(ref=>ref.path&&!ref.path.startsWith('handoff/')).slice(0,12);
     if(factSelection?.evidence.some(c=>c.cardId==='metric.cae.replay')) retrieval.sourceHints.unshift({projectId:'cae',path:'worker/agents/execution_manager.py',symbol:'submit'},{projectId:'cae',path:'worker/agents/process_registry.py',symbol:'claim'});
     const evidenceLimits=resolveEvidenceLimits({question,answerPlan,instant:policy.instant});
+    if(expandDetails){evidenceLimits.evidenceTokens=Math.max(evidenceLimits.evidenceTokens,3500);evidenceLimits.softInputTokens=Math.max(evidenceLimits.softInputTokens,6500);}
     const canRetrieveSources = policy.ragPolicy !== 'off' && request.plan.retrieveSources;
     const preparedSources = peekReadyEvidence({ snapshot: frozen,
       projectPlan: request.plan, epoch: conversation.epoch, projectRevision: retrieval.projectRevision,
@@ -1180,7 +1181,7 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
     const selectedFacts=(factSelection?.evidence||[]).map(item=>{
       const detail=expandDetails && typeof item.qa?.answerDetailed==='string' ? item.qa.answerDetailed.trim() : '';
       if(!detail)return item;
-      const limit=3500, clipped=detail.length>limit;
+      const limit=1000, clipped=detail.length>limit;
       return {...item,text:item.text+'\n问答详解（用户提供，仅作参考）：\n'+detail.slice(0,limit)+(clipped?'\n[详解过长，已截取]':''),partial:!!item.partial||clipped};
     });
     const evidencePlan=planProjectEvidence({question,resolution:request.plan,facts:selectedFacts,sources:contextBundle.evidence,
