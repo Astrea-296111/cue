@@ -34,6 +34,23 @@ test('elliptical technical follow-ups retain recent interviewer context only',()
  assert.equal(needsReference('换个话题，SQL 如何查询？'),false);
 });
 
+test('explicit Redis reference is linked and a topic switch limits subsequent why',()=>{
+ const {LiveQuestionWindow,needsReference}=require('../src/live-context-policy');
+ assert.equal(needsReference('刚才你说用 Redis，那为什么不用本地缓存？'),true);
+ assert.equal(needsReference('Redis 有哪些数据类型？'),false);
+ const w=new LiveQuestionWindow();w.observe({questionId:'old',text:'CAE 项目怎么调度任务？'});w.observe({questionId:'switch',text:'换个问题，线程池有哪些参数？'});w.observe({questionId:'next',text:'为什么？'});
+ const selected=w.select({questionId:'next',text:'为什么？'});assert.match(selected.referenceContext,/线程池/);assert.doesNotMatch(selected.referenceContext,/CAE/);
+ assert.equal(w.select({questionId:'next',text:'为什么？'},{historyWindowTurns:0}).referenceContext,'');
+});
+
+for(const profile of ['instant','standard'])test(`${profile}: explicit topic switch excludes previous project from follow-up request`,async t=>{
+ const app=createInterviewRuntime(t,{settings:{answerDomain:'general',realtimeAnswerMode:profile}});await app.ready;
+ app.final('旧项目怎么调度任务？',{utteranceKey:'old-topic',utteranceOrder:1});app.answer('先排队。');await app.ask('say');
+ app.final('换个问题，线程池有哪些参数？',{utteranceKey:'new-topic',utteranceOrder:2});app.answer('核心线程数。');await app.ask('say');
+ app.final('为什么？',{utteranceKey:'why-topic',utteranceOrder:3});app.answer('为了控制并发。');await app.ask('say');
+ const body=JSON.stringify(app.calls.at(-1).messages);assert.match(body,/线程池/);assert.doesNotMatch(body,/旧项目怎么调度/);
+});
+
 for(const profile of ['instant','standard']) test(`${profile}: latest abbreviated question and previous interviewer topic reach model separately`,async t=>{
  const app=createInterviewRuntime(t,{settings:{answerDomain:'general',realtimeAnswerMode:profile}});await app.ready;
  app.final('HashMap 的 put 方法怎么定位数组下标？',{utteranceKey:'one',utteranceOrder:1});app.answer('先算哈希。');await app.ask('say');

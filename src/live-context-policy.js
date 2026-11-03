@@ -5,6 +5,7 @@ const DEFAULTS = Object.freeze({ historyWindowTurns: 2, includeCandidateSpeech: 
 const SWITCH = /换.{0,3}(?:问题|题)|不聊项目|不谈项目|现在做这个题|新话题|单独问|一般来说/;
 const REFERENTIAL = /对比过|对照组|怎么融合|第[一二三四五六七八九十0-9]+(?:个问题|道题|点)|third question|second question|you mentioned|你们几个人|你负责哪块|是你一个人|团队|同事|那这个项目|它们|他们|这两|两种|这个(?:怎么|如何|方案|项目|机制|实现|下标)|它(?:的|里面|是|怎么|如何)|详细(?:说|讲|解释)|展开(?:说|讲|解释)|还有其他|还有什么|这些|上述|刚才|前面|这样|那(?:么)?为什么|失败后|代价呢|怎么恢复/;
 const EXPLICIT = /Redis|JVM|SQL|Kafka|RabbitMQ|temperature|top[- _]?p|MCP|RAG|Arclight|CAE/i;
+const EXPLICIT_REFERENCE = /刚才|前面(?:说|提|那)|上述|你(?:刚才)?说|还是刚才|之前(?:说|提)/;
 function normalize(value = {}) {
   return { ...DEFAULTS, ...value, historyWindowTurns: Math.max(0, Math.min(2, Math.floor(Number(value.historyWindowTurns ?? 2)) || 0)),
     recallArchivedTurns: false, includePreviousAiAnswers: false };
@@ -15,11 +16,12 @@ function needsReference(question) {
   // elliptical merely by an incidental phrase such as “这个项目”.
   if (/这个项目/.test(q) && /\b[A-Za-z][A-Za-z0-9_.+#/-]{2,}\b/.test(q) && !/(?:对比|比较|刚才|前面|上述|这两)/.test(q) &&
       !/^(?:那(?:么)?[，,\s]*)?(?:这个|这些|上述|刚才|前面|这样|它|他们|这两)/.test(q.trim())) return false;
-  return !SWITCH.test(q) && (REFERENTIAL.test(q) || /^(?:那[，,\s]*)?(?:它|这个类|这个方法|这种情况)/.test(q.trim()) || /^(?:为什么|为何|代价呢|举个例子)[?？。.!！]*$/.test(q.trim())) && !EXPLICIT.test(q);
+  return !SWITCH.test(q) && (EXPLICIT_REFERENCE.test(q) || !EXPLICIT.test(q) && (REFERENTIAL.test(q) || /^(?:那[，,\s]*)?(?:它|这个类|这个方法|这种情况)/.test(q.trim()) || /^(?:为什么|为何|代价呢|举个例子)[?？。.!！]*$/.test(q.trim())));
 }
 class LiveQuestionWindow {
   constructor() { this.reset(); }
-  reset() { this.turns = []; }
+  reset() { this.turns = []; this.boundaryQuestionId=''; }
+  markTopicBoundary(questionId) { if(questionId) this.boundaryQuestionId=questionId; }
   observe(snapshot) {
     if (!snapshot?.questionId) return;
     const text = snapshot.text || snapshot.pendingText || snapshot.interimText || '';
@@ -29,13 +31,16 @@ class LiveQuestionWindow {
       observedAt: snapshot.observedAt, startedAt:previous?.startedAt || snapshot.observedAt, sourceKeys: [...(snapshot.sourceKeys || [])] };
     if (previous) Object.assign(previous, turn);
     else this.turns.push(turn);
+    if (SWITCH.test(text)) this.markTopicBoundary(snapshot.questionId);
     if (this.turns.length > 6) this.turns.shift();
   }
   select(snapshot, configured) {
     const start = performance.now(), policy = normalize(configured);
     const index = this.turns.findIndex(t => t.questionId === snapshot?.questionId);
-    const prior = (index >= 0 ? this.turns.slice(0, index) : this.turns).slice(-policy.historyWindowTurns);
-    const selected = needsReference(snapshot?.text) ? prior : [];
+    const boundary=this.turns.findIndex(t=>t.questionId===this.boundaryQuestionId);
+    const prior = policy.historyWindowTurns ? (index >= 0 ? this.turns.slice(0, index) : this.turns).slice(boundary>=0 ? boundary : 0).slice(-policy.historyWindowTurns) : [];
+    const asrContext = prior.length && require('./contextual-asr').normalize(snapshot?.text || '',prior.at(-1).text).rules.length > 0;
+    const selected = needsReference(snapshot?.text) || asrContext ? prior : [];
     return { policy, turns: selected.map(t => ({ ...t })), referenceContext: selected.map(t => t.text).join('\n'),
       topicSwitch: selected.length ? null : SWITCH.test(snapshot?.text || '') ? 'explicit-switch' : 'independent-question',
       selectionMs: performance.now() - start };

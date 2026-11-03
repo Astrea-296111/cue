@@ -205,7 +205,7 @@ const snapshotSourceKey = snapshot => {
 };
 function currentTargetEnvelope() {
   const snapshot = questionResolver.resolveForSubmit({ allowPartial: true, epoch: conversation.epoch });
-  const asr = require('./src/contextual-asr').normalize(snapshot.text || snapshot.pendingText || snapshot.interimText, liveQuestions.turns.slice(-3).map(t=>t.text).join('\n'));
+  const asr = require('./src/contextual-asr').normalize(snapshot.text || snapshot.pendingText || snapshot.interimText, liveQuestions.select(snapshot,store.getSettings().liveContextPolicy).referenceContext);
   return { snapshot: {...snapshot, asrCandidate:asr.rules.length ? asr.normalizedText : undefined}, recentQuestions:recentQuestions.snapshot(),
     frozenSnapshot: activeGeneration?.snapshot || lastFrozenSnapshot, state: state.busy ? 'answering' : 'idle',
     candidateActivity: questionResolver.candidateActivity,
@@ -336,6 +336,7 @@ function send(channel, data) {
   if (['stt:interim','transcript'].includes(channel) && data?.channel === 'them') {
     const target = questionResolver.resolveForSubmit();
     liveQuestions.observe(target);
+    if (/换.{0,3}(?:问题|题)|不聊项目|不谈项目|新话题|单独问/.test(data.text||'')) liveQuestions.markTopicBoundary(target.questionId);
     pendingSubmit.observe(target, speechIdentity());
   }
   replyLatency.observe(channel, data);
@@ -968,7 +969,7 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
     liveContext.referenceContext=liveContext.turns.map(turn=>turn.text).join('\n');
   }
   if (!explicit && resolved?.text) {
-    const asr=require('./src/contextual-asr').normalize(resolved.text,liveContext.referenceContext || liveQuestions.turns.slice(-3).map(t=>t.text).join('\n'));
+    const asr=require('./src/contextual-asr').normalize(resolved.text,liveContext.referenceContext);
     if(asr.rules.length) { resolved={...resolved,asrCandidate:asr.normalizedText}; liveContext.referenceContext += `\n语音识别可能的说法（仅为推测，以原文和明确纠正为准）：${asr.normalizedText}`; }
   }
   if (resolved) resolved = {...resolved, referenceContext: liveContext.referenceContext || undefined, referenceSpeaker: liveContext.referenceContext?'interviewer':undefined,
@@ -1050,7 +1051,7 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
   if (policy.instant) ragSession.suspend(generation.id);
   try {
     // Local verbatim answers are available before adapter creation or API-key checks.
-    const qa = !screenRequest && settings.answerDomain !== 'general' ? generation.materials.qaIndex.match(question, {projectId:settings.currentProjectId,referenceContext:liveContext.referenceContext,detailed:settings.qaAnswerDetailed}) : null;
+    const qa = !screenRequest && !liveContext.referenceContext && !require('./src/live-context-policy').needsReference(question) && settings.answerDomain !== 'general' ? generation.materials.qaIndex.match(question, {projectId:settings.currentProjectId,referenceContext:liveContext.referenceContext,detailed:settings.qaAnswerDetailed}) : null;
     generation.diagnostic.qa = qa ? {...qa,answer:undefined} : null;
     if (qa?.direct) {
       generation.diagnostic.status='completed'; generation.diagnostic.delivery='qa-verbatim'; generation.diagnostic.modelCalls=0;
@@ -1285,7 +1286,7 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
     const prepared = prepareFinalRequest({ system: initialSystem, history: instantContext ? instantContext.history : history, maxTokens,
       contextWindow: settings.contextWindowTokens || 16384, imageDataUrl, evidence: contextBundle.evidence,
       evidenceGapNote: policy.instant ? '资料仅供参考；未附全时仍按当前条件给可采用方案，不编造实际经历或指标。' : undefined,
-      currentSections: instantContext ? [...instantContext.currentSections,candidateRoleSection,questionReferenceSection,...evidencePlan.evidence.filter(c=>(c.protectedMetric||c.protectedMechanism)).map(c=>({id:'metric:'+c.id,text:require('./src/evidence-selector').formatEvidenceBlock(c),protected:true}))] : [
+      currentSections: instantContext ? [...instantContext.currentSections,candidateRoleSection,...evidencePlan.evidence.filter(c=>(c.protectedMetric||c.protectedMechanism)).map(c=>({id:'metric:'+c.id,text:require('./src/evidence-selector').formatEvidenceBlock(c),protected:true}))] : [
         ...evidencePlan.evidence.filter(c=>(c.protectedMetric||c.protectedMechanism)).map(c=>({id:'metric:'+c.id,text:require('./src/evidence-selector').formatEvidenceBlock(c),protected:true})),
         candidateRoleSection,questionReferenceSection,
         { id: 'topic', text: topic, priority: 1 }, { id: 'memory', text: memory, priority: 0 },
