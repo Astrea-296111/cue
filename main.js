@@ -973,7 +973,8 @@ async function runFeature(mode, userText, { retrySnapshot = null, submitSnapshot
   }
   if (resolved) resolved = {...resolved, referenceContext: liveContext.referenceContext || undefined, referenceSpeaker: liveContext.referenceContext?'interviewer':undefined,
     expansionRequested:expandDetails && !!liveContext.referenceContext};
-  const question = screenRequest ? explicit || resolved?.text || '识别当前屏幕任务并给出解题帮助'
+  const screenSpoken = screenRequest && !explicit ? require('./src/screen-spoken-requirement').select(resolved) : '';
+  const question = screenRequest ? explicit || screenSpoken || '识别当前屏幕任务并给出解题帮助'
     : explicit || resolved?.text || (voiceAnswer || settings.answerDomain === 'general' ? '' : conversation.recent.at(-1)?.question || '');
   if (screenRequest) resolved = {...questionResolver.manualSnapshot(question,{epoch:conversation.epoch}),screenSourceQuestionId:resolved?.source==='manual'?undefined:resolved?.questionId};
   if (!resolved && question) resolved = questionResolver.manualSnapshot(question, {epoch:conversation.epoch});

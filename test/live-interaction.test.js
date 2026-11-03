@@ -506,6 +506,20 @@ test('screen request preserves visible Java editor constraints and returns model
   assert.ok(app.events.some(e=>e.channel==='llm:token'&&e.text.includes('保留 Main')));
 });
 
+test('screen voice selection keeps code instructions and rejects unrelated interviewer questions',()=>{
+  const {select}=require('../src/screen-spoken-requirement');
+  assert.equal(select({segments:[{text:'你们的薪资范围是多少？'},{text:'请修改这个代码的循环并构造输入输出。'}]}),'请修改这个代码的循环并构造输入输出。');
+  assert.equal(select({segments:[{text:'Redis 缓存为什么失效？'}]}),'');
+});
+
+test('screen request sends relevant voice instruction without unrelated earlier question',async t=>{
+  const app=createInterviewRuntime(t,{settings:{providerOptions:{custom:{vision:true}}}});await app.ready;
+  app.final('面试的薪资范围是多少？',{sourceId:'screen-voice',utteranceKey:'old',utteranceOrder:1});
+  app.final('另外请修改代码的循环并构造输入输出。',{sourceId:'screen-voice',utteranceKey:'new',utteranceOrder:2});
+  app.answer(header('algorithm','当前代码')+'保留入口并修改循环。');await app.ask('assist');
+  const body=JSON.stringify(app.calls.at(-1).messages);assert.match(body,/修改代码的循环/);assert.doesNotMatch(body,/薪资范围/);
+});
+
 test('V04: bounded route decoder accepts observed JSON transports before releasing any body',()=>{
   const {RouteStream}=require('../src/screen-task-router');
   for(const wrapper of ['prefix','bare','fenced']){
