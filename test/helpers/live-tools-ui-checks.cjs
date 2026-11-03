@@ -143,5 +143,9 @@ module.exports=async({js,until,requests,win,verifyProtected})=>{
   await until(()=>requests.length>beforeMulti,'send selected questions');
   const multi=JSON.stringify(requests.at(-1).messages);assert.match(multi,/任务1/);assert.match(multi,/任务2/);assert.match(multi,/逐一回答/);
   await js('cue.clearTranscript()');
+  await js("cue.dialogueEvent({eventId:'ui-dedupe-one',utteranceKey:'ui-dedupe-one',utteranceOrder:1,sourceId:'ui-dedupe',channel:'them',speaker:'interviewer',text:'Redis 为什么先更新数据库？',isFinal:true})");
+  await js("cue.dialogueEvent({eventId:'ui-dedupe-two',utteranceKey:'ui-dedupe-two',utteranceOrder:2,revision:1,sourceId:'ui-dedupe',channel:'them',speaker:'interviewer',text:'如果反过来延迟双删有什么坑？',isFinal:false})");
+  await js("cue.dialogueEvent({eventId:'ui-dedupe-two',utteranceKey:'ui-dedupe-two',utteranceOrder:2,revision:2,sourceId:'ui-dedupe',channel:'them',speaker:'interviewer',text:'如果反过来延迟双删有什么坑？',isFinal:true})");
+  await until(()=>js("[...document.querySelectorAll('#answer-coverage-list > div')].filter(e=>e.textContent.includes('延迟双删')).length===1"),'merged speech has one recent question');
   return {qaPreview:true,qaTry:true,projectAnswersUseModel:true,shortContext:true,screenModeControls:true,answeredFragment:true,pointerInput:process.platform==='win32'?'native-windows':'electron-coordinate'};
 };

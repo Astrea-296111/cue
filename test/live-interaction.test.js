@@ -391,6 +391,28 @@ test('recent interviewer questions survive target clearing and roll over at six'
   state=await app.invoke('question:get-target');assert.equal(state.recentQuestions.length,6);assert.match(state.recentQuestions.at(-1).text,/新的一轮/);
 });
 
+test('recent questions reconcile interim fragments when the final merges their identities',async t=>{
+  const app=createInterviewRuntime(t);await app.ready;
+  const first='你们用了 Redis，为什么先更新数据库再删除缓存？';
+  const followup='如果反过来用延迟双删会有什么坑？';
+  app.final(first,{sourceId:'recent-revision',utteranceKey:'first',utteranceOrder:1,revision:1});
+  app.interim(followup,{sourceId:'recent-revision',utteranceKey:'followup',utteranceOrder:2,revision:1});
+  let state=await app.invoke('question:get-target');assert.equal(state.recentQuestions.length,2);
+  app.final(followup,{sourceId:'recent-revision',utteranceKey:'followup',utteranceOrder:2,revision:2});
+  state=await app.invoke('question:get-target');assert.equal(state.recentQuestions.length,1);
+  assert.match(state.recentQuestions[0].text,/先更新数据库/);assert.match(state.recentQuestions[0].text,/延迟双删/);
+  await app.invoke('question:clear');assert.equal((await app.invoke('question:get-target')).recentQuestions.length,1);
+  app.final('另外消息队列如何处理重试？',{sourceId:'recent-revision',utteranceKey:'independent',utteranceOrder:3,revision:1});
+  state=await app.invoke('question:get-target');assert.equal(state.recentQuestions.length,2);assert.match(state.recentQuestions[1].text,/消息队列/);
+});
+
+test('distinct repeated utterances are retained when resolver keeps them separate',()=>{
+  const {RecentQuestions}=require('../src/recent-questions');const recent=new RecentQuestions();
+  recent.observe({channel:'them',sourceId:'separate',utteranceKey:'one',utteranceOrder:1,revision:1,text:'Redis 缓存失效怎么处理？'},true);
+  recent.observe({channel:'them',sourceId:'separate',utteranceKey:'two',utteranceOrder:2,revision:1,text:'另外 Redis 缓存失效怎么处理？'},true);
+  assert.equal(recent.snapshot().length,2);
+});
+
 test('explicitly selected multiple questions reach the model as one request',async t=>{
   const app=createInterviewRuntime(t,{settings:{realtimeAnswerMode:'instant'}});await app.ready;
   app.answer('逐一回答。');await app.ask('ask','请逐一回答以下所有问题：\n如何处理重复提交？\n\n如何恢复失败任务？');
